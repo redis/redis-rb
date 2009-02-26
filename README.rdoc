@@ -10,5 +10,3 @@ redis is a key value store with some interesting features:
    list's can be atomicaly push'd, pop'd and lpush'd, lpop'd and indexed so you 
    can store things like lists of comments under one key and still be able to 
    append comments without reading and putting back the whole list.
-
-   sets can be used 
