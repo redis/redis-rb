@@ -19,7 +19,7 @@ class Redis
   #     The string can't be longer than 1073741824 bytes (1 GB).
   def []=(key, val)
     write "SET #{key} #{val.size}\r\n#{val}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -34,7 +34,7 @@ class Redis
   #     SETNX actually means "SET if Not eXists".
   def set_unless_exists(key, val)
     write "SETNX #{key} #{val.size}\r\n#{val}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -50,7 +50,7 @@ class Redis
   #     is returned because GET can only handle string values.
   def [](key)
     write "GET #{key}\r\n"
-    res = read_data
+    res = read_proto
     if res != NIL
       val = read(res.to_i)
       nibble_end
@@ -68,7 +68,7 @@ class Redis
   #     an error is returned.
   def incr(key)
     write "INCR #{key}\r\n"
-    read_data.to_i
+    read_proto.to_i
   end
   
   # !! SEEMS BROKEN IN REDIS SERVER RIGHT NOW !!
@@ -77,7 +77,7 @@ class Redis
   #     increment is <num>.
   def incrby(key, num)
     write "INCRBY #{key} #{num}\r\n"
-    read_data.to_i
+    read_proto.to_i
   end
   
   # DECR <key>
@@ -88,7 +88,7 @@ class Redis
   #     an error is returned.
   def decr(key)
     write "DECR #{key}\r\n"
-    read_data.to_i
+    read_proto.to_i
   end
   
   # !! SEEMS BROKEN IN REDIS SERVER RIGHT NOW !!
@@ -97,7 +97,7 @@ class Redis
   #    decrement is <value>.
   def decrby(key, num)
     write "DECRBY #{key} #{num}\r\n"
-    read_data.to_i
+    read_proto.to_i
   end
   
   # RANDOMKEY
@@ -105,7 +105,7 @@ class Redis
   #     Returns a random key from the currently seleted DB.
   def randkey
     write "RANDOMKEY\r\n"
-    read_data
+    read_proto
   end
 
   # RENAME <oldkey> <newkey>
@@ -114,7 +114,7 @@ class Redis
   #     already exists it is overwritten.
   def rename!(oldkey, newkey)
     write "RENAME #{oldkey} #{newkey}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       newkey
     else
@@ -127,7 +127,7 @@ class Redis
   #     already exists.
   def rename(oldkey, newkey)
     write "RENAMENX #{oldkey} #{newkey}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       newkey
     else
@@ -143,7 +143,7 @@ class Redis
   #     return "1".
   def key?(key)
     write "EXISTS #{key}\r\n"
-    read_data.to_i == 1
+    read_proto.to_i == 1
   end
   
   # DEL <key>
@@ -153,7 +153,7 @@ class Redis
   # 
   def delete(key)
     write "DEL #{key}\r\n"
-    if read_data == OK
+    if read_proto == OK
       true
     else
       raise RedisError
@@ -168,7 +168,7 @@ class Redis
   #     will return "foo foobar".
   def keys(glob)
     write "KEYS #{glob}\r\n"
-    res = read_data
+    res = read_proto
     if res
       keys = read(res.to_i).split(" ")
       nibble_end
@@ -184,7 +184,7 @@ class Redis
   #     NONE is returned if the key does not exist.
   def type?(key)
     write "TYPE #{key}\r\n"
-    read_data
+    read_proto
   end
   
   # RPUSH <key> <string>
@@ -195,7 +195,7 @@ class Redis
   #     is returned.
   def push_head(key, string)
     write "RPUSH #{key} #{string.size}\r\n#{string}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -211,7 +211,7 @@ class Redis
   #     is returned.
   def push_tail(key, string)
     write "LPUSH #{key} #{string.size}\r\n#{string}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -228,7 +228,7 @@ class Redis
   #     is returned.
   def list_length(key)
     write "LLEN #{key}\r\n"
-    Integer(read_data)
+    Integer(read_proto)
   end
   
   # 
@@ -251,14 +251,14 @@ class Redis
   #     the last element of the list.
   def list_range(key, start, ending)
     write "LRANGE #{key} #{start} #{ending}\r\n"
-    res = read_data
+    res = read_proto
     if res[0] = ERROR
-      raise RedisError, read_data
+      raise RedisError, read_proto
     else
-      items = Integer(read_data)
+      items = Integer(read_proto)
       list = []
       items.times do
-        list << read(Integer(read_data))
+        list << read(Integer(read_proto))
         nibble_end
       end  
       list
@@ -297,7 +297,7 @@ class Redis
   #     just one element is removed from the tail of the list.
   def list_trim(key, start, ending)
     write "LTRIM #{key} #{start} #{ending}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -320,7 +320,7 @@ class Redis
   #     the first or the last element of the list is O(1).
   def list_index(key, index)
     write "LINDEX #{key} #{index}\r\n"
-    res = read_data
+    res = read_proto
     if res != NIL
       val = read(res.to_i)
       nibble_end
@@ -341,7 +341,7 @@ class Redis
   #     value 'nil' is returned.
   def list_pop_head(key)
     write "LPOP #{key} #{index}\r\n"
-    res = read_data
+    res = read_proto
     if res != NIL
       val = read(res.to_i)
       nibble_end
@@ -356,7 +356,7 @@ class Redis
   #     of the first element of the list is returned/deleted.
   def list_pop_tail(key)
     write "RPOP #{key} #{index}\r\n"
-    res = read_data
+    res = read_proto
     if res != NIL
       val = read(res.to_i)
       nibble_end
@@ -372,7 +372,7 @@ class Redis
   #     to DB 0.
   def select_db(index)
     write "SELECT #{index}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -386,7 +386,7 @@ class Redis
   #     DB an error is returned.
   def move(key, index)
     write "MOVE #{index}\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -400,7 +400,7 @@ class Redis
   #     is returned when the DB was fully stored in disk.
   def save
     write "SAVE\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -415,7 +415,7 @@ class Redis
   #     operation succeeded using the LASTSAVE command.
   def bgsave
     write "BGSAVE\r\n"
-    res = read_data
+    res = read_proto
     if res == OK
       true
     else
@@ -431,7 +431,7 @@ class Redis
   #     every N seconds if LASTSAVE changed.
   def bgsave
     write "LASTSAVE\r\n"
-    read_data
+    read_proto
   end
   
   # 
@@ -443,12 +443,12 @@ class Redis
   #     commands.
   def bgsave
     write "SHUTDOWN\r\n"
-    read_data
+    read_proto
   end
   
   def quit
     write "QUIT\r\n"
-    read_data
+    read_proto
   end
   
   private
@@ -478,7 +478,7 @@ class Redis
   def read(length)
     retries = 3
     res = socket.read(length)
-  rescue => boom
+  rescue
     retries -= 1
     if retries > 0
       connect
@@ -489,7 +489,7 @@ class Redis
   def write(data)
     retries = 3
     socket.write(data)
-  rescue => boom
+  rescue
     retries -= 1
     if retries > 0
       connect
@@ -501,7 +501,7 @@ class Redis
     read(2)
   end
   
-  def read_data
+  def read_proto
     buff = ""
     while (char = read(1))
       buff << char
