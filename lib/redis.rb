@@ -142,7 +142,7 @@ class Redis
   #     return "1".
   def key?(key)
     write "EXISTS #{key}\r\n"
-    read_data.to_i == 0
+    read_data.to_i == 1
   end
   
   # DEL <key>

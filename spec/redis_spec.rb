@@ -3,7 +3,12 @@ require File.dirname(__FILE__) + '/spec_helper'
 describe "redis" do
   before do
     @r = Redis.new
+    @r.select_db(15) # use database 15 for testing so we dont accidentally step on you real data
     @r['foo'] = 'bar'
+  end  
+  
+  after(:all) do
+    @r.keys('*').each {|k| @r.delete k }
   end  
   
   it "should be able to GET a key" do
@@ -54,7 +59,23 @@ describe "redis" do
     @r['bar'] = 'ohai'
     lambda {@r.rename 'foo', 'bar'}.should raise_error(RedisError)
     @r['bar'].should == 'ohai'
-    
+  end
+  
+  it "should be able to EXISTS(check if key exists)" do
+    @r['foo'] = 'nik'
+    @r.key?('foo').should be_true
+    @r.delete 'foo'
+    @r.key?('foo').should be_false
+  end
+  
+  it "should be able to KEYS(glob for keys)" do
+    @r.keys("f*").each do |key|
+      @r.delete key
+    end  
+    @r['f'] = 'nik'
+    @r['fo'] = 'nak'
+    @r['foo'] = 'qux'
+    @r.keys("f*").sort.should == ['f','fo', 'foo'].sort
   end
 
 end
