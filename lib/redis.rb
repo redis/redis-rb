@@ -86,7 +86,7 @@ class Redis
   #     value was zero). If the value at <key> is not a string value
   #     an error is returned.
   def decr(key)
-    write "DECR #{key} #{num}\r\n"
+    write "DECR #{key}\r\n"
     read_data.to_i
   end
   
