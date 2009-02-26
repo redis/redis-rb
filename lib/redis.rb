@@ -7,6 +7,7 @@ end
 class Redis
   OK = "+OK".freeze
   ERROR = "-".freeze
+  NIL = 'nil'.freeze
   
   def initialize(opts={})
     @opts = {:host => 'localhost', :port => '6379'}.merge(opts)
@@ -50,7 +51,7 @@ class Redis
   def [](key)
     write "GET #{key}\r\n"
     res = read_data
-    if res != "nil"
+    if res != NIL
       val = read(res.to_i)
       nibble_end
       val
@@ -320,7 +321,7 @@ class Redis
   def list_index(key, index)
     write "LINDEX #{key} #{index}\r\n"
     res = read_data
-    if res != "nil"
+    if res != NIL
       val = read(res.to_i)
       nibble_end
       val
@@ -341,7 +342,7 @@ class Redis
   def list_pop_head(key)
     write "LPOP #{key} #{index}\r\n"
     res = read_data
-    if res != "nil"
+    if res != NIL
       val = read(res.to_i)
       nibble_end
       val
@@ -356,7 +357,7 @@ class Redis
   def list_pop_tail(key)
     write "RPOP #{key} #{index}\r\n"
     res = read_data
-    if res != "nil"
+    if res != NIL
       val = read(res.to_i)
       nibble_end
       val
@@ -506,22 +507,7 @@ class Redis
       buff << char
       break if buff[-2..-1] == "\r\n"
     end
-    res = buff[0..-3]
-    res.size == 0 ? nil : res
+    buff[0..-3]
   end
   
-end
-
-if __FILE__ == $0
-  r = Redis.new
-  p r.keys "*"
-  r["buns"] = "hellow world!"
-  p r["buns"]
-  #
-  r["kill"] = "hellow world!"
-  p r["kill"]
-  p r['nothinghere']
-  r['nos'] = "another"
-  p r.keys "h*"
-
 end
