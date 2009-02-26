@@ -3,6 +3,8 @@ require 'rake/gempackagetask'
 require 'rubygems/specification'
 require 'date'
 require 'spec/rake/spectask'
+require 'tasks/redis.tasks'
+
 
 GEM = "redis"
 GEM_VERSION = "0.0.1"
@@ -38,7 +40,6 @@ Spec::Rake::SpecTask.new do |t|
   t.spec_files = FileList['spec/**/*_spec.rb']
   t.spec_opts = %w(-fs --color)
 end
-
 
 Rake::GemPackageTask.new(spec) do |pkg|
   pkg.gem_spec = spec
