@@ -101,7 +101,6 @@ class Redis
   def read_data
     buff = ""
     while (char = read(1))
-      p char
       buff << char
       break if buff[-2..-1] == "\r\n"
     end
