@@ -21,7 +21,7 @@ class RedisRunner
   end
   
   def self.start
-    exec "dtach -A #{dtach_socket} #{redisdir}/redis-server"
+    exec "nohup 'dtach -A #{dtach_socket} #{redisdir}/redis-server' &"
   end
   
   def self.attach
@@ -47,6 +47,7 @@ namespace :redis do
   end
   
   task :make do
+    sh "cd #{RedisRunner.redisdir} && make clean"
     sh "cd #{RedisRunner.redisdir} && make"
   end  
 
