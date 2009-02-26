@@ -12,20 +12,19 @@ class Redis
   end
   
   def []=(key, val)
-    write "SET #{key} #{val.size}\r\n"
-    write "#{val}\r\n"
+    write "SET #{key} #{val.size}\r\n#{val}\r\n"
     res = read_data
-    if read_data == OK
+    if res == OK
       true
     else
-      raise RedisError
+      raise RedisError, res.inspect
     end    
   end
   
   def [](key)
     write "GET #{key}\r\n"
-    if res = read_data
-      read(res.to_i)
+    if read_data != "nil"
+      read_data
     else
       nil
     end    
@@ -48,8 +47,9 @@ class Redis
   def keys(glob)
     write "KEYS #{glob}\r\n"
     res = read_data
-    keys = read(res.to_i)
-    keys.split(" ")
+    if res
+      read_data.split(" ")
+    end
   end
   
   private
@@ -78,7 +78,7 @@ class Redis
   
   def read(length)
     retries = 3
-    socket.read(length)
+    res = socket.read(length)
   rescue => boom
     retries -= 1
     if retries > 0
@@ -101,6 +101,7 @@ class Redis
   def read_data
     buff = ""
     while (char = read(1))
+      p char
       buff << char
       break if buff[-2..-1] == "\r\n"
     end
@@ -112,10 +113,14 @@ end
 
 if __FILE__ == $0
   r = Redis.new
-
-  #r["hi"] = "hellow world! you suck ass"
-
-
-  p r.keys "f*"
+  p r.keys "*"
+  r["buns"] = "hellow world!"
+  p r["buns"]
+  #
+  r["kill"] = "hellow world!"
+  p r["kill"]
+  p r['nothinghere']
+  r['nos'] = "another"
+  p r.keys "h*"
 
 end
