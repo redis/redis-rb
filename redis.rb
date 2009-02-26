@@ -23,8 +23,11 @@ class Redis
   
   def [](key)
     write "GET #{key}\r\n"
-    if read_data != "nil"
-      read_data
+    res = read_data
+    if res != "nil"
+      val = read(res.to_i)
+      nibble_end
+      val
     else
       nil
     end    
@@ -48,7 +51,9 @@ class Redis
     write "KEYS #{glob}\r\n"
     res = read_data
     if res
-      read_data.split(" ")
+      keys = read(res.to_i).split(" ")
+      nibble_end
+      keys
     end
   end
   
@@ -96,6 +101,10 @@ class Redis
       connect
       retry
     end
+  end
+  
+  def nibble_end
+    read(2)
   end
   
   def read_data
