@@ -1,8 +1,7 @@
 require 'rubygems'
 require 'ruby-prof'
-$:.push File.join(File.dirname(__FILE__), 'lib')
+require "#{File.dirname(__FILE__)}/lib/redis"
 
-require 'redis'
 @r = Redis.new
 @r['foo'] = "The first line we sent to the server is some text"
 
