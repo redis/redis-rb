@@ -53,8 +53,8 @@ namespace :redis do
   desc "Download package"
   task :download do
     unless File.exists?(RedisRunner.redisdir)
-        system "curl http://redis.googlecode.com/files/redis-beta-1.tar.gz -O &&
-                tar xvzf redis-beta-1.tar.gz"
+        system "curl http://redis.googlecode.com/files/redis-beta-3.tar.gz -O &&
+                tar xvzf redis-beta-3.tar.gz"
     end  
   end
     

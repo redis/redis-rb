@@ -6,7 +6,7 @@ end
 
 class Redis
   OK = "+OK".freeze
-  ERROR = "-".freeze
+  ERROR = "-ERR".freeze
   NIL = 'nil'.freeze
   
   def initialize(opts={})
@@ -18,7 +18,7 @@ class Redis
   #     Set the string <value> as value of the key.
   #     The string can't be longer than 1073741824 bytes (1 GB).
   def []=(key, val)
-    write "SET #{key} #{val.size}\r\n#{val}\r\n"
+    write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
     res = read_proto
     if res == OK
       true
@@ -33,7 +33,7 @@ class Redis
   #     if the key already exists no operation is performed.
   #     SETNX actually means "SET if Not eXists".
   def set_unless_exists(key, val)
-    write "SETNX #{key} #{val.size}\r\n#{val}\r\n"
+    write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
     res = read_proto
     if res == OK
       true
@@ -176,7 +176,6 @@ class Redis
     end
   end
   
-  # !! SEEMS BROKEN IN REDIS SERVER RIGHT NOW !!
   # TYPE <key>
   # Time complexity: O(1)
   #     Return the type of the value stored at <key> in form of a
@@ -193,8 +192,8 @@ class Redis
   #     If the key does not exist an empty list is created just before
   #     the append operation. If the key exists but is not a List an error
   #     is returned.
-  def push_head(key, string)
-    write "RPUSH #{key} #{string.size}\r\n#{string}\r\n"
+  def push_tail(key, string)
+    write "RPUSH #{key} #{string.to_s.size}\r\n#{string}\r\n"
     res = read_proto
     if res == OK
       true
@@ -209,14 +208,50 @@ class Redis
   #     If the key does not exist an empty list is created just before
   #     the append operation. If the key exists but is not a List an error
   #     is returned.
-  def push_tail(key, string)
-    write "LPUSH #{key} #{string.size}\r\n#{string}\r\n"
+  def push_head(key, string)
+    write "LPUSH #{key} #{string.to_s.size}\r\n#{string}\r\n"
     res = read_proto
     if res == OK
       true
     else
       raise RedisError, res.inspect
     end
+  end
+  
+  # 
+  # LPOP <key>
+  # Time complexity: O(1)
+  #     Atomically return and remove the first element of the list.
+  #     For example if the list contains the elements "a","b","c" LPOP
+  #     will return "a" and the list will become "b","c".
+  # 
+  #     If the <key> does not exist or the list is already empty the special
+  #     value 'nil' is returned.
+  def pop_head(key)
+    write "LPOP #{key}\r\n"
+    res = read_proto
+    if res != NIL
+      val = read(res.to_i)
+      nibble_end
+      val
+    else
+      nil
+    end    
+  end
+  
+  # RPOP <key>
+  #     This command works exactly like LPOP, but the last element instead
+  #     of the first element of the list is returned/deleted.
+  def pop_tail(key)
+    write "RPOP #{key}\r\n"
+    res = read_proto
+    if res != NIL
+      val = read(res.to_i)
+      nibble_end
+      val
+    else
+      nil
+    end    
   end
   
   # 
@@ -252,10 +287,12 @@ class Redis
   def list_range(key, start, ending)
     write "LRANGE #{key} #{start} #{ending}\r\n"
     res = read_proto
-    if res[0] = ERROR
+    if res.index(ERROR) == 0
       raise RedisError, read_proto
+    elsif res == NIL
+      nil  
     else
-      items = Integer(read_proto)
+      items = Integer(res)
       list = []
       items.times do
         list << read(Integer(read_proto))
@@ -330,41 +367,122 @@ class Redis
     end    
   end
   
-  # 
-  # LPOP <key>
-  # Time complexity: O(1)
-  #     Atomically return and remove the first element of the list.
-  #     For example if the list contains the elements "a","b","c" LPOP
-  #     will return "a" and the list will become "b","c".
-  # 
-  #     If the <key> does not exist or the list is already empty the special
-  #     value 'nil' is returned.
-  def list_pop_head(key)
-    write "LPOP #{key} #{index}\r\n"
+  # SADD key member
+  # Time complexity O(1) 
+  # Add the specified member to the set value stored at key. If member 
+  # is already a member of the set no operation is performed. If key does 
+  # not exist a new set with the specified member as sole member is crated. 
+  # If the key exists but does not hold a set value an error is returned.
+  def set_add(key, member)
+    write "SADD #{key} #{member.to_s.size}\r\n#{member}\r\n"
     res = read_proto
-    if res != NIL
-      val = read(res.to_i)
-      nibble_end
-      val
+    if res == OK
+      true
     else
-      nil
-    end    
+      raise RedisError, res.inspect
+    end
   end
   
-  # RPOP <key>
-  #     This command works exactly like LPOP, but the last element instead
-  #     of the first element of the list is returned/deleted.
-  def list_pop_tail(key)
-    write "RPOP #{key} #{index}\r\n"
+  # SREM key member
+  # Time complexity O(1)
+  # Remove the specified member from the set value stored at key. If member 
+  # was not a member of the set no operation is performed. If key does not 
+  # exist or does not hold a set value an error is returned.
+  def set_delete(key, member)
+    write "SREM #{key} #{member.to_s.size}\r\n#{member}\r\n"
     res = read_proto
-    if res != NIL
-      val = read(res.to_i)
-      nibble_end
-      val
+    if res == OK
+      true
     else
-      nil
-    end    
+      raise RedisError, res.inspect
+    end
   end
+  
+  # SCARD key
+  # Time complexity O(1)
+  # Return the set cardinality (number of elements). If the key does not exist 
+  # 0 is returned, like for empty sets. If the key does not hold a set value -1 
+  # is returned. Client libraries should raise an error when -1 is returned 
+  # instead to pass the value to the caller.
+  def set_count(key)
+    write "SCARD #{key}\r\n"
+    res = read_proto
+    if res == '-1'
+      raise RedisError, "#{key} is not a SET"
+    else
+      Integer(res)
+    end
+  end
+  
+  # SISMEMBER key member
+  # Time complexity O(1)
+  # Return 1 if member is a member of the set stored at key, otherwise 0 is 
+  # returned. If the key does not exist or does not hold a set value the special 
+  # value -1 is returned. Client libraries should raise an error when -1 is 
+  # returned instead to pass the value to the caller.
+  def set_member?(key, member)
+    write "SISMEMBER #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    res = read_proto
+    if res == '-1'
+      raise RedisError, "#{key} is not a SET"
+    else
+      Integer(res) == 1
+    end
+  end
+  
+  # !! doesnt seem to work in redis beta 3 yet
+  # SINTERSECT key1 key2 ... keyN
+  # Time complexity O(N*M) worst case where N is the cardinality of the smallest 
+  # set and M the number of sets. Return the members of a set resulting from the 
+  # intersection of all the sets hold at the specified keys. Like in LRANGE the 
+  # result is sent to the client as a multi-bulk reply (see the protocol specification 
+  # for more information). If just a single key is specified, then this command 
+  # produces the same result as SELEMENTS. Actually SELEMENTS is just syntax sugar 
+  # for SINTERSECT. If at least one of the specified keys does not exist or does 
+  # not hold a set value an error is returned.
+  def set_intersect(*keys)
+    write "SINTERSECT #{keys.join(' ')}\r\n"
+    res = read_proto
+    if res.index(ERROR) == 0
+      raise RedisError, read_proto
+    elsif res == NIL
+      nil  
+    else
+      items = Integer(res)
+      set = []
+      items.times do
+        set << read(Integer(read_proto))
+        nibble_end
+      end  
+      set
+    end
+  end
+  
+  # SMEMBERS key
+  # Time complexity O(N)
+  # Return all the members (elements) of the set value stored at key. This is just 
+  # syntax glue for SINTERSECT.
+  def set_members(key)
+    write "SMEMBERS #{key}\r\n"
+    res = read_proto
+    if res.index(ERROR) == 0
+      raise RedisError, read_proto
+    elsif res == NIL
+      nil  
+    else
+      items = Integer(res)
+      set = []
+      items.times do
+        set << read(Integer(read_proto))
+        nibble_end
+      end  
+      set
+    end
+  end
+  
+  
+  
+  # ADMIN functions for redis
   
   # SELECT <index>
   #     Select the DB with having the specified zero-based numeric index.
@@ -475,9 +593,11 @@ class Redis
     @socket
   end
   
-  def read(length)
+  def read(length, nodebug=true)
     retries = 3
     res = socket.read(length)
+    puts "read: #{res}" if @opts[:debug] && nodebug
+    res
   rescue
     retries -= 1
     if retries > 0
@@ -487,6 +607,7 @@ class Redis
   end
   
   def write(data)
+    puts "write: #{data}" if @opts[:debug]
     retries = 3
     socket.write(data)
   rescue
@@ -502,11 +623,14 @@ class Redis
   end
   
   def read_proto
+    print "read proto: " if @opts[:debug]
     buff = ""
-    while (char = read(1))
+    while (char = read(1, false))
+      print char if @opts[:debug]
       buff << char
       break if buff[-2..-1] == "\r\n"
     end
+    puts if @opts[:debug]
     buff[0..-3]
   end
   
