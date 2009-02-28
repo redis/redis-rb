@@ -21,7 +21,7 @@ class RedisRunner
   end
   
   def self.start
-    exec "nohup 'dtach -A #{dtach_socket} #{redisdir}/redis-server' &"
+    exec "dtach -A #{dtach_socket} #{redisdir}/redis-server"
   end
   
   def self.attach
@@ -54,8 +54,10 @@ namespace :redis do
   desc "Download package"
   task :download do
     unless File.exists?(RedisRunner.redisdir)
-        system "curl http://redis.googlecode.com/files/redis-beta-3.tar.gz -O &&
-                tar xvzf redis-beta-3.tar.gz"
+      system "svn checkout http://redis.googlecode.com/svn/trunk redis"
+    end
+    if File.exists?("#{RedisRunner.redisdir}/.svn")
+      system "svn up"
     end  
   end
     
