@@ -14,56 +14,6 @@ class Redis
     @opts = {:host => 'localhost', :port => '6379'}.merge(opts)
   end
   
-  def status_code_reply
-    res = read_proto
-    if res.index(ERRCODE) == 0
-      raise RedisError, res
-    else
-      true
-    end
-  end
-  
-  def bulk_reply
-    res = read_proto
-    if res.index(ERRCODE) == 0
-      err = read(res.to_i)
-      nibble_end
-      raise RedisError, err
-    elsif res != NIL
-      val = read(res.to_i)
-      nibble_end
-      val
-    else
-      nil
-    end
-  end
-  
-  
-  def multi_bulk_reply
-    res = read_proto
-    if res.index(ERROR) == 0
-      raise RedisError, read_proto
-    elsif res == NIL
-      nil  
-    else
-      items = Integer(res)
-      list = []
-      items.times do
-        list << read(Integer(read_proto))
-        nibble_end
-      end  
-      list
-    end
-  end
-  
-  def single_line_reply
-    read_proto
-  end
-  
-  def integer_reply
-    read_proto.to_i
-  end
-  
   # SET key value
   # Time complexity: O(1)
   # Set the string value as value of the key. The string can't be longer 
@@ -660,6 +610,59 @@ class Redis
     end
     puts if @opts[:debug]
     buff[0..-3]
+  end
+  
+  
+  def status_code_reply
+    res = read_proto
+    if res.index(ERRCODE) == 0
+      raise RedisError, res
+    else
+      true
+    end
+  end
+  
+  def bulk_reply
+    res = read_proto
+    if res.index(ERRCODE) == 0
+      err = read(res.to_i.abs)
+      nibble_end
+      raise RedisError, err
+    elsif res != NIL
+      val = read(res.to_i.abs)
+      nibble_end
+      val
+    else
+      nil
+    end
+  end
+  
+  
+  def multi_bulk_reply
+    res = read_proto
+    if res.index(ERROR) == 0
+      err = read(res.to_i.abs)
+      nibble_end
+      raise RedisError, err
+    elsif res == NIL
+      nil  
+    else
+      items = Integer(res)
+      list = []
+      items.times do
+        list << read(Integer(read_proto))
+        nibble_end
+      end  
+      list
+    end
+  end
+  
+  def single_line_reply
+    read_proto
+  end
+  
+  def integer_reply
+    Integer(read_proto)
   end
   
 end
