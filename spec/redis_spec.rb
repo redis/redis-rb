@@ -203,4 +203,12 @@ describe "redis" do
     @r.set_member?('set', 'notthere').should be_false
     @r.delete('set')
   end
+  
+  it "should be able to do set intersection" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key2'
+    @r.set_intersect('set', 'set2').should == ['key2']
+    @r.delete('set')
+  end
 end
