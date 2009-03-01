@@ -9,6 +9,15 @@ class Redis
   ERROR = "-ERR".freeze
   ERRCODE = "-".freeze
   NIL = 'nil'.freeze
+  CTRLF = "\r\n".freeze
+  
+  def port
+    @opts[:port]
+  end
+  
+  def host
+    @opts[:host]
+  end
   
   def initialize(opts={})
     @opts = {:host => 'localhost', :port => '6379'}.merge(opts)
@@ -45,7 +54,7 @@ class Redis
   # 'nil' is returned. If the value stored at key is not a string an error is 
   # returned because GET can only handle string values.
   #
-  # Return value: bluk reply
+  # Return value: bulk reply
   def [](key)
     write "GET #{key}\r\n"
     bulk_reply
@@ -187,7 +196,7 @@ class Redis
   # RPUSH key string
   # 
   # Time complexity: O(1)
-  # Add the given string to the head of the list contained at key. If the key 
+  # Add the given string to the tail of the list contained at key. If the key 
   # does not exist an empty list is created just before the append operation. 
   # If the key exists but is not a List an error is returned.
   # 
@@ -199,7 +208,7 @@ class Redis
   
   # LPUSH key string
   # Time complexity: O(1)
-  # Add the given string to the tail of the list contained at key. If the 
+  # Add the given string to the head of the list contained at key. If the 
   # key does not exist an empty list is created just before the append operation. 
   # If the key exists but is not a List an error is returned.
   # 
@@ -420,7 +429,6 @@ class Redis
     end
   end
   
-  # !! doesnt seem to work in redis beta 3 yet
   # SINTER key1 key2 ... keyN
   # Time complexity O(N*M) worst case where N is the cardinality of the smallest 
   # set and M the number of sets
@@ -511,7 +519,6 @@ class Redis
   # Return value: status code reply
   def bgsave
     write "BGSAVE\r\n"
-    res = read_proto
     status_code_reply
   end
   
@@ -544,7 +551,7 @@ class Redis
   
   def quit
     write "QUIT\r\n"
-    read_proto
+    status_code_reply
   end
   
   private
@@ -606,7 +613,7 @@ class Redis
     while (char = read(1, false))
       print char if @opts[:debug]
       buff << char
-      break if buff[-2..-1] == "\r\n"
+      break if buff[-2..-1] == CTRLF
     end
     puts if @opts[:debug]
     buff[0..-3]
