@@ -45,6 +45,14 @@ class RedisCloud
     end
   end
   
+  def delete_cloud!
+    @ring.nodes.each do |red|
+      red.keys("*").each do |key|
+        red.delete key
+      end  
+    end
+  end
+  
 end
 
 if __FILE__ == $0
@@ -86,4 +94,6 @@ r = RedisCloud.new 'localhost:6379', 'localhost:6380', 'localhost:6381','localho
   end
   
   p r.keys('*')
+  #r.delete_cloud!
+  #p r.keys('*')
 end
