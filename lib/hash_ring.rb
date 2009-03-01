@@ -7,7 +7,7 @@ class HashRing
   def initialize(nodes=[], replicas=3)
     @replicas = replicas
     @ring = {}
-    @nodes = nodes
+    @nodes = []
     @sorted_keys = []
     nodes.each do |node|
       add_node(node)
@@ -16,6 +16,7 @@ class HashRing
   
   # Adds a `node` to the hash ring (including a number of replicas).
   def add_node(node)
+    @nodes << node
     @replicas.times do |i|
       key = gen_key("#{node}:#{i}")
       @ring[key] = node
@@ -66,5 +67,3 @@ end
 #ring = HashRing.new ['server1', 'server2', 'server3']
 #
 #p ring.get_node "kjhjkjlkjlkkh"
-#
-#ring.get_nodes("fff") do |n| p n end

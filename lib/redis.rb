@@ -6,7 +6,6 @@ end
 
 class Redis
   OK = "+OK".freeze
-  ERROR = "-ERR".freeze
   ERRCODE = "-".freeze
   NIL = 'nil'.freeze
   CTRLF = "\r\n".freeze
@@ -637,7 +636,7 @@ class Redis
   
   def multi_bulk_reply
     res = read_proto
-    if res.index(ERROR) == 0
+    if res.index(ERRCODE) == 0
       err = read(res.to_i.abs)
       nibble_end
       raise RedisError, err
