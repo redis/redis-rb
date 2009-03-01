@@ -41,7 +41,7 @@ namespace :redis do
     RedisRunner.start
   end
 
-  desc "Attach to RabbitMQ dtach socket"
+  desc "Attach to Redis dtach socket"
   task :attach do
     RedisRunner.attach
   end
