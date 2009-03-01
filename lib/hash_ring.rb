@@ -1,7 +1,7 @@
 require 'digest/md5'
 class HashRing
   attr_reader :ring, :sorted_keys, :replicas, :nodes
-  # nodes is a list of objects that have a proper __str__ representation.
+  # nodes is a list of objects that have a proper to_s representation.
   # replicas indicates how many virtual points should be used pr. node,
   # replicas are required to improve the distribution.
   def initialize(nodes=[], replicas=3)
@@ -32,6 +32,7 @@ class HashRing
     end
   end
   
+  # get the node in the hash ring for this key
   def get_node(key)
     get_node_pos(key)[0]
   end

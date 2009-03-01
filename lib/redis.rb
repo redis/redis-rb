@@ -11,6 +11,10 @@ class Redis
   NIL = 'nil'.freeze
   CTRLF = "\r\n".freeze
   
+  def to_s
+    "#{host}:#{port}"
+  end
+  
   def port
     @opts[:port]
   end
@@ -533,20 +537,6 @@ class Redis
   def bgsave
     write "LASTSAVE\r\n"
     integer_reply
-  end
-  
-  # SHUTDOWN
-  # 
-  # Stop all the clients, save the DB, then quit the server. This commands 
-  # makes sure that the DB is switched off without the lost of any data. 
-  # This is not guaranteed if the client uses simply "SAVE" and then "QUIT" 
-  # because other clients may alter the DB data between the two commands.
-  #
-  # Return value: status code reply on error, on success the server quits 
-  # and the connection is closed
-  def bgsave
-    write "SHUTDOWN\r\n"
-    status_code_reply
   end
   
   def quit

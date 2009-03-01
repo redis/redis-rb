@@ -19,6 +19,32 @@ class RedisCloud
     end
   end
   
+  def keys(glob)
+    keyz = []
+    @ring.nodes.each do |red|
+      keyz.concat red.keys(glob)
+    end
+    keyz
+  end
+  
+  def save
+    @ring.nodes.each do |red|
+      red.save
+    end
+  end
+  
+  def bgsave
+    @ring.nodes.each do |red|
+      red.bgsave
+    end
+  end
+  
+  def quit
+    @ring.nodes.each do |red|
+      red.quit
+    end
+  end
+  
 end
 
 if __FILE__ == $0
@@ -58,4 +84,6 @@ r = RedisCloud.new 'localhost:6379', 'localhost:6380', 'localhost:6381','localho
   r.ring.nodes.each do |red|
     p [red.port, red.keys("*")]
   end
+  
+  p r.keys('*')
 end
