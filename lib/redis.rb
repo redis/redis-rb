@@ -245,6 +245,17 @@ class Redis
     bulk_reply
   end
   
+  # LSET key index value
+  # Time complexity: O(N) (with N being the length of the list)
+  # Set the list element at index (see LINDEX for information about the index argument) with the new value. Out of range indexes will generate an error. Note that setting the first or last elements of the list is O(1).
+  # 
+  # Return value: status code reply
+  def list_set(key, index, val)
+    write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
+    status_code_reply
+  end
+  
+  
   # LLEN key
   # Time complexity: O(1)
   # Return the length of the list stored at the specified key. If the key does not 
