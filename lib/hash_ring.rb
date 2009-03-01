@@ -60,8 +60,10 @@ class HashRing
   end
   
   def gen_key(key)
-    Integer("0x#{Digest::MD5.hexdigest(key)[0..7]}")
+    key = Digest::MD5.hexdigest(key)
+    ((key[3] << 24) | (key[2] << 16) | (key[1] << 8) | key[0])
   end
+  
 end
 
 #ring = HashRing.new ['server1', 'server2', 'server3']
