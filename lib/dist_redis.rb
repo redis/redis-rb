@@ -8,7 +8,7 @@ class DistRedis
       server, port = s.split(':')
       srvs << Redis.new(:host => server, :port => port)
     end
-    @ring = HashRing.new srvs, 3
+    @ring = HashRing.new srvs
   end
   
   def add_server(server)

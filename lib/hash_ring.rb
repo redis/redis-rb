@@ -51,7 +51,7 @@ class HashRing
     [@ring[nodes[0]], 0]
   end
   
-  def get_nodes(key)
+  def iter_nodes(key)
     return [nil,nil] if @ring.size == 0
     node, pos = get_node_pos(key)
     @sorted_keys[pos..-1].each do |k|
