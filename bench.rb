@@ -9,3 +9,7 @@ times = 20000
 Benchmark.bmbm do |x|
   x.report("set") { 20000.times {|i| @r["foo#{i}"] = "The first line we sent to the server is some text"; @r["foo#{i}"]} }
 end
+
+@r.keys('*').each do |k|
+  @r.delete k
+end  
