@@ -66,6 +66,8 @@ class HashRing
   
 end
 
-#ring = HashRing.new ['server1', 'server2', 'server3']
-#
-#p ring.get_node "kjhjkjlkjlkkh"
+# ring = HashRing.new ['server1', 'server2', 'server3']
+# p ring
+# #
+# p ring.get_node "kjhjkjlkjlkkh"
+# 
