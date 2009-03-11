@@ -606,7 +606,7 @@ class Redis
   # if LASTSAVE changed.
   #
   # Return value: integer reply (UNIX timestamp)
-  def bgsave
+  def lastsave
     timeout_retry(10, 3){
       write "LASTSAVE\r\n"
       integer_reply
