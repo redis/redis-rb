@@ -1,5 +1,5 @@
 require 'socket'
-require 'better_timeout'
+require File.join(File.dirname(__FILE__),'better_timeout')
 
 class RedisError < StandardError
 end
