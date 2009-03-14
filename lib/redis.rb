@@ -33,8 +33,9 @@ class Redis
   # 
   # Return value: status code reply
   def []=(key, val)
+    val = redis_marshal(val)
     timeout_retry(10, 3){
-      write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
+      write "SET #{key} #{val.size}\r\n#{val}\r\n"
       status_code_reply  
     }
   end
@@ -49,8 +50,9 @@ class Redis
   # 
   # 1 if the key was set 0 if the key was not set
   def set_unless_exists(key, val)
+    val = redis_marshal(val)
     timeout_retry(10, 3){
-      write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
+      write "SETNX #{key} #{val.size}\r\n#{val}\r\n"
       integer_reply == 1
     }
   end
@@ -65,7 +67,7 @@ class Redis
   def [](key)
     timeout_retry(10, 3){
       write "GET #{key}\r\n"
-      bulk_reply
+      redis_unmarshal(bulk_reply)
     }
   end
   
@@ -229,8 +231,9 @@ class Redis
   # 
   # Return value: status code reply
   def push_tail(key, string)
+    string = redis_marshal(string)
     timeout_retry(10, 3){
-      write "RPUSH #{key} #{string.to_s.size}\r\n#{string}\r\n"
+      write "RPUSH #{key} #{string.size}\r\n#{string.to_s}\r\n"
       status_code_reply
     }
   end
@@ -243,8 +246,9 @@ class Redis
   # 
   # Return value: status code reply
   def push_head(key, string)
+    string = redis_marshal(string)
     timeout_retry(10, 3){
-      write "LPUSH #{key} #{string.to_s.size}\r\n#{string}\r\n"
+      write "LPUSH #{key} #{string.size}\r\n#{string.to_s}\r\n"
       status_code_reply
     }
   end
@@ -263,7 +267,7 @@ class Redis
   def pop_head(key)
     timeout_retry(10, 3){
       write "LPOP #{key}\r\n"
-      bulk_reply
+      redis_unmarshal(bulk_reply)
     }
   end
   
@@ -273,7 +277,7 @@ class Redis
   def pop_tail(key)
     timeout_retry(10, 3){
       write "RPOP #{key}\r\n"
-      bulk_reply
+      redis_unmarshal(bulk_reply)
     }
   end
   
@@ -283,8 +287,9 @@ class Redis
   # 
   # Return value: status code reply
   def list_set(key, index, val)
+    val = redis_marshal(val)
     timeout_retry(10, 3){
-      write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
+      write "LSET #{key} #{index} #{val.size}\r\n#{val}\r\n"
       status_code_reply
     }
   end
@@ -634,6 +639,22 @@ class Redis
   end
   
   private
+  
+  def redis_unmarshal(obj)
+    if obj[0] == 4
+      Marshal.load(obj)       
+    else
+      obj
+    end
+  end
+  
+  def redis_marshal(obj)
+    unless obj.class == String
+      Marshal.dump(obj)
+    else
+      obj
+    end
+  end
   
   def close
     socket.close unless socket.closed?

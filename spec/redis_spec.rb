@@ -10,7 +10,15 @@ describe "redis" do
   after do
     @r.keys('*').each {|k| @r.delete k }
   end  
-  
+
+  it "should properly marshall objects" do
+   class MyFail; def fail; 'it will' end; end
+
+   @r['fail'] = MyFail.new
+   @r['fail'].fail.should == 'it will'
+
+  end
+
   it "should be able to GET a key" do
     @r['foo'].should == 'bar'
   end

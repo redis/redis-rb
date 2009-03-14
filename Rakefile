@@ -6,9 +6,9 @@ require 'spec/rake/spectask'
 require 'tasks/redis.tasks'
 
 
-GEM = "redis"
-GEM_VERSION = "0.0.1"
-AUTHOR = "Ezra Zygmuntowicz"
+GEM = 'redis'
+GEM_VERSION = '0.0.2'
+AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley']
 EMAIL = "ez@engineyard.com"
 HOMEPAGE = "http://github.com/ezmobius/redis-rb"
 SUMMARY = "Ruby client library for redis key value storage server"
@@ -18,10 +18,10 @@ spec = Gem::Specification.new do |s|
   s.version = GEM_VERSION
   s.platform = Gem::Platform::RUBY
   s.has_rdoc = true
-  s.extra_rdoc_files = ["README.rdoc", "LICENSE"]
+  s.extra_rdoc_files = ["LICENSE"]
   s.summary = SUMMARY
   s.description = s.summary
-  s.author = AUTHOR
+  s.authors = AUTHORS
   s.email = EMAIL
   s.homepage = HOMEPAGE
   
@@ -30,7 +30,7 @@ spec = Gem::Specification.new do |s|
   
   s.require_path = 'lib'
   s.autorequire = GEM
-  s.files = %w(LICENSE README.rdoc Rakefile) + Dir.glob("{lib,spec}/**/*")
+  s.files = %w(LICENSE README.markdown Rakefile) + Dir.glob("{lib,spec}/**/*")
 end
 
 task :default => :spec
