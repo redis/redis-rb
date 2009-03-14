@@ -10,14 +10,12 @@ Redis is a key value store with some interesting features:
 
 See [redis on code.google.com](http://code.google.com/p/redis/wiki/README) for more information.
 
-## redis-rb dependencies
+## Dependencies
 
 1. redis - rake redis:install will build the latest version from source.
 2. dtach - rake dtach:install will build 0.8 from source.
 3. svn - git is the new black, but we need it for the google codes.
 
+## Setup
 
-## useful information
-
-1. Use the tasks mentioned above (in redis-rb dependencies) to get your machine setup.
-2. 
+Use the tasks mentioned above (in redis-rb dependencies) to get your machine setup.

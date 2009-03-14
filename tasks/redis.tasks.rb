@@ -31,7 +31,7 @@ class RedisRunner
   end
   
   def self.stop
-    sh "killall redis-server"
+    sh 'killall redis-server'
   end
 
 end
@@ -43,7 +43,7 @@ namespace :redis do
     puts "\nSee http://code.google.com/p/redis/ for information about redis.\n\n"
   end
   
-  desc "Start redis"
+  desc 'Start redis'
   task :start do
     RedisRunner.start
   end
@@ -53,7 +53,7 @@ namespace :redis do
     RedisRunner.stop
   end
 
-  desc "Attach to redis dtach socket"
+  desc 'Attach to redis dtach socket'
   task :attach do
     RedisRunner.attach
   end
@@ -76,8 +76,8 @@ namespace :redis do
   
   desc "Download package"
   task :download do
-    system "svn checkout http://redis.googlecode.com/svn/trunk /tmp/redis" unless File.exists?(RedisRunner.redisdir)
-    system "svn up" if File.exists?("#{RedisRunner.redisdir}/.svn")
+    system 'svn checkout http://redis.googlecode.com/svn/trunk /tmp/redis' unless File.exists?(RedisRunner.redisdir)
+    system 'svn up' if File.exists?("#{RedisRunner.redisdir}/.svn")
   end    
 
 end
@@ -103,7 +103,7 @@ namespace :dtach do
     end
 
     unless File.directory?('/tmp/dtach-0.8')    
-      system("tar xzf dtach-0.8.tar.gz")
+      system('tar xzf dtach-0.8.tar.gz')
     end
     
     Dir.chdir('/tmp/dtach-0.8/')
