@@ -221,4 +221,13 @@ describe "redis" do
     @r.set_intersect('set', 'set2').should == ['key2']
     @r.delete('set')
   end
+  
+  it "should be able to do set intersection and store the results in a key" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key2'
+    @r.set_inter_store('newone', 'set', 'set2')
+    @r.set_members('newone').should == ['key2']
+    @r.delete('set')
+  end
 end

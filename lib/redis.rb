@@ -513,6 +513,19 @@ class Redis
     }
   end
   
+  # SINTERSTORE dstkey key1 key2 ... keyN
+  # 
+  # Time complexity O(N*M) worst case where N is the cardinality of the smallest set and M the number of sets
+  # This commnad works exactly like SINTER but instead of being returned the resulting set is sotred as dstkey.
+  # 
+  # Return value: status code reply
+  def set_inter_store(destkey, *keys)
+    timeout_retry(10, 3){
+      write "SINTERSTORE #{destkey} #{keys.join(' ')}\r\n"
+      status_code_reply
+    }
+  end
+  
   # SMEMBERS key
   # 
   # Time complexity O(N)
