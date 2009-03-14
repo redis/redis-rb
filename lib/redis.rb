@@ -33,8 +33,9 @@ class Redis
   # 
   # Return value: status code reply
   def []=(key, val)
+    val = Marshal.dump(val)
     timeout_retry(10, 3){
-      write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
+      write "SET #{key} #{val.size}\r\n#{val}\r\n"
       status_code_reply  
     }
   end
@@ -49,8 +50,9 @@ class Redis
   # 
   # 1 if the key was set 0 if the key was not set
   def set_unless_exists(key, val)
+    val = Marshal.dump(val)
     timeout_retry(10, 3){
-      write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
+      write "SETNX #{key} #{val.size}\r\n#{val}\r\n"
       integer_reply == 1
     }
   end
@@ -65,7 +67,7 @@ class Redis
   def [](key)
     timeout_retry(10, 3){
       write "GET #{key}\r\n"
-      bulk_reply
+      Marshal.load(bulk_reply)
     }
   end
   
