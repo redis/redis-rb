@@ -12,8 +12,14 @@ See [redis on code.google.com](http://code.google.com/p/redis/wiki/README) for m
 
 ## Dependencies
 
-1. redis - rake redis:install will build the latest version from source.
-2. dtach - rake dtach:install will build 0.8 from source.
+1. redis - 
+
+		rake redis:install
+
+2. dtach - 
+
+		rake dtach:install
+
 3. svn - git is the new black, but we need it for the google codes.
 
 ## Setup
