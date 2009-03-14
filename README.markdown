@@ -18,4 +18,8 @@ See [redis on code.google.com](http://code.google.com/p/redis/wiki/README) for m
 
 ## Setup
 
-Use the tasks mentioned above (in redis-rb dependencies) to get your machine setup.
+Use the tasks mentioned above (in Dependencies) to get your machine setup.
+
+## Examples
+
+Check the examples/ directory.  *Note* you need to have redis-server running first.
