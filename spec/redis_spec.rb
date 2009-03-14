@@ -1,5 +1,16 @@
 require File.dirname(__FILE__) + '/spec_helper'
 
+class Foo
+  attr_accessor :bar
+  def initialize(bar)
+    @bar = bar
+  end
+  
+  def ==(other)
+    @bar == other.bar
+  end
+end  
+
 describe "redis" do
   before do
     @r = Redis.new
@@ -179,6 +190,19 @@ describe "redis" do
     @r.list_length('list').should == 2
     @r.list_set('list', 1, 'goodbye').should be_true
     @r.list_index('list', 1).should == 'goodbye'
+    @r.delete('list')
+  end
+  
+  it "should be able to store and retrieve marshal'd objects in a LIST" do
+    @r.push_tail "list", Foo.new('one')
+    @r.push_tail "list", Foo.new('two')
+    @r.push_tail "list", Foo.new('three')
+    @r.push_tail "list", 'four'
+    @r.type?('list').should == "list"
+    @r.list_length('list').should == 4
+    @r.list_range('list', 0, -1).should == [Foo.new('one'), Foo.new('two'), Foo.new('three'), 'four']
+    @r.pop_tail('list').should == 'four'
+    @r.pop_tail('list').should == Foo.new('three')
     @r.delete('list')
   end
   

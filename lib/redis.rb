@@ -34,7 +34,7 @@ class Redis
   # Return value: status code reply
   def []=(key, val)
     val = redis_marshal(val)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SET #{key} #{val.size}\r\n#{val}\r\n"
       status_code_reply  
     }
@@ -51,7 +51,7 @@ class Redis
   # 1 if the key was set 0 if the key was not set
   def set_unless_exists(key, val)
     val = redis_marshal(val)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SETNX #{key} #{val.size}\r\n#{val}\r\n"
       integer_reply == 1
     }
@@ -65,7 +65,7 @@ class Redis
   #
   # Return value: bulk reply
   def [](key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "GET #{key}\r\n"
       redis_unmarshal(bulk_reply)
     }
@@ -82,7 +82,7 @@ class Redis
   # 
   # Return value: integer reply
   def incr(key, increment=nil)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       if increment
         write "INCRBY #{key} #{increment}\r\n"
       else
@@ -99,7 +99,7 @@ class Redis
   # 
   # Time complexity: O(1) Like INCR/INCRBY but decrementing instead of incrementing.
   def decr(key, increment=nil)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       if increment
         write "DECRBY #{key} #{increment}\r\n"
       else
@@ -115,7 +115,7 @@ class Redis
   # 
   # Return value: single line reply
   def randkey
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "RANDOMKEY\r\n"
       single_line_reply
     }
@@ -129,7 +129,7 @@ class Redis
   #
   # Return value: status code reply
   def rename!(oldkey, newkey)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "RENAME #{oldkey} #{newkey}\r\n"
       status_code_reply
     }
@@ -143,7 +143,7 @@ class Redis
   # 1 if the key was renamed 0 if the target key already exist -1 if the 
   # source key does not exist -3 if source and destination keys are the same
   def rename(oldkey, newkey)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "RENAMENX #{oldkey} #{newkey}\r\n"
       case integer_reply
       when -1
@@ -168,7 +168,7 @@ class Redis
   # 
   # 1 if the key exists 0 if the key does not exist
   def key?(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "EXISTS #{key}\r\n"
       integer_reply == 1
     }
@@ -183,7 +183,7 @@ class Redis
   # 
   # 1 if the key was removed 0 if the key does not exist
   def delete(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "DEL #{key}\r\n"
       integer_reply == 1
     }
@@ -202,7 +202,7 @@ class Redis
   # 
   # Return value: bulk reply
   def keys(glob)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "KEYS #{glob}\r\n"
       bulk_reply.split(' ')
     }
@@ -216,7 +216,7 @@ class Redis
   # 
   # Return value: single line reply
   def type?(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "TYPE #{key}\r\n"
       single_line_reply
     }
@@ -232,7 +232,7 @@ class Redis
   # Return value: status code reply
   def push_tail(key, string)
     string = redis_marshal(string)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "RPUSH #{key} #{string.size}\r\n#{string.to_s}\r\n"
       status_code_reply
     }
@@ -247,7 +247,7 @@ class Redis
   # Return value: status code reply
   def push_head(key, string)
     string = redis_marshal(string)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LPUSH #{key} #{string.size}\r\n#{string.to_s}\r\n"
       status_code_reply
     }
@@ -265,7 +265,7 @@ class Redis
   # 
   # Return value: bulk reply
   def pop_head(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LPOP #{key}\r\n"
       redis_unmarshal(bulk_reply)
     }
@@ -275,7 +275,7 @@ class Redis
   #     This command works exactly like LPOP, but the last element instead
   #     of the first element of the list is returned/deleted.
   def pop_tail(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "RPOP #{key}\r\n"
       redis_unmarshal(bulk_reply)
     }
@@ -288,7 +288,7 @@ class Redis
   # Return value: status code reply
   def list_set(key, index, val)
     val = redis_marshal(val)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LSET #{key} #{index} #{val.size}\r\n#{val}\r\n"
       status_code_reply
     }
@@ -309,7 +309,7 @@ class Redis
   # >=
   # 0 if the operation succeeded -2 if the specified key does not hold a list valu
   def list_length(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LLEN #{key}\r\n"
       case i = integer_reply
       when -2
@@ -337,9 +337,9 @@ class Redis
   # 
   # Return value: multi bulk reply
   def list_range(key, start, ending)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LRANGE #{key} #{start} #{ending}\r\n"
-      multi_bulk_reply
+      multi_bulk_reply.map{|el| redis_unmarshal(el)}
     }
   end
 
@@ -372,7 +372,7 @@ class Redis
   #
   # Return value: status code reply
   def list_trim(key, start, ending)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LTRIM #{key} #{start} #{ending}\r\n"
       status_code_reply
     }
@@ -392,9 +392,9 @@ class Redis
   # 
   # Return value: bulk reply
   def list_index(key, index)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LINDEX #{key} #{index}\r\n"
-      bulk_reply
+      redis_unmarshal(bulk_reply)
     }
   end
   
@@ -410,7 +410,7 @@ class Redis
   # 1 if the new element was added 0 if the new element was already a member
   # of the set -2 if the key contains a non set value
   def set_add(key, member)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SADD #{key} #{member.to_s.size}\r\n#{member}\r\n"
       case integer_reply
       when 1
@@ -435,7 +435,7 @@ class Redis
   # 1 if the new element was removed 0 if the new element was not a member 
   # of the set -2 if the key does not hold a set value
   def set_delete(key, member)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SREM #{key} #{member.to_s.size}\r\n#{member}\r\n"
       case integer_reply
       when 1
@@ -461,7 +461,7 @@ class Redis
   # >=
   # 0 if the operation succeeded -2 if the specified key does not hold a set value
   def set_count(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SCARD #{key}\r\n"
       case i = integer_reply
       when -2
@@ -485,7 +485,7 @@ class Redis
   # 1 if the element is a member of the set 0 if the element is not a member of
   # the set OR if the key does not exist -2 if the key does not hold a set value
   def set_member?(key, member)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SISMEMBER #{key} #{member.to_s.size}\r\n#{member}\r\n"
       case integer_reply
       when 1
@@ -512,7 +512,7 @@ class Redis
   # 
   # Return value: multi bulk reply
   def set_intersect(*keys)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SINTER #{keys.join(' ')}\r\n"
       multi_bulk_reply
     }
@@ -525,7 +525,7 @@ class Redis
   # 
   # Return value: status code reply
   def set_inter_store(destkey, *keys)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SINTERSTORE #{destkey} #{keys.join(' ')}\r\n"
       status_code_reply
     }
@@ -537,7 +537,7 @@ class Redis
   # Return all the members (elements) of the set value stored at key. 
   # This is just syntax glue for SINTERSECT.
   def set_members(key)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SMEMBERS #{key}\r\n"
       multi_bulk_reply
     }
@@ -553,7 +553,7 @@ class Redis
   # For default every new client connection is automatically selected to DB 0.
   # Return value: status code reply
   def select_db(index)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SELECT #{index}\r\n"
       status_code_reply
     }
@@ -574,7 +574,7 @@ class Redis
   # if the destination DB is the same as the source DB -4 if the database 
   # index if out of range
   def move(key, index)
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "MOVE #{index}\r\n"
       case integer_reply
       when 1
@@ -596,7 +596,7 @@ class Redis
   # the DB was fully stored in disk.
   # Return value: status code reply
   def save
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "SAVE\r\n"
       status_code_reply
     }
@@ -610,7 +610,7 @@ class Redis
   # succeeded using the LASTSAVE command.
   # Return value: status code reply
   def bgsave
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "BGSAVE\r\n"
       status_code_reply
     }
@@ -625,14 +625,14 @@ class Redis
   #
   # Return value: integer reply (UNIX timestamp)
   def lastsave
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "LASTSAVE\r\n"
       integer_reply
     }
   end
   
   def quit
-    timeout_retry(10, 3){
+    timeout_retry(3, 3){
       write "QUIT\r\n"
       status_code_reply
     }
@@ -649,7 +649,7 @@ class Redis
   end
   
   def redis_marshal(obj)
-    unless obj.class == String
+    unless obj.is_a?(String)
       Marshal.dump(obj)
     else
       obj
