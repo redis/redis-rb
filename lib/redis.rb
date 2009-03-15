@@ -35,7 +35,7 @@ class Redis
   def []=(key, val)
     val = redis_marshal(val)
     timeout_retry(3, 3){
-      write "SET #{key} #{val.size}\r\n#{val}\r\n"
+      write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
       status_code_reply  
     }
   end
@@ -52,7 +52,7 @@ class Redis
   def set_unless_exists(key, val)
     val = redis_marshal(val)
     timeout_retry(3, 3){
-      write "SETNX #{key} #{val.size}\r\n#{val}\r\n"
+      write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
       integer_reply == 1
     }
   end
@@ -231,9 +231,8 @@ class Redis
   # 
   # Return value: status code reply
   def push_tail(key, string)
-    string = redis_marshal(string)
     timeout_retry(3, 3){
-      write "RPUSH #{key} #{string.size}\r\n#{string.to_s}\r\n"
+      write "RPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
       status_code_reply
     }
   end
@@ -246,9 +245,8 @@ class Redis
   # 
   # Return value: status code reply
   def push_head(key, string)
-    string = redis_marshal(string)
     timeout_retry(3, 3){
-      write "LPUSH #{key} #{string.size}\r\n#{string.to_s}\r\n"
+      write "LPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
       status_code_reply
     }
   end
@@ -267,7 +265,7 @@ class Redis
   def pop_head(key)
     timeout_retry(3, 3){
       write "LPOP #{key}\r\n"
-      redis_unmarshal(bulk_reply)
+      bulk_reply
     }
   end
   
@@ -277,7 +275,7 @@ class Redis
   def pop_tail(key)
     timeout_retry(3, 3){
       write "RPOP #{key}\r\n"
-      redis_unmarshal(bulk_reply)
+      bulk_reply
     }
   end
   
@@ -287,9 +285,8 @@ class Redis
   # 
   # Return value: status code reply
   def list_set(key, index, val)
-    val = redis_marshal(val)
     timeout_retry(3, 3){
-      write "LSET #{key} #{index} #{val.size}\r\n#{val}\r\n"
+      write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
       status_code_reply
     }
   end
@@ -339,7 +336,7 @@ class Redis
   def list_range(key, start, ending)
     timeout_retry(3, 3){
       write "LRANGE #{key} #{start} #{ending}\r\n"
-      multi_bulk_reply.map{|el| redis_unmarshal(el)}
+      multi_bulk_reply
     }
   end
 
@@ -394,7 +391,7 @@ class Redis
   def list_index(key, index)
     timeout_retry(3, 3){
       write "LINDEX #{key} #{index}\r\n"
-      redis_unmarshal(bulk_reply)
+      bulk_reply
     }
   end
   
@@ -544,6 +541,63 @@ class Redis
   end
   
   
+  # SORT key [BY pattern] [GET|DEL|INCR|DECR pattern] [ASC|DESC] [LIMIT start count]
+  # Sort the elements contained in the List or Set value at key. By default sorting is 
+  # numeric with elements being compared as double precision floating point numbers. 
+  # This is the simplest form of SORT.
+  # SORT mylist
+  # 
+  # Assuming mylist contains a list of numbers, the return value will be the list of 
+  # numbers ordered from the smallest to the bigger number. In order to get the sorting 
+  # in reverse order use DESC:
+  # SORT mylist DESC
+  #
+  # ASC is also supported but it's the default so you don't really need it. If you 
+  # want to sort lexicographically use ALPHA. Note that Redis is utf-8 aware 
+  # assuming you set the right value for the LC_COLLATE environment variable.
+  #
+  # Sort is able to limit the number of results using the LIMIT option:
+  # SORT mylist LIMIT 0 10
+  # In the above example SORT will return only 10 elements, starting from the first one 
+  # (star is zero-based). Almost all the sort options can be mixed together. For example:
+  # SORT mylist LIMIT 0 10 ALPHA DESC
+  # Will sort mylist lexicographically, in descending order, returning only the first 
+  # 10 elements.
+  # Sometimes you want to sort elements using external keys as weights to compare 
+  # instead to compare the actual List or Set elements. For example the list mylist 
+  # may contain the elements 1, 2, 3, 4, that are just the unique IDs of objects 
+  # stored at object_1, object_2, object_3 and object_4, while the keys weight_1, 
+  # weight_2, weight_3 and weight_4 can contain weights we want to use to sort the 
+  # list of objects identifiers. We can use the following command:
+  # SORT mylist BY weight_*
+  # the BY option takes a pattern (weight_* in our example) that is used in order to 
+  # generate the key names of the weights used for sorting. Weight key names are obtained 
+  # substituting the first occurrence of * with the actual value of the elements on the 
+  # list (1,2,3,4 in our example).
+  # Still our previous example will return just the sorted IDs. Often it is needed to 
+  # get the actual objects sorted (object_1, ..., object_4 in the example). We can do 
+  # it with the following command:
+  # SORT mylist BY weight_* GET object_*
+  # Note that GET can be used multiple times in order to get more key for every 
+  # element of the original List or Set sorted.
+  
+  # redis.sort 'index', :by => 'weight_*',
+  #                     :order => 'DESC ALPHA',
+  #                     :limit => [0,10],
+  #                     :get => 'obj_*'
+  def sort(key, opts={})
+    cmd = "SORT #{key}"
+    cmd << " BY #{opts[:by]}" if opts[:by]
+    cmd << " GET #{opts[:get]}" if opts[:get]
+    cmd << " INCR #{opts[:incr]}" if opts[:incr]
+    cmd << " DEL #{opts[:del]}" if opts[:del]
+    cmd << " DECR #{opts[:decr]}" if opts[:decr]
+    cmd << " #{opts[:order]}" if opts[:order]
+    cmd << " LIMIT #{opts[:limit].join(' ')}" if opts[:limit]
+    cmd << "\r\n"
+    write cmd
+    multi_bulk_reply
+  end
   
   # ADMIN functions for redis
   
@@ -649,10 +703,11 @@ class Redis
   end
   
   def redis_marshal(obj)
-    unless obj.is_a?(String)
-      Marshal.dump(obj)
-    else
+    case obj
+    when String, Integer
       obj
+    else
+      Marshal.dump(obj)
     end
   end
   
@@ -757,7 +812,12 @@ class Redis
       items = Integer(res)
       list = []
       items.times do
-        list << read(Integer(read_proto))
+        len = Integer(read_proto)
+        if len == -1
+          nil
+        else
+          list << read(len)
+        end
         nibble_end
       end  
       list

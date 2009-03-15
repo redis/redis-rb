@@ -110,8 +110,10 @@ describe "redis" do
   
   it "should be able to push to the head of a list" do
     @r.push_head "list", 'hello'
+    @r.push_head "list", 42
     @r.type?('list').should == "list"
-    @r.list_length('list').should == 1
+    @r.list_length('list').should == 2
+    @r.pop_head('list').should == '42'
     @r.delete('list')
   end
   
@@ -193,19 +195,6 @@ describe "redis" do
     @r.delete('list')
   end
   
-  it "should be able to store and retrieve marshal'd objects in a LIST" do
-    @r.push_tail "list", Foo.new('one')
-    @r.push_tail "list", Foo.new('two')
-    @r.push_tail "list", Foo.new('three')
-    @r.push_tail "list", 'four'
-    @r.type?('list').should == "list"
-    @r.list_length('list').should == 4
-    @r.list_range('list', 0, -1).should == [Foo.new('one'), Foo.new('two'), Foo.new('three'), 'four']
-    @r.pop_tail('list').should == 'four'
-    @r.pop_tail('list').should == Foo.new('three')
-    @r.delete('list')
-  end
-  
   it "should be able add members to a set" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
@@ -261,5 +250,18 @@ describe "redis" do
     @r.set_inter_store('newone', 'set', 'set2')
     @r.set_members('newone').should == ['key2']
     @r.delete('set')
+  end
+  
+  it "should be able to do crazy SORT queries" do
+    @r['dog_1'] = 'louie'
+    @r.push_tail 'dogs', 1
+    @r['dog_2'] = 'lucy'
+    @r.push_tail 'dogs', 2
+    @r['dog_3'] = 'max'
+    @r.push_tail 'dogs', 3
+    @r['dog_4'] = 'taj'
+    @r.push_tail 'dogs', 4
+    @r.sort('dogs', :get => 'dog_*', :limit => [0,1]).should == ['louie']
+    @r.sort('dogs', :get => 'dog_*', :limit => [0,1], :order => 'desc alpha').should == ['taj']
   end
 end
