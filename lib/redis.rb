@@ -1,5 +1,6 @@
 require 'socket'
 require File.join(File.dirname(__FILE__),'better_timeout')
+require 'set'
 
 class RedisError < StandardError
 end
@@ -511,7 +512,7 @@ class Redis
   def set_intersect(*keys)
     timeout_retry(3, 3){
       write "SINTER #{keys.join(' ')}\r\n"
-      multi_bulk_reply
+      Set.new(multi_bulk_reply)
     }
   end
   
@@ -536,7 +537,7 @@ class Redis
   def set_members(key)
     timeout_retry(3, 3){
       write "SMEMBERS #{key}\r\n"
-      multi_bulk_reply
+      Set.new(multi_bulk_reply)
     }
   end
   

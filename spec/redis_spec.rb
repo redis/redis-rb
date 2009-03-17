@@ -209,10 +209,10 @@ describe "redis" do
     @r.set_add "set", 'key2'
     @r.type?('set').should == "set"
     @r.set_count('set').should == 2
-    @r.set_members('set').sort.should == ['key1', 'key2'].sort
+    @r.set_members('set').should == Set.new(['key1', 'key2'])
     @r.set_delete('set', 'key1')
     @r.set_count('set').should == 1
-    @r.set_members('set').sort.should == ['key2'].sort
+    @r.set_members('set').should == Set.new(['key2'])
     @r.delete('set')
   end
   
@@ -239,7 +239,7 @@ describe "redis" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
     @r.set_add "set2", 'key2'
-    @r.set_intersect('set', 'set2').should == ['key2']
+    @r.set_intersect('set', 'set2').should == Set.new(['key2'])
     @r.delete('set')
   end
   
@@ -248,7 +248,7 @@ describe "redis" do
     @r.set_add "set", 'key2'
     @r.set_add "set2", 'key2'
     @r.set_inter_store('newone', 'set', 'set2')
-    @r.set_members('newone').should == ['key2']
+    @r.set_members('newone').should == Set.new(['key2'])
     @r.delete('set')
   end
   
