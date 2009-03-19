@@ -195,6 +195,16 @@ describe "redis" do
     @r.delete('list')
   end
   
+  it "should be able to remove values from a list LREM" do
+    @r.push_tail "list", 'hello'
+    @r.push_tail "list", 'goodbye'
+    @r.type?('list').should == "list"
+    @r.list_length('list').should == 2
+    @r.list_rm('list', 1, 'hello').should == 1
+    @r.list_range('list', 0, -1).should == ['goodbye']
+    @r.delete('list')
+  end
+  
   it "should be able add members to a set" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
