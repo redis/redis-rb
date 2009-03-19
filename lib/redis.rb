@@ -764,8 +764,7 @@ class Redis
   end
   
   def read_proto
-    buff = socket.gets
-    buff.chomp
+    socket.gets.chomp
   end
   
   
