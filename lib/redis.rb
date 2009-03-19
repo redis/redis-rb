@@ -764,15 +764,8 @@ class Redis
   end
   
   def read_proto
-    print "read proto: " if @opts[:debug]
-    buff = ""
-    while (char = read(1, false))
-      print char if @opts[:debug]
-      buff << char
-      break if buff[-2..-1] == CTRLF
-    end
-    puts if @opts[:debug]
-    buff[0..-3]
+    buff = socket.gets
+    buff.chomp
   end
   
   
