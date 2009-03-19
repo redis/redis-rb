@@ -788,13 +788,11 @@ class Redis
   def bulk_reply
     res = read_proto
     if res.index(ERRCODE) == 0
-      err = read(res.to_i.abs)
-      nibble_end
-      raise RedisError, err
+      err = read(res.to_i.abs+2)
+      raise RedisError, err.chomp
     elsif res != NIL
-      val = read(res.to_i.abs)
-      nibble_end
-      val
+      val = read(res.to_i.abs+2)
+      val.chomp
     else
       nil
     end
@@ -804,9 +802,8 @@ class Redis
   def multi_bulk_reply
     res = read_proto
     if res.index(ERRCODE) == 0
-      err = read(res.to_i.abs)
-      nibble_end
-      raise RedisError, err
+      err = read(res.to_i.abs+2)
+      raise RedisError, err.chomp
     elsif res == NIL
       nil  
     else
