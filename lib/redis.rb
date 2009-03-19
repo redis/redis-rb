@@ -724,8 +724,7 @@ class Redis
   end
   
   def socket
-    connect if (!@socket or @socket.closed?)
-    @socket
+    @socket ||= connect
   end
   
   def connect
