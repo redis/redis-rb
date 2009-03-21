@@ -292,4 +292,25 @@ describe "redis" do
     @r.sort('dogs', :get => 'dog_*', :limit => [0,1]).should == ['louie']
     @r.sort('dogs', :get => 'dog_*', :limit => [0,1], :order => 'desc alpha').should == ['taj']
   end
+  
+  it "should provide info" do
+    [:last_save_time, :redis_version, :total_connections_received, :connected_clients, :total_commands_processed, :connected_slaves, :uptime_in_seconds, :used_memory, :uptime_in_days, :changes_since_last_save].each do |x|
+    @r.info.keys.should include(x)
+    end
+  end
+  
+  it "should be able to flush the database" do
+    @r['key1'] = 'keyone'
+    @r['key2'] = 'keytwo'
+    @r.keys('*').sort.should == ['foo', 'key1', 'key2'] #foo from before
+    @r.flush_db
+    @r.keys('*').should == []
+  end
+  
+  it "should be able to provide the last save time" do
+    savetime = @r.last_save
+    Time.at(savetime).class.should == Time
+    Time.at(savetime).should <= Time.now
+  end
+  
 end
