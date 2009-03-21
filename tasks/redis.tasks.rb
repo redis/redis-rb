@@ -86,7 +86,7 @@ namespace :redis do
   desc "Download package"
   task :download do
     sh 'svn checkout http://redis.googlecode.com/svn/trunk /tmp/redis' unless File.exists?(RedisRunner.redisdir)
-    sh 'svn up' if File.exists?("#{RedisRunner.redisdir}/.svn")
+    sh "cd #{RedisRunner.redisdir} && svn up" if File.exists?("#{RedisRunner.redisdir}/.svn")
   end    
 
 end
