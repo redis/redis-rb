@@ -280,4 +280,19 @@ describe "redis" do
     @r.info.keys.should include(x)
     end
   end
+  
+  it "should be able to flush the database" do
+    @r['key1'] = 'keyone'
+    @r['key2'] = 'keytwo'
+    @r.keys('*').sort.should == ['foo', 'key1', 'key2'] #foo from before
+    @r.flush_db
+    @r.keys('*').should == []
+  end
+  
+  it "should be able to provide the last save time" do
+    savetime = @r.last_save
+    Time.at(savetime).class.should == Time
+    Time.at(savetime).should <= Time.now
+  end
+  
 end
