@@ -723,6 +723,23 @@ class Redis
     }
   end
   
+  
+  def info
+    info = {}
+  
+    x = timeout_retry(3, 3){
+      write "INFO \r\n"
+      read(read_proto.to_i.abs).split("\r\n")
+    }
+  
+    x.each do |kv|
+      k,v = kv.split(':')[0], kv.split(':')[1]
+      info[k.to_sym] = v
+    end
+  
+    info
+  end
+  
   private
   
   def redis_unmarshal(obj)
