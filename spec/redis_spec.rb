@@ -30,24 +30,6 @@ describe "redis" do
 
   end
 
-  # 1.9 sec with 'better timeout'
-  # 1.3 sec with socket timeouts
-  it "should be have decent GET performance" do
-    require 'benchmark'
-    Benchmark.bm(20) do |bm|
-      bm.report 'GET' do
-        10_000.times do
-          @r['foo']
-        end
-      end
-      bm.report 'SET' do
-        10_000.times do
-          @r['foo'] = 125782
-        end
-      end
-    end
-  end
-
   it "should be able to GET a key" do
     @r['foo'].should == 'bar'
   end
