@@ -746,8 +746,8 @@ class Redis
     socket.close unless socket.closed?
   end
   
-  def timeout_retry(time, retries, &block)
-    timeout(time, &block)
+  def timeout_retry(time, retries)
+    yield
   rescue TimeoutError
     retries -= 1
     retry unless retries < 0
@@ -758,9 +758,18 @@ class Redis
   end
   
   def connect
-    @socket = TCPSocket.new(@opts[:host], @opts[:port])
-    @socket.sync = true
-    @socket
+    addrs = Socket.getaddrinfo(@opts[:host], nil)
+    addr = addrs.detect { |ad| ad[0] == 'AF_INET' }
+    sock = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM, 0)
+
+    timeout = 3.0
+    secs = Integer(timeout)
+    usecs = Integer((timeout - secs) * 1_000_000)
+    optval = [secs, usecs].pack("l_2")
+    sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
+    sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
+    sock.connect(Socket.pack_sockaddr_in(@opts[:port], addr[3]))
+    sock
   end
   
   def read(length, nodebug=true)
@@ -793,7 +802,11 @@ class Redis
   end
   
   def read_proto
-    socket.gets.chomp
+    buff = ""
+    while buff[-2..-1] != CTRLF
+      buff << read(1)
+    end
+    buff[0..-3]
   end
   
   
