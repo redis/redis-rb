@@ -85,8 +85,9 @@ namespace :redis do
   
   desc "Download package"
   task :download do
-    sh 'svn checkout http://redis.googlecode.com/svn/trunk /tmp/redis' unless File.exists?(RedisRunner.redisdir)
-    sh "cd #{RedisRunner.redisdir} && svn up" if File.exists?("#{RedisRunner.redisdir}/.svn")
+    sh 'rm -rf /tmp/redis/' if File.exists?("#{RedisRunner.redisdir}/.svn")
+    sh 'git clone git://github.com/antirez/redis.git /tmp/redis' unless File.exists?(RedisRunner.redisdir)
+    sh "cd #{RedisRunner.redisdir} && git pull" if File.exists?("#{RedisRunner.redisdir}/.git")
   end    
 
 end
