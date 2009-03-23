@@ -295,4 +295,11 @@ describe "redis" do
     Time.at(savetime).should <= Time.now
   end
   
+  it "should be able to MGET keys" do
+    @r['foo'] = 1000
+    @r['bar'] = 2000
+    @r.mget('foo', 'bar').should == ['1000', '2000']
+    @r.mget('foo', 'bar', 'baz').should == ['1000', '2000', nil]
+  end
+
 end
