@@ -865,11 +865,11 @@ class Redis
       items.times do
         len = Integer(read_proto)
         if len == -1
-          nil
+          list << nil
         else
           list << read(len)
+          nibble_end
         end
-        nibble_end
       end  
       list
     end
