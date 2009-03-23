@@ -79,7 +79,6 @@ class Redis
   # but the operation never fails.
   #
   # Return value: mutli bulk reply
-
   def mget(*keys)
     timeout_retry(3, 3){
       write "MGET #{keys.join(' ')}\r\n"
@@ -738,13 +737,22 @@ class Redis
     }
   end
   
-  
+  # INFO
+  #
+  # The info command returns different information and statistics about the server
+  # in an format that's simple to parse by computers and easy to read by huamns. 
+  # The key used_memory is returned in bytes, and is the total number of bytes
+  # allocated by the program using malloc.  The key changes_since_last_save does
+  # not refer to the number of key changes, but to the number of operations that
+  # produced some kind of change in the dataset.
+  #
+  # Return value bulk reply
   def info
     info = {}
   
     x = timeout_retry(3, 3){
       write "INFO\r\n"
-      read(read_proto.to_i.abs).split("\r\n")
+      bulk_reply
     }
   
     x.each do |kv|
