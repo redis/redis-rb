@@ -72,6 +72,21 @@ class Redis
     }
   end
   
+  # MGET key1 key1 ... keyN
+  # Time complexity: 0(1) for each key
+  # Get the values of all the specified keys. If one or more keys dont exist or is not
+  # of type String, a 'nil' value is returned instead of the value of the specified key,
+  # but the operation never fails.
+  #
+  # Return value: mutli bulk reply
+
+  def mget(*keys)
+    timeout_retry(3, 3){
+      write "MGET #{keys.join(' ')}\r\n"
+      redis_unmarshal(multi_bulk_reply)
+    }
+  end
+
   # INCR key
   # INCRBY key value
   # Time complexity: O(1)
