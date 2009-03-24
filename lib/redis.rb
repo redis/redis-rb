@@ -1,5 +1,7 @@
 require 'socket'
 require File.join(File.dirname(__FILE__),'better_timeout')
+require File.join(File.dirname(__FILE__),'server')
+
 require 'set'
 
 class RedisError < StandardError
@@ -10,6 +12,12 @@ class Redis
   ERRCODE = "-".freeze
   NIL = 'nil'.freeze
   CTRLF = "\r\n".freeze
+  
+  ##
+  # The servers this client talks to.  Play at your own peril.
+
+  attr_reader :servers
+  attr_reader :timeout
   
   def to_s
     "#{host}:#{port}"
@@ -25,6 +33,108 @@ class Redis
   
   def initialize(opts={})
     @opts = {:host => 'localhost', :port => '6379'}.merge(opts)
+    @timeout = 0.5
+    servers = []
+    self.servers = 'localhost:6379'
+  end
+  
+  
+  ##
+  # Set the servers that the requests will be distributed between.  Entries
+  # can be either strings of the form "hostname:port" or
+  # "hostname:port:weight" or MemCache::Server objects.
+  #
+  def servers=(servers)
+    # Create the server objects.
+    @servers = Array(servers).collect do |server|
+      case server
+      when String
+        host, port = server.split ':', 2
+        host ||= opts[:host]
+        port ||= opts[:host]
+        Server.new self, host, port
+      else
+        server
+      end
+    end
+
+    puts "Servers now: #{@servers.inspect}"
+
+    @servers
+  end
+  
+  def with_server
+    retried = false
+    begin
+      ##fixme
+      #server, cache_key = request_setup(key)
+      self.servers.each do |server|
+        yield server if server.alive?
+      end
+      #yield server#, cache_key
+    rescue IndexError => e
+      puts "Server failed: #{e.class.name}: #{e.message}" 
+      if !retried && @servers.size > 1
+        puts "Connection to server #{server.inspect} DIED! Retrying operation..."
+        retried = true
+        retry
+      end
+      handle_error(nil, e)
+    end
+  end
+
+  ##
+  # Handles +error+ from +server+.
+
+  def handle_error(server, error)
+    raise error if error.is_a?(RedisError)
+    server.close if server
+    #new_error = RedisError.new error.message
+    #new_error.set_backtrace error.backtrace
+    #raise new_error
+  end
+  
+  ##
+  # Gets or creates a socket connected to the given server, and yields it
+  # to the block, wrapped in a mutex synchronization if @multithread is true.
+  #
+  # If a socket error (SocketError, SystemCallError, IOError) or protocol error
+  # (MemCacheError) is raised by the block, closes the socket, attempts to
+  # connect again, and retries the block (once).  If an error is again raised,
+  # reraises it as MemCacheError.
+  #
+  # If unable to connect to the server (or if in the reconnect wait period),
+  # raises MemCacheError.  Note that the socket connect code marks a server
+  # dead for a timeout period, so retrying does not apply to connection attempt
+  # failures (but does still apply to unexpectedly lost connections etc.).
+  
+  def with_socket_management(server, &block)
+    retried = false
+    puts "Server is alive? #{server.alive?}"
+
+    begin
+      socket = server.socket
+
+      # Raise an IndexError to show this server is out of whack. If were inside
+      # a with_server block, we'll catch it and attempt to restart the operation.
+
+      raise IndexError, "No connection to server (#{server.status})" if socket.nil?
+
+      block.call(socket)
+
+    rescue SocketError, Errno::EAGAIN, Timeout::Error => err
+      puts "Socket failure: #{err.message}"
+      server.mark_dead(err)
+      handle_error(server, err) #if retried
+      retried = true
+      socket = server.socket
+      block.call(socket)
+
+    rescue SystemCallError, IOError => err
+      puts "Generic failure: #{err.class.name}: #{err.message}  #{server.alive?}"
+      server.mark_dead(err)
+      retry
+    end
   end
   
   # SET key value
@@ -35,10 +145,14 @@ class Redis
   # Return value: status code reply
   def []=(key, val)
     val = redis_marshal(val)
-    timeout_retry(3, 3){
-      write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
-      status_code_reply  
-    }
+    #timeout_retry(3, 3){
+      with_server do |server|
+        with_socket_management(server) do |socket|
+          x = socket.write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
+          status_code_reply  
+        end
+      end
+    #}
   end
   
   # SETNX key value
@@ -66,10 +180,16 @@ class Redis
   #
   # Return value: bulk reply
   def [](key)
-    timeout_retry(3, 3){
-      write "GET #{key}\r\n"
+    #timeout_retry(3, 3){
+    with_server do |server|
+     result = with_socket_management(server) do |socket|
+    
+      socket.write "GET #{key}\r\n"
       redis_unmarshal(bulk_reply)
-    }
+    end
+    return result
+  end
+    #}
   end
   
   # MGET key1 key1 ... keyN
@@ -808,27 +928,25 @@ class Redis
     retry unless retries < 0
   end
   
-  def socket
-    @socket ||= connect
-  end
-  
-  def connect
-    @socket = TCPSocket.new(@opts[:host], @opts[:port])
-    @socket.sync = true
-    @socket
-  end
   
   def read(length, nodebug=true)
-    retries = 3
-    res = socket.read(length)
-    puts "read: #{res}" if @opts[:debug] && nodebug
-    res
-  rescue
-    retries -= 1
-    if retries > 0
-      connect
-      retry
+    with_server do |server|
+     result =  with_socket_management(server) do |socket|
+      begin
+        retries = 3
+        res = socket.read(length)
+        puts "read: #{res}" if @opts[:debug] && nodebug
+        res
+      rescue
+        retries -= 1
+        if retries > 0
+          #connect
+          retry
+        end
+      end
     end
+    return result
+  end
   end
   
   def write(data)
@@ -844,24 +962,44 @@ class Redis
   end
   
   def nibble_end
-    read(2)
+    with_server do |server|
+      with_socket_management(server) do |socket|
+        socket.read(2)
+      end
+    end
   end
   
   def read_proto
-    socket.gets.chomp
+    with_server do |server|
+    result =  with_socket_management(server) do |socket|
+          buff = ""
+          while buff[-2..-1] != CTRLF
+            buff << socket.read(1)
+          end
+          buff[0..-3]
+      end
+    return result
+    end
   end
   
   
   def status_code_reply
-    res = read_proto
-    if res.index(ERRCODE) == 0
-      raise RedisError, res
-    else
-      true
+    with_server do |server|
+      with_socket_management(server) do |socket|
+        res = read_proto
+          if res.index(ERRCODE) == 0
+            raise RedisError, res
+          else
+            true
+          end
+      end
     end
   end
   
   def bulk_reply
+    with_server do |server|
+    result = with_socket_management(server) do |socket|
+    
     res = read_proto
     if res.index(ERRCODE) == 0
       err = read(res.to_i.abs+2)
@@ -872,6 +1010,9 @@ class Redis
     else
       nil
     end
+  end
+  return result
+end
   end
   
   
