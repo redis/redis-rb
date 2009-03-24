@@ -109,37 +109,19 @@ class Redis
   # failures (but does still apply to unexpectedly lost connections etc.).
   
   def with_socket_management(server, &block)
-    retried = false
-    puts "Server is alive? #{server.alive?}"
-
     begin
-      puts "Servers are #{@servers.inspect}"
-      puts "Server is #{server.inspect}\n"
-      socket = server.socket 
-
-      # Raise an IndexError to show this server is out of whack. If were inside
-      # a with_server block, we'll catch it and attempt to restart the operation.
-
-      raise IndexError, "No connection to server (#{server.status})" if socket.nil?
-      puts "We never made it to here.\n"
-      block.call(socket)
-
-    rescue SocketError, Errno::EAGAIN, Timeout::Error => err
-      puts "Socket failure: #{err.message}\n\n"
-      server.mark_dead(err)
-      #handle_error(server, err) #if retried
-      retried = true
-      #@servers = nil
-      #@servers = [Server.new(self, 'localhost', '6379')]
-      socket = server.socket
-      puts "Before - Servers are #{@servers.inspect}\n"      
-      block.call(socket)
-      #retry
-
-    rescue SystemCallError, IOError => err
-      puts "Generic failure: #{err.class.name}: #{err.message}  #{server.alive?}\n\n"
-      server.mark_dead(err)
+      block.call(server.socket)
+    #Timeout or server down
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED => e
+      #puts "Client (#{server.inspect}) disconnected from server: #{e.inspect}\n"
+      server.close
       retry
+    #Server down
+    rescue NoMethodError => e
+      #puts "Client (#{server.inspect}) tryin server that is down: #{e.inspect}\n"
+      puts "Dying!"
+      exit
+
     end
   end
   
@@ -154,8 +136,12 @@ class Redis
     #timeout_retry(3, 3){
       with_server do |server|
         with_socket_management(server) do |socket|
+          begin
           x = socket.write "SET #{key} #{val.to_s.size}\r\n#{val}\r\n"
           status_code_reply  
+          rescue RedisError
+            retry
+          end
         end
       end
     #}
@@ -189,9 +175,12 @@ class Redis
     #timeout_retry(3, 3){
     with_server do |server|
      result = with_socket_management(server) do |socket|
-    
+      begin
       socket.write "GET #{key}\r\n"
       redis_unmarshal(bulk_reply)
+      rescue RedisError
+        retry
+      end
     end
     return result
   end
@@ -874,19 +863,28 @@ class Redis
   #
   # Return value bulk reply
   def info
+    with_server do |server|
+    result = with_socket_management(server) do |socket|
+      
+    begin
     info = {}
-  
-    x = timeout_retry(3, 3){
-      write "INFO\r\n"
-      bulk_reply
-    }
+    
+     socket.write "INFO\r\n"
+     x= bulk_reply
   
     x.each do |kv|
       k,v = kv.split(':')[0], kv.split(':')[1]
       info[k.to_sym] = v
     end
   
+    rescue RedisError
+      retry
+    end
     info
+    
+  end
+  return result
+end
   end
   
   def flush_db
@@ -938,33 +936,30 @@ class Redis
   def read(length, nodebug=true)
     with_server do |server|
      result =  with_socket_management(server) do |socket|
-      begin
-        retries = 3
         res = socket.read(length)
-        puts "read: #{res}" if @opts[:debug] && nodebug
         res
-      rescue
-        retries -= 1
-        if retries > 0
-          #connect
-          retry
-        end
-      end
     end
     return result
-  end
+    end
   end
   
   def write(data)
+    with_server do |server|
+      result = with_socket_management(server) do |socket|
+        begin
     puts "write: #{data}" if @opts[:debug]
     retries = 3
     socket.write(data)
   rescue
     retries -= 1
     if retries > 0
-      connect
+      #connect
       retry
     end
+  end
+  end
+  result
+  end
   end
   
   def nibble_end
@@ -980,7 +975,11 @@ class Redis
     result =  with_socket_management(server) do |socket|
           buff = ""
           while buff[-2..-1] != CTRLF
+            begin
             buff << socket.read(1)
+            rescue
+              raise RedisError
+            end
           end
           buff[0..-3]
       end
@@ -992,12 +991,16 @@ class Redis
   def status_code_reply
     with_server do |server|
       with_socket_management(server) do |socket|
+        begin
         res = read_proto
           if res.index(ERRCODE) == 0
             raise RedisError, res
           else
             true
           end
+        rescue RedisError
+          raise RedisError
+        end
       end
     end
   end
@@ -1005,17 +1008,20 @@ class Redis
   def bulk_reply
     with_server do |server|
     result = with_socket_management(server) do |socket|
-    
-    res = read_proto
-    if res.index(ERRCODE) == 0
-      err = read(res.to_i.abs+2)
-      raise RedisError, err.chomp
-    elsif res != NIL
-      val = read(res.to_i.abs+2)
-      val.chomp
-    else
-      nil
-    end
+      begin
+        res = read_proto
+        if res.index(ERRCODE) == 0
+          err = socket.read(res.to_i.abs+2)
+          raise RedisError, err.chomp
+        elsif res != NIL
+          val = socket.read(res.to_i.abs+2)
+          val.chomp
+        else
+          nil
+        end
+        rescue RedisError
+          raise RedisError
+        end
   end
   return result
 end

@@ -81,8 +81,12 @@ class Server
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
       @retry  = nil
       @status = 'CONNECTED'
+    rescue Errno::EPIPE, Errno::ECONNREFUSED => e
+      puts "Socket died... socket: #{@sock.inspect}\n" if $debug
+      @sock.close
+      retry
     rescue SocketError, SystemCallError, IOError => err
-      #puts "Unable to open socket: #{err.class.name}, #{err.message}"
+      puts "Unable to open socket: #{err.class.name}, #{err.message}" if $debug
       mark_dead err
     end
 
