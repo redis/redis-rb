@@ -113,25 +113,31 @@ class Redis
     puts "Server is alive? #{server.alive?}"
 
     begin
-      socket = server.socket
+      puts "Servers are #{@servers.inspect}"
+      puts "Server is #{server.inspect}\n"
+      socket = server.socket 
 
       # Raise an IndexError to show this server is out of whack. If were inside
       # a with_server block, we'll catch it and attempt to restart the operation.
 
       raise IndexError, "No connection to server (#{server.status})" if socket.nil?
-
+      puts "We never made it to here.\n"
       block.call(socket)
 
     rescue SocketError, Errno::EAGAIN, Timeout::Error => err
-      puts "Socket failure: #{err.message}"
+      puts "Socket failure: #{err.message}\n\n"
       server.mark_dead(err)
-      handle_error(server, err) #if retried
+      #handle_error(server, err) #if retried
       retried = true
+      #@servers = nil
+      #@servers = [Server.new(self, 'localhost', '6379')]
       socket = server.socket
+      puts "Before - Servers are #{@servers.inspect}\n"      
       block.call(socket)
+      #retry
 
     rescue SystemCallError, IOError => err
-      puts "Generic failure: #{err.class.name}: #{err.message}  #{server.alive?}"
+      puts "Generic failure: #{err.class.name}: #{err.message}  #{server.alive?}\n\n"
       server.mark_dead(err)
       retry
     end

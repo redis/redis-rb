@@ -43,7 +43,7 @@ class Server
     @sock   = nil
     @retry  = nil
     @status = 'NOT CONNECTED'
-    @timeout = 3
+    @timeout = 1
   end
 
   ##
@@ -82,7 +82,7 @@ class Server
       @retry  = nil
       @status = 'CONNECTED'
     rescue SocketError, SystemCallError, IOError => err
-      puts "Unable to open socket: #{err.class.name}, #{err.message}"
+      #puts "Unable to open socket: #{err.class.name}, #{err.message}"
       mark_dead err
     end
 
