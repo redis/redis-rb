@@ -733,7 +733,7 @@ class Redis
   def quit
     timeout_retry(3, 3){
       write "QUIT\r\n"
-      status_code_reply
+      true
     }
   end
   
