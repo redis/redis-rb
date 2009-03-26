@@ -35,14 +35,6 @@ class Redis
   def host
     @opts[:host]
   end
-
-  def ensure_retry(&block)
-    begin
-      block.call
-    rescue RedisError
-      retry
-    end
-  end
   
   def with_socket_management(server, &block)
     begin
@@ -64,45 +56,35 @@ class Redis
   end
   
   def select_db(index)
-    ensure_retry do
-      write "SELECT #{index}\r\n"
-      get_response
-    end
+    write "SELECT #{index}\r\n"
+    get_response
   end
   
   def flush_db
-    ensure_retry do
-      write "FLUSHDB\r\n"
-      get_response == OK
-    end
+    write "FLUSHDB\r\n"
+    get_response == OK
   end    
 
   def last_save
-    ensure_retry do
-      write "LASTSAVE\r\n"
-      get_response.to_i
-    end
+    write "LASTSAVE\r\n"
+    get_response.to_i
   end
   
   def bgsave
-    ensure_retry do
-      write "BGSAVE\r\n"
-      get_response == OK
-    end
+    write "BGSAVE\r\n"
+    get_response == OK
   end  
     
   def info
    info = {}
-   info = ensure_retry do
-     write("INFO\r\n")
-     x = get_response
-     x.each do |kv|
-       k,v = kv.split(':', 2)
-       k,v = k.chomp, v = v.chomp
-       info[k.to_sym] = v
-     end
-     info
-    end
+   write("INFO\r\n")
+   x = get_response
+   x.each do |kv|
+     k,v = kv.split(':', 2)
+     k,v = k.chomp, v = v.chomp
+     info[k.to_sym] = v
+   end
+   info
   end
   
   
@@ -142,288 +124,226 @@ class Redis
   end
 
   def keys(glob)
-    ensure_retry do
-      write "KEYS #{glob}\r\n"
-      get_response.split(' ')
-    end
+    write "KEYS #{glob}\r\n"
+    get_response.split(' ')
   end
 
   def rename!(oldkey, newkey)
-    ensure_retry do
-      write "RENAME #{oldkey} #{newkey}\r\n"
-      get_response
-    end
+    write "RENAME #{oldkey} #{newkey}\r\n"
+    get_response
   end  
   
   def rename(oldkey, newkey)
-    ensure_retry do
-      write "RENAMENX #{oldkey} #{newkey}\r\n"
-      case get_response
-      when -1
-        raise RedisRenameError, "source key: #{oldkey} does not exist"
-      when 0
-        raise RedisRenameError, "target key: #{oldkey} already exists"
-      when -3
-        raise RedisRenameError, "source and destination keys are the same"
-      when 1
-        true
-      end
+    write "RENAMENX #{oldkey} #{newkey}\r\n"
+    case get_response
+    when -1
+      raise RedisRenameError, "source key: #{oldkey} does not exist"
+    when 0
+      raise RedisRenameError, "target key: #{oldkey} already exists"
+    when -3
+      raise RedisRenameError, "source and destination keys are the same"
+    when 1
+      true
     end
   end  
   
   def key?(key)
-    ensure_retry do
-      write "EXISTS #{key}\r\n"
-      get_response == 1
-    end
+    write "EXISTS #{key}\r\n"
+    get_response == 1
   end  
   
   def delete(key)
-    ensure_retry do
-      write "DEL #{key}\r\n"
-      get_response == 1
-    end
+    write "DEL #{key}\r\n"
+    get_response == 1
   end  
   
   def [](key)
-    ensure_retry do
-      get(key)
-    end
+    get(key)
   end
 
   def get(key)
-    ensure_retry do
-      write "GET #{key}\r\n"
-      get_response
-    end
+    write "GET #{key}\r\n"
+    get_response
   end
   
   def mget(*keys)
-    ensure_retry do
-      write "MGET #{keys.join(' ')}\r\n"
-      get_response
-    end
+    write "MGET #{keys.join(' ')}\r\n"
+    get_response
   end
 
   def incr(key, increment=nil)
-    ensure_retry do
-      if increment
-        write "INCRBY #{key} #{increment}\r\n"
-      else
-        write "INCR #{key}\r\n"
-      end    
-      get_response
-    end
+    if increment
+      write "INCRBY #{key} #{increment}\r\n"
+    else
+      write "INCR #{key}\r\n"
+    end    
+    get_response
   end
 
   def decr(key, decrement=nil)
-    ensure_retry do
-      if decrement
-        write "DECRRBY #{key} #{decrement}\r\n"
-      else
-        write "DECR #{key}\r\n"
-      end    
-      get_response
-    end
+    if decrement
+      write "DECRRBY #{key} #{decrement}\r\n"
+    else
+      write "DECR #{key}\r\n"
+    end    
+    get_response
   end
   
   def randkey
-    ensure_retry do
-      write "RANDOMKEY\r\n"
-      get_response
-    end
+    write "RANDOMKEY\r\n"
+    get_response
   end
 
   def list_length(key)
-    ensure_retry do
-      write "LLEN #{key}\r\n"
-      case i = get_response
-      when -2
-        raise RedisError, "key: #{key} does not hold a list value"
-      else
-        i
-      end
+    write "LLEN #{key}\r\n"
+    case i = get_response
+    when -2
+      raise RedisError, "key: #{key} does not hold a list value"
+    else
+      i
     end
   end
 
   def type?(key)
-    ensure_retry do
-      write "TYPE #{key}\r\n"
-      get_response
-    end
+    write "TYPE #{key}\r\n"
+    get_response
   end
   
   def push_tail(key, string)
-    ensure_retry do
-      write "RPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
-      get_response
-    end
+    write "RPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
+    get_response
   end      
 
   def push_head(key, string)
-    ensure_retry do
-      write "LPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
-      get_response
-    end
+    write "LPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
+    get_response
   end
   
   def pop_head(key)
-    ensure_retry do
-      write "LPOP #{key}\r\n"
-      get_response
-    end
+    write "LPOP #{key}\r\n"
+    get_response
   end
 
   def pop_tail(key)
-    ensure_retry do
-      write "RPOP #{key}\r\n"
-      get_response
-    end
+    write "RPOP #{key}\r\n"
+    get_response
   end    
 
   def list_set(key, index, val)
-    ensure_retry do
-      write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
-      get_response == OK
-    end
+    write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
+    get_response == OK
   end
 
   def list_length(key)
-    ensure_retry do
-      write "LLEN #{key}\r\n"
-      case i = get_response
-      when -2
-        raise RedisError, "key: #{key} does not hold a list value"
-      else
-        i
-      end
+    write "LLEN #{key}\r\n"
+    case i = get_response
+    when -2
+      raise RedisError, "key: #{key} does not hold a list value"
+    else
+      i
     end
   end
 
   def list_range(key, start, ending)
-    ensure_retry do
-      write "LRANGE #{key} #{start} #{ending}\r\n"
-      get_response
-    end
+    write "LRANGE #{key} #{start} #{ending}\r\n"
+    get_response
   end
 
   def list_trim(key, start, ending)
-    ensure_retry do
-      write "LTRIM #{key} #{start} #{ending}\r\n"
-      get_response
-    end
+    write "LTRIM #{key} #{start} #{ending}\r\n"
+    get_response
   end
 
   def list_index(key, index)
-    ensure_retry do
-      write "LINDEX #{key} #{index}\r\n"
-      get_response
-    end
+    write "LINDEX #{key} #{index}\r\n"
+    get_response
   end
 
   def list_rm(key, count, value)
-    ensure_retry do    
-      write "LREM #{key} #{count} #{value.to_s.size}\r\n#{value}\r\n"
-      case num = get_response
-      when -1
-        raise RedisError, "key: #{key} does not exist"
-      when -2
-        raise RedisError, "key: #{key} does not hold a list value"
-      else
-        num
-      end
+    write "LREM #{key} #{count} #{value.to_s.size}\r\n#{value}\r\n"
+    case num = get_response
+    when -1
+      raise RedisError, "key: #{key} does not exist"
+    when -2
+      raise RedisError, "key: #{key} does not hold a list value"
+    else
+      num
     end
   end 
 
   def set_add(key, member)
-    ensure_retry do    
-      write "SADD #{key} #{member.to_s.size}\r\n#{member}\r\n"
-      case get_response
-      when 1
-        true
-      when 0
-        false
-      when -2
-        raise RedisError, "key: #{key} contains a non set value"
-      end
+    write "SADD #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    case get_response
+    when 1
+      true
+    when 0
+      false
+    when -2
+      raise RedisError, "key: #{key} contains a non set value"
     end
   end
 
   def set_delete(key, member)
-    ensure_retry do    
-      write "SREM #{key} #{member.to_s.size}\r\n#{member}\r\n"
-      case get_response
-      when 1
-        true
-      when 0
-        false
-      when -2
-        raise RedisError, "key: #{key} contains a non set value"
-      end
+    write "SREM #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    case get_response
+    when 1
+      true
+    when 0
+      false
+    when -2
+      raise RedisError, "key: #{key} contains a non set value"
     end
   end
 
   def set_count(key)
-    ensure_retry do    
-      write "SCARD #{key}\r\n"
-      case i = get_response
-      when -2
-        raise RedisError, "key: #{key} contains a non set value"
-      else
-        i
-      end
+    write "SCARD #{key}\r\n"
+    case i = get_response
+    when -2
+      raise RedisError, "key: #{key} contains a non set value"
+    else
+      i
     end
   end
 
   def set_member?(key, member)
-    ensure_retry do    
-      write "SISMEMBER #{key} #{member.to_s.size}\r\n#{member}\r\n"
-      case get_response
-      when 1
-        true
-      when 0
-        false
-      when -2
-        raise RedisError, "key: #{key} contains a non set value"
-      end
+    write "SISMEMBER #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    case get_response
+    when 1
+      true
+    when 0
+      false
+    when -2
+      raise RedisError, "key: #{key} contains a non set value"
     end
   end
 
   def set_members(key)
-    ensure_retry do    
-      write "SMEMBERS #{key}\r\n"
-      Set.new(get_response)
-    end
+    write "SMEMBERS #{key}\r\n"
+    Set.new(get_response)
   end
 
   def set_intersect(*keys)
-    ensure_retry do    
-      write "SINTER #{keys.join(' ')}\r\n"
-      Set.new(get_response)
-    end
+    write "SINTER #{keys.join(' ')}\r\n"
+    Set.new(get_response)
   end
 
   def set_inter_store(destkey, *keys)
-    ensure_retry do    
-      write "SINTERSTORE #{destkey} #{keys.join(' ')}\r\n"
-      get_response
-    end
+    write "SINTERSTORE #{destkey} #{keys.join(' ')}\r\n"
+    get_response
   end
 
   def sort(key, opts={})
-    ensure_retry do
-      cmd = "SORT #{key}"
-      cmd << " BY #{opts[:by]}" if opts[:by]
-      cmd << " GET #{opts[:get]}" if opts[:get]
-      cmd << " INCR #{opts[:incr]}" if opts[:incr]
-      cmd << " DEL #{opts[:del]}" if opts[:del]
-      cmd << " DECR #{opts[:decr]}" if opts[:decr]
-      cmd << " #{opts[:order]}" if opts[:order]
-      cmd << " LIMIT #{opts[:limit].join(' ')}" if opts[:limit]
-      cmd << "\r\n"
-      write(cmd)
-      get_response
-    end
+    cmd = "SORT #{key}"
+    cmd << " BY #{opts[:by]}" if opts[:by]
+    cmd << " GET #{opts[:get]}" if opts[:get]
+    cmd << " INCR #{opts[:incr]}" if opts[:incr]
+    cmd << " DEL #{opts[:del]}" if opts[:del]
+    cmd << " DECR #{opts[:decr]}" if opts[:decr]
+    cmd << " #{opts[:order]}" if opts[:order]
+    cmd << " LIMIT #{opts[:limit].join(' ')}" if opts[:limit]
+    cmd << "\r\n"
+    write(cmd)
+    get_response
   end
       
   def multi_bulk
@@ -450,24 +370,18 @@ class Redis
   end
    
   def []=(key, val)
-    ensure_retry do
-      set(key,val)
-    end
+    set(key,val)
   end
   
 
   def set(key, val, expiry=nil)
-    ensure_retry do
-      write("SET #{key} #{val.to_s.size}\r\n#{val}\r\n")
-      get_response == OK
-    end
+    write("SET #{key} #{val.to_s.size}\r\n#{val}\r\n")
+    get_response == OK
   end
 
   def set_unless_exists(key, val)
-    ensure_retry do
-      write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
-      get_response == 1
-    end
+    write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
+    get_response == 1
   end  
   
   def status_code_reply
