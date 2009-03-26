@@ -8,8 +8,13 @@ end
 class RedisRenameError < StandardError
 end
 class Redis
-  ERRCODE = "-".freeze
+  ERR = "-".freeze
   OK = 'OK'.freeze
+  SINGLE = '+'.freeze
+  BULK   = '$'.freeze
+  MULTI  = '*'.freeze
+  INT    = ':'.freeze
+  
   attr_reader :servers
   
   
@@ -485,24 +490,25 @@ class Redis
        raise RedisError
     end
   end
-
+  
   def get_response
     rtype = ensure_raise do
       get_reply
     end
     puts "reply_type is #{rtype.inspect}" if $debug
     case rtype
-    when '+'
+    when SINGLE
       single_line
-    when '$'
+    when BULK
       bulk_reply
-    when '*'
+    when MULTI
       multi_bulk
-    when ':'
+    when INT
       integer_reply
+    when ERR
+      raise RedisError, single_line
     else
-      raise RedisError, "Quiting..."
-      #exit
+      raise RedisError, "Unknown response.."
     end
   end
   
