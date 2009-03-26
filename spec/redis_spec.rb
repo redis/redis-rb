@@ -12,14 +12,20 @@ class Foo
 end  
 
 describe "redis" do
-  before(:each) do
+  before(:all) do
     @r = Redis.new
     @r.select_db(15) # use database 15 for testing so we dont accidentally step on you real data
+  end
+
+  before(:each) do
     @r['foo'] = 'bar'
+  end
+
+  after(:each) do
+    @r.flush_db
   end  
-  
-  after do
-    @r.keys('*').each {|k| @r.delete k }
+
+  after(:all) do
     @r.quit
   end  
 
