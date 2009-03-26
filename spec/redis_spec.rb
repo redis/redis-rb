@@ -302,4 +302,18 @@ describe "redis" do
     @r.mget('foo', 'bar', 'baz').should == ['1000', '2000', nil]
   end
 
+  it "should handle multiple servers" do
+    require 'dist_redis'
+    @r = DistRedis.new('localhost:6379', '127.0.0.1:6379')
+    @r.select_db(15) # use database 15 for testing so we dont accidentally step on you real data
+
+    10000.times do |idx|
+      @r[idx] = "foo#{idx}"
+    end
+
+    10000.times do |idx|
+      @r[idx].should == "foo#{idx}"
+    end
+  end
+
 end
