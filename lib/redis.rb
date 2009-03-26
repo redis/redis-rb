@@ -67,6 +67,21 @@ class Redis
     end
   end
 
+  def monitor
+    ensure_retry do
+      with_socket_management(@server) do |socket|
+        trap("INT") { puts "\nGot ^C! Dying!"; exit }
+        write "MONITOR\r\n"
+        puts "Now Monitoring..."
+        socket.read(12)
+        loop do
+          x = socket.gets
+          puts x unless x.nil?
+        end
+      end
+     end
+   end
+
   def quit
     write "QUIT\r\n"
   end
