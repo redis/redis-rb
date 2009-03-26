@@ -781,7 +781,7 @@ class Redis
   private
   
   def redis_unmarshal(obj)
-    if obj[0] == 4
+    if obj && obj[0] == 4
       Marshal.load(obj)       
     else
       obj
@@ -804,6 +804,11 @@ class Redis
   def timeout_retry(time, retries, &block)
     timeout(time, &block)
   rescue TimeoutError
+    retries -= 1
+    retry unless retries < 0
+  rescue Errno::ECONNREFUSED
+    puts "reconnecting"
+    connect
     retries -= 1
     retry unless retries < 0
   end
@@ -848,7 +853,7 @@ class Redis
   end
   
   def read_proto
-    socket.gets.chomp
+    socket.gets.chomp rescue nil
   end
   
   
