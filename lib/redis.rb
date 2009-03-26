@@ -15,7 +15,7 @@ class Redis
   MULTI  = '*'.freeze
   INT    = ':'.freeze
   
-  attr_reader :servers
+  attr_reader :server
   
   
   def initialize(opts={})
@@ -35,18 +35,10 @@ class Redis
   def host
     @opts[:host]
   end
-  
-  def ensure_raise(&block)
-    begin
-      yield block
-    rescue
-      raise RedisError
-    end
-  end
-  
+
   def ensure_retry(&block)
     begin
-      yield block
+      block.call
     rescue RedisError
       retry
     end
@@ -492,8 +484,10 @@ class Redis
   end
   
   def get_response
-    rtype = ensure_raise do
-      get_reply
+    begin
+      rtype = get_reply
+    rescue => e
+      raise RedisError, e.inspect
     end
     puts "reply_type is #{rtype.inspect}" if $debug
     case rtype
@@ -519,11 +513,7 @@ class Redis
   def single_line
     buff = ""
     while buff[-2..-1] != "\r\n"
-      begin
       buff << read(1)
-      rescue
-        raise RedisError
-      end
     end
     puts "single_line value is #{buff[0..-3].inspect}" if $debug
     buff[0..-3]
