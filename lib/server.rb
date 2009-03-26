@@ -18,6 +18,11 @@ class Server
   # The port the memcached server is listening on.
 
   attr_reader :port
+  
+  ##
+  #
+  
+  attr_reader :replica
 
   ##
   # The time of next retry if the connection is dead.
@@ -33,12 +38,13 @@ class Server
   # Create a new Redis::Server object for the redis instance
   # listening on the given host and port.
 
-  def initialize(redis, host, port = DEFAULT_PORT)
+  def initialize(redis, host, port = DEFAULT_PORT, replica=nil)
     raise ArgumentError, "No host specified" if host.nil? or host.empty?
     raise ArgumentError, "No port specified" if port.nil? or port.to_i.zero?
 
     @host   = host
     @port   = port.to_i
+    @replica = replica || 'master'
 
     @sock   = nil
     @retry  = nil
@@ -50,17 +56,8 @@ class Server
   # Return a string representation of the server object.
 
   def inspect
-    "<Redis::Server: %s:%d (%s)>" % [@host, @port, @status]
-  end
-
-  ##
-  # Check whether the server connection is alive.  This will cause the
-  # socket to attempt to connect if it isn't already connected and or if
-  # the server was previously marked as down and the retry time has
-  # been exceeded.
-
-  def alive?
-    !!socket
+    #replica = @replica ? 'replica' : 'master'
+    "<Redis::Server: %s %s:%d (%s)>" % [@replica, @host, @port, @status]
   end
 
   ##
