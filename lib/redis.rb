@@ -80,6 +80,16 @@ class Redis
     get_response == OK
   end    
 
+  def flush_all
+    ensure_retry do
+      puts "Warning!\nFlushing *ALL* databases!\n5 Seconds to Hit ^C!"
+      trap('INT') {quit; return false}
+      sleep 5
+      write "FLUSHALL\r\n"
+      get_response == OK
+    end
+  end
+
   def last_save
     write "LASTSAVE\r\n"
     get_response.to_i
