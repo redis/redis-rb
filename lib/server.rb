@@ -91,9 +91,6 @@ class Server
     addrs = Socket.getaddrinfo(host, nil)
     addr = addrs.detect { |ad| ad[0] == 'AF_INET' }
     sock = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM, 0)
-    #addr = Socket.getaddrinfo(host, nil)
-    #sock = Socket.new(Socket.const_get(addr[0][0]), Socket::SOCK_STREAM, 0)
-
     if timeout
       secs = Integer(timeout)
       usecs = Integer((timeout - secs) * 1_000_000)

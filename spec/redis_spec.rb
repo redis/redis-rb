@@ -59,8 +59,7 @@ describe "redis" do
     @r.incr('counter').should == 2
     @r.incr('counter').should == 3
     @r.decr('counter').should == 2
-    @r.decr('counter').should == 1
-    @r.decr('counter').should == 0
+    @r.decr('counter', 2).should == 0
   end
   # 
   it "should be able to RANDKEY(return a random key)" do

@@ -19,8 +19,9 @@ class Redis
   
   
   def initialize(opts={})
-    @opts = {:host => 'localhost', :port => '6379'}.merge(opts)
+    @opts = {:host => 'localhost', :port => '6379', :db => 0}.merge(opts)
     $debug = @opts[:debug]
+    @db = @opts[:db]
     @server = Server.new(@opts[:host], @opts[:port])
   end
   
@@ -52,25 +53,24 @@ class Redis
   end
 
   def monitor
-    ensure_retry do
-      with_socket_management(@server) do |socket|
-        trap("INT") { puts "\nGot ^C! Dying!"; exit }
-        write "MONITOR\r\n"
-        puts "Now Monitoring..."
-        socket.read(12)
-        loop do
-          x = socket.gets
-          puts x unless x.nil?
-        end
+    with_socket_management(@server) do |socket|
+      trap("INT") { puts "\nGot ^C! Dying!"; exit }
+      write "MONITOR\r\n"
+      puts "Now Monitoring..."
+      socket.read(12)
+      loop do
+        x = socket.gets
+        puts x unless x.nil?
       end
-     end
-   end
+    end
+  end
 
   def quit
     write "QUIT\r\n"
   end
   
   def select_db(index)
+    @db = index
     write "SELECT #{index}\r\n"
     get_response
   end
@@ -197,7 +197,7 @@ class Redis
 
   def decr(key, decrement=nil)
     if decrement
-      write "DECRRBY #{key} #{decrement}\r\n"
+      write "DECRBY #{key} #{decrement}\r\n"
     else
       write "DECR #{key}\r\n"
     end    
