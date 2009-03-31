@@ -48,7 +48,8 @@ class Redis
     #Server down
     rescue NoMethodError => e
       puts "Client (#{server.inspect}) tryin server that is down: #{e.inspect}\n Dying!" if $debug
-      exit
+      raise Errno::ECONNREFUSED
+      #exit
     end
   end
 
