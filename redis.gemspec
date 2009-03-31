@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 Gem::Specification.new do |s|
-  s.name = %q{redis}
+  s.name = %q{redis-rb}
   s.version = "0.0.3"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
   s.extra_rdoc_files = ["LICENSE"]
   s.files = ["LICENSE", "README.markdown", "Rakefile", "lib/redis.rb", "lib/dist_redis.rb", "lib/hash_ring.rb", "lib/server.rb", "lib/better_timeout.rb", "spec/redis_spec.rb", "spec/spec_helper.rb"]
   s.has_rdoc = true
-  s.homepage = %q{http://github.com/ezmobius/redis-rb}
+  s.homepage = %q{http://github.com/winescout/redis-rb}
   s.require_paths = ["lib"]
   s.rubygems_version = %q{1.3.1}
   s.summary = %q{Ruby client library for redis key value storage server}
