@@ -39,6 +39,13 @@ describe "redis" do
     @r['foo'].should == 'nik'
   end
   
+  it "should be able to SET a key with an expiry" do
+    @r.set('foo', 'bar', 1)
+    @r['foo'].should == 'bar'
+    sleep 2
+    @r['foo'].should == nil
+  end
+  
   it "should be able to SETNX(set_unless_exists)" do
     @r['foo'] = 'nik'
     @r['foo'].should == 'nik'
@@ -83,6 +90,14 @@ describe "redis" do
     @r['bar'].should == 'ohai'
   end
   # 
+  it "should be able to EXPIRE a key" do
+    @r['foo'] = 'bar'
+    @r.expire('foo', 1)
+    @r['foo'].should == "bar"
+    sleep 2
+    @r['foo'].should == nil
+  end
+  #
   it "should be able to EXISTS(check if key exists)" do
     @r['foo'] = 'nik'
     @r.key?('foo').should be_true
