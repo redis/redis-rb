@@ -22,7 +22,7 @@ describe "redis" do
   end
 
   after(:each) do
-    @r.flush_db
+    @r.keys('*').each {|k| @r.delete k}
   end  
 
   after(:all) do
