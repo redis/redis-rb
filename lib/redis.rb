@@ -357,6 +357,16 @@ class Redis
     write "SINTERSTORE #{destkey} #{keys.join(' ')}\r\n"
     get_response
   end
+  
+  def set_union(*keys)
+    write "SUNION #{keys.join(' ')}\r\n"
+    Set.new(get_response)
+  end
+
+  def set_union_store(destkey, *keys)
+    write "SUNIONSTORE #{destkey} #{keys.join(' ')}\r\n"
+    get_response
+  end
 
   def sort(key, opts={})
     cmd = "SORT #{key}"

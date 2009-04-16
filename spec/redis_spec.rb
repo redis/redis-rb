@@ -271,8 +271,29 @@ describe "redis" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
     @r.set_add "set2", 'key2'
-    @r.set_inter_store('newone', 'set', 'set2')
+    count = @r.set_inter_store('newone', 'set', 'set2')
+    count.should == 1
     @r.set_members('newone').should == Set.new(['key2'])
+    @r.delete('set')
+  end
+  #
+  it "should be able to do set union" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key2'
+    @r.set_add "set2", 'key3'
+    @r.set_union('set', 'set2').should == Set.new(['key1','key2','key3'])
+    @r.delete('set')
+  end
+  # 
+  it "should be able to do set intersection and store the results in a key" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key2'
+    @r.set_add "set2", 'key3'
+    count = @r.set_union_store('newone', 'set', 'set2')
+    count.should == 3
+    @r.set_members('newone').should == Set.new(['key1','key2','key3'])
     @r.delete('set')
   end
   # 
