@@ -1,6 +1,7 @@
 require 'socket'
 require 'set'
 require File.join(File.dirname(__FILE__),'server')
+require File.join(File.dirname(__FILE__),'pipeline')
 
 
 class RedisError < StandardError
@@ -23,6 +24,12 @@ class Redis
     $debug = @opts[:debug]
     @db = @opts[:db]
     @server = Server.new(@opts[:host], @opts[:port])
+  end
+  
+  def pipelined
+    pipeline = Pipeline.new(self)
+    yield pipeline
+    pipeline.finish
   end
   
   def to_s
@@ -474,6 +481,14 @@ class Redis
     end
     puts "single_line value is #{buff[0..-3].inspect}" if $debug
     buff[0..-3]
+  end
+  
+  def read_socket
+    with_socket_management(@server) do |socket|
+      while res = socket.read(8096)
+        break if res.size != 8096
+      end
+    end
   end
   
   def read_proto

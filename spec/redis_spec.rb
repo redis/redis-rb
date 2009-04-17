@@ -374,4 +374,15 @@ describe "redis" do
     end
   end
 
+  it "should be able to pipeline writes" do
+    @r.pipelined do |pipeline|
+      pipeline.push_head "list", "hello"
+      pipeline.push_head "list", 42
+    end
+    
+    @r.type?('list').should == "list"
+    @r.list_length('list').should == 2
+    @r.pop_head('list').should == '42'
+    @r.delete('list')
+  end
 end
