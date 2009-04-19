@@ -260,16 +260,6 @@ class Redis
     get_response == OK
   end
 
-  def list_length(key)
-    write "LLEN #{key}\r\n"
-    case i = get_response
-    when -2
-      raise RedisError, "key: #{key} does not hold a list value"
-    else
-      i
-    end
-  end
-
   def list_range(key, start, ending)
     write "LRANGE #{key} #{start} #{ending}\r\n"
     get_response
