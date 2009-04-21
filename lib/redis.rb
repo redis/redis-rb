@@ -367,6 +367,16 @@ class Redis
     write "SUNIONSTORE #{destkey} #{keys.join(' ')}\r\n"
     get_response
   end
+  
+  def set_diff(*keys)
+    write "SDIFF #{keys.join(' ')}\r\n"
+    Set.new(get_response)
+  end
+
+  def set_diff_store(destkey, *keys)
+    write "SDIFFSTORE #{destkey} #{keys.join(' ')}\r\n"
+    get_response
+  end
 
   def sort(key, opts={})
     cmd = "SORT #{key}"

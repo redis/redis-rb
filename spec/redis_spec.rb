@@ -286,7 +286,7 @@ describe "redis" do
     @r.delete('set')
   end
   # 
-  it "should be able to do set intersection and store the results in a key" do
+  it "should be able to do set union and store the results in a key" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
     @r.set_add "set2", 'key2'
@@ -297,6 +297,25 @@ describe "redis" do
     @r.delete('set')
   end
   # 
+  it "should be able to do set difference" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key2'
+    @r.set_add "set2", 'key3'
+    @r.set_diff('set', 'set2').should == Set.new(['key1','key3'])
+    @r.delete('set')
+  end
+  # 
+  it "should be able to do set difference and store the results in a key" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key2'
+    @r.set_add "set2", 'key3'
+    count = @r.set_diff_store('newone', 'set', 'set2')
+    count.should == 3
+    @r.set_members('newone').should == Set.new(['key1','key3'])
+    @r.delete('set')
+  end
   it "should be able to do crazy SORT queries" do
     @r['dog_1'] = 'louie'
     @r.push_tail 'dogs', 1
