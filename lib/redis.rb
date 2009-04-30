@@ -23,7 +23,7 @@ class Redis
     @opts = {:host => 'localhost', :port => '6379', :db => 0}.merge(opts)
     $debug = @opts[:debug]
     @db = @opts[:db]
-    @server = Server.new(@opts[:host], @opts[:port])
+    @server = Server.new(@opts[:host], @opts[:port], (@opts[:timeout]||10))
   end
   
   def pipelined
