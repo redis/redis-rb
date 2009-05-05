@@ -46,7 +46,8 @@ class Redis
   
   def with_socket_management(server, &block)
     begin
-      block.call(server.socket)
+      socket = server.socket
+      block.call(socket)
     #Timeout or server down
     rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED => e
       server.close
