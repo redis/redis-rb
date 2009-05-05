@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.description = %q{Ruby client library for redis key value storage server}
   s.email = %q{ez@engineyard.com}
   s.extra_rdoc_files = ["LICENSE"]
-  s.files = ["LICENSE", "README.markdown", "Rakefile", "lib/redis.rb", "lib/dist_redis.rb", "lib/hash_ring.rb", "lib/server.rb", "lib/better_timeout.rb", "spec/redis_spec.rb", "spec/spec_helper.rb"]
+  s.files = ["LICENSE", "README.markdown", "Rakefile", "lib/redis.rb", "lib/dist_redis.rb", "lib/hash_ring.rb", "lib/pipeline.rb", "lib/server.rb", "spec/redis_spec.rb", "spec/spec_helper.rb"]
   s.has_rdoc = true
   s.homepage = %q{http://github.com/winescout/redis-rb}
   s.require_paths = ["lib"]
