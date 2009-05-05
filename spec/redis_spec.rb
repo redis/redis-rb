@@ -316,6 +316,15 @@ describe "redis" do
     @r.set_members('newone').should == Set.new(['key1','key3'])
     @r.delete('set')
   end
+  # 
+  it "should be able move elements from one set to another" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set2", 'key2'
+    @r.set_move("set", "set2", "key1").should == true
+    @r.set_member?("set2", "key1").should == true
+    @r.delete('set')
+  end
+  #
   it "should be able to do crazy SORT queries" do
     @r['dog_1'] = 'louie'
     @r.push_tail 'dogs', 1

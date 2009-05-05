@@ -375,6 +375,11 @@ class Redis
     get_response
   end
 
+  def set_move(srckey, destkey, member)
+    write "SMOVE #{srckey} #{destkey} #{member}\r\n"
+    get_response == 1
+  end
+
   def sort(key, opts={})
     cmd = "SORT #{key}"
     cmd << " BY #{opts[:by]}" if opts[:by]
