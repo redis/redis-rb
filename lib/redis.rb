@@ -46,9 +46,10 @@ class Redis
   
   def with_socket_management(server, &block)
     begin
-      block.call(server.socket)
+      socket = server.socket
+      block.call(socket)
     #Timeout or server down
-    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED => e
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED, Timeout::Error => e
       server.close
       puts "Client (#{server.inspect}) disconnected from server: #{e.inspect}\n" if $debug
       retry
@@ -375,6 +376,11 @@ class Redis
     get_response
   end
 
+  def set_move(srckey, destkey, member)
+    write "SMOVE #{srckey} #{destkey} #{member.to_s.size}\r\n#{member}\r\n"
+    get_response == 1
+  end
+
   def sort(key, opts={})
     cmd = "SORT #{key}"
     cmd << " BY #{opts[:by]}" if opts[:by]
@@ -484,10 +490,24 @@ class Redis
   end
   
   def read_socket
-    with_socket_management(@server) do |socket|
+    begin
+      socket = @server.socket
       while res = socket.read(8096)
         break if res.size != 8096
       end
+    #Timeout or server down
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED => e
+      server.close
+      puts "Client (#{server.inspect}) disconnected from server: #{e.inspect}\n" if $debug
+      retry
+    rescue Timeout::Error => e
+    #BTM - Ignore this error so we don't go into an endless loop
+      puts "Client (#{server.inspect}) Timeout\n" if $debug
+    #Server down
+    rescue NoMethodError => e
+      puts "Client (#{server.inspect}) tryin server that is down: #{e.inspect}\n Dying!" if $debug
+      raise Errno::ECONNREFUSED
+      #exit
     end
   end
   
