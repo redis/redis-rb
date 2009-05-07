@@ -1,3 +1,4 @@
+require 'monitor'
 ##
 # This class represents a redis server instance.
 
@@ -38,17 +39,25 @@ class Server
   # Create a new Redis::Server object for the redis instance
   # listening on the given host and port.
 
-  def initialize(host, port = DEFAULT_PORT, timeout = 10)
+  def initialize(host, port = DEFAULT_PORT, timeout = 10, size = 5)
     raise ArgumentError, "No host specified" if host.nil? or host.empty?
     raise ArgumentError, "No port specified" if port.nil? or port.to_i.zero?
 
     @host   = host
     @port   = port.to_i
 
-    @sock   = nil
     @retry  = nil
     @status = 'NOT CONNECTED'
     @timeout = timeout
+    @size = size
+    
+    @reserved_sockets = {}
+
+    @mutex = Monitor.new
+    @queue = @mutex.new_cond
+
+    @sockets = []
+    @checked_out = []
   end
 
   ##
@@ -62,29 +71,11 @@ class Server
   # Returns the connected socket object on success or nil on failure.
 
   def socket
-    return @sock if @sock and not @sock.closed?
-
-    @sock = nil
-
-    # If the host was dead, don't retry for a while.
-    return if @retry and @retry > Time.now
-
-    # Attempt to connect if not already connected.
-    begin
-      @sock = connect_to(@host, @port, @timeout)
-      @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
-      @retry  = nil
-      @status = 'CONNECTED'
-    rescue Errno::EPIPE, Errno::ECONNREFUSED => e
-      puts "Socket died... socket: #{@sock.inspect}\n" if $debug
-      @sock.close
-      retry
-    rescue SocketError, SystemCallError, IOError => err
-      puts "Unable to open socket: #{err.class.name}, #{err.message}" if $debug
-      mark_dead err
+    if socket = @reserved_sockets[current_connection_id]
+      socket
+    else
+      @reserved_sockets[current_connection_id] = checkout
     end
-
-    return @sock
   end
 
   def connect_to(host, port, timeout=nil)
@@ -107,22 +98,134 @@ class Server
   # object.  The server is not considered dead.
 
   def close
-    @sock.close if @sock && !@sock.closed?
-    @sock   = nil
-    @retry  = nil
+    @reserved_sockets.each do |name,sock|
+      checkin sock
+    end
+    @reserved_sockets = {}
+    @sockets.each do |sock|
+      sock.close
+    end
+    @sockets = []
     @status = "NOT CONNECTED"
   end
 
   ##
   # Mark the server as dead and close its socket.
-  def mark_dead(error)
-    @sock.close if @sock && !@sock.closed?
-    @sock   = nil
-    @retry  = Time.now #+ RETRY_DELAY
+  def mark_dead(sock, error)
+    sock.close if sock && !sock.closed?
+    sock   = nil
 
     reason = "#{error.class.name}: #{error.message}"
-    @status = sprintf "%s:%s DEAD (%s), will retry at %s", @host, @port, reason, @retry
+    @status = sprintf "%s:%s DEAD (%s)", @host, @port, reason
     puts @status
   end
 
+  protected
+    def new_socket
+      sock = nil
+      begin
+        sock = connect_to(@host, @port, @timeout)
+        sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
+        @status = 'CONNECTED'
+      rescue Errno::EPIPE, Errno::ECONNREFUSED => e
+        if sock
+          puts "Socket died... socket: #{sock.inspect}\n" if $debug
+          sock.close
+        end
+      rescue SocketError, SystemCallError, IOError => err
+        puts "Unable to open socket: #{err.class.name}, #{err.message}" if $debug
+        mark_dead sock, err
+      end
+
+      return sock
+    end
+
+    def checkout
+      @mutex.synchronize do
+        loop do
+          socket = if @checked_out.size < @sockets.size
+                   checkout_existing_socket
+                 elsif @sockets.size < @size
+                   checkout_new_socket
+                 end
+          return socket if socket
+          # No sockets available; wait for one
+          if @queue.wait(@timeout)
+            next
+          else
+            # try looting dead threads
+            clear_stale_cached_sockets!
+            if @size == @checked_out.size
+              raise RedisError, "could not obtain a socket connection#{" within #{@timeout} seconds" if @timeout}.  The max pool size is currently #{@size}; consider increasing it."
+            end
+          end
+        end
+      end
+    end
+
+    def checkin(socket)
+      @mutex.synchronize do
+        @checked_out.delete socket
+        @queue.signal
+      end
+    end
+
+    def checkout_new_socket
+      s = new_socket
+      @sockets << s
+      checkout_and_verify(s)
+    end
+
+    def checkout_existing_socket
+      s = (@sockets - @checked_out).first
+      checkout_and_verify(s)
+    end
+
+    def clear_stale_cached_sockets!
+      remove_stale_cached_threads!(@reserved_sockets) do |name, socket|
+        checkin socket
+      end
+    end
+
+    def remove_stale_cached_threads!(cache, &block)
+      keys = Set.new(cache.keys)
+
+      Thread.list.each do |thread|
+        keys.delete(thread.object_id) if thread.alive?
+      end
+      keys.each do |key|
+        next unless cache.has_key?(key)
+        block.call(key, cache[key])
+        cache.delete(key)
+      end
+    end
+
+  private
+    def current_connection_id #:nodoc:
+      Thread.current.object_id
+    end
+
+    def checkout_and_verify(s)
+      s = verify!(s)
+      @checked_out << s
+      s
+    end
+
+    def verify!(s)
+      reconnect!(s) unless active?(s)
+    end
+
+    def reconnect!(s)
+      s.close
+      connect_to(@host, @port, @timeout)
+    end
+
+    def active?(s)
+      begin
+        s.write("\0")
+        Timeout.timeout(0.1){ s.read }
+      rescue Exception
+        false
+      end
+    end
 end
