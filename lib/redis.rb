@@ -377,7 +377,7 @@ class Redis
   end
 
   def set_move(srckey, destkey, member)
-    write "SMOVE #{srckey} #{destkey} #{member}\r\n"
+    write "SMOVE #{srckey} #{destkey} #{member.to_s.size}\r\n#{member}\r\n"
     get_response == 1
   end
 
@@ -495,6 +495,8 @@ class Redis
         break if res.size != 8096
       end
     end
+  rescue Timeout::Error => e
+  #BTM - SystemTimer will raise this exception if a socket times out.
   end
   
   def read_proto
