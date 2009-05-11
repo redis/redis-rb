@@ -102,7 +102,16 @@ describe "redis" do
     lambda {@r.rename 'foo', 'bar'}.should raise_error(RedisRenameError)
     @r['bar'].should == 'ohai'
   end
-  # 
+  #
+  it "should be able to get DBSIZE of the database" do
+    @r.delete 'foo'
+    dbsize_without_foo = @r.dbsize
+    @r['foo'] = 0
+    dbsize_with_foo = @r.dbsize
+
+    dbsize_with_foo.should == dbsize_without_foo + 1
+  end
+  #
   it "should be able to EXPIRE a key" do
     @r['foo'] = 'bar'
     @r.expire('foo', 1)
