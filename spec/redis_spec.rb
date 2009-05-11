@@ -39,6 +39,19 @@ describe "redis" do
     @r['foo'].should == 'nik'
   end
   
+  it "should properly handle trailing newline characters" do
+    @r['foo'] = "bar\n"
+    @r['foo'].should == "bar\n"
+  end
+  
+  it "should store and retrieve all possible characters at the beginning and the end of a string" do
+    (0..255).each do |char_idx|
+      string = "#{char_idx.chr}---#{char_idx.chr}"
+      @r['foo'] = string
+      @r['foo'].should == string
+    end
+  end
+  
   it "should be able to SET a key with an expiry" do
     @r.set('foo', 'bar', 1)
     @r['foo'].should == 'bar'
@@ -89,7 +102,16 @@ describe "redis" do
     lambda {@r.rename 'foo', 'bar'}.should raise_error(RedisRenameError)
     @r['bar'].should == 'ohai'
   end
-  # 
+  #
+  it "should be able to get DBSIZE of the database" do
+    @r.delete 'foo'
+    dbsize_without_foo = @r.dbsize
+    @r['foo'] = 0
+    dbsize_with_foo = @r.dbsize
+
+    dbsize_with_foo.should == dbsize_without_foo + 1
+  end
+  #
   it "should be able to EXPIRE a key" do
     @r['foo'] = 'bar'
     @r.expire('foo', 1)

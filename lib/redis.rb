@@ -122,7 +122,7 @@ class Redis
   
   def bulk_reply
     begin
-      x = read.chomp
+      x = read
       puts "bulk_reply read value is #{x.inspect}" if $debug
       return x
     rescue => e
@@ -427,7 +427,12 @@ class Redis
     return expire(key, expiry) if s && expiry
     s
   end
-  
+
+  def dbsize
+    write("DBSIZE\r\n")
+    get_response
+  end
+
   def expire(key, expiry=nil)
     write("EXPIRE #{key} #{expiry}\r\n")
     get_response == 1
