@@ -241,13 +241,13 @@ class Redis
     get_response
   end
   
-  def push_tail(key, string)
-    write "RPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
+  def push_tail(key, val)
+    write "RPUSH #{key} #{value_to_wire(val)}\r\n"
     get_response
   end      
 
-  def push_head(key, string)
-    write "LPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
+  def push_head(key, val)
+    write "LPUSH #{key} #{value_to_wire(val)}\r\n"
     get_response
   end
   
@@ -262,7 +262,7 @@ class Redis
   end    
 
   def list_set(key, index, val)
-    write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
+    write "LSET #{key} #{index} #{value_to_wire(val)}\r\n"
     get_response == OK
   end
 
@@ -281,8 +281,8 @@ class Redis
     get_response
   end
 
-  def list_rm(key, count, value)
-    write "LREM #{key} #{count} #{value.to_s.size}\r\n#{value}\r\n"
+  def list_rm(key, count, val)
+    write "LREM #{key} #{count} #{value_to_wire(val)}\r\n"
     case num = get_response
     when -1
       raise RedisError, "key: #{key} does not exist"
@@ -294,7 +294,7 @@ class Redis
   end 
 
   def set_add(key, member)
-    write "SADD #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SADD #{key} #{value_to_wire(member)}\r\n"
     case get_response
     when 1
       true
@@ -306,7 +306,7 @@ class Redis
   end
 
   def set_delete(key, member)
-    write "SREM #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SREM #{key} #{value_to_wire(member)}\r\n"
     case get_response
     when 1
       true
@@ -328,7 +328,7 @@ class Redis
   end
 
   def set_member?(key, member)
-    write "SISMEMBER #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SISMEMBER #{key} #{value_to_wire(member)}\r\n"
     case get_response
     when 1
       true
@@ -375,7 +375,7 @@ class Redis
   end
 
   def set_move(srckey, destkey, member)
-    write "SMOVE #{srckey} #{destkey} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SMOVE #{srckey} #{destkey} #{value_to_wire(member)}\r\n"
     get_response == 1
   end
 
@@ -422,7 +422,7 @@ class Redis
   
 
   def set(key, val, expiry=nil)
-    write("SET #{key} #{val.to_s.size}\r\n#{val}\r\n")
+    write("SET #{key} #{value_to_wire(val)}\r\n")
     s = get_response == OK
     return expire(key, expiry) if s && expiry
     s
@@ -439,7 +439,7 @@ class Redis
   end
 
   def set_unless_exists(key, val)
-    write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
+    write "SETNX #{key} #{value_to_wire(val)}\r\n"
     get_response == 1
   end  
   
@@ -522,6 +522,17 @@ class Redis
         x.to_i
       end
     end
+  end
+
+  private
+  def value_to_wire(value)
+    value_str = value.to_s
+    if value_str.respond_to?(:bytesize)
+      value_size = value_str.bytesize
+    else
+      value_size = value_str.size
+    end
+    "#{value_size}\r\n#{value_str}"
   end
   
 end
