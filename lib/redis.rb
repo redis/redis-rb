@@ -387,7 +387,7 @@ class Redis
   def sort(key, opts={})
     cmd = "SORT #{key}"
     cmd << " BY #{opts[:by]}" if opts[:by]
-    cmd << " GET #{opts[:get]}" if opts[:get]
+    cmd << " GET #{[opts[:get]].flatten * ' GET '}" if opts[:get]
     cmd << " INCR #{opts[:incr]}" if opts[:incr]
     cmd << " DEL #{opts[:del]}" if opts[:del]
     cmd << " DECR #{opts[:decr]}" if opts[:decr]

@@ -359,6 +359,23 @@ describe "redis" do
     @r.sort('dogs', :get => 'dog_*', :limit => [0,1]).should == ['louie']
     @r.sort('dogs', :get => 'dog_*', :limit => [0,1], :order => 'desc alpha').should == ['taj']
   end
+
+  it "should be able to handle array of :get using SORT" do
+    @r['dog:1:name'] = 'louie'
+    @r['dog:1:breed'] = 'mutt'
+    @r.push_tail 'dogs', 1
+    @r['dog:2:name'] = 'lucy'
+    @r['dog:2:breed'] = 'poodle'
+    @r.push_tail 'dogs', 2
+    @r['dog:3:name'] = 'max'
+    @r['dog:3:breed'] = 'hound'
+    @r.push_tail 'dogs', 3
+    @r['dog:4:name'] = 'taj'
+    @r['dog:4:breed'] = 'terrier'
+    @r.push_tail 'dogs', 4
+    @r.sort('dogs', :get => ['dog:*:name', 'dog:*:breed'], :limit => [0,1]).should == ['louie', 'mutt']
+    @r.sort('dogs', :get => ['dog:*:name', 'dog:*:breed'], :limit => [0,1], :order => 'desc alpha').should == ['taj', 'terrier']
+  end
   # 
   it "should provide info" do
     [:last_save_time, :redis_version, :total_connections_received, :connected_clients, :total_commands_processed, :connected_slaves, :uptime_in_seconds, :used_memory, :uptime_in_days, :changes_since_last_save].each do |x|
