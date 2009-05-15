@@ -138,15 +138,6 @@ class Redis
     end
   end
   
-  def fetch(len)
-    with_socket_management(@server) do |socket|
-      len = [0, len.to_i].max
-      res = socket.read(len + 2)
-      res = res.chomp if res
-      res
-    end
-  end
-  
   def read(length = read_proto)
     with_socket_management(@server) do |socket|
       res = socket.read(length)
