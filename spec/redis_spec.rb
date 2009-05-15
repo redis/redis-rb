@@ -29,6 +29,9 @@ describe "redis" do
     @r.quit
   end  
 
+  it 'should be able to PING' do
+    @r.ping.should == true
+  end
 
   it "should be able to GET a key" do
     @r['foo'].should == 'bar'
