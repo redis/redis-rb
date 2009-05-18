@@ -25,12 +25,6 @@ end
 class Server
 
   ##
-  # The amount of time to wait before attempting to re-establish a
-  # connection with a server that is marked dead.
-
-  RETRY_DELAY = 30.0
-
-  ##
   # The host the redis server is running on.
 
   attr_reader :host
@@ -40,16 +34,6 @@ class Server
 
   attr_reader :port
   
-  ##
-  #
-  
-  attr_reader :replica
-
-  ##
-  # The time of next retry if the connection is dead.
-
-  attr_reader :retry
-
   ##
   # A text status string describing the state of the server.
 
@@ -67,7 +51,6 @@ class Server
     @port   = port.to_i
 
     @sock   = nil
-    @retry  = nil
     @status = 'NOT CONNECTED'
     @timeout = timeout
   end
@@ -87,14 +70,10 @@ class Server
 
     @sock = nil
 
-    # If the host was dead, don't retry for a while.
-    return if @retry and @retry > Time.now
-
     # Attempt to connect if not already connected.
     begin
       @sock = connect_to(@host, @port, @timeout)
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
-      @retry  = nil
       @status = 'CONNECTED'
     rescue Errno::EPIPE, Errno::ECONNREFUSED => e
       puts "Socket died... socket: #{@sock.inspect}\n" if $debug
@@ -102,7 +81,6 @@ class Server
       retry
     rescue SocketError, SystemCallError, IOError => err
       puts "Unable to open socket: #{err.class.name}, #{err.message}" if $debug
-      mark_dead err
     end
     @sock
   end
@@ -142,20 +120,7 @@ class Server
   def close
     @sock.close if @sock && !@sock.closed?
     @sock   = nil
-    @retry  = nil
     @status = "NOT CONNECTED"
-  end
-
-  ##
-  # Mark the server as dead and close its socket.
-  def mark_dead(error)
-    @sock.close if @sock && !@sock.closed?
-    @sock   = nil
-    @retry  = Time.now #+ RETRY_DELAY
-
-    reason = "#{error.class.name}: #{error.message}"
-    @status = sprintf "%s:%s DEAD (%s), will retry at %s", @host, @port, reason, @retry
-    puts @status
   end
 
 end
