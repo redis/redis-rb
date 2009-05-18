@@ -53,6 +53,8 @@ class Server
     @sock   = nil
     @status = 'NOT CONNECTED'
     @timeout = timeout
+
+    @observers = []
   end
 
   ##
@@ -73,6 +75,7 @@ class Server
       @sock = connect_to(@host, @port, @timeout)
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
       @status = 'CONNECTED'
+      notify_observers('CONNECTED')
     rescue Errno::EPIPE, Errno::ECONNREFUSED => e
       puts "Socket died... socket: #{e}\n" if $debug
       retry
@@ -110,9 +113,8 @@ class Server
     socket
   end
 
-  ##
   # Close the connection to the redis server targeted by this
-  # object.  The server is not considered dead.
+  # object. 
 
   def close
     @sock.close if !@sock.nil? && !@sock.closed?
@@ -120,10 +122,22 @@ class Server
     @status = "NOT CONNECTED"
   end
 
+  def add_observer(observer)
+    @observers << observer
+  end
+
+  def remove_observer(observer)
+    @observers.delete(observer)
+  end
+
   private
   def socket_alive?
     #BTM - TODO - FileStat is borked under JRuby...
     !@sock.nil? && !@sock.closed? && @sock.stat.readable?
+  end
+
+  def notify_observers(event)
+    @observers.each { |observer| observer.on_server_event(event) }
   end
 
 end

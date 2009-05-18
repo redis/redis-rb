@@ -24,6 +24,12 @@ class Redis
     $debug = @opts[:debug]
     @db = @opts[:db]
     @server = Server.new(@opts[:host], @opts[:port], (@opts[:timeout]||10))
+   @server.add_observer(self)
+ end
+
+  def on_server_event(event)
+    puts "on_server_event -> #{event}" if $debug
+    select_db(@db) if event == 'CONNECTED'
   end
   
   def pipelined
