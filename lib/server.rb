@@ -66,18 +66,15 @@ class Server
   # Returns the connected socket object on success or nil on failure.
 
   def socket
-    return @sock if @sock and not @sock.closed?
-
-    @sock = nil
-
+    return @sock if socket_alive?
+    close
     # Attempt to connect if not already connected.
     begin
       @sock = connect_to(@host, @port, @timeout)
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
       @status = 'CONNECTED'
     rescue Errno::EPIPE, Errno::ECONNREFUSED => e
-      puts "Socket died... socket: #{@sock.inspect}\n" if $debug
-      @sock.close
+      puts "Socket died... socket: #{e}\n" if $debug
       retry
     rescue SocketError, SystemCallError, IOError => err
       puts "Unable to open socket: #{err.class.name}, #{err.message}" if $debug
@@ -118,9 +115,15 @@ class Server
   # object.  The server is not considered dead.
 
   def close
-    @sock.close if @sock && !@sock.closed?
+    @sock.close if !@sock.nil? && !@sock.closed?
     @sock   = nil
     @status = "NOT CONNECTED"
+  end
+
+  private
+  def socket_alive?
+    #BTM - TODO - FileStat is borked under JRuby...
+    !@sock.nil? && !@sock.closed? && @sock.stat.readable?
   end
 
 end
