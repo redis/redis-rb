@@ -296,6 +296,7 @@ describe "redis" do
     @r.set_inter_store('newone', 'set', 'set2').should == 'OK'
     @r.set_members('newone').should == Set.new(['key2'])
     @r.delete('set')
+    @r.delete('set22')
   end
   #
   it "should be able to do set union" do
@@ -305,6 +306,7 @@ describe "redis" do
     @r.set_add "set2", 'key3'
     @r.set_union('set', 'set2').should == Set.new(['key1','key2','key3'])
     @r.delete('set')
+    @r.delete('set2')
   end
   # 
   it "should be able to do set union and store the results in a key" do
@@ -315,28 +317,29 @@ describe "redis" do
     @r.set_union_store('newone', 'set', 'set2').should == 'OK'
     @r.set_members('newone').should == Set.new(['key1','key2','key3'])
     @r.delete('set')
+    @r.delete('set2')
   end
-  
-  # these don't seem to be implemented in redis head?
-  # it "should be able to do set difference" do
-  #   @r.set_add "set", 'key1'
-  #   @r.set_add "set", 'key2'
-  #   @r.set_add "set2", 'key2'
-  #   @r.set_add "set2", 'key3'
-  #   @r.set_diff('set', 'set2').should == Set.new(['key1','key3'])
-  #   @r.delete('set')
-  # end
-  # # 
-  # it "should be able to do set difference and store the results in a key" do
-  #   @r.set_add "set", 'key1'
-  #   @r.set_add "set", 'key2'
-  #   @r.set_add "set2", 'key2'
-  #   @r.set_add "set2", 'key3'
-  #   count = @r.set_diff_store('newone', 'set', 'set2')
-  #   count.should == 3
-  #   @r.set_members('newone').should == Set.new(['key1','key3'])
-  #   @r.delete('set')
-  # end
+  # 
+  it "should be able to do set difference" do
+     @r.set_add "set", 'a'
+     @r.set_add "set", 'b'
+     @r.set_add "set2", 'b'
+     @r.set_add "set2", 'c'
+     @r.set_diff('set', 'set2').should == Set.new(['a'])
+     @r.delete('set')
+     @r.delete('set2')
+   end
+  # 
+  it "should be able to do set difference and store the results in a key" do
+     @r.set_add "set", 'a'
+     @r.set_add "set", 'b'
+     @r.set_add "set2", 'b'
+     @r.set_add "set2", 'c'
+     @r.set_diff_store('newone', 'set', 'set2')
+     @r.set_members('newone').should == Set.new(['a'])
+     @r.delete('set')
+     @r.delete('set2')
+   end
   # 
   it "should be able move elements from one set to another" do
     @r.set_add 'set1', 'a'
