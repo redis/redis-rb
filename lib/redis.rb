@@ -11,6 +11,7 @@ end
 class Redis
   ERR = "-".freeze
   OK = 'OK'.freeze
+  PONG = 'PONG'.freeze
   SINGLE = '+'.freeze
   BULK   = '$'.freeze
   MULTI  = '*'.freeze
@@ -83,6 +84,11 @@ class Redis
     write "QUIT\r\n"
   end
   
+  def ping
+    write "PING\r\n"
+    get_response == PONG
+  end
+
   def select_db(index)
     @db = index
     write "SELECT #{index}\r\n"
