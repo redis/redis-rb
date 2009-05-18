@@ -124,7 +124,7 @@ class Server
   end
 
   def connect_to(host, port, timeout=nil)
-    socket = TCPSocket.new(host, port, 0)
+    socket = TCPSocket.new(host, port)
     socket.set_encoding(Encoding::BINARY) if socket.respond_to?(:set_encoding)
     if timeout
       socket.instance_eval <<-EOR
