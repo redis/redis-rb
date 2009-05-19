@@ -46,9 +46,10 @@ class Redis
   
   def with_socket_management(server, &block)
     begin
-      block.call(server.socket)
+      socket = server.socket
+      block.call(socket)
     #Timeout or server down
-    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED => e
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED, Timeout::Error => e
       server.close
       puts "Client (#{server.inspect}) disconnected from server: #{e.inspect}\n" if $debug
       retry
@@ -89,13 +90,11 @@ class Redis
   end    
 
   def flush_all
-    ensure_retry do
-      puts "Warning!\nFlushing *ALL* databases!\n5 Seconds to Hit ^C!"
-      trap('INT') {quit; return false}
-      sleep 5
-      write "FLUSHALL\r\n"
-      get_response == OK
-    end
+    puts "Warning!\nFlushing *ALL* databases!\n5 Seconds to Hit ^C!"
+    trap('INT') {quit; return false}
+    sleep 5
+    write "FLUSHALL\r\n"
+    get_response == OK
   end
 
   def last_save
@@ -112,7 +111,7 @@ class Redis
    info = {}
    write("INFO\r\n")
    x = get_response
-   x.each do |kv|
+   x.each_line do |kv|
      k,v = kv.split(':', 2)
      k,v = k.chomp, v = v.chomp
      info[k.to_sym] = v
@@ -123,7 +122,7 @@ class Redis
   
   def bulk_reply
     begin
-      x = read.chomp
+      x = read
       puts "bulk_reply read value is #{x.inspect}" if $debug
       return x
     rescue => e
@@ -242,13 +241,13 @@ class Redis
     get_response
   end
   
-  def push_tail(key, string)
-    write "RPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
+  def push_tail(key, val)
+    write "RPUSH #{key} #{value_to_wire(val)}\r\n"
     get_response
   end      
 
-  def push_head(key, string)
-    write "LPUSH #{key} #{string.to_s.size}\r\n#{string.to_s}\r\n"
+  def push_head(key, val)
+    write "LPUSH #{key} #{value_to_wire(val)}\r\n"
     get_response
   end
   
@@ -263,7 +262,7 @@ class Redis
   end    
 
   def list_set(key, index, val)
-    write "LSET #{key} #{index} #{val.to_s.size}\r\n#{val}\r\n"
+    write "LSET #{key} #{index} #{value_to_wire(val)}\r\n"
     get_response == OK
   end
 
@@ -282,8 +281,8 @@ class Redis
     get_response
   end
 
-  def list_rm(key, count, value)
-    write "LREM #{key} #{count} #{value.to_s.size}\r\n#{value}\r\n"
+  def list_rm(key, count, val)
+    write "LREM #{key} #{count} #{value_to_wire(val)}\r\n"
     case num = get_response
     when -1
       raise RedisError, "key: #{key} does not exist"
@@ -295,7 +294,7 @@ class Redis
   end 
 
   def set_add(key, member)
-    write "SADD #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SADD #{key} #{value_to_wire(member)}\r\n"
     case get_response
     when 1
       true
@@ -307,7 +306,7 @@ class Redis
   end
 
   def set_delete(key, member)
-    write "SREM #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SREM #{key} #{value_to_wire(member)}\r\n"
     case get_response
     when 1
       true
@@ -329,7 +328,7 @@ class Redis
   end
 
   def set_member?(key, member)
-    write "SISMEMBER #{key} #{member.to_s.size}\r\n#{member}\r\n"
+    write "SISMEMBER #{key} #{value_to_wire(member)}\r\n"
     case get_response
     when 1
       true
@@ -375,6 +374,11 @@ class Redis
     get_response
   end
 
+  def set_move(srckey, destkey, member)
+    write "SMOVE #{srckey} #{destkey} #{value_to_wire(member)}\r\n"
+    get_response == 1
+  end
+
   def sort(key, opts={})
     cmd = "SORT #{key}"
     cmd << " BY #{opts[:by]}" if opts[:by]
@@ -418,19 +422,24 @@ class Redis
   
 
   def set(key, val, expiry=nil)
-    write("SET #{key} #{val.to_s.size}\r\n#{val}\r\n")
+    write("SET #{key} #{value_to_wire(val)}\r\n")
     s = get_response == OK
     return expire(key, expiry) if s && expiry
     s
   end
-  
+
+  def dbsize
+    write("DBSIZE\r\n")
+    get_response
+  end
+
   def expire(key, expiry=nil)
     write("EXPIRE #{key} #{expiry}\r\n")
     get_response == 1
   end
 
   def set_unless_exists(key, val)
-    write "SETNX #{key} #{val.to_s.size}\r\n#{val}\r\n"
+    write "SETNX #{key} #{value_to_wire(val)}\r\n"
     get_response == 1
   end  
   
@@ -484,10 +493,24 @@ class Redis
   end
   
   def read_socket
-    with_socket_management(@server) do |socket|
+    begin
+      socket = @server.socket
       while res = socket.read(8096)
         break if res.size != 8096
       end
+    #Timeout or server down
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNREFUSED => e
+      server.close
+      puts "Client (#{server.inspect}) disconnected from server: #{e.inspect}\n" if $debug
+      retry
+    rescue Timeout::Error => e
+    #BTM - Ignore this error so we don't go into an endless loop
+      puts "Client (#{server.inspect}) Timeout\n" if $debug
+    #Server down
+    rescue NoMethodError => e
+      puts "Client (#{server.inspect}) tryin server that is down: #{e.inspect}\n Dying!" if $debug
+      raise Errno::ECONNREFUSED
+      #exit
     end
   end
   
@@ -499,6 +522,17 @@ class Redis
         x.to_i
       end
     end
+  end
+
+  private
+  def value_to_wire(value)
+    value_str = value.to_s
+    if value_str.respond_to?(:bytesize)
+      value_size = value_str.bytesize
+    else
+      value_size = value_str.size
+    end
+    "#{value_size}\r\n#{value_str}"
   end
   
 end
