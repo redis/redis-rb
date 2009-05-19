@@ -416,4 +416,7 @@ describe "redis" do
     @r.pop_head('list').should == '42'
     @r.delete('list')
   end
+  
+  it "should select db on connection"
+  it "should re-select db on reconnection"
 end

@@ -70,12 +70,26 @@ class Server
     @retry  = nil
     @status = 'NOT CONNECTED'
     @timeout = timeout
+
+    @observers = []
   end
 
   ##
   # Return a string representation of the server object.
   def inspect
     "<Redis::Server: %s:%d (%s)>" % [@host, @port, @status]
+  end
+
+  ##
+  # Add an observer.
+  def add_observer(observer)
+    @observers << observer
+  end
+
+  ##
+  # Remove an observer.
+  def remove_observer(observer)
+    @observers.delete observer
   end
 
   ##
@@ -96,6 +110,7 @@ class Server
       @sock = connect_to(@host, @port, @timeout)
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
       @retry  = nil
+      notify_observers
       @status = 'CONNECTED'
     rescue Errno::EPIPE, Errno::ECONNREFUSED => e
       puts "Socket died... socket: #{@sock.inspect}\n" if $debug
@@ -161,5 +176,9 @@ class Server
   private
     def socket_active?
       @sock and not @sock.closed? and @sock.stat.readable?
+    end
+
+    def notify_observers
+      @observers.each { |observer| observer.after_connect }
     end
 end
