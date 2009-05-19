@@ -129,12 +129,11 @@ class Server
     socket
   end
 
-  ##
   # Close the connection to the redis server targeted by this
-  # object.  The server is not considered dead.
+  # object. 
 
   def close
-    @sock.close if @sock && !@sock.closed?
+    @sock.close if !@sock.nil? && !@sock.closed?
     @sock   = nil
     @status = "NOT CONNECTED"
   end

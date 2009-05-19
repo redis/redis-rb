@@ -3,11 +3,11 @@ require 'set'
 require File.join(File.dirname(__FILE__),'server')
 require File.join(File.dirname(__FILE__),'pipeline')
 
-
 class RedisError < StandardError
 end
 class RedisRenameError < StandardError
 end
+
 class Redis
   ERR = "-".freeze
   OK = 'OK'.freeze
@@ -27,7 +27,7 @@ class Redis
     @server = Server.new(@opts[:host], @opts[:port], (@opts[:timeout]||10))
     @server.add_observer self
   end
-  
+
   def pipelined
     pipeline = Pipeline.new(self)
     yield pipeline
@@ -39,7 +39,7 @@ class Redis
   end
 
   def to_s
-    "#{host}:#{port}"
+    "#{host}:#{port} -> #{@db}"
   end
   
   def port
@@ -83,7 +83,7 @@ class Redis
   def quit
     write "QUIT\r\n"
   end
-  
+
   def ping
     write "PING\r\n"
     get_response == PONG

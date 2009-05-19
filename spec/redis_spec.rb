@@ -29,7 +29,7 @@ describe "redis" do
     @r.quit
   end  
 
-  it "should respond to a PING" do
+  it 'should be able to PING' do
     @r.ping.should == true
   end
 
