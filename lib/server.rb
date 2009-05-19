@@ -83,8 +83,9 @@ class Server
   # Returns the connected socket object on success or nil on failure.
 
   def socket
-    return @sock if @sock and not @sock.closed?
+    return @sock if socket_active?
 
+    @sock.close rescue nil # TODO should we call #close instead?
     @sock = nil
 
     # If the host was dead, don't retry for a while.
@@ -157,4 +158,8 @@ class Server
     puts @status
   end
 
+  private
+    def socket_active?
+      @sock and not @sock.closed? and @sock.stat.readable?
+    end
 end
