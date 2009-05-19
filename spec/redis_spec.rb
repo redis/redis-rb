@@ -13,8 +13,8 @@ end
 
 describe "redis" do
   before(:all) do
-    @r = Redis.new
-    @r.select_db(15) # use database 15 for testing so we dont accidentally step on you real data
+    # use database 15 for testing so we dont accidentally step on you real data
+    @r = Redis.new :db => 15
   end
 
   before(:each) do

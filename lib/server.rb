@@ -53,8 +53,6 @@ class Server
     @sock   = nil
     @status = 'NOT CONNECTED'
     @timeout = timeout
-
-    @observers = []
   end
 
   ##
@@ -64,36 +62,19 @@ class Server
   end
 
   ##
-  # Add an observer.
-  def add_observer(observer)
-    @observers << observer
-  end
-
-  ##
-  # Remove an observer.
-  def remove_observer(observer)
-    @observers.delete observer
-  end
-
-  ##
   # Try to connect to the redis server targeted by this object.
   # Returns the connected socket object on success or nil on failure.
 
   def socket
-    return @sock if socket_active?
-
-    @sock.close rescue nil # TODO should we call #close instead?
-    @sock = nil
-
+    return @sock if socket_alive?
+    close
     # Attempt to connect if not already connected.
     begin
       @sock = connect_to(@host, @port, @timeout)
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
-      notify_observers
       @status = 'CONNECTED'
     rescue Errno::EPIPE, Errno::ECONNREFUSED => e
-      puts "Socket died... socket: #{@sock.inspect}\n" if $debug
-      @sock.close
+      puts "Socket died... : #{e}\n" if $debug
       retry
     rescue SocketError, SystemCallError, IOError => err
       puts "Unable to open socket: #{err.class.name}, #{err.message}" if $debug
@@ -106,10 +87,10 @@ class Server
     socket.set_encoding(Encoding::BINARY) if socket.respond_to?(:set_encoding)
     if timeout
       socket.instance_eval <<-EOR
-        alias :blocking_gets :gets
-        def gets(*args)
+        alias :blocking_readline :readline
+        def readline(*args)
           RedisTimer.timeout(#{timeout}) do
-            self.blocking_gets(*args)
+            self.blocking_readline(*args)
           end
         end
         alias :blocking_read :read
@@ -139,11 +120,12 @@ class Server
   end
 
   private
-    def socket_active?
-      @sock and not @sock.closed? and @sock.stat.readable?
-    end
-
-    def notify_observers
-      @observers.each { |observer| observer.after_connect }
+    def socket_alive?
+      #BTM - TODO - FileStat is borked under JRuby
+      unless defined?(JRUBY_VERSION)
+        !@sock.nil? &&  !@sock.closed? && @sock.stat.readable?
+      else 
+        !@sock.nil? &&  !@sock.closed?
+      end
     end
 end
