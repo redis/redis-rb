@@ -29,6 +29,9 @@ describe "redis" do
     @r.quit
   end  
 
+  it "should respond to a PING" do
+    @r.ping.should == true
+  end
 
   it "should be able to GET a key" do
     @r['foo'].should == 'bar'
@@ -296,7 +299,7 @@ describe "redis" do
     @r.set_inter_store('newone', 'set', 'set2').should == 'OK'
     @r.set_members('newone').should == Set.new(['key2'])
     @r.delete('set')
-    @r.delete('set22')
+    @r.delete('set2')
   end
   #
   it "should be able to do set union" do
