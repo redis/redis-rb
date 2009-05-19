@@ -377,7 +377,7 @@ class Redis
     unless ss.object_id == @socket.object_id
       @socket = ss
       puts "Socket changed, selecting DB" if $debug
-      unless command[0..6] == 'SELECT'
+      unless command[0...6] == 'SELECT'
       #BTM - Ugh- DRY but better than infinite recursion
         write("SELECT #{@db}\r\n") 
         get_response
