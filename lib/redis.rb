@@ -24,6 +24,7 @@ class Redis
     $debug = @opts[:debug]
     @db = @opts[:db]
     @server = Server.new(@opts[:host], @opts[:port], (@opts[:timeout]||10))
+    @server.add_observer self
   end
   
   def pipelined
@@ -31,7 +32,11 @@ class Redis
     yield pipeline
     pipeline.finish
   end
-  
+
+  def after_connect
+    select_db @db
+  end
+
   def to_s
     "#{host}:#{port}"
   end

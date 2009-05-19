@@ -18,4 +18,8 @@ describe "Server" do
       end
     end
   end
+
+  it "should have many observers" do
+    @server.instance_variable_get(:@observers).should be_kind_of(Array)
+  end
 end
