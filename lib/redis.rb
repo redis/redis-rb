@@ -87,10 +87,10 @@ class Redis
 
     def initialize(opts={})
         @host = opts[:host] || '127.0.0.1'
-        @port = opts[:port] || 6379
-        @db = opts[:db] || 0
-        @timeout = opts[:timeout] || 5
-        $debug = opts[:debug] || false
+        @port = (opts[:port] || 6379).to_i
+        @db = (opts[:db] || 0).to_i
+        @timeout = (opts[:timeout] || 5).to_i
+        $debug = opts[:debug]
         connect_to_server
     end
 
