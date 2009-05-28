@@ -14,6 +14,8 @@ rescue LoadError
 end
 
 class Redis
+    OK = "OK"
+
     BulkCommands = {
         "set"=>true, "setnx"=>true, "rpush"=>true, "lpush"=>true, "lset"=>true,
         "lrem"=>true, "sadd"=>true, "srem"=>true, "sismember"=>true,
@@ -197,7 +199,7 @@ class Redis
     end
 
     def set(key, value, expiry=nil)
-      s = call_command([:set, key, value]) == "OK"
+      s = call_command([:set, key, value]) == OK
       expire(key, expiry) if s && expiry
       s
     end
