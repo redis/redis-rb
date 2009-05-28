@@ -197,8 +197,9 @@ class Redis
     end
 
     def set(key, value, expiry=nil)
-      call_command([:set, key, value]) 
-      expire(key, expiry) unless expiry.nil?
+      s = call_command([:set, key, value]) == "OK"
+      expire(key, expiry) if s && expiry
+      s
     end
 
     def sort(key, opts={})
