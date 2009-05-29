@@ -21,34 +21,34 @@ class Redis
   DOLLAR   = "$".freeze
   ASTERISK = "*".freeze
 
-  BulkCommands = {
-    "set"       =>true,
-    "setnx"     =>true,
-    "rpush"     =>true,
-    "lpush"     =>true,
-    "lset"      =>true,
-    "lrem"      =>true,
-    "sadd"      =>true,
-    "srem"      =>true,
-    "sismember" =>true,
-    "echo"      =>true,
-    "getset"    =>true,
-    "smove"     =>true
+  BULK_COMMANDS = {
+    "set"       => true,
+    "setnx"     => true,
+    "rpush"     => true,
+    "lpush"     => true,
+    "lset"      => true,
+    "lrem"      => true,
+    "sadd"      => true,
+    "srem"      => true,
+    "sismember" => true,
+    "echo"      => true,
+    "getset"    => true,
+    "smove"     => true
   }
 
-  ConvertToBool = lambda{|r| r == 0 ? false : r}
+  BOOLEAN_PROCESSOR = lambda{|r| r == 0 ? false : r}
 
-  ReplyProcessor = {
-    "exists"    => ConvertToBool,
-    "sismember" => ConvertToBool,
-    "sadd"      => ConvertToBool,
-    "srem"      => ConvertToBool,
-    "smove"     => ConvertToBool,
-    "move"      => ConvertToBool,
-    "setnx"     => ConvertToBool,
-    "del"       => ConvertToBool,
-    "renamenx"  => ConvertToBool,
-    "expire"    => ConvertToBool,
+  REPLY_PROCESSOR = {
+    "exists"    => BOOLEAN_PROCESSOR,
+    "sismember" => BOOLEAN_PROCESSOR,
+    "sadd"      => BOOLEAN_PROCESSOR,
+    "srem"      => BOOLEAN_PROCESSOR,
+    "smove"     => BOOLEAN_PROCESSOR,
+    "move"      => BOOLEAN_PROCESSOR,
+    "setnx"     => BOOLEAN_PROCESSOR,
+    "del"       => BOOLEAN_PROCESSOR,
+    "renamenx"  => BOOLEAN_PROCESSOR,
+    "expire"    => BOOLEAN_PROCESSOR,
     "keys"      => lambda{|r| r.split(" ")},
     "info"      => lambda{|r|
       info = {}
@@ -60,7 +60,7 @@ class Redis
     }
   }
 
-  Aliases = {
+  ALIASES = {
     "flush_db"             => "flushdb",
     "flush_all"            => "flushall",
     "last_save"            => "lastsave",
@@ -175,8 +175,8 @@ class Redis
     argvv.each do |argv|
       bulk = nil
       argv[0] = argv[0].to_s.downcase
-      argv[0] = Aliases[argv[0]] if Aliases[argv[0]]
-      if BulkCommands[argv[0]] and argv.length > 1
+      argv[0] = ALIASES[argv[0]] if ALIASES[argv[0]]
+      if BULK_COMMANDS[argv[0]] and argv.length > 1
         bulk = argv[-1].to_s
         argv[-1] = bulk.length
       end
@@ -187,7 +187,7 @@ class Redis
     @sock.write(command)
 
     results = argvv.map do |argv|
-      processor = ReplyProcessor[argv[0]]
+      processor = REPLY_PROCESSOR[argv[0]]
       processor ? processor.call(read_reply) : read_reply
     end
 
