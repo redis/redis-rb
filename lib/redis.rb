@@ -14,7 +14,12 @@ rescue LoadError
 end
 
 class Redis
-    OK = "OK"
+    OK      = "OK".freeze
+    MINUS    = "-".freeze
+    PLUS     = "+".freeze
+    COLON    = ":".freeze
+    DOLLAR   = "$".freeze
+    ASTERISK = "*".freeze
 
     BulkCommands = {
         "set"=>true, "setnx"=>true, "rpush"=>true, "lpush"=>true, "lset"=>true,
@@ -255,19 +260,19 @@ class Redis
         raise Errno::ECONNRESET,"Connection lost" if !rtype
         line = @sock.gets
         case rtype
-        when "-"
-            raise "-"+line.strip
-        when "+"
+        when MINUS
+            raise MINUS + line.strip
+        when PLUS
             line.strip
-        when ":"
+        when COLON
             line.to_i
-        when "$"
+        when DOLLAR
             bulklen = line.to_i
             return nil if bulklen == -1
             data = @sock.read(bulklen)
             @sock.read(2) # CRLF
             data
-        when "*"
+        when ASTERISK
             objects = line.to_i
             return nil if bulklen == -1
             res = []
