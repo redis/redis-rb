@@ -153,11 +153,11 @@ class Redis
     # araise.
     connect_to_server if !@sock
     begin
-      raw_call_command(argv)
+      raw_call_command(argv.dup)
     rescue Errno::ECONNRESET
       @sock.close
       connect_to_server
-      raw_call_command(argv)
+      raw_call_command(argv.dup)
     end
   end
 
