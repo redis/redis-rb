@@ -54,3 +54,9 @@ task :make_spec do
     file.puts spec.to_ruby
   end
 end
+
+desc "Run all examples with RCov"
+Spec::Rake::SpecTask.new(:rcov) do |t|
+  t.spec_files = FileList['spec/**/*_spec.rb']
+  t.rcov = true
+end
