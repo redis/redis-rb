@@ -29,7 +29,11 @@ describe "redis" do
     @r.quit
   end  
 
-  it 'should be able to PING' do
+  it "should be able connect without a timeout" do
+    lambda { Redis.new :timeout => 0 }.should_not raise_error
+  end
+
+  it "should be able to PING" do
     @r.ping.should == 'PONG' 
   end
 
@@ -369,7 +373,11 @@ describe "redis" do
     @r.flushdb
     @r.keys('*').should == []
   end
-  # 
+  #
+  it "should raise exception when manually try to change the database" do
+    lambda { @r.select(0) }.should raise_error
+  end
+  #
   it "should be able to provide the last save time (LASTSAVE)" do
     savetime = @r.lastsave
     Time.at(savetime).class.should == Time
