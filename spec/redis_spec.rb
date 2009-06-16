@@ -416,8 +416,16 @@ describe "redis" do
     @r.bgsave.should == 'OK'
   end
   
-  it "should should be able to ECHO" do
+  it "should be able to ECHO" do
     @r.echo("message in a bottle\n").should == "message in a bottle\n"
+  end
+
+  it "should raise error when invoke MONITOR" do
+    lambda { @r.monitor }.should raise_error
+  end
+
+  it "should raise error when invoke SYNC" do
+    lambda { @r.sync }.should raise_error
   end
 
   it "should handle multiple servers" do

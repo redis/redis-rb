@@ -95,6 +95,11 @@ class Redis
     "type?"                => "type"
   }
 
+  DISABLED_COMMANDS = {
+    "monitor" => true,
+    "sync"    => true
+  }
+
   def initialize(options = {})
     @host    =  options[:host]    || '127.0.0.1'
     @port    = (options[:port]    || 6379).to_i
@@ -176,6 +181,7 @@ class Redis
       bulk = nil
       argv[0] = argv[0].to_s.downcase
       argv[0] = ALIASES[argv[0]] if ALIASES[argv[0]]
+      raise "#{argv[0]} command is disabled" if DISABLED_COMMANDS[argv[0]]
       if BULK_COMMANDS[argv[0]] and argv.length > 1
         bulk = argv[-1].to_s
         argv[-1] = bulk.length
