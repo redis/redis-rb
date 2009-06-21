@@ -161,6 +161,7 @@ class Redis
       raw_call_command(argv.dup)
     rescue Errno::ECONNRESET, Errno::EPIPE
       @sock.close
+      @sock = nil
       connect_to_server
       raw_call_command(argv.dup)
     end
