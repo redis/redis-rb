@@ -451,5 +451,12 @@ describe "redis" do
     @r.llen('list').should == 2
     @r.lpop('list').should == '42'
   end
+
+  it "should AUTH when connecting with a password" do
+    r = Redis.new(:password => 'secret')
+    r.stub!(:connect_to)
+    r.should_receive(:call_command).with(['auth', 'secret'])
+    r.connect_to_server
+  end
   
 end

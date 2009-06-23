@@ -106,6 +106,7 @@ class Redis
     @db      = (options[:db]      || 0).to_i
     @timeout = (options[:timeout] || 5).to_i
     $debug   =  options[:debug]
+    @password = options[:password]
     connect_to_server
   end
 
@@ -115,6 +116,7 @@ class Redis
 
   def connect_to_server
     @sock = connect_to(@host, @port, @timeout == 0 ? nil : @timeout)
+    call_command(["auth",@password]) if @password
     call_command(["select",@db]) unless @db == 0
   end
 
