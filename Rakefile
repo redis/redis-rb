@@ -6,10 +6,10 @@ require 'spec/rake/spectask'
 require 'tasks/redis.tasks'
 
 
-GEM = 'redis'
+GEM = 'redis-rb'
 GEM_NAME = 'redis'
 GEM_VERSION = '0.1'
-AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark']
+AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi']
 EMAIL = "ez@engineyard.com"
 HOMEPAGE = "http://github.com/ezmobius/redis-rb"
 SUMMARY = "Ruby client library for redis key value storage server"
