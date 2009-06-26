@@ -208,7 +208,7 @@ class Redis
   end
 
   def [](key)
-    get(key)
+    self.get(key)
   end
 
   def []=(key,value)
