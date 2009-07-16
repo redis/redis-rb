@@ -222,8 +222,8 @@ class Redis
   end
 
   def sort(key, options = {})
-    cmd = []
-    cmd << "SORT #{key}"
+    cmd = ["SORT"]
+    cmd << key
     cmd << "BY #{options[:by]}" if options[:by]
     cmd << "GET #{[options[:get]].flatten * ' GET '}" if options[:get]
     cmd << "#{options[:order]}" if options[:order]

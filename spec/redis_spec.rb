@@ -162,7 +162,7 @@ describe "redis" do
   it "should be able to return a random key (RANDOMKEY)" do
     3.times { @r.exists(@r.randomkey).should be_true }
   end
-  #BTM - TODO 
+  #
   it "should be able to check the TYPE of a key" do
     @r['foo'] = 'nik'
     @r.type('foo').should == "string"
@@ -352,16 +352,17 @@ describe "redis" do
   end
   #
   it "should be able to do crazy SORT queries" do
+    # The 'Dogs' is capitialized on purpose
     @r['dog_1'] = 'louie'
-    @r.rpush 'dogs', 1
+    @r.rpush 'Dogs', 1
     @r['dog_2'] = 'lucy'
-    @r.rpush 'dogs', 2
+    @r.rpush 'Dogs', 2
     @r['dog_3'] = 'max'
-    @r.rpush 'dogs', 3
+    @r.rpush 'Dogs', 3
     @r['dog_4'] = 'taj'
-    @r.rpush 'dogs', 4
-    @r.sort('dogs', :get => 'dog_*', :limit => [0,1]).should == ['louie']
-    @r.sort('dogs', :get => 'dog_*', :limit => [0,1], :order => 'desc alpha').should == ['taj']
+    @r.rpush 'Dogs', 4
+    @r.sort('Dogs', :get => 'dog_*', :limit => [0,1]).should == ['louie']
+    @r.sort('Dogs', :get => 'dog_*', :limit => [0,1], :order => 'desc alpha').should == ['taj']
   end
 
   it "should be able to handle array of :get using SORT" do
