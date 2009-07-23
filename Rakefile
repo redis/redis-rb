@@ -6,7 +6,7 @@ require 'spec/rake/spectask'
 require 'tasks/redis.tasks'
 
 
-GEM = 'redis-rb'
+GEM = 'redis'
 GEM_NAME = 'redis'
 GEM_VERSION = '0.1'
 AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi']
