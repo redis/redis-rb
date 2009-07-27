@@ -1,4 +1,5 @@
 require File.dirname(__FILE__) + '/spec_helper'
+require 'logger'
 
 class Foo
   attr_accessor :bar
@@ -31,6 +32,13 @@ describe "redis" do
 
   it "should be able connect without a timeout" do
     lambda { Redis.new :timeout => 0 }.should_not raise_error
+  end
+
+  it "should be able to provide a logger" do
+    log = StringIO.new
+    r = Redis.new :db => 15, :logger => Logger.new(log)
+    r.ping
+    log.string.should include("ping")
   end
 
   it "should be able to PING" do

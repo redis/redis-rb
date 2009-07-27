@@ -105,8 +105,10 @@ class Redis
     @port    = (options[:port]    || 6379).to_i
     @db      = (options[:db]      || 0).to_i
     @timeout = (options[:timeout] || 5).to_i
-    $debug   =  options[:debug]
     @password = options[:password]
+    @logger  =  options[:logger]
+    
+    @logger.info { self.to_s } if @logger
     connect_to_server
   end
 
@@ -154,11 +156,13 @@ class Redis
   end
 
   def call_command(argv)
-    puts argv.inspect if $debug
+    @logger.debug { argv.inspect } if @logger
+
     # this wrapper to raw_call_command handle reconnection on socket
     # error. We try to reconnect just one time, otherwise let the error
     # araise.
     connect_to_server if !@sock
+
     begin
       raw_call_command(argv.dup)
     rescue Errno::ECONNRESET, Errno::EPIPE
