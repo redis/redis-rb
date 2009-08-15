@@ -425,7 +425,7 @@ describe "redis" do
     @r['foo'] = 1000
     @r['bar'] = 2000
     @r.mapped_mget('foo', 'bar').should == { 'foo' => '1000', 'bar' => '2000'}
-    @r.mapped_mget('foo', 'bar', 'baz').should == { 'foo' => '1000', 'bar' => '2000'}
+    @r.mapped_mget('foo', 'baz', 'bar').should == { 'foo' => '1000', 'bar' => '2000'}
   end
 
   it "should bgsave" do

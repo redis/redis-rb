@@ -251,7 +251,8 @@ class Redis
   # keys to values.
   def mapped_mget(*keys)
     mget(*keys).inject({}) do |hash, value|
-      value.nil? ? hash : hash.merge(keys.shift => value)
+      key = keys.shift
+      value.nil? ? hash : hash.merge(key => value)
     end
   end
 
