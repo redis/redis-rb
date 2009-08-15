@@ -195,7 +195,7 @@ class Redis
       raise "#{argv[0]} command is disabled" if DISABLED_COMMANDS[argv[0]]
       if BULK_COMMANDS[argv[0]] and argv.length > 1
         bulk = argv[-1].to_s
-        argv[-1] = bulk.length
+        argv[-1] = bulk.respond_to?(:bytesize) ? bulk.bytesize : bulk.size
       end
       command << argv.join(' ') + "\r\n"
       command << bulk + "\r\n" if bulk
