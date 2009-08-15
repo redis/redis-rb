@@ -12,7 +12,7 @@ class DistRedis
 
     opts[:hosts].each do |h|
       host, port = h.split(':')
-      hosts << Redis.new(:host => host, :port => port, :db => db, :timeout => timeout, :db => db)
+      hosts << Redis.new(:host => host, :port => port, :db => db, :timeout => timeout)
     end
 
     @ring = HashRing.new hosts
