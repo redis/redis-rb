@@ -247,6 +247,14 @@ class Redis
     call_command(decrement ? ["decrby",key,decrement] : ["decr",key])
   end
 
+  # Similar to memcache.rb's #get_multi, returns a hash mapping
+  # keys to values.
+  def mapped_mget(*keys)
+    mget(*keys).inject({}) do |hash, value|
+      value.nil? ? hash : hash.merge(keys.shift => value)
+    end
+  end
+
   # Ruby defines a now deprecated type method so we need to override it here
   # since it will never hit method_missing
   def type(key)

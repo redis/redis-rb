@@ -421,6 +421,13 @@ describe "redis" do
     @r.mget('foo', 'bar', 'baz').should == ['1000', '2000', nil]
   end
 
+  it "should be able to mapped MGET keys" do
+    @r['foo'] = 1000
+    @r['bar'] = 2000
+    @r.mapped_mget('foo', 'bar').should == { 'foo' => '1000', 'bar' => '2000'}
+    @r.mapped_mget('foo', 'bar', 'baz').should == { 'foo' => '1000', 'bar' => '2000'}
+  end
+
   it "should bgsave" do
     @r.bgsave.should == 'OK'
   end
