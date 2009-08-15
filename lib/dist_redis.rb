@@ -56,6 +56,16 @@ class DistRedis
     on_each_node :quit
   end
 
+  def flush_all
+    on_each_node :flush_all
+  end
+  alias_method :flushall, :flush_all
+
+  def flush_db
+    on_each_node :flush_db
+  end
+  alias_method :flushdb, :flush_db
+
   def delete_cloud!
     @ring.nodes.each do |red|
       red.keys("*").each do |key|
