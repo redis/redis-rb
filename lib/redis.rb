@@ -36,7 +36,7 @@ class Redis
     "smove"     => true
   }
 
-  BOOLEAN_PROCESSOR = lambda{|r| r == 0 ? false : r}
+  BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
 
   REPLY_PROCESSOR = {
     "exists"    => BOOLEAN_PROCESSOR,
