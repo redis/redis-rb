@@ -107,13 +107,17 @@ class Redis
     @timeout = (options[:timeout] || 5).to_i
     @password = options[:password]
     @logger  =  options[:logger]
-    
+
     @logger.info { self.to_s } if @logger
     connect_to_server
   end
 
   def to_s
-    "Redis Client connected to #{@host}:#{@port} against DB #{@db}"
+    "Redis Client connected to #{server} against DB #{@db}"
+  end
+
+  def server
+    "#{@host}:#{@port}"
   end
 
   def connect_to_server
