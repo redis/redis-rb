@@ -39,29 +39,21 @@ class DistRedis
   end
 
   def keys(glob)
-    keyz = []
-    @ring.nodes.each do |red|
-      keyz.concat red.keys(glob)
+    @ring.nodes.map do |red|
+      red.keys(glob)
     end
-    keyz
   end
 
   def save
-    @ring.nodes.each do |red|
-      red.save
-    end
+    on_each_node :save
   end
 
   def bgsave
-    @ring.nodes.each do |red|
-      red.bgsave
-    end
+    on_each_node :bgsave
   end
 
   def quit
-    @ring.nodes.each do |red|
-      red.quit
-    end
+    on_each_node :quit
   end
 
   def delete_cloud!
@@ -69,6 +61,12 @@ class DistRedis
       red.keys("*").each do |key|
         red.delete key
       end
+    end
+  end
+
+  def on_each_node(command, *args)
+    @ring.nodes.each do |red|
+      red.send(command, *args)
     end
   end
 
