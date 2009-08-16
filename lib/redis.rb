@@ -36,7 +36,7 @@ class Redis
     "smove"     => true
   }
 
-  BOOLEAN_PROCESSOR = lambda{|r| r == 0 ? false : r}
+  BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
 
   REPLY_PROCESSOR = {
     "exists"    => BOOLEAN_PROCESSOR,
@@ -107,13 +107,17 @@ class Redis
     @timeout = (options[:timeout] || 5).to_i
     @password = options[:password]
     @logger  =  options[:logger]
-    
+
     @logger.info { self.to_s } if @logger
     connect_to_server
   end
 
   def to_s
-    "Redis Client connected to #{@host}:#{@port} against DB #{@db}"
+    "Redis Client connected to #{server} against DB #{@db}"
+  end
+
+  def server
+    "#{@host}:#{@port}"
   end
 
   def connect_to_server
@@ -241,6 +245,15 @@ class Redis
 
   def decr(key,decrement = nil)
     call_command(decrement ? ["decrby",key,decrement] : ["decr",key])
+  end
+
+  # Similar to memcache.rb's #get_multi, returns a hash mapping
+  # keys to values.
+  def mapped_mget(*keys)
+    mget(*keys).inject({}) do |hash, value|
+      key = keys.shift
+      value.nil? ? hash : hash.merge(key => value)
+    end
   end
 
   # Ruby defines a now deprecated type method so we need to override it here
