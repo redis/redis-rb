@@ -19,9 +19,7 @@ class DistRedis
   end
 
   def node_for_key(key)
-    if key =~ /\{(.*)?\}/
-      key = $1
-    end
+    key = $1 if key =~ /\{(.*)?\}/
     @ring.get_node(key)
   end
 

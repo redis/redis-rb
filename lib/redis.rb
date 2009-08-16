@@ -197,8 +197,8 @@ class Redis
         bulk = argv[-1].to_s
         argv[-1] = bulk.respond_to?(:bytesize) ? bulk.bytesize : bulk.size
       end
-      command << argv.join(' ') + "\r\n"
-      command << bulk + "\r\n" if bulk
+      command << "#{argv.join(' ')}\r\n"
+      command << "#{bulk}\r\n" if bulk
     end
 
     @sock.write(command)
