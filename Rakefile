@@ -31,7 +31,7 @@ spec = Gem::Specification.new do |s|
   s.files = %w(LICENSE README.markdown Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
 end
 
-task :default => ['redis:install', :spec]
+task :default => :spec
 
 desc "Run specs"
 Spec::Rake::SpecTask.new do |t|
