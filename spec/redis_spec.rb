@@ -1,4 +1,5 @@
 require File.dirname(__FILE__) + '/spec_helper'
+require 'redis/raketasks'
 require 'logger'
 
 class Foo
@@ -14,10 +15,16 @@ end
 
 describe "redis" do
   before(:all) do
+    result = RedisRunner.start_detached
+    raise("Could not start redis-server, aborting") unless result
+    
+    # yea, this sucks, but it seems like sometimes we try to connect too quickly w/o it
+    sleep 1 
+    
     # use database 15 for testing so we dont accidentally step on you real data
-    @r = Redis.new :db => 15
+    @r = Redis.new :db => 15 
   end
-
+  
   before(:each) do
     @r['foo'] = 'bar'
   end
@@ -27,7 +34,11 @@ describe "redis" do
   end
 
   after(:all) do
-    @r.quit
+    begin
+      @r.quit
+    ensure
+      RedisRunner.stop
+    end
   end
 
   it "should be able connect without a timeout" do

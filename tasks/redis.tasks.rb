@@ -1,4 +1,5 @@
 # Inspired by rabbitmq.rake the Redbox project at http://github.com/rick/redbox/tree/master
+require 'rake'
 require 'fileutils'
 require 'open-uri'
 
@@ -25,6 +26,10 @@ class RedisRunner
     puts 'Detach with Ctrl+\  Re-attach with rake redis:attach'
     sleep 3
     exec "dtach -A #{dtach_socket} redis-server #{redisconfdir}"
+  end
+  
+  def self.start_detached
+    system "dtach -n #{dtach_socket} redis-server #{redisconfdir}"
   end
   
   def self.attach
