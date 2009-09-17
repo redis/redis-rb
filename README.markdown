@@ -10,6 +10,8 @@ Redis is a key value store with some interesting features:
 
 See [redis on code.google.com](http://code.google.com/p/redis/wiki/README) for more information.
 
+See the build on [RunCodeRun](http://runcoderun.com/rsanheim/redis-rb)
+
 ## Dependencies
 
 1. rspec - 
