@@ -101,13 +101,14 @@ class Redis
   }
 
   def initialize(options = {})
-    @host    =  options[:host]    || '127.0.0.1'
-    @port    = (options[:port]    || 6379).to_i
-    @db      = (options[:db]      || 0).to_i
-    @timeout = (options[:timeout] || 5).to_i
-    @password = options[:password]
-    @logger  =  options[:logger]
-    @thread_safe = options[:thread_safe]
+    @host        =  options[:host]    || '127.0.0.1'
+    @port        = (options[:port]    || 6379).to_i
+    @db          = (options[:db]      || 0).to_i
+    @timeout     = (options[:timeout] || 5).to_i
+    @password    =  options[:password]
+    @logger      =  options[:logger]
+    @thread_safe =  options[:thread_safe]
+    @mutex = Mutex.new if @thread_safe
 
     @logger.info { self.to_s } if @logger
     connect_to_server
@@ -203,7 +204,7 @@ class Redis
     end
 
     results = if @thread_safe
-      with_mutex { process_command(command, argvv) }
+      @mutex.synchronize { process_command(command, argvv) }
     else
       process_command(command, argvv)
     end
@@ -217,11 +218,6 @@ class Redis
       processor = REPLY_PROCESSOR[argv[0]]
       processor ? processor.call(read_reply) : read_reply
     end
-  end
-
-  def with_mutex(&block)
-    @mutex ||= Mutex.new
-    @mutex.synchronize &block
   end
 
   def select(*args)
