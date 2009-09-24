@@ -201,7 +201,7 @@ class Redis
       command << "#{argv.join(' ')}\r\n"
       command << "#{bulk}\r\n" if bulk
     end
-    
+
     results = if @thread_safe
       with_mutex { process_command(command, argvv) }
     else
@@ -210,7 +210,7 @@ class Redis
 
     return pipeline ? results : results[0]
   end
-  
+
   def process_command(command, argvv)
     @sock.write(command)
     argvv.map do |argv|
@@ -218,7 +218,7 @@ class Redis
       processor ? processor.call(read_reply) : read_reply
     end
   end
-  
+
   def with_mutex(&block)
     @mutex ||= Mutex.new
     @mutex.synchronize &block
