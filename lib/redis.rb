@@ -108,6 +108,7 @@ class Redis
     @password = options[:password]
     @logger  =  options[:logger]
     @thread_safe = options[:thread_safe]
+    @mutex = Mutex.new if @thread_safe
 
     @logger.info { self.to_s } if @logger
     connect_to_server
@@ -202,12 +203,8 @@ class Redis
       command << "#{bulk}\r\n" if bulk
     end
     
-    results = if @thread_safe
-      with_mutex { process_command(command, argvv) }
-    else
-      process_command(command, argvv)
-    end
-
+    results = maybe_lock { process_command(command, argvv) }
+    
     return pipeline ? results : results[0]
   end
   
@@ -219,9 +216,12 @@ class Redis
     end
   end
   
-  def with_mutex(&block)
-    @mutex ||= Mutex.new
-    @mutex.synchronize &block
+  def maybe_lock(&block)
+    if @thread_safe
+      @mutex.synchronize &block
+    else
+      block.call
+    end
   end
 
   def select(*args)
