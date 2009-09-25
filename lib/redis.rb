@@ -207,7 +207,7 @@ class Redis
     
     return pipeline ? results : results[0]
   end
-  
+
   def process_command(command, argvv)
     @sock.write(command)
     argvv.map do |argv|

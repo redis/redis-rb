@@ -17,14 +17,14 @@ describe "redis" do
   before(:all) do
     result = RedisRunner.start_detached
     raise("Could not start redis-server, aborting") unless result
-    
+
     # yea, this sucks, but it seems like sometimes we try to connect too quickly w/o it
-    sleep 1 
-    
+    sleep 1
+
     # use database 15 for testing so we dont accidentally step on you real data
-    @r = Redis.new :db => 15 
+    @r = Redis.new :db => 15
   end
-  
+
   before(:each) do
     @r['foo'] = 'bar'
   end
