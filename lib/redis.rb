@@ -171,7 +171,7 @@ class Redis
 
     begin
       raw_call_command(argv.dup)
-    rescue Errno::ECONNRESET, Errno::EPIPE
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED
       @sock.close
       @sock = nil
       connect_to_server
