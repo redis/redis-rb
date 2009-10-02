@@ -479,6 +479,11 @@ describe "redis" do
     @r.lpop('list').should == '42'
   end
 
+  it "should do nothing when pipelining no commands" do
+    @r.pipelined do |pipeline|
+    end
+  end
+
   it "should AUTH when connecting with a password" do
     r = Redis.new(:password => 'secret')
     r.stub!(:connect_to)
