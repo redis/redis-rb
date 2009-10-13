@@ -111,7 +111,6 @@ class Redis
     @mutex = Mutex.new if @thread_safe
 
     @logger.info { self.to_s } if @logger
-    connect_to_server
   end
 
   def to_s
