@@ -37,7 +37,7 @@ class RedisRunner
   end
   
   def self.stop
-    sh 'echo "SHUTDOWN" | nc localhost 6379'
+    system 'echo "SHUTDOWN" | nc localhost 6379'
   end
 
 end
