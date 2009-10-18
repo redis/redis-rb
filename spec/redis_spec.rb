@@ -439,6 +439,22 @@ describe "redis" do
     @r.mapped_mget('foo', 'baz', 'bar').should == { 'foo' => '1000', 'bar' => '2000'}
   end
 
+  it "should be able to MSET values" do
+    @r.mset :key1 => "value1", :key2 => "value2"
+    @r['key1'].should == "value1"
+    @r['key2'].should == "value2"
+  end
+
+  it "should be able to MSETNX values" do
+    @r.msetnx :keynx1 => "valuenx1", :keynx2 => "valuenx2"
+    @r.mget('keynx1', 'keynx2').should == ["valuenx1", "valuenx2"]
+
+    @r["keynx1"] = "value1"
+    @r["keynx2"] = "value2"
+    @r.msetnx :keynx1 => "valuenx1", :keynx2 => "valuenx2"
+    @r.mget('keynx1', 'keynx2').should == ["value1", "value2"]
+  end
+
   it "should bgsave" do
     @r.bgsave.should == 'OK'
   end
