@@ -302,6 +302,13 @@ describe "redis" do
     @r.scard("set_pop").should == 1
   end
   #
+  it "should be able to return random key without delete the key from a set (SRANDMEMBER)" do
+    @r.sadd "set_srandmember", "key1"
+    @r.sadd "set_srandmember", "key2"
+    @r.srandmember("set_srandmember").should_not be_nil
+    @r.scard("set_srandmember").should == 2
+  end
+  #
   it "should be able count the members of a set (SCARD)" do
     @r.sadd "set", 'key1'
     @r.sadd "set", 'key2'
