@@ -295,6 +295,13 @@ describe "redis" do
     @r.smembers('set').should == ['key2']
   end
   #
+  it "should be able to return and remove random key from set (SPOP)" do
+    @r.sadd "set_pop", "key1"
+    @r.sadd "set_pop", "key2"
+    @r.spop("set_pop").should_not be_nil
+    @r.scard("set_pop").should == 1
+  end
+  #
   it "should be able count the members of a set (SCARD)" do
     @r.sadd "set", 'key1'
     @r.sadd "set", 'key2'
