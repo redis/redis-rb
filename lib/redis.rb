@@ -33,12 +33,15 @@ class Redis
     "sismember" => true,
     "echo"      => true,
     "getset"    => true,
-    "smove"     => true
+    "smove"     => true,
+    "zadd"      => true,
+    "zrem"      => true,
+    "zscore"    => true
   }
-
+  
   MULTI_BULK_COMMANDS = {
-    "mset"   => true,
-    "msetnx" => true
+    "mset"      => true,
+    "msetnx"    => true
   }
 
   BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
@@ -49,6 +52,8 @@ class Redis
     "sadd"      => BOOLEAN_PROCESSOR,
     "srem"      => BOOLEAN_PROCESSOR,
     "smove"     => BOOLEAN_PROCESSOR,
+    "zadd"      => BOOLEAN_PROCESSOR,
+    "zrem"      => BOOLEAN_PROCESSOR,
     "move"      => BOOLEAN_PROCESSOR,
     "setnx"     => BOOLEAN_PROCESSOR,
     "del"       => BOOLEAN_PROCESSOR,
@@ -97,7 +102,14 @@ class Redis
     "set_move"             => "smove",
     "set_unless_exists"    => "setnx",
     "rename_unless_exists" => "renamenx",
-    "type?"                => "type"
+    "type?"                => "type",
+    "zset_add"             => "zadd",
+    "zset_count"           => 'zcard',
+    "zset_range_by_score"  => 'zrangebyscore',
+    "zset_reverse_range"   => 'zrevrange',
+    "zset_range"           => 'zrange',
+    "zset_delete"          => 'zrem',
+    "zset_score"           => 'zscore'
   }
 
   DISABLED_COMMANDS = {

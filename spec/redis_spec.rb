@@ -415,6 +415,103 @@ describe "redis" do
     @r.sort('dogs', :get => ['dog:*:name', 'dog:*:breed'], :limit => [0,1], :order => 'desc alpha').should == ['taj', 'terrier']
   end
   #
+  it "should be able count the members of a zset" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.zset_add 'zset', 1, 'set'
+    @r.zset_count('zset').should == 1
+    @r.delete('set')
+    @r.delete('zset')
+  end
+  # 
+  it "should be able add members to a zset" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.zset_add 'zset', 1, 'set'
+    @r.zset_range('zset', 0, 1).should == ['set']
+    @r.zset_count('zset').should == 1
+    @r.delete('set')
+    @r.delete('zset')
+  end
+  # 
+  it "should be able delete members to a zset" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.type?('set').should == "set"
+    @r.set_add "set2", 'key3'
+    @r.set_add "set2", 'key4'
+    @r.type?('set2').should == "set"
+    @r.zset_add 'zset', 1, 'set'
+    @r.zset_count('zset').should == 1
+    @r.zset_add 'zset', 2, 'set2'
+    @r.zset_count('zset').should == 2
+    @r.zset_delete 'zset', 'set'
+    @r.zset_count('zset').should == 1
+    @r.delete('set')
+    @r.delete('set2')
+    @r.delete('zset')
+  end
+  # 
+  it "should be able to get a range of values from a zset" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key3'
+    @r.set_add "set2", 'key4'
+    @r.set_add "set3", 'key1'
+    @r.type?('set').should == 'set'
+    @r.type?('set2').should == 'set'
+    @r.type?('set3').should == 'set'
+    @r.zset_add 'zset', 1, 'set'
+    @r.zset_add 'zset', 2, 'set2'
+    @r.zset_add 'zset', 3, 'set3'
+    @r.zset_count('zset').should == 3
+    @r.zset_range('zset', 0, 3).should == ['set', 'set2', 'set3']
+    @r.delete('set')
+    @r.delete('set2')
+    @r.delete('set3')
+    @r.delete('zset')
+  end
+  # 
+  it "should be able to get a reverse range of values from a zset" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key3'
+    @r.set_add "set2", 'key4'
+    @r.set_add "set3", 'key1'
+    @r.type?('set').should == 'set'
+    @r.type?('set2').should == 'set'
+    @r.type?('set3').should == 'set'
+    @r.zset_add 'zset', 1, 'set'
+    @r.zset_add 'zset', 2, 'set2'
+    @r.zset_add 'zset', 3, 'set3'
+    @r.zset_count('zset').should == 3
+    @r.zset_reverse_range('zset', 0, 3).should == ['set3', 'set2', 'set']
+    @r.delete('set')
+    @r.delete('set2')
+    @r.delete('set3')
+    @r.delete('zset')
+  end
+  # 
+  it "should be able to get a range by score of values from a zset" do
+    @r.set_add "set", 'key1'
+    @r.set_add "set", 'key2'
+    @r.set_add "set2", 'key3'
+    @r.set_add "set2", 'key4'
+    @r.set_add "set3", 'key1'
+    @r.set_add "set4", 'key4'
+    @r.zset_add 'zset', 1, 'set'
+    @r.zset_add 'zset', 2, 'set2'
+    @r.zset_add 'zset', 3, 'set3'
+    @r.zset_add 'zset', 4, 'set4'
+    @r.zset_count('zset').should == 4
+    @r.zset_range_by_score('zset', 2, 3).should == ['set2', 'set3']
+    @r.delete('set')
+    @r.delete('set2')
+    @r.delete('set3')
+    @r.delete('set4')
+    @r.delete('zset')
+  end
+  
   it "should provide info (INFO)" do
     [:last_save_time, :redis_version, :total_connections_received, :connected_clients, :total_commands_processed, :connected_slaves, :uptime_in_seconds, :used_memory, :uptime_in_days, :changes_since_last_save].each do |x|
     @r.info.keys.should include(x)
