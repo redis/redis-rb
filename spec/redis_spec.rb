@@ -275,6 +275,22 @@ describe "redis" do
     @r.lrem('list', 1, 'hello').should == 1
     @r.lrange('list', 0, -1).should == ['goodbye']
   end
+  
+  it "should be able to pop values from a list and push them onto a temp list(LPOPPUSH)" do
+    @r.rpush "list", 'one'
+    @r.rpush "list", 'two'
+    @r.rpush "list", 'three'
+    @r.type('list').should == "list"
+    @r.llen('list').should == 3
+    @r.lrange('list',0,-1).should == ['one', 'two', 'three']
+    @r.lrange('tmp',0,-1).should == []
+    @r.lpoppush('list', 'tmp').should == 'three'
+    @r.lrange('tmp',0,-1).should == ['three']
+    @r.lpoppush('list', 'tmp').should == 'two'
+    @r.lrange('tmp',0,-1).should == ['two', 'three']
+    @r.lpoppush('list', 'tmp').should == 'one'
+    @r.lrange('tmp',0,-1).should == ['one','two','three']
+  end
   #
   it "should be able add members to a set (SADD)" do
     @r.sadd "set", 'key1'
