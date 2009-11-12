@@ -93,7 +93,11 @@ namespace :redis do
   task :download do
     sh 'rm -rf /tmp/redis/' if File.exists?("#{RedisRunner.redisdir}/.svn")
     sh 'git clone git://github.com/antirez/redis.git /tmp/redis' unless File.exists?(RedisRunner.redisdir)
-    sh "cd #{RedisRunner.redisdir} && git pull" if File.exists?("#{RedisRunner.redisdir}/.git")
+
+    if File.exists?("#{RedisRunner.redisdir}/.git")
+      arguments = ENV['COMMIT'].nil? ? "pull" : "reset --hard #{ENV['COMMIT']}"
+      sh "cd #{RedisRunner.redisdir} && git #{arguments}"
+    end
   end    
 
   desc "Open an IRb session"
