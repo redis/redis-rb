@@ -1,5 +1,3 @@
-require "redis"
-
 class Redis
   class Pipeline < Redis
     BUFFER_SIZE = 50_000

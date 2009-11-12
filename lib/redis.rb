@@ -31,7 +31,7 @@ class Redis
     "sadd"      => true,
     "srem"      => true,
     "sismember" => true,
-    "lpoppush"  => true,
+    "rpoplpush" => true,
     "echo"      => true,
     "getset"    => true,
     "smove"     => true,
