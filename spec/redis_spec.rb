@@ -275,7 +275,7 @@ describe "redis" do
     @r.lrem('list', 1, 'hello').should == 1
     @r.lrange('list', 0, -1).should == ['goodbye']
   end
-  
+
   it "should be able to pop values from a list and push them onto a temp list(RPOPLPUSH)" do
     @r.rpush "list", 'one'
     @r.rpush "list", 'two'
