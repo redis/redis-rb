@@ -4,3 +4,4 @@ rdsrv
 pkg/*
 coverage/*
 .idea
+*.gemspec

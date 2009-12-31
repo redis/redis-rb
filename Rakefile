@@ -25,7 +25,7 @@ spec = Gem::Specification.new do |s|
   s.authors = AUTHORS
   s.email = EMAIL
   s.homepage = HOMEPAGE
-  s.add_dependency "rspec"
+  s.add_development_dependency "rspec"
   s.require_path = 'lib'
   s.autorequire = GEM
   s.files = %w(LICENSE README.markdown Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
