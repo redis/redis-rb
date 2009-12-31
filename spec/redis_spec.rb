@@ -583,7 +583,7 @@ describe "redis" do
   end
 
   it "should bgsave" do
-    @r.bgsave.should == 'OK'
+    ['OK', 'Background saving started'].include?( @r.bgsave).should == true
   end
 
   it "should be able to ECHO" do

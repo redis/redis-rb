@@ -90,6 +90,9 @@ class HashRing
                     lower = idx + 1;
                 }
             }
+            if (upper < 0) {
+              upper = RARRAY_LEN(ary) - 1;
+            }
             return upper;
         }
         EOM
@@ -112,6 +115,10 @@ class HashRing
           else
             lower = idx + 1
           end
+        end
+        
+        if upper < 0
+          upper = ary.size - 1
         end
         return upper
       end
