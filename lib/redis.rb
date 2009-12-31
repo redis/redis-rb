@@ -130,6 +130,7 @@ class Redis
     @logger  =  options[:logger]
     @thread_safe = options[:thread_safe]
     @mutex = Mutex.new if @thread_safe
+    @sock = nil
 
     @logger.info { self.to_s } if @logger
   end
