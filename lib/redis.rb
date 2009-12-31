@@ -36,6 +36,7 @@ class Redis
     "getset"    => true,
     "smove"     => true,
     "zadd"      => true,
+    "zincrby"   => true,
     "zrem"      => true,
     "zscore"    => true
   }
@@ -105,12 +106,14 @@ class Redis
     "rename_unless_exists" => "renamenx",
     "type?"                => "type",
     "zset_add"             => "zadd",
-    "zset_count"           => 'zcard',
-    "zset_range_by_score"  => 'zrangebyscore',
-    "zset_reverse_range"   => 'zrevrange',
-    "zset_range"           => 'zrange',
-    "zset_delete"          => 'zrem',
-    "zset_score"           => 'zscore'
+    "zset_count"           => "zcard",
+    "zset_range_by_score"  => "zrangebyscore",
+    "zset_reverse_range"   => "zrevrange",
+    "zset_range"           => "zrange",
+    "zset_delete"          => "zrem",
+    "zset_score"           => "zscore",
+    "zset_incr_by"         => "zincrby",
+    "zset_increment_by"    => "zincrby"
   }
 
   DISABLED_COMMANDS = {
