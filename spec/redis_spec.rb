@@ -534,6 +534,8 @@ describe "redis" do
 
     @r.zscore("zset", "value2").should be_nil
     @r.zscore("unknown_zset", "value").should be_nil
+
+    @r.delete("zset")
   end
   #
   it "should be able to increment a range score of a zset (ZINCRBY)" do
@@ -552,6 +554,9 @@ describe "redis" do
     # attempt to update a key that's not a zset
     @r["i_am_not_a_zet"] = "value"
     lambda { @r.zincrby "i_am_not_a_zet", 23, "element" }.should raise_error
+
+    @r.delete("hackers")
+    @r.delete("i_am_not_a_zet")
   end
   #
   it "should provide info (INFO)" do
