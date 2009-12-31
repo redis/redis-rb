@@ -527,7 +527,25 @@ describe "redis" do
     @r.delete('set4')
     @r.delete('zset')
   end
-  
+  #
+  it "should be able to increment a range score of a zset (ZINCRBY)" do
+    # create a new zset
+    @r.zincrby "hackers", 1965, "Yukihiro Matsumoto"
+    @r.zscore("hackers", "Yukihiro Matsumoto").should == "1965"
+
+    # add a new element
+    @r.zincrby "hackers", 1912, "Alan Turing"
+    @r.zscore("hackers", "Alan Turing").should == "1912"
+
+    # update the score
+    @r.zincrby "hackers", 100, "Alan Turing" # yeah, we are making Turing a bit younger
+    @r.zscore("hackers", "Alan Turing").should == "2012"
+
+    # attempt to update a key that's not a zset
+    @r["i_am_not_a_zet"] = "value"
+    lambda { @r.zincrby "i_am_not_a_zet", 23, "element" }.should raise_error
+  end
+  #
   it "should provide info (INFO)" do
     [:last_save_time, :redis_version, :total_connections_received, :connected_clients, :total_commands_processed, :connected_slaves, :uptime_in_seconds, :used_memory, :uptime_in_days, :changes_since_last_save].each do |x|
     @r.info.keys.should include(x)

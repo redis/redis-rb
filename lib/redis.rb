@@ -36,6 +36,7 @@ class Redis
     "getset"    => true,
     "smove"     => true,
     "zadd"      => true,
+    "zincrby"   => true,
     "zrem"      => true,
     "zscore"    => true
   }
