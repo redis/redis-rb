@@ -77,7 +77,32 @@ class DistRedis
       red.send(command, *args)
     end
   end
+  
+  def mset()
+    
+  end
 
+  def mget(*keyz)
+    results = {}
+    kbn = keys_by_node(keyz)
+    kbn.each do |node, node_keyz| 
+      node.mapped_mget(*node_keyz).each do |k, v|
+        results[k] = v
+      end
+    end
+    keyz.flatten.map { |k| results[k] }
+  end
+ 
+  def keys_by_node(*keyz)
+    keyz.flatten.inject({}) do |kbn, k|
+      node = node_for_key(k)
+      next if kbn[node] && kbn[node].include?(k)
+      kbn[node] ||= []
+      kbn[node] << k 
+      kbn
+    end
+  end
+  
 end
 
 
