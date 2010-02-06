@@ -120,6 +120,11 @@ class Redis
     "sync"    => true
   }
 
+  BLOCKING_COMMANDS = {
+    "blpop" => true,
+    "brpop" => true
+  }
+  
   def initialize(options = {})
     @host    =  options[:host]    || '127.0.0.1'
     @port    = (options[:port]    || 6379).to_i
@@ -168,16 +173,7 @@ class Redis
     # to make sure a blocking read will return after the specified number
     # of seconds. This hack is from memcached ruby client.
     if timeout
-      secs   = Integer(timeout)
-      usecs  = Integer((timeout - secs) * 1_000_000)
-      optval = [secs, usecs].pack("l_2")
-      begin
-        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
-        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
-      rescue Exception => ex
-        # Solaris, for one, does not like/support socket timeouts.
-        @logger.info "Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}" if @logger
-      end
+      set_socket_timeout(sock, timeout)
     end
     sock
   end
@@ -246,11 +242,14 @@ class Redis
   end
 
   def process_command(command, argvv)
+    set_socket_timeout(@sock, 0) if requires_timeout_reset?(command)
     @sock.write(command)
     argvv.map do |argv|
       processor = REPLY_PROCESSOR[argv[0]]
       processor ? processor.call(read_reply) : read_reply
     end
+  ensure
+    set_socket_timeout(@sock, @timeout) if requires_timeout_reset?(command)
   end
   
   def maybe_lock(&block)
@@ -367,7 +366,28 @@ class Redis
   end
 
   private
+    def requires_timeout_reset?(command)
+      blocking?(command) && @timeout
+    end
+    
+    def blocking?(command)
+      command.match(/^(#{BLOCKING_COMMANDS.keys.join("|")})/)
+    end
+  
     def get_size(string)
       string.respond_to?(:bytesize) ? string.bytesize : string.size
+    end
+    
+    def set_socket_timeout(sock, timeout)
+      secs   = Integer(timeout)
+      usecs  = Integer((timeout - secs) * 1_000_000)
+      optval = [secs, usecs].pack("l_2")
+      begin
+        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
+        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
+      rescue Exception => ex
+        # Solaris, for one, does not like/support socket timeouts.
+        @logger.info "Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}" if @logger
+      end
     end
 end

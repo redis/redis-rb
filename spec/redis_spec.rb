@@ -665,4 +665,52 @@ describe "redis" do
     r.connect_to_server
   end
 
+  it "should be able to block on the tail of a list (BLPOP)" do
+    @r.lpush('blocking_queue', 'message')
+    @r.lpush('blocking_queue', 'another_message')
+    pid = Kernel.fork do
+      r = Redis.new(:db => 15)
+      sleep 0.3
+      r.lpush('blocking_queue', 'waiting_message')
+    end
+    @r.blpop('blocking_queue', 0.1).should == ['blocking_queue', 'another_message']
+    @r.blpop('blocking_queue', 0.1).should == ['blocking_queue', 'message']
+    @r.blpop('blocking_queue', 0.4).should == ['blocking_queue', 'waiting_message']
+    Process.wait(pid)
+  end
+  
+  it "should be able to block on the head of a list (BRPOP)" do
+    @r.rpush('blocking_queue', 'message')
+    @r.rpush('blocking_queue', 'another_message')
+    pid = Kernel.fork do
+      r = Redis.new(:db => 15)
+      sleep 0.3
+      r.rpush('blocking_queue', 'waiting_message')
+    end
+    @r.brpop('blocking_queue', 0.1).should == ['blocking_queue', 'another_message']
+    @r.brpop('blocking_queue', 0.1).should == ['blocking_queue', 'message']
+    @r.brpop('blocking_queue', 0.4).should == ['blocking_queue', 'waiting_message']
+    Process.wait(pid)
+  end
+  
+  it "should unset a configured timeout when using a blocking command" do
+    @r = Redis.new(:timeout => 1)
+    lambda {
+      @r.brpop('blocking_key', 2)
+    }.should_not raise_error(Errno::EAGAIN)
+  end
+  
+  it "should restore the timeout after the blocking command was run" do
+    @r.should_receive(:set_socket_timeout).with(instance_of(TCPSocket), 0)
+    @r.should_receive(:set_socket_timeout).with(instance_of(TCPSocket), 5)
+    @r.brpop('blocking_key', 1)
+  end
+  
+  it "should restore the timeout even if the command failed" do
+    @r.should_receive(:set_socket_timeout).with(instance_of(TCPSocket), 0)
+    @r.should_receive(:set_socket_timeout).with(instance_of(TCPSocket), 5)
+    lambda {
+      @r.brpop('blocking_key', nil)
+    }.should raise_error
+  end
 end
