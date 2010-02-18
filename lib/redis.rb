@@ -255,7 +255,7 @@ class Redis
   
   def maybe_lock(&block)
     if @thread_safe
-      @mutex.synchronize &block
+      @mutex.synchronize(&block)
     else
       block.call
     end
