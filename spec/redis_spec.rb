@@ -439,7 +439,7 @@ describe "redis" do
     @r.delete('set')
     @r.delete('zset')
   end
-  # 
+  #
   it "should be able add members to a zset" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
@@ -449,7 +449,7 @@ describe "redis" do
     @r.delete('set')
     @r.delete('zset')
   end
-  # 
+  #
   it "should be able delete members to a zset" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
@@ -467,7 +467,7 @@ describe "redis" do
     @r.delete('set2')
     @r.delete('zset')
   end
-  # 
+  #
   it "should be able to get a range of values from a zset" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
@@ -487,7 +487,7 @@ describe "redis" do
     @r.delete('set3')
     @r.delete('zset')
   end
-  # 
+  #
   it "should be able to get a reverse range of values from a zset" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'
@@ -507,7 +507,7 @@ describe "redis" do
     @r.delete('set3')
     @r.delete('zset')
   end
-  # 
+  #
   it "should be able to get a range by score of values from a zset" do
     @r.set_add "set", 'key1'
     @r.set_add "set", 'key2'

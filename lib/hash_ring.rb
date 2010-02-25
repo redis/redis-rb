@@ -18,7 +18,7 @@ class HashRing
       add_node(node)
     end
   end
-  
+
   # Adds a `node` to the hash ring (including a number of replicas).
   def add_node(node)
     @nodes << node
@@ -29,7 +29,7 @@ class HashRing
     end
     @sorted_keys.sort!
   end
-  
+
   def remove_node(node)
     @nodes.reject!{|n| n.to_s == node.to_s}
     @replicas.times do |i|
@@ -38,27 +38,27 @@ class HashRing
       @sorted_keys.reject! {|k| k == key}
     end
   end
-  
+
   # get the node in the hash ring for this key
   def get_node(key)
     get_node_pos(key)[0]
   end
-  
+
   def get_node_pos(key)
     return [nil,nil] if @ring.size == 0
     crc = Zlib.crc32(key)
     idx = HashRing.binary_search(@sorted_keys, crc)
     return [@ring[@sorted_keys[idx]], idx]
   end
-  
+
   def iter_nodes(key)
     return [nil,nil] if @ring.size == 0
     node, pos = get_node_pos(key)
     @sorted_keys[pos..-1].each do |k|
       yield @ring[k]
-    end  
+    end
   end
-  
+
   class << self
 
     # gem install RubyInline to use this code
@@ -116,7 +116,7 @@ class HashRing
             lower = idx + 1
           end
         end
-        
+
         if upper < 0
           upper = ary.size - 1
         end
@@ -132,4 +132,4 @@ end
 # p ring
 # #
 # p ring.get_node "kjhjkjlkjlkkh"
-# 
+#

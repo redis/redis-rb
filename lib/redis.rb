@@ -39,7 +39,7 @@ class Redis
     "zrem"      => true,
     "zscore"    => true
   }
-  
+
   MULTI_BULK_COMMANDS = {
     "mset"      => true,
     "msetnx"    => true
@@ -241,7 +241,7 @@ class Redis
       end
     end
     results = maybe_lock { process_command(command, argvv) }
-    
+
     return pipeline ? results : results[0]
   end
 
@@ -252,7 +252,7 @@ class Redis
       processor ? processor.call(read_reply) : read_reply
     end
   end
-  
+
   def maybe_lock(&block)
     if @thread_safe
       @mutex.synchronize(&block)
