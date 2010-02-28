@@ -665,4 +665,29 @@ describe "redis" do
     r.connect_to_server
   end
 
+  it "should run MULTI without a block" do
+    @r.multi
+    @r.get("key1").should == "QUEUED"
+  end
+
+  it "should run MULTI/EXEC with a block" do
+    @r.multi do
+      @r.set "key1", "value1"
+    end
+
+    @r.get("key1").should == "value1"
+
+    begin
+      @r.multi do
+        @r.set "key2", "value2"
+        raise "Some error"
+        @r.set "key3", "value3"
+      end
+    rescue
+    end
+
+    @r.get("key2").should be_nil
+    @r.get("key3").should be_nil
+  end
+
 end

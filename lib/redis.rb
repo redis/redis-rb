@@ -366,6 +366,25 @@ class Redis
     end
   end
 
+  def exec
+    # Need to override Kernel#exec.
+    call_command([:exec])
+  end
+
+  def multi(&block)
+    return super unless block_given?
+
+    multi
+
+    begin
+      yield
+      exec
+    rescue Exception => e
+      discard
+      raise e
+    end
+  end
+
   private
     def get_size(string)
       string.respond_to?(:bytesize) ? string.bytesize : string.size
