@@ -60,7 +60,6 @@ class Redis
     "del"       => BOOLEAN_PROCESSOR,
     "renamenx"  => BOOLEAN_PROCESSOR,
     "expire"    => BOOLEAN_PROCESSOR,
-    "keys"      => lambda{|r| r.split(" ")},
     "info"      => lambda{|r|
       info = {}
       r.each_line {|kv|
@@ -364,6 +363,25 @@ class Redis
       res
     else
       raise "Protocol error, got '#{rtype}' as initial reply byte"
+    end
+  end
+
+  def exec
+    # Need to override Kernel#exec.
+    call_command([:exec])
+  end
+
+  def multi(&block)
+    result = call_command [:multi]
+
+    return result unless block_given?
+
+    begin
+      yield(self)
+      exec
+    rescue Exception => e
+      discard
+      raise e
     end
   end
 
