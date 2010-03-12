@@ -42,7 +42,8 @@ class Redis
 
   MULTI_BULK_COMMANDS = {
     "mset"      => true,
-    "msetnx"    => true
+    "msetnx"    => true,
+    "keys"      => true
   }
 
   BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
@@ -286,6 +287,7 @@ class Redis
     cmd << "GET #{[options[:get]].flatten * ' GET '}" if options[:get]
     cmd << "#{options[:order]}" if options[:order]
     cmd << "LIMIT #{options[:limit].join(' ')}" if options[:limit]
+    cmd << "STORE #{options[:store]}" if options[:store]
     call_command(cmd)
   end
 

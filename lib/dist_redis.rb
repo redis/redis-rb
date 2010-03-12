@@ -36,10 +36,14 @@ class DistRedis
     end
   end
 
-  def keys(glob)
+  def node_keys(glob)
     @ring.nodes.map do |red|
       red.keys(glob)
     end
+  end
+
+  def keys(glob)
+    node_keys(glob).flatten
   end
 
   def save

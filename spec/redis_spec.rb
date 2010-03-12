@@ -430,6 +430,15 @@ describe "redis" do
     @r.sort('dogs', :get => ['dog:*:name', 'dog:*:breed'], :limit => [0,1]).should == ['louie', 'mutt']
     @r.sort('dogs', :get => ['dog:*:name', 'dog:*:breed'], :limit => [0,1], :order => 'desc alpha').should == ['taj', 'terrier']
   end
+
+  it "should be able to store a SORT result" do
+    @r.rpush 'colors', 'red'
+    @r.rpush 'colors', 'yellow'
+    @r.rpush 'colors', 'orange'
+    @r.rpush 'colors', 'green'
+    @r.sort('colors', :limit => [1,2], :order => 'desc alpha', :store => 'sorted.colors')
+    @r.lrange('sorted.colors', 0, -1).should == ['red', 'orange']
+  end
   #
   it "should be able count the members of a zset" do
     @r.set_add "set", 'key1'
@@ -640,6 +649,8 @@ describe "redis" do
     100.times do |idx|
       @r[idx].should == "foo#{idx}"
     end
+
+    @r.keys('*').sort.first.should == "0"
   end
 
   it "should be able to pipeline writes" do
