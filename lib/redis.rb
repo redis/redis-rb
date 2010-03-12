@@ -374,12 +374,12 @@ class Redis
   end
 
   def multi(&block)
-    return super unless block_given?
+    result = call_command [:multi]
 
-    multi
+    return result unless block_given?
 
     begin
-      yield
+      yield(self)
       exec
     rescue Exception => e
       discard
