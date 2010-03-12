@@ -42,8 +42,7 @@ class Redis
 
   MULTI_BULK_COMMANDS = {
     "mset"      => true,
-    "msetnx"    => true,
-    "keys"      => true
+    "msetnx"    => true
   }
 
   BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
