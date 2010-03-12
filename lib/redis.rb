@@ -43,7 +43,6 @@ class Redis
   MULTI_BULK_COMMANDS = {
     "mset"      => true,
     "msetnx"    => true,
-    "keys"      => true
   }
 
   BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
@@ -61,7 +60,6 @@ class Redis
     "del"       => BOOLEAN_PROCESSOR,
     "renamenx"  => BOOLEAN_PROCESSOR,
     "expire"    => BOOLEAN_PROCESSOR,
-    "keys"      => lambda{|r| r.split(" ")},
     "info"      => lambda{|r|
       info = {}
       r.each_line {|kv|
