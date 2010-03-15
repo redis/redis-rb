@@ -5,10 +5,12 @@ require 'date'
 require 'spec/rake/spectask'
 require 'tasks/redis.tasks'
 
+$:.unshift File.join(File.dirname(__FILE__), 'lib')
+require 'redis'
 
 GEM = 'redis'
 GEM_NAME = 'redis'
-GEM_VERSION = '0.1.1'
+GEM_VERSION = RedisRb::VERSION
 AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi']
 EMAIL = "ez@engineyard.com"
 HOMEPAGE = "http://github.com/ezmobius/redis-rb"

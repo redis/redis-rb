@@ -639,7 +639,7 @@ describe "redis" do
   end
 
   it "should handle multiple servers" do
-    require 'dist_redis'
+    require 'redis/dist_redis'
     @r = DistRedis.new(:hosts=> ['localhost:6379', '127.0.0.1:6379'], :db => 15)
 
     100.times do |idx|

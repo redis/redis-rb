@@ -5,3 +5,5 @@ pkg/*
 coverage/*
 .idea
 *.gemspec
+*.rdb
+*.swp

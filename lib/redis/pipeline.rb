@@ -1,5 +1,5 @@
-class Redis
-  class Pipeline < Redis
+module RedisRb
+  class Pipeline < Client
     BUFFER_SIZE = 50_000
 
     def initialize(redis)
