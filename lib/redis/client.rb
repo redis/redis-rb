@@ -119,6 +119,7 @@ module RedisRb
       @password = options[:password]
       @logger  =  options[:logger]
       @thread_safe = options[:thread_safe]
+      @binary_keys = options[:binary_keys]
       @mutex = Mutex.new if @thread_safe
       @sock = nil
 
@@ -203,7 +204,7 @@ module RedisRb
         argvv = [argvp]
       end
 
-      if MULTI_BULK_COMMANDS[argvv[0][0].to_s]
+      if @binary_keys or MULTI_BULK_COMMANDS[argvv[0][0].to_s]
         command = ""
         argvv.each do |argv|
           command << "*#{argv.size}\r\n"
