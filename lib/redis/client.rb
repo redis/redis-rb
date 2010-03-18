@@ -59,6 +59,13 @@ module RedisRb
           info[k.to_sym] = v
         }
         info
+      },
+      "keys"      => lambda{|r|
+        if r.is_a?(Array)
+            r
+        else
+            r.split(" ")
+        end
       }
     }
 
