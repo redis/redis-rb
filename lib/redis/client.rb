@@ -23,12 +23,18 @@ module RedisRb
       "zadd"      => true,
       "zincrby"   => true,
       "zrem"      => true,
-      "zscore"    => true
+      "zscore"    => true,
+      "zrank"     => true,
+      "zrevrank"  => true,
+      "hget"      => true,
+      "hdel"      => true,
+      "hexists"   => true
     }
 
     MULTI_BULK_COMMANDS = {
       "mset"      => true,
-      "msetnx"    => true
+      "msetnx"    => true,
+      "hset"      => true
     }
 
     BOOLEAN_PROCESSOR = lambda{|r| r == 1 }
@@ -190,26 +196,24 @@ module RedisRb
     end
 
     def raw_call_command(argvp)
-      pipeline = argvp[0].is_a?(Array)
-
-      unless pipeline
-        argvv = [argvp]
-      else
+      if argvp[0].is_a?(Array)
         argvv = argvp
+        pipeline = true
+      else
+        argvv = [argvp]
       end
 
-      if MULTI_BULK_COMMANDS[argvv.flatten[0].to_s]
-        # TODO improve this code
-        argvp   = argvv.flatten
-        values  = argvp.pop.to_a.flatten
-        argvp   = values.unshift(argvp[0])
-        command = ["*#{argvp.size}"]
-        argvp.each do |v|
-          v = v.to_s
-          command << "$#{get_size(v)}"
-          command << v
+      if MULTI_BULK_COMMANDS[argvv[0][0].to_s]
+        command = ""
+        argvv.each do |argv|
+          command << "*#{argv.size}\r\n"
+          argv.each{|a|
+            a = a.to_s
+            command << "$#{get_size(a)}\r\n"
+            command << a
+            command << "\r\n"
+          }
         end
-        command = command.map {|cmd| "#{cmd}\r\n"}.join
       else
         command = ""
         argvv.each do |argv|
