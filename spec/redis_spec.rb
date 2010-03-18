@@ -710,4 +710,8 @@ describe "redis" do
     @r.get("key1").should == "value1"
   end
 
+  it "can set and get hash values" do
+    @r.hset("rush", "signals", "1982").should == true
+    @r.hget("rush", "signals").should == "1982"
+  end
 end

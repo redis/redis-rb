@@ -52,6 +52,7 @@ module RedisRb
       "del"       => BOOLEAN_PROCESSOR,
       "renamenx"  => BOOLEAN_PROCESSOR,
       "expire"    => BOOLEAN_PROCESSOR,
+      "hset"      => BOOLEAN_PROCESSOR,
       "info"      => lambda{|r|
         info = {}
         r.each_line {|kv|
@@ -245,7 +246,7 @@ module RedisRb
     def process_command(command, argvv)
       @sock.write(command)
       argvv.map do |argv|
-        processor = REPLY_PROCESSOR[argv[0]]
+        processor = REPLY_PROCESSOR[argv[0].to_s]
         processor ? processor.call(read_reply) : read_reply
       end
     end
@@ -275,7 +276,7 @@ module RedisRb
       expire(key, expiry) if s && expiry
       s
     end
-    
+
     def mset(*args)
       hsh = args.pop if Hash === args.last
       if hsh
@@ -284,7 +285,7 @@ module RedisRb
         call_command(args.unshift(:mset))
       end
     end
-    
+
     def msetnx(*args)
       hsh = args.pop if Hash === args.last
       if hsh
