@@ -275,6 +275,24 @@ module RedisRb
       expire(key, expiry) if s && expiry
       s
     end
+    
+    def mset(*args)
+      hsh = args.pop if Hash === args.last
+      if hsh
+        call_command(hsh.to_a.flatten.unshift(:mset))
+      else
+        call_command(args.unshift(:mset))
+      end
+    end
+    
+    def msetnx(*args)
+      hsh = args.pop if Hash === args.last
+      if hsh
+        call_command(hsh.to_a.flatten.unshift(:msetnx))
+      else
+        call_command(args.unshift(:msetnx))
+      end
+    end
 
     def sort(key, options = {})
       cmd = ["SORT"]
