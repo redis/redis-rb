@@ -68,6 +68,9 @@ module RedisRb
         else
             r.split(" ")
         end
+      },
+      "hgetall"   => lambda{|r|
+        Hash[*r]
       }
     }
 

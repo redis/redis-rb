@@ -721,4 +721,32 @@ describe "redis" do
     @r.hdel("rush", "YYZ").should be_true
     @r.hexists("rush", "YYZ").should be_false
   end
+
+  describe "with some hash values" do
+    before(:each) do
+      @r.hset("rush", "permanent waves", "1980")
+      @r.hset("rush", "moving pictures", "1981")
+      @r.hset("rush", "signals", "1982")
+    end
+
+    it "can get the length of the hash" do
+      @r.hlen("rush").should == 3
+      @r.hlen("yyz").should be_zero
+    end
+
+    it "can get the keys and values of the hash" do
+      @r.hkeys("rush").should == ["permanent waves", "moving pictures", "signals"]
+      @r.hvals("rush").should == %w[1980 1981 1982]
+      @r.hvals("yyz").should be_empty
+    end
+
+    it "returns a hash for HGETALL" do
+      @r.hgetall("rush").should == {
+        "permanent waves" => "1980",
+        "moving pictures" => "1981",
+        "signals"         => "1982"
+      }
+      @r.hgetall("yyz").should == {}
+    end
+  end
 end
