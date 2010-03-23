@@ -711,7 +711,14 @@ describe "redis" do
   end
 
   it "can set and get hash values" do
-    @r.hset("rush", "signals", "1982").should == true
+    @r.hset("rush", "signals", "1982").should be_true
+    @r.hexists("rush", "signals").should be_true
     @r.hget("rush", "signals").should == "1982"
+  end
+
+  it "can delete hash values" do
+    @r.hset("rush", "YYZ", "1981")
+    @r.hdel("rush", "YYZ").should be_true
+    @r.hexists("rush", "YYZ").should be_false
   end
 end

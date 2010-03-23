@@ -53,6 +53,7 @@ module RedisRb
       "renamenx"  => BOOLEAN_PROCESSOR,
       "expire"    => BOOLEAN_PROCESSOR,
       "hset"      => BOOLEAN_PROCESSOR,
+      "hexists"   => BOOLEAN_PROCESSOR,
       "info"      => lambda{|r|
         info = {}
         r.each_line {|kv|
