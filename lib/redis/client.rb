@@ -28,7 +28,8 @@ module RedisRb
       "zrevrank"  => true,
       "hget"      => true,
       "hdel"      => true,
-      "hexists"   => true
+      "hexists"   => true,
+      "publish"   => true
     }
 
     MULTI_BULK_COMMANDS = {
@@ -134,6 +135,7 @@ module RedisRb
       @binary_keys = options[:binary_keys]
       @mutex = Mutex.new if @thread_safe
       @sock = nil
+      @pubsub = false
 
       @logger.info { self.to_s } if @logger
     end
@@ -242,8 +244,13 @@ module RedisRb
           command << "#{bulk}\r\n" if bulk
         end
       end
+      # When in Pub/Sub mode we don't read replies synchronously.
+      if @pubsub
+        @sock.write(command)
+        return true
+      end
+      # The normal command execution is reading and processing the reply.
       results = maybe_lock { process_command(command, argvv) }
-
       return pipeline ? results : results[0]
     end
 
@@ -404,6 +411,37 @@ module RedisRb
         discard
         raise e
       end
+    end
+
+    def subscribe(*classes)
+        # Sanity check, as our API is a bit tricky. You MUST call
+        # the top-level subscribe with a block, but you can NOT call
+        # the nested subscribe calls with a block, as all the messages
+        # are processed by the top level call.
+        if @pubsub == false and !block_given?
+            raise "You must pass a block to the top level subscribe call"
+        elsif @pubsub == true and block_given?
+            raise "Can't pass a block to nested subscribe calls"
+        elsif @pubsub == true
+            # This is a nested subscribe call without a block given.
+            # We just need to send the subscribe command and return asap.
+            call_command [:subscribe,*classes]
+            return true
+        end
+        @pubsub = true
+        call_command [:subscribe,*classes]
+        while true
+            r = read_reply
+            msg = {:type => r[0], :class => r[1], :data => r[2]}
+            yield(msg)
+            break if msg[:type] == "unsubscribe" and r[2] == 0
+        end
+        @pubsub = false
+    end
+
+    def unsubscribe(*classes)
+        call_command [:unsubscribe,*classes]
+        return true
     end
 
     private
