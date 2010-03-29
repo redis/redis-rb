@@ -239,7 +239,7 @@ module RedisRb
           command << "#{bulk}\r\n" if bulk
         end
       end
-      # When in Pub/Sub mode we don't read replies syncrhonosuly.
+      # When in Pub/Sub mode we don't read replies synchronously.
       if @pubsub
         @sock.write(command)
         return true
