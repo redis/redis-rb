@@ -391,10 +391,6 @@ class RedisTest < Test::Unit::TestCase
       assert_equal 1, @r.llen("foo")
     end
 
-    test "BLPOP"
-
-    test "BRPOP"
-
     test "RPOPLPUSH" do
       @r.rpush "foo", "s1"
       @r.rpush "foo", "s2"
@@ -404,6 +400,53 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "s1", @r.rpoplpush("foo", "bar")
       assert_equal ["s1", "s2"], @r.lrange("bar", 0, -1)
     end
+  end
+
+  context "Blocking commands" do
+    test "BLPOP blocks on the tail of a list" do
+      @r.lpush('blocking_queue', 'message')
+      @r.lpush('blocking_queue', 'another_message')
+
+      t = Thread.new do
+        r = Redis.new(:db => 15)
+        sleep 0.3
+        r.lpush('blocking_queue', 'waiting_message')
+      end
+
+      assert_equal @r.blpop('blocking_queue', 0.1), ['blocking_queue', 'another_message']
+      assert_equal @r.blpop('blocking_queue', 0.1), ['blocking_queue', 'message']
+      assert_equal @r.blpop('blocking_queue', 0.4), ['blocking_queue', 'waiting_message']
+
+      t.join
+    end
+
+    test "BRPOP blocks on the head of a list" do
+      @r.rpush('blocking_queue', 'message')
+      @r.rpush('blocking_queue', 'another_message')
+
+      t = Thread.new do
+        r = Redis.new(:db => 15)
+        sleep 0.3
+        r.rpush('blocking_queue', 'waiting_message')
+      end
+
+      assert_equal @r.brpop('blocking_queue', 0.1), ['blocking_queue', 'another_message']
+      assert_equal @r.brpop('blocking_queue', 0.1), ['blocking_queue', 'message']
+      assert_equal @r.brpop('blocking_queue', 0.4), ['blocking_queue', 'waiting_message']
+
+      t.join
+    end
+
+    test "BRPOP should unset a configured socket timeout" do
+      @r = Redis.new(:timeout => 1)
+      assert_nothing_raised do
+        @r.brpop('blocking_key', 2)
+      end # Errno::EAGAIN raised if socket times out before redis command times out
+    end
+
+    test "BRPOP should restore the timeout after the command is run"
+
+    test "BRPOP should restore the timeout even if the command fails"
   end
 
   context "Commands operating on sets" do
