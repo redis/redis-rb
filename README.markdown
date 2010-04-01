@@ -1,36 +1,34 @@
 # redis-rb
 
-A ruby client library for the redis key value storage system.
+A Ruby client library for the [Redis](http://code.google.com/p/redis) key-value storage system.
 
-## Information about redis
+## Information about Redis
 
-Redis is a key value store with some interesting features:
+Redis is a key-value store with some interesting features:
+
 1. It's fast.
-2. Keys are strings but values can have types of "NONE", "STRING", "LIST",  or "SET".  List's can be atomically push'd, pop'd, lpush'd, lpop'd and indexed.  This allows you to store things like lists of comments under one key while retaining the ability to append comments without reading and putting back the whole list.
+2. Keys are strings but values are typed. Currently Redis supports strings, lists, sets and hashes. [Atomic operations](http://code.google.com/p/redis/wiki/CommandReference) can be done on all of these types.
 
-See [redis on code.google.com](http://code.google.com/p/redis/wiki/README) for more information.
+See [the Redis homepage](http://code.google.com/p/redis/wiki/README) for more information.
 
-See the build on [RunCodeRun](http://runcoderun.com/rsanheim/redis-rb)
+## Contributing
 
-## Dependencies
+See the build on [RunCodeRun](http://runcoderun.com/rsanheim/redis-rb).
 
-1. rspec - 
+If you would like to submit patches, you'll need the following for your development environment:
+
+1. RSpec
+
 		sudo gem install rspec
 
-2. redis - 
+2. Redis
 
 		rake redis:install
 
-2. dtach - 
+3. dtach
 
 		rake dtach:install
 
-3. git - git is the new black.
-
-## Setup
-
-Use the tasks mentioned above (in Dependencies) to get your machine setup.
-
 ## Examples
 
-Check the examples/ directory.  *Note* you need to have redis-server running first.
+Check the `examples/` directory. You'll need to have an instance of `redis-server` running before running the examples.
