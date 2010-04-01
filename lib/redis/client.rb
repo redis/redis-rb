@@ -233,8 +233,11 @@ module RedisRb
         command = ""
         argvv.each do |argv|
           bulk = nil
-          argv[0] = argv[0].to_s.downcase
-          argv[0] = ALIASES[argv[0]] if ALIASES[argv[0]]
+          argv[0] = argv[0].to_s
+          if ALIASES[argv[0]]
+            $stderr.puts "\nredis: The method #{argv[0]} is deprecated. Use #{ALIASES[argv[0]]} instead (in #{caller[4]})"
+            argv[0] = ALIASES[argv[0]]
+          end
           raise "#{argv[0]} command is disabled" if DISABLED_COMMANDS[argv[0]]
           if BULK_COMMANDS[argv[0]] and argv.length > 1
             bulk = argv[-1].to_s
@@ -283,9 +286,9 @@ module RedisRb
     end
 
     def set(key, value, expiry=nil)
-      s = call_command([:set, key, value]) == OK
-      expire(key, expiry) if s && expiry
-      s
+      reply = call_command([:set, key, value])
+      expire(key, expiry) if reply == OK and expiry
+      reply
     end
 
     def mset(*args)

@@ -1,8 +1,6 @@
 require 'rubygems'
 require 'rake/gempackagetask'
-require 'rubygems/specification'
-require 'date'
-require 'spec/rake/spectask'
+require 'rake/testtask'
 require 'tasks/redis.tasks'
 
 $:.unshift File.join(File.dirname(__FILE__), 'lib')
@@ -33,12 +31,10 @@ spec = Gem::Specification.new do |s|
   s.files = %w(LICENSE README.markdown Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
 end
 
-task :default => :spec
+task :default => :test
 
-desc "Run specs"
-Spec::Rake::SpecTask.new do |t|
-  t.spec_files = FileList['spec/**/*_spec.rb']
-  t.spec_opts = %w(-fs --color)
+Rake::TestTask.new(:test) do |t|
+  t.pattern = 'test/**/*_test.rb'
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|
@@ -51,14 +47,8 @@ task :install => [:package] do
 end
 
 desc "create a gemspec file"
-task :make_spec do
+task :gemspec do
   File.open("#{GEM}.gemspec", "w") do |file|
     file.puts spec.to_ruby
   end
-end
-
-desc "Run all examples with RCov"
-Spec::Rake::SpecTask.new(:rcov) do |t|
-  t.spec_files = FileList['spec/**/*_spec.rb']
-  t.rcov = true
 end
