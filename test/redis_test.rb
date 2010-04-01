@@ -3,7 +3,7 @@ require "logger"
 
 class RedisTest < Test::Unit::TestCase
   setup do
-    @r ||= Redis.new(:port => 6379, :db => 15, :timeout => 3)
+    @r = Redis.new(:port => 6379, :db => 15, :timeout => 3)
 
     begin
       @r.flushdb
@@ -370,11 +370,9 @@ class RedisTest < Test::Unit::TestCase
       assert_equal 1, @r.llen("foo")
     end
 
-    test "BLPOP" do
-    end
+    test "BLPOP"
 
-    test "BRPOP" do
-    end
+    test "BRPOP"
 
     test "RPOPLPUSH" do
       @r.rpush "foo", "s1"
@@ -555,11 +553,9 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "11", @r.zscore("foo", "s1")
     end
 
-    test "ZRANK" do
-    end
+    test "ZRANK"
 
-    test "ZREVRANK" do
-    end
+    test "ZREVRANK"
 
     test "ZRANGE" do
       @r.zadd "foo", 1, "s1"
@@ -604,43 +600,31 @@ class RedisTest < Test::Unit::TestCase
       assert_nil @r.zscore("bar", "s1")
     end
 
-    test "ZREMRANGEBYRANK" do
-    end
+    test "ZREMRANGEBYRANK"
 
-    test "ZREMRANGEBYSCORE" do
-    end
+    test "ZREMRANGEBYSCORE"
 
-    test "ZUNION" do
-    end
+    test "ZUNION"
 
-    test "ZINTER" do
-    end
+    test "ZINTER"
   end
 
   context "Commands operating on hashes" do
-    test "HSET" do
-    end
+    test "HSET"
 
-    test "HGET" do
-    end
+    test "HGET"
 
-    test "HDEL" do
-    end
+    test "HDEL"
 
-    test "HEXISTS" do
-    end
+    test "HEXISTS"
 
-    test "HLEN" do
-    end
+    test "HLEN"
 
-    test "HKEYS" do
-    end
+    test "HKEYS"
 
-    test "HVALS" do
-    end
+    test "HVALS"
 
-    test "HGETALL" do
-    end
+    test "HGETALL"
   end
 
   context "Sorting" do
@@ -723,11 +707,9 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Publish/Subscribe" do
-    test "SUBSCRIBE" do
-    end
+    test "SUBSCRIBE"
 
-    test "UNSUBSCRIBE" do
-    end
+    test "UNSUBSCRIBE"
   end
 
   context "Persistence control commands" do

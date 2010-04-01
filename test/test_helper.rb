@@ -48,6 +48,7 @@ class Test::Unit::TestCase
   end
 
   def self.test(name, &block)
+    block ||= lambda { print "P" }
     define_method(test_name(name), &block)
   end
 
