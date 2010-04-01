@@ -1,4 +1,4 @@
-module RedisRb
+class Redis
   class Client
     OK      = "OK".freeze
     MINUS    = "-".freeze

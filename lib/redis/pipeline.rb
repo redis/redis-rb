@@ -1,4 +1,4 @@
-module RedisRb
+class Redis
   class Pipeline < Client
     BUFFER_SIZE = 50_000
 
@@ -16,6 +16,5 @@ module RedisRb
       @redis.call_command(@commands)
       @commands.clear
     end
-
   end
 end

@@ -1,6 +1,6 @@
 require 'redis/hash_ring'
 
-module RedisRb
+class Redis
   class DistRedis
     attr_reader :ring
     def initialize(opts={})
@@ -111,4 +111,4 @@ module RedisRb
 end
 
 # For backwards compatibility
-DistRedis = RedisRb::DistRedis
+DistRedis = Redis::DistRedis
