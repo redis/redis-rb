@@ -15,19 +15,9 @@ See [the Redis homepage](http://code.google.com/p/redis/wiki/README) for more in
 
 See the build on [RunCodeRun](http://runcoderun.com/rsanheim/redis-rb).
 
-If you would like to submit patches, you'll need the following for your development environment:
-
-1. RSpec
-
-		sudo gem install rspec
-
-2. Redis
+If you would like to submit patches, you'll need Redis in your development environment:
 
 		rake redis:install
-
-3. dtach
-
-		rake dtach:install
 
 ## Examples
 
