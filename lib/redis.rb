@@ -11,13 +11,13 @@ end
 begin
   if RUBY_VERSION >= '1.9'
     require 'timeout'
-    Redis::RedisTimer = Timeout
+    Redis::Timer = Timeout
   else
     require 'system_timer'
-    Redis::RedisTimer = SystemTimer
+    Redis::Timer = SystemTimer
   end
 rescue LoadError
-  Redis::RedisTimer = nil
+  Redis::Timer = nil
 end
 
 require 'redis/client'

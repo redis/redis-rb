@@ -158,7 +158,7 @@ class Redis
       # We support connect() timeout only if system_timer is availabe
       # or if we are running against Ruby >= 1.9
       # Timeout reading from the socket instead will be supported anyway.
-      if @timeout != 0 and RedisTimer
+      if @timeout != 0 and Timer
         begin
           sock = TCPSocket.new(host, port)
         rescue Timeout::Error
