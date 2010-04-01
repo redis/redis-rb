@@ -259,9 +259,9 @@ module RedisRb
     end
 
     def set(key, value, expiry=nil)
-      s = call_command([:set, key, value]) == OK
-      expire(key, expiry) if s && expiry
-      s
+      reply = call_command([:set, key, value])
+      expire(key, expiry) if reply == OK and expiry
+      reply
     end
 
     def sort(key, options = {})
