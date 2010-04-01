@@ -610,21 +610,68 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Commands operating on hashes" do
-    test "HSET"
+    test "HSET and HGET" do
+      @r.hset("foo", "f1", "s1")
 
-    test "HGET"
+      assert_equal "s1", @r.hget("foo", "f1")
+    end
 
-    test "HDEL"
+    test "HDEL" do
+      @r.hset("foo", "f1", "s1")
 
-    test "HEXISTS"
+      assert_equal "s1", @r.hget("foo", "f1")
 
-    test "HLEN"
+      @r.hdel("foo", "f1")
 
-    test "HKEYS"
+      assert_equal nil, @r.hget("foo", "f1")
+    end
 
-    test "HVALS"
+    test "HEXISTS" do
+      assert_equal false, @r.hexists("foo", "f1")
 
-    test "HGETALL"
+      @r.hset("foo", "f1", "s1")
+
+      assert @r.hexists("foo", "f1")
+    end
+
+    test "HLEN" do
+      assert_equal 0, @r.hlen("foo")
+
+      @r.hset("foo", "f1", "s1")
+
+      assert_equal 1, @r.hlen("foo")
+
+      @r.hset("foo", "f2", "s2")
+
+      assert_equal 2, @r.hlen("foo")
+    end
+
+    test "HKEYS" do
+      assert_equal [], @r.hkeys("foo")
+
+      @r.hset("foo", "f1", "s1")
+      @r.hset("foo", "f2", "s2")
+
+      assert_equal ["f1", "f2"], @r.hkeys("foo")
+    end
+
+    test "HVALS" do
+      assert_equal [], @r.hvals("foo")
+
+      @r.hset("foo", "f1", "s1")
+      @r.hset("foo", "f2", "s2")
+
+      assert_equal ["s1", "s2"], @r.hvals("foo")
+    end
+
+    test "HGETALL" do
+      assert_equal({}, @r.hgetall("foo"))
+
+      @r.hset("foo", "f1", "s1")
+      @r.hset("foo", "f2", "s2")
+
+      assert_equal({"f1" => "s1", "f2" => "s2"}, @r.hgetall("foo"))
+    end
   end
 
   context "Sorting" do
