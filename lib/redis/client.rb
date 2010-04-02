@@ -173,21 +173,40 @@ class Redis
     end
 
     def mset(*args)
-      hsh = args.pop if Hash === args.last
-      if hsh
-        call_command(hsh.to_a.flatten.unshift(:mset))
+      if args.size == 1
+        deprecated("mset with a hash", :mapped_mset, caller[0])
+        mapped_mset(args[0])
       else
         call_command(args.unshift(:mset))
       end
     end
 
+    def mapped_mset(hash)
+      mset(*hash.to_a.flatten)
+    end
+
     def msetnx(*args)
-      hsh = args.pop if Hash === args.last
-      if hsh
-        call_command(hsh.to_a.flatten.unshift(:msetnx))
+      if args.size == 1
+        deprecated("msetnx with a hash", :mapped_msetnx, caller[0])
+        mapped_msetnx(args[0])
       else
         call_command(args.unshift(:msetnx))
       end
+    end
+
+    def mapped_msetnx(hash)
+      msetnx(*hash.to_a.flatten)
+    end
+
+    # Similar to memcache.rb's #get_multi, returns a hash mapping
+    # keys to values.
+    def mapped_mget(*keys)
+      result = {}
+      mget(*keys).each do |value|
+        key = keys.shift
+        result.merge!(key => value) unless value.nil?
+      end
+      result
     end
 
     def sort(key, options = {})
@@ -207,17 +226,6 @@ class Redis
 
     def decr(key,decrement = nil)
       call_command(decrement ? ["decrby",key,decrement] : ["decr",key])
-    end
-
-    # Similar to memcache.rb's #get_multi, returns a hash mapping
-    # keys to values.
-    def mapped_mget(*keys)
-      result = {}
-      mget(*keys).each do |value|
-        key = keys.shift
-        result.merge!(key => value) unless value.nil?
-      end
-      result
     end
 
     # Ruby defines a now deprecated type method so we need to override it here

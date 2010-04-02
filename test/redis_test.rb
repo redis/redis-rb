@@ -242,7 +242,14 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "MSET" do
-      @r.mset(:foo => "s1", :bar => "s2")
+      @r.mset(:foo, "s1", :bar, "s2")
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal "s2", @r.get("bar")
+    end
+
+    test "MSET mapped" do
+      @r.mapped_mset(:foo => "s1", :bar => "s2")
 
       assert_equal "s1", @r.get("foo")
       assert_equal "s2", @r.get("bar")
@@ -250,7 +257,15 @@ class RedisTest < Test::Unit::TestCase
 
     test "MSETNX" do
       @r.set("foo", "s1")
-      @r.msetnx(:foo => "s2", :bar => "s3")
+      @r.msetnx(:foo, "s2", :bar, "s3")
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal nil, @r.get("bar")
+    end
+
+    test "MSETNX mapped" do
+      @r.set("foo", "s1")
+      @r.mapped_msetnx(:foo => "s2", :bar => "s3")
 
       assert_equal "s1", @r.get("foo")
       assert_equal nil, @r.get("bar")
@@ -842,6 +857,39 @@ class RedisTest < Test::Unit::TestCase
       end
 
       assert_equal 0, @r.dbsize
+    end
+  end
+
+  context "Deprecated methods" do
+    test "ALIASES" do
+      capture_stderr do
+        @r.set_add("foo", "s1")
+
+        assert $stderr.string["Redis: The method set_add is deprecated. Use sadd instead"]
+      end
+    end
+    test "SET with an expire as a parameter" do
+      capture_stderr do
+        @r.set("foo", "s1", 1)
+
+        assert $stderr.string["Redis: The method set with an expire is deprecated. Use set_with_expire instead"]
+      end
+    end
+
+    test "MSET with a hash as a parameter" do
+      capture_stderr do
+        @r.mset(:foo => "s1", :bar => "s2")
+
+        assert $stderr.string["Redis: The method mset with a hash is deprecated. Use mapped_mset instead"]
+      end
+    end
+
+    test "MSETNX with a hash as a parameter" do
+      capture_stderr do
+        @r.msetnx(:foo => "s1", :bar => "s2")
+
+        assert $stderr.string["Redis: The method msetnx with a hash is deprecated. Use mapped_msetnx instead"]
+      end
     end
   end
 end

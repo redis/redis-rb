@@ -1,6 +1,7 @@
 $:.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 
 require "rubygems"
+require "test/unit"
 require "redis"
 
 begin
@@ -8,7 +9,14 @@ begin
 rescue LoadError
 end
 
-require "test/unit"
+def capture_stderr
+  stderr = $stderr
+  $stderr = StringIO.new
+
+  yield
+
+  $stderr = stderr
+end
 
 # Test::Unit loads a default test if the suite is empty, whose purpose is to
 # fail. Since having empty contexts is a common practice, we decided to
