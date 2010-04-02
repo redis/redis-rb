@@ -315,8 +315,6 @@ class Redis
       end
     end
 
-  private
-
     def server
       "#{@host}:#{@port}"
     end
