@@ -50,7 +50,7 @@ class RedisTest < Test::Unit::TestCase
       end
 
       assert_nothing_raised do
-        redis.connect_to_server
+        redis.send(:connect_to_server)
       end
     end
 

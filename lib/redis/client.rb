@@ -137,140 +137,11 @@ class Redis
       @sock = nil
       @pubsub = false
 
-      @logger.info { self.to_s } if @logger
+      log(self)
     end
 
     def to_s
       "Redis Client connected to #{server} against DB #{@db}"
-    end
-
-    def server
-      "#{@host}:#{@port}"
-    end
-
-    def connect_to_server
-      @sock = connect_to(@host, @port, @timeout == 0 ? nil : @timeout)
-      call_command(["auth",@password]) if @password
-      call_command(["select",@db]) unless @db == 0
-    end
-
-    def connect_to(host, port, timeout=nil)
-      # We support connect() timeout only if system_timer is availabe
-      # or if we are running against Ruby >= 1.9
-      # Timeout reading from the socket instead will be supported anyway.
-      if @timeout != 0 and Timer
-        begin
-          sock = TCPSocket.new(host, port)
-        rescue Timeout::Error
-          @sock = nil
-          raise Timeout::Error, "Timeout connecting to the server"
-        end
-      else
-        sock = TCPSocket.new(host, port)
-      end
-      sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
-
-      # If the timeout is set we set the low level socket options in order
-      # to make sure a blocking read will return after the specified number
-      # of seconds. This hack is from memcached ruby client.
-      if timeout
-        secs   = Integer(timeout)
-        usecs  = Integer((timeout - secs) * 1_000_000)
-        optval = [secs, usecs].pack("l_2")
-        begin
-          sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
-          sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
-        rescue Exception => ex
-          # Solaris, for one, does not like/support socket timeouts.
-          @logger.info "Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}" if @logger
-        end
-      end
-      sock
-    end
-
-    def method_missing(*argv)
-      call_command(argv)
-    end
-
-    def call_command(argv)
-      @logger.debug { argv.inspect } if @logger
-
-      # this wrapper to raw_call_command handle reconnection on socket
-      # error. We try to reconnect just one time, otherwise let the error
-      # araise.
-      connect_to_server if !@sock
-
-      begin
-        raw_call_command(argv.dup)
-      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED
-        @sock.close rescue nil
-        @sock = nil
-        connect_to_server
-        raw_call_command(argv.dup)
-      end
-    end
-
-    def raw_call_command(argvp)
-      if argvp[0].is_a?(Array)
-        argvv = argvp
-        pipeline = true
-      else
-        argvv = [argvp]
-      end
-
-      if @binary_keys or MULTI_BULK_COMMANDS[argvv[0][0].to_s]
-        command = ""
-        argvv.each do |argv|
-          command << "*#{argv.size}\r\n"
-          argv.each{|a|
-            a = a.to_s
-            command << "$#{get_size(a)}\r\n"
-            command << a
-            command << "\r\n"
-          }
-        end
-      else
-        command = ""
-        argvv.each do |argv|
-          bulk = nil
-          argv[0] = argv[0].to_s
-          if ALIASES[argv[0]]
-            $stderr.puts "\nredis: The method #{argv[0]} is deprecated. Use #{ALIASES[argv[0]]} instead (in #{caller[4]})"
-            argv[0] = ALIASES[argv[0]]
-          end
-          raise "#{argv[0]} command is disabled" if DISABLED_COMMANDS[argv[0]]
-          if BULK_COMMANDS[argv[0]] and argv.length > 1
-            bulk = argv[-1].to_s
-            argv[-1] = get_size(bulk)
-          end
-          command << "#{argv.join(' ')}\r\n"
-          command << "#{bulk}\r\n" if bulk
-        end
-      end
-      # When in Pub/Sub mode we don't read replies synchronously.
-      if @pubsub
-        @sock.write(command)
-        return true
-      end
-      # The normal command execution is reading and processing the reply.
-      results = maybe_lock { process_command(command, argvv) }
-      return pipeline ? results : results[0]
-    end
-
-    def process_command(command, argvv)
-      @sock.write(command)
-      argvv.map do |argv|
-        processor = REPLY_PROCESSOR[argv[0].to_s]
-        processor ? processor.call(read_reply) : read_reply
-      end
-    end
-
-    def maybe_lock(&block)
-      if @thread_safe
-        @mutex.synchronize(&block)
-      else
-        block.call
-      end
     end
 
     def select(*args)
@@ -356,47 +227,6 @@ class Redis
       pipeline.execute
     end
 
-    def read_reply
-      # We read the first byte using read() mainly because gets() is
-      # immune to raw socket timeouts.
-      begin
-        rtype = @sock.read(1)
-      rescue Errno::EAGAIN
-        # We want to make sure it reconnects on the next command after the
-        # timeout. Otherwise the server may reply in the meantime leaving
-        # the protocol in a desync status.
-        @sock = nil
-        raise Errno::EAGAIN, "Timeout reading from the socket"
-      end
-
-      raise Errno::ECONNRESET,"Connection lost" if !rtype
-      line = @sock.gets
-      case rtype
-      when MINUS
-        raise MINUS + line.strip
-      when PLUS
-        line.strip
-      when COLON
-        line.to_i
-      when DOLLAR
-        bulklen = line.to_i
-        return nil if bulklen == -1
-        data = @sock.read(bulklen)
-        @sock.read(2) # CRLF
-        data
-      when ASTERISK
-        objects = line.to_i
-        return nil if bulklen == -1
-        res = []
-        objects.times {
-          res << read_reply
-        }
-        res
-      else
-        raise "Protocol error, got '#{rtype}' as initial reply byte"
-      end
-    end
-
     def exec
       # Need to override Kernel#exec.
       call_command([:exec])
@@ -447,9 +277,186 @@ class Redis
         return true
     end
 
-    private
-      def get_size(string)
-        string.respond_to?(:bytesize) ? string.bytesize : string.size
+  protected
+
+    def call_command(argv)
+      log(argv.inspect, :debug)
+
+      # this wrapper to raw_call_command handle reconnection on socket
+      # error. We try to reconnect just one time, otherwise let the error
+      # araise.
+      connect_to_server if !@sock
+
+      begin
+        raw_call_command(argv.dup)
+      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED
+        @sock.close rescue nil
+        @sock = nil
+        connect_to_server
+        raw_call_command(argv.dup)
       end
+    end
+
+  private
+
+    def server
+      "#{@host}:#{@port}"
+    end
+
+    def connect_to(host, port, timeout=nil)
+      # We support connect() timeout only if system_timer is availabe
+      # or if we are running against Ruby >= 1.9
+      # Timeout reading from the socket instead will be supported anyway.
+      if @timeout != 0 and Timer
+        begin
+          sock = TCPSocket.new(host, port)
+        rescue Timeout::Error
+          @sock = nil
+          raise Timeout::Error, "Timeout connecting to the server"
+        end
+      else
+        sock = TCPSocket.new(host, port)
+      end
+      sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
+
+      # If the timeout is set we set the low level socket options in order
+      # to make sure a blocking read will return after the specified number
+      # of seconds. This hack is from memcached ruby client.
+      if timeout
+        secs   = Integer(timeout)
+        usecs  = Integer((timeout - secs) * 1_000_000)
+        optval = [secs, usecs].pack("l_2")
+        begin
+          sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
+          sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
+        rescue Exception => ex
+          # Solaris, for one, does not like/support socket timeouts.
+          log("Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}")
+        end
+      end
+      sock
+    end
+
+    def connect_to_server
+      @sock = connect_to(@host, @port, @timeout == 0 ? nil : @timeout)
+      call_command(["auth",@password]) if @password
+      call_command(["select",@db]) unless @db == 0
+    end
+
+    def method_missing(*argv)
+      call_command(argv)
+    end
+
+    def raw_call_command(argvp)
+      if argvp[0].is_a?(Array)
+        argvv = argvp
+        pipeline = true
+      else
+        argvv = [argvp]
+      end
+
+      if @binary_keys or MULTI_BULK_COMMANDS[argvv[0][0].to_s]
+        command = ""
+        argvv.each do |argv|
+          command << "*#{argv.size}\r\n"
+          argv.each{|a|
+            a = a.to_s
+            command << "$#{get_size(a)}\r\n"
+            command << a
+            command << "\r\n"
+          }
+        end
+      else
+        command = ""
+        argvv.each do |argv|
+          bulk = nil
+          argv[0] = argv[0].to_s
+          if ALIASES[argv[0]]
+            $stderr.puts "\nredis: The method #{argv[0]} is deprecated. Use #{ALIASES[argv[0]]} instead (in #{caller[4]})"
+            argv[0] = ALIASES[argv[0]]
+          end
+          raise "#{argv[0]} command is disabled" if DISABLED_COMMANDS[argv[0]]
+          if BULK_COMMANDS[argv[0]] and argv.length > 1
+            bulk = argv[-1].to_s
+            argv[-1] = get_size(bulk)
+          end
+          command << "#{argv.join(' ')}\r\n"
+          command << "#{bulk}\r\n" if bulk
+        end
+      end
+      # When in Pub/Sub mode we don't read replies synchronously.
+      if @pubsub
+        @sock.write(command)
+        return true
+      end
+      # The normal command execution is reading and processing the reply.
+      results = maybe_lock { process_command(command, argvv) }
+      return pipeline ? results : results[0]
+    end
+
+    def process_command(command, argvv)
+      @sock.write(command)
+      argvv.map do |argv|
+        processor = REPLY_PROCESSOR[argv[0].to_s]
+        processor ? processor.call(read_reply) : read_reply
+      end
+    end
+
+    def maybe_lock(&block)
+      if @thread_safe
+        @mutex.synchronize(&block)
+      else
+        block.call
+      end
+    end
+
+    def read_reply
+      # We read the first byte using read() mainly because gets() is
+      # immune to raw socket timeouts.
+      begin
+        rtype = @sock.read(1)
+      rescue Errno::EAGAIN
+        # We want to make sure it reconnects on the next command after the
+        # timeout. Otherwise the server may reply in the meantime leaving
+        # the protocol in a desync status.
+        @sock = nil
+        raise Errno::EAGAIN, "Timeout reading from the socket"
+      end
+
+      raise Errno::ECONNRESET,"Connection lost" if !rtype
+      line = @sock.gets
+      case rtype
+      when MINUS
+        raise MINUS + line.strip
+      when PLUS
+        line.strip
+      when COLON
+        line.to_i
+      when DOLLAR
+        bulklen = line.to_i
+        return nil if bulklen == -1
+        data = @sock.read(bulklen)
+        @sock.read(2) # CRLF
+        data
+      when ASTERISK
+        objects = line.to_i
+        return nil if bulklen == -1
+        res = []
+        objects.times {
+          res << read_reply
+        }
+        res
+      else
+        raise "Protocol error, got '#{rtype}' as initial reply byte"
+      end
+    end
+
+    def get_size(string)
+      string.respond_to?(:bytesize) ? string.bytesize : string.size
+    end
+
+    def log(str, level = :info)
+      @logger.send(level, str.to_s) if @logger
+    end
   end
 end
