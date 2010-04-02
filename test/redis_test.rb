@@ -177,6 +177,12 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "s1", @r.get("foo")
     end
 
+    test "SET and GET with brackets" do
+      @r["foo"] = "s1"
+
+      assert_equal "s1", @r["foo"]
+    end
+
     test "SET and GET with newline characters" do
       @r.set("foo", "1\n")
 
@@ -193,7 +199,7 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "SET with EXPIRE" do
-      @r.set("foo", "s1", 1)
+      @r.set_with_expire("foo", "s1", 1)
 
       assert_equal "s1", @r.get("foo")
 

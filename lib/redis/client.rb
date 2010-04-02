@@ -149,17 +149,27 @@ class Redis
     end
 
     def [](key)
-      self.get(key)
+      get(key)
     end
 
     def []=(key,value)
-      set(key,value)
+      set(key, value)
     end
 
-    def set(key, value, expiry=nil)
-      reply = call_command([:set, key, value])
-      expire(key, expiry) if reply == OK and expiry
-      reply
+    def set(key, value, ttl = nil)
+      if ttl
+        deprecated("set with an expire", :set_with_expire, caller[0])
+        set_with_expire(key, value, ttl)
+      else
+        call_command([:set, key, value])
+      end
+    end
+
+    def set_with_expire(key, value, ttl)
+      multi do
+        set(key, value)
+        expire(key, ttl)
+      end
     end
 
     def mset(*args)
@@ -372,7 +382,7 @@ class Redis
           bulk = nil
           argv[0] = argv[0].to_s
           if ALIASES[argv[0]]
-            $stderr.puts "\nredis: The method #{argv[0]} is deprecated. Use #{ALIASES[argv[0]]} instead (in #{caller[4]})"
+            deprecated(argv[0], ALIASES[argv[0]], caller[4])
             argv[0] = ALIASES[argv[0]]
           end
           raise "#{argv[0]} command is disabled" if DISABLED_COMMANDS[argv[0]]
@@ -457,6 +467,10 @@ class Redis
 
     def log(str, level = :info)
       @logger.send(level, str.to_s) if @logger
+    end
+
+    def deprecated(old, new, trace = caller[0])
+      $stderr.puts "\nRedis: The method #{old} is deprecated. Use #{new} instead (in #{trace})"
     end
   end
 end
