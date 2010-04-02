@@ -43,11 +43,13 @@ For all types redis-rb needs redis-server running to connect to.
 	r.get 'key_one' # => 'value_one'
 	
 	# Using Redis list objects
-	# Push an object to the head of the list. Creates the list if it doesnt allready exsist.
+	# Push an object to the head of the list. Creates the list if it doesn't allready exsist.
+	
 	blog_hash = {:title => "Redis Rules!", :body => "Ok so, like why, well like, RDBMS is like....", :created_at => Time.now.to_i}
 	r.lpush 'all_blogs', Marshal.dump(blog_hash)
 	
 	# Get a range of strings from the all_blogs list. Similar to offset and limit in SQL (-1, means the last one)
+	
 	r.lrange 'all_blogs', 0, -1
 
 ### Multiple commands at once!
