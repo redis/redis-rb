@@ -24,7 +24,7 @@ For all types redis-rb needs redis-server running to connect to.
 	
 	r['key_one]  # => "value_one"
 
-### Redis only stores strings. To store Objects, Array or Hashes, you must Marshal. (Marshal created binary safe strings of objects)
+### Redis only stores strings. To store Objects, Array or Hashes, you must [Marshal](http://ruby-doc.org/core/classes/Marshal.html)
 	
 	require 'redis'
 	r = Redis.new
@@ -47,7 +47,7 @@ For all types redis-rb needs redis-server running to connect to.
 	blog_hash = {:title => "Redis Rules!", :body => "Ok so, like why, well like, RDBMS is like....", :created_at => Time.now.to_i}
 	r.lpush 'all_blogs', Marshal.dump(blog_hash)
 	
-	# Get a range of strings from the all_blogs list. Similar to offset and limit in SQL (-1, means the last one, thus this returns all)
+	# Get a range of strings from the all_blogs list. Similar to offset and limit in SQL (-1, means the last one)
 	r.lrange 'all_blogs', 0, -1
 
 ### Multiple commands at once!
