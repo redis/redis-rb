@@ -403,44 +403,44 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Blocking commands" do
-    test "BLPOP blocks on the tail of a list" do
-      @r.lpush('blocking_queue', 'message')
-      @r.lpush('blocking_queue', 'another_message')
+    test "BLPOP" do
+      @r.lpush("foo", "s1")
+      @r.lpush("foo", "s2")
 
-      t = Thread.new do
+      thread = Thread.new do
         r = Redis.new(:db => 15)
         sleep 0.3
-        r.lpush('blocking_queue', 'waiting_message')
+        r.lpush("foo", "s3")
       end
 
-      assert_equal @r.blpop('blocking_queue', 0.1), ['blocking_queue', 'another_message']
-      assert_equal @r.blpop('blocking_queue', 0.1), ['blocking_queue', 'message']
-      assert_equal @r.blpop('blocking_queue', 0.4), ['blocking_queue', 'waiting_message']
+      assert_equal @r.blpop("foo", 0.1), ["foo", "s2"]
+      assert_equal @r.blpop("foo", 0.1), ["foo", "s1"]
+      assert_equal @r.blpop("foo", 0.4), ["foo", "s3"]
 
-      t.join
+      thread.join
     end
 
-    test "BRPOP blocks on the head of a list" do
-      @r.rpush('blocking_queue', 'message')
-      @r.rpush('blocking_queue', 'another_message')
+    test "BRPOP" do
+      @r.rpush("foo", "s1")
+      @r.rpush("foo", "s2")
 
       t = Thread.new do
         r = Redis.new(:db => 15)
         sleep 0.3
-        r.rpush('blocking_queue', 'waiting_message')
+        r.rpush("foo", "s3")
       end
 
-      assert_equal @r.brpop('blocking_queue', 0.1), ['blocking_queue', 'another_message']
-      assert_equal @r.brpop('blocking_queue', 0.1), ['blocking_queue', 'message']
-      assert_equal @r.brpop('blocking_queue', 0.4), ['blocking_queue', 'waiting_message']
+      assert_equal @r.brpop("foo", 0.1), ["foo", "s2"]
+      assert_equal @r.brpop("foo", 0.1), ["foo", "s1"]
+      assert_equal @r.brpop("foo", 0.4), ["foo", "s3"]
 
       t.join
     end
 
     test "BRPOP should unset a configured socket timeout" do
-      @r = Redis.new(:timeout => 1)
+      @r = Redis.new(:db => 15, :timeout => 1)
       assert_nothing_raised do
-        @r.brpop('blocking_key', 2)
+        @r.brpop("foo", 2)
       end # Errno::EAGAIN raised if socket times out before redis command times out
     end
 
