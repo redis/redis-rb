@@ -270,37 +270,45 @@ class Redis
     end
 
     def subscribe(*classes)
-      # Sanity check, as our API is a bit tricky. You MUST call
-      # the top-level subscribe with a block, but you can NOT call
-      # the nested subscribe calls with a block, as all the messages
-      # are processed by the top level call.
-      if @pubsub == false and !block_given?
-        raise "You must pass a block to the top level subscribe call"
-      elsif @pubsub == true and block_given?
-        raise "Can't pass a block to nested subscribe calls"
-      elsif @pubsub == true
-        # This is a nested subscribe call without a block given.
-        # We just need to send the subscribe command and return asap.
+      # Top-level `subscribe` MUST be called with a block,	
+      # nested `subscribe` MUST NOT be called with a block	
+      if !@pubsub && !block_given?	
+        raise "Top-level subscribe requires a block"
+      elsif @pubsub == true && block_given?	
+        raise "Nested subscribe does not take a block"
+      elsif @pubsub	
+        # If we're already pubsub'ing, just subscribe us to some more classes
         call_command [:subscribe,*classes]
         return true
       end
+
       @pubsub = true
       call_command [:subscribe,*classes]
-      while true
-        r = read_reply
-        msg = {:type => r[0], :class => r[1], :data => r[2]}
-        yield(msg)
-        break if msg[:type] == "unsubscribe" and r[2] == 0
+      sub = Subscription.new
+      yield(sub)
+      begin
+        while true
+          type, *reply = read_reply # type, [class,data]
+          case type
+          when 'subscribe','unsubscribe'
+            sub.send(type) && sub.send(type).call(reply[0])
+          when 'message'
+            sub.send(type) && sub.send(type).call(reply[0],reply[1])
+          end
+          break if type == 'unsubscribe' && reply[1] == 0
+        end
+      rescue RuntimeError
+        call_command [:unsubscribe]
+        raise
+      ensure
+        @pubsub = false
       end
-      @pubsub = false
     end
 
     def unsubscribe(*classes)
       call_command [:unsubscribe,*classes]
       return true
     end
-
-  protected
 
     def call_command(argv)
       log(argv.inspect, :debug)
@@ -483,23 +491,22 @@ class Redis
       $stderr.puts "\nRedis: The method #{old} is deprecated. Use #{new} instead (in #{trace})"
     end
 
-    private
-      def requires_timeout_reset?(command)
-        BLOCKING_COMMANDS[command] && @timeout
+    def requires_timeout_reset?(command)
+      BLOCKING_COMMANDS[command] && @timeout
+    end
+    
+    def set_socket_timeout(sock, timeout)
+      secs   = Integer(timeout)
+      usecs  = Integer((timeout - secs) * 1_000_000)
+      optval = [secs, usecs].pack("l_2")
+      begin
+        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
+        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
+      rescue Exception => ex
+        # Solaris, for one, does not like/support socket timeouts.
+        log("Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}")
       end
-
-      def set_socket_timeout(sock, timeout)
-        secs   = Integer(timeout)
-        usecs  = Integer((timeout - secs) * 1_000_000)
-        optval = [secs, usecs].pack("l_2")
-        begin
-          sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
-          sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
-        rescue Exception => ex
-          # Solaris, for one, does not like/support socket timeouts.
-          log("Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}")
-        end
-      end
+    end
 
   end
 end
