@@ -22,3 +22,4 @@ end
 
 require 'redis/client'
 require 'redis/pipeline'
+require 'redis/subscribe'

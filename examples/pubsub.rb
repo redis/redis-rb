@@ -6,14 +6,20 @@ puts "  ./redis-cli publish a hello"
 puts "Finally force the example to exit sending the 'exit' message with"
 puts "  ./redis-cli publish b exit"
 puts ""
-r = Redis.new(:timeout => 0)
-r.subscribe(:a,:b) {|msg|
-    if msg[:type] == "subscribe"
-        puts "Subscribed to #{msg[:class]} (#{msg[:data]} subscriptions)"
-    elsif msg[:type] == "message"
-        puts "Got data: #{msg.inspect}"
-        if msg[:data] == "exit"
-            r.unsubscribe
-        end
+
+@redis = Redis.new(:timeout => 0)
+
+@redis.subscribe('one','two') do |on|
+  on.subscribe {|klass| puts "listening to #{klass}" }
+  on.message do |klass, msg| 
+    puts "#{klass} received: #{msg}"
+    if msg == 'exit'
+      @redis.unsubscribe
     end
-}
+  end
+  on.unsubscribe {|klass| puts "see ya, #{klass}" }
+end
+
+
+
+
