@@ -404,10 +404,10 @@ class Redis
       # The normal command execution is reading and processing the reply.
       results = maybe_lock do
         begin
-          set_socket_timeout(@sock, 0) if requires_timeout_reset?(argvv.flatten[0].to_s)
+          set_socket_timeout(@sock, 0) if requires_timeout_reset?(argvv[0][0].to_s)
           process_command(command, argvv)
         ensure
-          set_socket_timeout(@sock, @timeout) if requires_timeout_reset?(argvv.flatten[0].to_s)
+          set_socket_timeout(@sock, @timeout) if requires_timeout_reset?(argvv[0][0].to_s)
         end
       end
 
