@@ -1,7 +1,7 @@
 require 'socket'
 
 class Redis
-  VERSION = "1.0.0"
+  VERSION = "1.0.1"
 
   def self.new(*attrs)
     Client.new(*attrs)
