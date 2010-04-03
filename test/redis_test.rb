@@ -54,7 +54,7 @@ class RedisTest < Test::Unit::TestCase
       redis = Redis.new(:port => PORT, :password => "secret")
 
       def redis.call_command(attrs)
-        raise unless attrs == ["auth", "secret"]
+        raise unless attrs == [:auth, "secret"]
       end
 
       assert_nothing_raised do
@@ -826,36 +826,74 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Publish/Subscribe" do
+
     test "SUBSCRIBE and UNSUBSCRIBE" do
-      sub = Thread.new {
-        @r.subscribe('A') do |on|
-          on.subscribe {|klass, num| @subscribed = true }
-          on.message {|klass,msg| @r.unsubscribe }
-          on.unsubscribe {|klass, num| @unsubscribed = true }
+      thread = Thread.new do
+        @r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @subscribed = true
+            @t1 = total
+          end
+
+          on.message do |channel, message|
+            if message == "s1"
+              @r.unsubscribe
+              @message = message
+            end
+          end
+
+          on.unsubscribe do |channel, total|
+            @unsubscribed = true
+            @t2 = total
+          end
         end
-      }
-      Redis.new(OPTIONS).publish('A', 'finish!')
-      sub.join
-      assert true, "message received; ie, this test didn't hang"
-      assert @subscribed, 'subscribed'
-      assert @unsubscribed, 'unsubscribed'
+      end
+
+      Redis.new(OPTIONS).publish("foo", "s1")
+
+      thread.join
+
+      assert @subscribed
+      assert_equal 1, @t1
+      assert @unsubscribed
+      assert_equal 0, @t2
+      assert_equal "s1", @message
     end
 
     test "SUBSCRIBE within SUBSCRIBE" do
-      @r.subscribe('A') do |on|
-        on.subscribe {|klass, num|
-          @r.subscribe('B') if klass == 'A'
-          @r.unsubscribe if klass == 'B'
-        }
+      @channels = []
+
+      thread = Thread.new do
+        @r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @channels << channel
+
+            @r.subscribe("bar") if channel == "foo"
+            @r.unsubscribe if channel == "bar"
+          end
+        end
       end
-      assert true, 'we are here, so it worked'
+
+      Redis.new(OPTIONS).publish("foo", "s1")
+
+      thread.join
+
+      assert_equal ["foo", "bar"], @channels
     end
 
     test "other commands within a SUBSCRIBE" do
-      assert_raise(RuntimeError) do
-        @r.subscribe(:a) do |on|
-          on.subscribe {|klass, num| @r.set('subscribed', 'true') }
+      assert_raise RuntimeError do
+        @r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @r.set("bar", "s2")
+          end
         end
+      end
+    end
+
+    test "SUBSCRIBE without a block" do
+      assert_raise RuntimeError do
+        @r.subscribe("foo")
       end
     end
 
