@@ -1,9 +1,12 @@
 require File.join(File.dirname(__FILE__), "test_helper")
 require "logger"
 
+PORT = 6379
+OPTIONS = {:port => PORT, :db => 15, :timeout => 3}.freeze
+
 class RedisTest < Test::Unit::TestCase
   setup do
-    @r = Redis.new(:port => 6379, :db => 15, :timeout => 3)
+    @r = Redis.new(OPTIONS)
 
     begin
       @r.flushdb
@@ -15,7 +18,11 @@ class RedisTest < Test::Unit::TestCase
         Make sure Redis is running on localhost, port 6379.
         This testing suite connects to the database 15.
 
-        You can run redis-server test/test.conf
+        To start the server:
+          rake start
+
+        To stop the server:
+          rake stop
 
       EOS
       exit 1
@@ -25,7 +32,7 @@ class RedisTest < Test::Unit::TestCase
   context "Internals" do
     setup do
       @log = StringIO.new
-      @r = Redis.new(:db => 15, :logger => ::Logger.new(@log))
+      @r = Redis.new(OPTIONS.merge(:logger => ::Logger.new(@log)))
     end
 
     test "Logger" do
@@ -36,14 +43,14 @@ class RedisTest < Test::Unit::TestCase
 
     test "Timeout" do
       assert_nothing_raised do
-        Redis.new :timeout => 0
+        Redis.new(OPTIONS.merge(:timeout => 0))
       end
     end
   end
 
   context "Connection handling" do
     test "AUTH" do
-      redis = Redis.new(:password => "secret")
+      redis = Redis.new(:port => PORT, :password => "secret")
 
       def redis.call_command(attrs)
         raise unless attrs == ["auth", "secret"]
@@ -408,9 +415,9 @@ class RedisTest < Test::Unit::TestCase
       @r.lpush("foo", "s2")
 
       thread = Thread.new do
-        r = Redis.new(:db => 15)
+        redis = Redis.new(OPTIONS)
         sleep 0.3
-        r.lpush("foo", "s3")
+        redis.lpush("foo", "s3")
       end
 
       assert_equal @r.blpop("foo", 0.1), ["foo", "s2"]
@@ -425,9 +432,9 @@ class RedisTest < Test::Unit::TestCase
       @r.rpush("foo", "s2")
 
       t = Thread.new do
-        r = Redis.new(:db => 15)
+        redis = Redis.new(OPTIONS)
         sleep 0.3
-        r.rpush("foo", "s3")
+        redis.rpush("foo", "s3")
       end
 
       assert_equal @r.brpop("foo", 0.1), ["foo", "s2"]
@@ -438,7 +445,7 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "BRPOP should unset a configured socket timeout" do
-      @r = Redis.new(:db => 15, :timeout => 1)
+      @r = Redis.new(OPTIONS.merge(:timeout => 1))
       assert_nothing_raised do
         @r.brpop("foo", 2)
       end # Errno::EAGAIN raised if socket times out before redis command times out
