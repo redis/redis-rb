@@ -12,7 +12,7 @@ GEM_VERSION = Redis::VERSION
 AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi']
 EMAIL = "ez@engineyard.com"
 HOMEPAGE = "http://github.com/ezmobius/redis-rb"
-SUMMARY = "Ruby client library for redis key value storage server"
+SUMMARY = "Ruby client library for Redis, the key value storage server"
 
 spec = Gem::Specification.new do |s|
   s.name = GEM
@@ -25,7 +25,6 @@ spec = Gem::Specification.new do |s|
   s.authors = AUTHORS
   s.email = EMAIL
   s.homepage = HOMEPAGE
-  s.add_development_dependency "rspec"
   s.require_path = 'lib'
   s.autorequire = GEM
   s.files = %w(LICENSE README.markdown Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")

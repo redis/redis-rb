@@ -215,8 +215,8 @@ class Redis
     end
 
     def sort(key, options = {})
-      cmd = ["SORT"]
-      cmd << key
+      cmd = []
+      cmd << "SORT #{key}"
       cmd << "BY #{options[:by]}" if options[:by]
       cmd << "GET #{[options[:get]].flatten * ' GET '}" if options[:get]
       cmd << "#{options[:order]}" if options[:order]
@@ -226,11 +226,21 @@ class Redis
     end
 
     def incr(key, increment = nil)
-      call_command(increment ? ["incrby",key,increment] : ["incr",key])
+      if increment
+        deprecated("incr with an increment", :incrby, caller[0])
+        incrby(key, increment)
+      else
+        call_command([:incr, key])
+      end
     end
 
-    def decr(key,decrement = nil)
-      call_command(decrement ? ["decrby",key,decrement] : ["decr",key])
+    def decr(key, decrement = nil)
+      if decrement
+        deprecated("decr with a decrement", :decrby, caller[0])
+        decrby(key, decrement)
+      else
+        call_command([:decr, key])
+      end
     end
 
     # Ruby defines a now deprecated type method so we need to override it here
