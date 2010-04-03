@@ -956,22 +956,29 @@ class RedisTest < Test::Unit::TestCase
       capture_stderr do
         @r.set("foo", "s1", 1)
 
+        assert_equal "s1", @r.get("foo")
+
+        sleep 2
+
+        assert_nil @r.get("foo")
         assert $stderr.string["Redis: The method set with an expire is deprecated. Use set_with_expire instead"]
       end
     end
 
     test "INCR with an increment as a parameter" do
       capture_stderr do
-        @r.incr("foo", 1)
+        @r.incr("foo", 2)
 
+        assert_equal "2", @r.get("foo")
         assert $stderr.string["Redis: The method incr with an increment is deprecated. Use incrby instead"]
       end
     end
 
     test "DECR with a decrement as a parameter" do
       capture_stderr do
-        @r.decr("foo", 1)
+        @r.decr("foo", 2)
 
+        assert_equal "-2", @r.get("foo")
         assert $stderr.string["Redis: The method decr with a decrement is deprecated. Use decrby instead"]
       end
     end
@@ -980,6 +987,8 @@ class RedisTest < Test::Unit::TestCase
       capture_stderr do
         @r.mset(:foo => "s1", :bar => "s2")
 
+        assert_equal "s1", @r.get("foo")
+        assert_equal "s2", @r.get("bar")
         assert $stderr.string["Redis: The method mset with a hash is deprecated. Use mapped_mset instead"]
       end
     end
@@ -988,6 +997,8 @@ class RedisTest < Test::Unit::TestCase
       capture_stderr do
         @r.msetnx(:foo => "s1", :bar => "s2")
 
+        assert_equal "s1", @r.get("foo")
+        assert_equal "s2", @r.get("bar")
         assert $stderr.string["Redis: The method msetnx with a hash is deprecated. Use mapped_msetnx instead"]
       end
     end
