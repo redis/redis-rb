@@ -10,14 +10,14 @@ puts ""
 @redis = Redis.new(:timeout => 0)
 
 @redis.subscribe('one','two') do |on|
-  on.subscribe {|klass| puts "listening to #{klass}" }
+  on.subscribe {|klass, num_subs| puts "Subscribed to #{klass} (#{num_subs} subscriptions)" }
   on.message do |klass, msg| 
     puts "#{klass} received: #{msg}"
     if msg == 'exit'
       @redis.unsubscribe
     end
   end
-  on.unsubscribe {|klass| puts "see ya, #{klass}" }
+  on.unsubscribe {|klass, num_subs| puts "Unsubscribed to #{klass} (#{num_subs} subscriptions)" }
 end
 
 

@@ -829,9 +829,9 @@ class RedisTest < Test::Unit::TestCase
     test "SUBSCRIBE and UNSUBSCRIBE" do
       sub = Thread.new {
         @r.subscribe('A') do |on|
-          on.subscribe {|klass| @subscribed = true }
+          on.subscribe {|klass, num| @subscribed = true }
           on.message {|klass,msg| @r.unsubscribe }
-          on.unsubscribe {|klass| @unsubscribed = true }
+          on.unsubscribe {|klass, num| @unsubscribed = true }
         end
       }
       Redis.new(OPTIONS).publish('A', 'finish!')
@@ -843,7 +843,7 @@ class RedisTest < Test::Unit::TestCase
 
     test "SUBSCRIBE within SUBSCRIBE" do
       @r.subscribe('A') do |on|
-        on.subscribe {|klass|
+        on.subscribe {|klass, num|
           @r.subscribe('B') if klass == 'A'
           @r.unsubscribe if klass == 'B'
         }
@@ -854,7 +854,7 @@ class RedisTest < Test::Unit::TestCase
     test "other commands within a SUBSCRIBE" do
       assert_raise(RuntimeError) do
         @r.subscribe(:a) do |on|
-          on.subscribe {|klass| @r.set('subscribed', 'true') }
+          on.subscribe {|klass, num| @r.set('subscribed', 'true') }
         end
       end
     end

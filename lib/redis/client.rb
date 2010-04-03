@@ -291,7 +291,7 @@ class Redis
           type, *reply = read_reply # type, [class,data]
           case type
           when 'subscribe','unsubscribe'
-            sub.send(type) && sub.send(type).call(reply[0])
+            sub.send(type) && sub.send(type).call(reply[0],reply[1])
           when 'message'
             sub.send(type) && sub.send(type).call(reply[0],reply[1])
           end
