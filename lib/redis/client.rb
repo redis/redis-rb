@@ -315,11 +315,6 @@ class Redis
       end
     end
 
-    def unsubscribe(*classes)
-      call_command [:unsubscribe,*classes]
-      return true
-    end
-
     def call_command(argv)
       log(argv.inspect, :debug)
 
