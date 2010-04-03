@@ -2,8 +2,10 @@ require File.join(File.dirname(__FILE__), "test_helper")
 require "logger"
 
 class RedisTest < Test::Unit::TestCase
+  ConnectionOptions = { :port => 6379, :db => 15, :timeout => 3 }
+
   setup do
-    @r = Redis.new(:port => 6379, :db => 15, :timeout => 3)
+    @r = Redis.new(ConnectionOptions)
 
     begin
       @r.flushdb
@@ -818,9 +820,41 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Publish/Subscribe" do
-    test "SUBSCRIBE"
+    test "SUBSCRIBE and UNSUBSCRIBE" do
+      sub = Thread.new {
+        @r.subscribe('A') do |on|
+          on.subscribe {|klass| @subscribed = true }
+          on.message {|klass,msg| @r.unsubscribe }
+          on.unsubscribe {|klass| @unsubscribed = true }
+        end
+      }
+      Redis.new(ConnectionOptions).publish('A', 'finish!')
+      sub.join
+      assert true, "message received; ie, this test didn't hang"
+      assert @subscribed, 'subscribed'
+      assert @unsubscribed, 'unsubscribed'
+    end
 
-    test "UNSUBSCRIBE"
+    test "SUBSCRIBE within SUBSCRIBE" do
+      @r.subscribe('A') do |on|
+        on.subscribe {|klass|
+          @r.subscribe('B') if klass == 'A'
+          @r.unsubscribe if klass == 'B'
+        }
+      end
+      assert true, 'we are here, so it worked'
+    end
+
+    test "other commands within a SUBSCRIBE" do
+      assert_raise(RuntimeError) do
+        @r.subscribe(:a) do |on|
+          on.subscribe {|klass| @r.set('subscribed', 'true') }
+        end
+      end
+    end
+
+    test "SUBSCRIBE timeout"
+
   end
 
   context "Persistence control commands" do
