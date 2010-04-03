@@ -54,7 +54,7 @@ class RedisTest < Test::Unit::TestCase
       redis = Redis.new(:port => PORT, :password => "secret")
 
       def redis.call_command(attrs)
-        raise unless attrs == ["auth", "secret"]
+        raise unless attrs == [:auth, "secret"]
       end
 
       assert_nothing_raised do

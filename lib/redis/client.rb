@@ -280,13 +280,13 @@ class Redis
     end
 
     def subscribe(*classes)
-      # Top-level `subscribe` MUST be called with a block,	
-      # nested `subscribe` MUST NOT be called with a block	
-      if !@pubsub && !block_given?	
+      # Top-level `subscribe` MUST be called with a block,
+      # nested `subscribe` MUST NOT be called with a block
+      if !@pubsub && !block_given?
         raise "Top-level subscribe requires a block"
-      elsif @pubsub == true && block_given?	
+      elsif @pubsub == true && block_given?
         raise "Nested subscribe does not take a block"
-      elsif @pubsub	
+      elsif @pubsub
         # If we're already pubsub'ing, just subscribe us to some more classes
         call_command [:subscribe,*classes]
         return true
@@ -315,21 +315,21 @@ class Redis
       end
     end
 
+    # Wrap raw_call_command to handle reconnection on socket error. We
+    # try to reconnect just one time, otherwise let the error araise.
     def call_command(argv)
       log(argv.inspect, :debug)
 
-      # this wrapper to raw_call_command handle reconnection on socket
-      # error. We try to reconnect just one time, otherwise let the error
-      # araise.
-      connect_to_server if !@sock
+      connect_to_server unless connected?
 
       begin
         raw_call_command(argv.dup)
       rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED
-        @sock.close rescue nil
-        @sock = nil
-        connect_to_server
-        raw_call_command(argv.dup)
+        if reconnect
+          raw_call_command(argv.dup)
+        else
+          raise Errno::ECONNRESET
+        end
       end
     end
 
@@ -337,35 +337,38 @@ class Redis
       "#{@host}:#{@port}"
     end
 
-    def connect_to(host, port, timeout=nil)
-      # We support connect() timeout only if system_timer is availabe
+    def connect_to(host, port)
+
+      # We support connect_to() timeout only if system_timer is availabe
       # or if we are running against Ruby >= 1.9
       # Timeout reading from the socket instead will be supported anyway.
       if @timeout != 0 and Timer
         begin
-          sock = TCPSocket.new(host, port)
+          @sock = TCPSocket.new(host, port)
         rescue Timeout::Error
           @sock = nil
           raise Timeout::Error, "Timeout connecting to the server"
         end
       else
-        sock = TCPSocket.new(host, port)
+        @sock = TCPSocket.new(host, port)
       end
-      sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
+
+      @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
 
       # If the timeout is set we set the low level socket options in order
       # to make sure a blocking read will return after the specified number
       # of seconds. This hack is from memcached ruby client.
-      if timeout
-        set_socket_timeout(sock, timeout)
-      end
-      sock
+      set_socket_timeout!(@timeout) if @timeout
+
+    rescue Errno::ECONNREFUSED
+      raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{host}:#{port}"
     end
 
     def connect_to_server
-      @sock = connect_to(@host, @port, @timeout == 0 ? nil : @timeout)
-      call_command(["auth",@password]) if @password
-      call_command(["select",@db]) unless @db == 0
+      connect_to(@host, @port)
+      call_command([:auth, @password]) if @password
+      call_command([:select, @db]) if @db != 0
+      @sock
     end
 
     def method_missing(*argv)
@@ -417,10 +420,10 @@ class Redis
       # The normal command execution is reading and processing the reply.
       results = maybe_lock do
         begin
-          set_socket_timeout(@sock, 0) if requires_timeout_reset?(argvv[0][0].to_s)
+          set_socket_timeout!(0) if requires_timeout_reset?(argvv[0][0].to_s)
           process_command(command, argvv)
         ensure
-          set_socket_timeout(@sock, @timeout) if requires_timeout_reset?(argvv[0][0].to_s)
+          set_socket_timeout!(@timeout) if requires_timeout_reset?(argvv[0][0].to_s)
         end
       end
 
@@ -488,6 +491,8 @@ class Redis
       string.respond_to?(:bytesize) ? string.bytesize : string.size
     end
 
+  private
+
     def log(str, level = :info)
       @logger.send(level, str.to_s) if @logger
     end
@@ -499,19 +504,36 @@ class Redis
     def requires_timeout_reset?(command)
       BLOCKING_COMMANDS[command] && @timeout
     end
-    
-    def set_socket_timeout(sock, timeout)
+
+    def set_socket_timeout!(timeout)
       secs   = Integer(timeout)
       usecs  = Integer((timeout - secs) * 1_000_000)
       optval = [secs, usecs].pack("l_2")
       begin
-        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
-        sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
-      rescue Exception => ex
+        @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
+        @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
+      rescue Exception => e
         # Solaris, for one, does not like/support socket timeouts.
-        log("Unable to use raw socket timeouts: #{ex.class.name}: #{ex.message}")
+        log("Unable to use raw socket timeouts: #{e.class.name}: #{e.message}")
       end
     end
 
+    def connected?
+      !! @sock
+    end
+
+    def disconnect
+      begin
+        @sock.close
+      rescue
+      ensure
+        @sock = nil
+      end
+      true
+    end
+
+    def reconnect
+      disconnect && connect_to_server
+    end
   end
 end
