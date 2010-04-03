@@ -1,5 +1,11 @@
 class Redis
   class Client
+    class ProtocolError < RuntimeError
+      def initialize(reply_type)
+        super("Protocol error, got '#{reply_type}' as initial reply byte")
+      end
+    end
+
     OK      = "OK".freeze
     MINUS    = "-".freeze
     PLUS     = "+".freeze
@@ -447,45 +453,26 @@ class Redis
     end
 
     def read_reply
+
       # We read the first byte using read() mainly because gets() is
       # immune to raw socket timeouts.
       begin
-        rtype = @sock.read(1)
+        reply_type = @sock.read(1)
       rescue Errno::EAGAIN
+
         # We want to make sure it reconnects on the next command after the
         # timeout. Otherwise the server may reply in the meantime leaving
         # the protocol in a desync status.
-        @sock = nil
+        disconnect
+
         raise Errno::EAGAIN, "Timeout reading from the socket"
       end
 
-      raise Errno::ECONNRESET,"Connection lost" if !rtype
-      line = @sock.gets
-      case rtype
-      when MINUS
-        raise MINUS + line.strip
-      when PLUS
-        line.strip
-      when COLON
-        line.to_i
-      when DOLLAR
-        bulklen = line.to_i
-        return nil if bulklen == -1
-        data = @sock.read(bulklen)
-        @sock.read(2) # CRLF
-        data
-      when ASTERISK
-        objects = line.to_i
-        return nil if bulklen == -1
-        res = []
-        objects.times {
-          res << read_reply
-        }
-        res
-      else
-        raise "Protocol error, got '#{rtype}' as initial reply byte"
-      end
+      raise Errno::ECONNRESET, "Connection lost" unless reply_type
+
+      format_reply(reply_type, @sock.gets)
     end
+
 
     def get_size(string)
       string.respond_to?(:bytesize) ? string.bytesize : string.size
@@ -534,6 +521,43 @@ class Redis
 
     def reconnect
       disconnect && connect_to_server
+    end
+
+    def format_reply(reply_type, line)
+      case reply_type
+      when MINUS    then format_error_reply(line)
+      when PLUS     then format_status_reply(line)
+      when COLON    then format_integer_reply(line)
+      when DOLLAR   then format_bulk_reply(line)
+      when ASTERISK then format_multi_bulk_reply(line)
+      else raise ProtocolError.new(reply_type)
+      end
+    end
+
+    def format_error_reply(line)
+      raise "-" + line.strip
+    end
+
+    def format_status_reply(line)
+      line.strip
+    end
+
+    def format_integer_reply(line)
+      line.to_i
+    end
+
+    def format_bulk_reply(line)
+      bulklen = line.to_i
+      return if bulklen == -1
+      reply = @sock.read(bulklen)
+      @sock.read(2) # Discard CRLF.
+      reply
+    end
+
+    def format_multi_bulk_reply(line)
+      reply = []
+      line.to_i.times { reply << read_reply }
+      reply
     end
   end
 end
