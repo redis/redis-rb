@@ -280,31 +280,31 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "INCR" do
-      assert_equal 1, @r.incr("counter")
-      assert_equal 2, @r.incr("counter")
-      assert_equal 3, @r.incr("counter")
+      assert_equal 1, @r.incr("foo")
+      assert_equal 2, @r.incr("foo")
+      assert_equal 3, @r.incr("foo")
     end
 
     test "INCRBY" do
-      assert_equal 1, @r.incrby("counter", 1)
-      assert_equal 3, @r.incrby("counter", 2)
-      assert_equal 6, @r.incrby("counter", 3)
+      assert_equal 1, @r.incrby("foo", 1)
+      assert_equal 3, @r.incrby("foo", 2)
+      assert_equal 6, @r.incrby("foo", 3)
     end
 
     test "DECR" do
-      @r.set("counter", 3)
+      @r.set("foo", 3)
 
-      assert_equal 2, @r.decr("counter")
-      assert_equal 1, @r.decr("counter")
-      assert_equal 0, @r.decr("counter")
+      assert_equal 2, @r.decr("foo")
+      assert_equal 1, @r.decr("foo")
+      assert_equal 0, @r.decr("foo")
     end
 
     test "DECRBY" do
-      @r.set("counter", 6)
+      @r.set("foo", 6)
 
-      assert_equal 3, @r.decrby("counter", 3)
-      assert_equal 1, @r.decrby("counter", 2)
-      assert_equal 0, @r.decrby("counter", 1)
+      assert_equal 3, @r.decrby("foo", 3)
+      assert_equal 1, @r.decrby("foo", 2)
+      assert_equal 0, @r.decrby("foo", 1)
     end
   end
 
@@ -951,11 +951,28 @@ class RedisTest < Test::Unit::TestCase
         assert $stderr.string["Redis: The method set_add is deprecated. Use sadd instead"]
       end
     end
+
     test "SET with an expire as a parameter" do
       capture_stderr do
         @r.set("foo", "s1", 1)
 
         assert $stderr.string["Redis: The method set with an expire is deprecated. Use set_with_expire instead"]
+      end
+    end
+
+    test "INCR with an increment as a parameter" do
+      capture_stderr do
+        @r.incr("foo", 1)
+
+        assert $stderr.string["Redis: The method incr with an increment is deprecated. Use incrby instead"]
+      end
+    end
+
+    test "DECR with a decrement as a parameter" do
+      capture_stderr do
+        @r.decr("foo", 1)
+
+        assert $stderr.string["Redis: The method decr with a decrement is deprecated. Use decrby instead"]
       end
     end
 
