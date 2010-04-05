@@ -960,7 +960,7 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Pipelining commands" do
-    test "Pipelined" do
+    test "BULK commands" do
       @r.pipelined do |pipeline|
         pipeline.lpush "foo", "s1"
         pipeline.lpush "foo", "s2"
@@ -969,6 +969,46 @@ class RedisTest < Test::Unit::TestCase
       assert_equal 2, @r.llen("foo")
       assert_equal "s2", @r.lpop("foo")
       assert_equal "s1", @r.lpop("foo")
+    end
+
+    test "MULTI_BULK commands" do
+      @r.pipelined do |pipeline|
+        pipeline.mset("foo", "s1", "bar", "s2")
+        pipeline.mset("baz", "s3", "qux", "s4")
+      end
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal "s2", @r.get("bar")
+      assert_equal "s3", @r.get("baz")
+      assert_equal "s4", @r.get("qux")
+    end
+
+    test "BULK and MULTI_BULK commands mixed" do
+      @r.pipelined do |pipeline|
+        pipeline.lpush "foo", "s1"
+        pipeline.lpush "foo", "s2"
+        pipeline.mset("baz", "s3", "qux", "s4")
+      end
+
+      assert_equal 2, @r.llen("foo")
+      assert_equal "s2", @r.lpop("foo")
+      assert_equal "s1", @r.lpop("foo")
+      assert_equal "s3", @r.get("baz")
+      assert_equal "s4", @r.get("qux")
+    end
+
+    test "MULTI_BULK and BULK commands mixed" do
+      @r.pipelined do |pipeline|
+        pipeline.mset("baz", "s3", "qux", "s4")
+        pipeline.lpush "foo", "s1"
+        pipeline.lpush "foo", "s2"
+      end
+
+      assert_equal 2, @r.llen("foo")
+      assert_equal "s2", @r.lpop("foo")
+      assert_equal "s1", @r.lpop("foo")
+      assert_equal "s3", @r.get("baz")
+      assert_equal "s4", @r.get("qux")
     end
 
     test "Pipelined with an empty block" do

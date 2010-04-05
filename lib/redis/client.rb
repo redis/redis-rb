@@ -387,9 +387,10 @@ class Redis
         pipeline = true
       else
         argvv = [argvp]
+        pipeline = false
       end
 
-      if @binary_keys or MULTI_BULK_COMMANDS[argvv[0][0].to_s]
+      if @binary_keys or pipeline or MULTI_BULK_COMMANDS[argvv[0][0].to_s]
         command = ""
         argvv.each do |argv|
           command << "*#{argv.size}\r\n"
