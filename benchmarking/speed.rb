@@ -1,5 +1,10 @@
-require 'benchmark'
-require "#{File.dirname(__FILE__)}/lib/redis"
+# Run with
+#
+#   $ ruby -Ilib benchmarking/speed.rb
+#
+
+require "benchmark"
+require "redis"
 
 r = Redis.new
 n = (ARGV.shift || 20000).to_i
