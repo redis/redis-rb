@@ -475,8 +475,14 @@ class Redis
     end
 
 
-    def get_size(string)
-      string.respond_to?(:bytesize) ? string.bytesize : string.size
+    if "".respond_to?(:bytesize)
+      def get_size(string)
+        string.bytesize
+      end
+    else
+      def get_size(string)
+        string.size
+      end
     end
 
   private
