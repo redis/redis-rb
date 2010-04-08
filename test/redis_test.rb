@@ -47,6 +47,28 @@ class RedisTest < Test::Unit::TestCase
         Redis.new(OPTIONS.merge(:timeout => 0))
       end
     end
+
+    test "Recovers from failed commands" do
+      # See http://github.com/ezmobius/redis-rb/issues#issue/28
+
+      assert_raises do
+        @r.srem "foo"
+      end
+
+      assert_nothing_raised do
+        @r.info
+      end
+    end
+
+    test "Does not send extra commands on errors" do
+      # See http://github.com/ezmobius/redis-rb/issues#issue/28
+
+      assert_raises do
+        @r.srem "set foo 3\r\nbar\r\n"
+      end
+
+      assert_nil Redis.new(OPTIONS).get("foo")
+    end
   end
 
   context "Connection handling" do
