@@ -978,6 +978,7 @@ class RedisTest < Test::Unit::TestCase
       end
 
       assert_equal "0", @r.keys("*").sort.first
+      assert_equal "string", @r.type("1")
     end
   end
 

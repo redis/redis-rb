@@ -107,6 +107,10 @@ class Redis
         kbn
       end
     end
+
+    def type(key)
+      method_missing(:type, key)
+    end
   end
 end
 
