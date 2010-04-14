@@ -1,20 +1,13 @@
 class Redis
-  class Pipeline < Client
-    BUFFER_SIZE = 50_000
+  class Pipeline
+    attr :commands
 
-    def initialize(redis)
-      @redis = redis
+    def initialize
       @commands = []
     end
 
-    def call_command(command)
-      @commands << command
-    end
-
-    def execute
-      return if @commands.empty?
-      @redis.call_command(@commands)
-      @commands.clear
+    def call(*args)
+      @commands << args
     end
   end
 end

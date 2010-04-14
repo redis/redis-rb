@@ -13,7 +13,7 @@ class Redis
 
       opts[:hosts].each do |h|
         host, port = h.split(':')
-        hosts << Client.new(:host => host, :port => port, :db => db, :timeout => timeout)
+        hosts << Redis.new(:host => host, :port => port, :db => db, :timeout => timeout)
       end
 
       @ring = HashRing.new hosts
@@ -26,7 +26,7 @@ class Redis
 
     def add_server(server)
       server, port = server.split(':')
-      @ring.add_node Client.new(:host => server, :port => port)
+      @ring.add_node Redis.new(:host => server, :port => port)
     end
 
     def method_missing(sym, *args, &blk)

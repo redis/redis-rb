@@ -39,7 +39,7 @@ class RedisTest < Test::Unit::TestCase
     test "Logger" do
       @r.ping
 
-      assert @log.string["ping"]
+      assert_match(/Redis >> PING/, @log.string)
     end
 
     test "Timeout" do
@@ -51,7 +51,7 @@ class RedisTest < Test::Unit::TestCase
     test "Recovers from failed commands" do
       # See http://github.com/ezmobius/redis-rb/issues#issue/28
 
-      assert_raises do
+      assert_raises(ArgumentError) do
         @r.srem "foo"
       end
 
@@ -59,33 +59,34 @@ class RedisTest < Test::Unit::TestCase
         @r.info
       end
     end
-
-    test "Does not send extra commands on errors" do
-      # See http://github.com/ezmobius/redis-rb/issues#issue/28
-
-      assert_raises do
-        @r.srem "set foo 3\r\nbar\r\n"
-      end
-
-      assert_nil Redis.new(OPTIONS).get("foo")
-    end
   end
 
   context "Connection handling" do
     test "AUTH" do
-      redis = Redis.new(:port => PORT, :password => "secret")
+      redis = Redis.new(:port => PORT, :password => "secret").instance_variable_get("@client")
 
-      def redis.call_command(attrs)
+      def redis.call(*attrs)
         raise unless attrs == [:auth, "secret"]
       end
 
       assert_nothing_raised do
-        redis.send(:connect_to_server)
+        redis.send(:connect)
       end
     end
 
     test "PING" do
       assert_equal "PONG", @r.ping
+    end
+
+    test "SELECT" do
+      @r.set "foo", "bar"
+
+      @r.select 14
+      assert_equal nil, @r.get("foo")
+
+      @r.client.disconnect
+
+      assert_equal nil, @r.get("foo")
     end
   end
 
@@ -173,6 +174,17 @@ class RedisTest < Test::Unit::TestCase
     test "EXPIRE" do
       @r.set("foo", "s1")
       @r.expire("foo", 1)
+
+      assert_equal "s1", @r.get("foo")
+
+      sleep 2
+
+      assert_equal nil, @r.get("foo")
+    end
+
+    test "EXPIREAT" do
+      @r.set("foo", "s1")
+      @r.expireat("foo", Time.now.to_i + 1)
 
       assert_equal "s1", @r.get("foo")
 
@@ -657,7 +669,7 @@ class RedisTest < Test::Unit::TestCase
       @r.zadd "foo", 3, "s3"
 
       assert_equal ["s1", "s2"], @r.zrange("foo", 0, 1)
-      assert_equal ["s1", "1", "s2", "2"], @r.zrange("foo", 0, 1, "WITHSCORES")
+      assert_equal ["s1", "1", "s2", "2"], @r.zrange("foo", 0, 1, true)
     end
 
     test "ZREVRANGE" do
@@ -666,7 +678,7 @@ class RedisTest < Test::Unit::TestCase
       @r.zadd "foo", 3, "s3"
 
       assert_equal ["s3", "s2"], @r.zrevrange("foo", 0, 1)
-      assert_equal ["s3", "3", "s2", "2"], @r.zrevrange("foo", 0, 1, "WITHSCORES")
+      assert_equal ["s3", "3", "s2", "2"], @r.zrevrange("foo", 0, 1, true)
     end
 
     test "ZRANGEBYSCORE" do
@@ -676,6 +688,9 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal ["s2", "s3"], @r.zrangebyscore("foo", 2, 3)
     end
+
+    test "ZRANGEBYSCORE with LIMIT"
+    test "ZRANGEBYSCORE with WITHSCORES"
 
     test "ZCARD" do
       assert_equal 0, @r.zcard("foo")
@@ -914,7 +929,7 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "SUBSCRIBE without a block" do
-      assert_raise RuntimeError do
+      assert_raise LocalJumpError do
         @r.subscribe("foo")
       end
     end
@@ -942,24 +957,18 @@ class RedisTest < Test::Unit::TestCase
   context "Remote server control commands" do
     test "INFO" do
       %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|
-        assert @r.info.keys.include?(x.to_sym)
+        assert @r.info.keys.include?(x)
       end
     end
 
     test "MONITOR" do
-      assert_raises RuntimeError do
+      assert_raises NotImplementedError do
         @r.monitor
       end
     end
 
     test "ECHO" do
       assert_equal "foo bar baz\n", @r.echo("foo bar baz\n")
-    end
-
-    test "SYNC" do
-      assert_raises RuntimeError do
-        @r.sync
-      end
     end
   end
 
@@ -984,9 +993,9 @@ class RedisTest < Test::Unit::TestCase
 
   context "Pipelining commands" do
     test "BULK commands" do
-      @r.pipelined do |pipeline|
-        pipeline.lpush "foo", "s1"
-        pipeline.lpush "foo", "s2"
+      @r.pipelined do
+        @r.lpush "foo", "s1"
+        @r.lpush "foo", "s2"
       end
 
       assert_equal 2, @r.llen("foo")
@@ -995,9 +1004,9 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "MULTI_BULK commands" do
-      @r.pipelined do |pipeline|
-        pipeline.mset("foo", "s1", "bar", "s2")
-        pipeline.mset("baz", "s3", "qux", "s4")
+      @r.pipelined do
+        @r.mset("foo", "s1", "bar", "s2")
+        @r.mset("baz", "s3", "qux", "s4")
       end
 
       assert_equal "s1", @r.get("foo")
@@ -1007,10 +1016,10 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "BULK and MULTI_BULK commands mixed" do
-      @r.pipelined do |pipeline|
-        pipeline.lpush "foo", "s1"
-        pipeline.lpush "foo", "s2"
-        pipeline.mset("baz", "s3", "qux", "s4")
+      @r.pipelined do
+        @r.lpush "foo", "s1"
+        @r.lpush "foo", "s2"
+        @r.mset("baz", "s3", "qux", "s4")
       end
 
       assert_equal 2, @r.llen("foo")
@@ -1021,10 +1030,10 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "MULTI_BULK and BULK commands mixed" do
-      @r.pipelined do |pipeline|
-        pipeline.mset("baz", "s3", "qux", "s4")
-        pipeline.lpush "foo", "s1"
-        pipeline.lpush "foo", "s2"
+      @r.pipelined do
+        @r.mset("baz", "s3", "qux", "s4")
+        @r.lpush "foo", "s1"
+        @r.lpush "foo", "s2"
       end
 
       assert_equal 2, @r.llen("foo")
@@ -1036,7 +1045,7 @@ class RedisTest < Test::Unit::TestCase
 
     test "Pipelined with an empty block" do
       assert_nothing_raised do
-        @r.pipelined do |pipeline|
+        @r.pipelined do
         end
       end
 
@@ -1044,63 +1053,10 @@ class RedisTest < Test::Unit::TestCase
     end
   end
 
-  context "Deprecated methods" do
-    test "ALIASES" do
-      capture_stderr do
-        @r.set_add("foo", "s1")
-
-        assert $stderr.string["Redis: The method set_add is deprecated. Use sadd instead"]
-      end
-    end
-
-    test "SET with an expire as a parameter" do
-      capture_stderr do
-        @r.set("foo", "s1", 1)
-
-        assert_equal "s1", @r.get("foo")
-
-        sleep 2
-
-        assert_nil @r.get("foo")
-        assert $stderr.string["Redis: The method set with an expire is deprecated. Use set_with_expire instead"]
-      end
-    end
-
-    test "INCR with an increment as a parameter" do
-      capture_stderr do
-        @r.incr("foo", 2)
-
-        assert_equal "2", @r.get("foo")
-        assert $stderr.string["Redis: The method incr with an increment is deprecated. Use incrby instead"]
-      end
-    end
-
-    test "DECR with a decrement as a parameter" do
-      capture_stderr do
-        @r.decr("foo", 2)
-
-        assert_equal "-2", @r.get("foo")
-        assert $stderr.string["Redis: The method decr with a decrement is deprecated. Use decrby instead"]
-      end
-    end
-
-    test "MSET with a hash as a parameter" do
-      capture_stderr do
-        @r.mset(:foo => "s1", :bar => "s2")
-
-        assert_equal "s1", @r.get("foo")
-        assert_equal "s2", @r.get("bar")
-        assert $stderr.string["Redis: The method mset with a hash is deprecated. Use mapped_mset instead"]
-      end
-    end
-
-    test "MSETNX with a hash as a parameter" do
-      capture_stderr do
-        @r.msetnx(:foo => "s1", :bar => "s2")
-
-        assert_equal "s1", @r.get("foo")
-        assert_equal "s2", @r.get("bar")
-        assert $stderr.string["Redis: The method msetnx with a hash is deprecated. Use mapped_msetnx instead"]
+  context "Unknown commands" do
+    should "try to work" do
+      assert_raises RuntimeError do
+        @r.not_yet_implemented_command
       end
     end
   end
