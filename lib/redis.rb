@@ -129,11 +129,15 @@ class Redis
   end
 
   def blpop(key, timeout)
-    @client.call(:blpop, key, timeout)
+    @client.without_socket_timeout do
+      @client.call(:blpop, key, timeout)
+    end
   end
 
   def brpop(key, timeout)
-    @client.call(:brpop, key, timeout)
+    @client.without_socket_timeout do
+      @client.call(:brpop, key, timeout)
+    end
   end
 
   def rpoplpush(source, destination)

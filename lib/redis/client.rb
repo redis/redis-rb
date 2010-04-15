@@ -1,10 +1,5 @@
 class Redis
   class Client
-    BLOCKING_COMMANDS = {
-      "blpop" => true,
-      "brpop" => true
-    }
-
     MINUS    = "-".freeze
     PLUS     = "+".freeze
     COLON    = ":".freeze
@@ -98,6 +93,15 @@ class Redis
       format_reply(reply_type, @sock.gets)
     end
 
+    def without_socket_timeout
+      begin
+        self.timeout = 0
+        yield
+      ensure
+        self.timeout = @timeout
+      end
+    end
+
   protected
 
     def build_command(name, *args)
@@ -131,12 +135,7 @@ class Redis
       process(commands)
 
       @mutex.synchronize do
-        begin
-          # set_socket_timeout!(0) if requires_timeout_reset?(name)
-          Array.new(commands.size).map { read }
-        ensure
-          # set_socket_timeout!(@timeout) if requires_timeout_reset?(name)
-        end
+        Array.new(commands.size).map { read }
       end
     end
 
@@ -192,19 +191,11 @@ class Redis
     end
 
     def connect_to(host, port)
-
-      # We support connect_to() timeout only if SystemTimer is availabe
-      # or if we are running against Ruby >= 1.9
-      # Timeout reading from the socket instead will be supported anyway.
-      if @timeout != 0 and Timer
-        begin
-          @sock = TCPSocket.new(host, port)
-        rescue Timeout::Error
-          @sock = nil
-          raise Timeout::Error, "Timeout connecting to the server"
-        end
-      else
+      begin
         @sock = TCPSocket.new(host, port)
+      rescue Timeout::Error
+        @sock = nil
+        raise
       end
 
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
@@ -212,17 +203,13 @@ class Redis
       # If the timeout is set we set the low level socket options in order
       # to make sure a blocking read will return after the specified number
       # of seconds. This hack is from memcached ruby client.
-      set_socket_timeout!(@timeout) if @timeout
+      self.timeout = timeout
 
     rescue Errno::ECONNREFUSED
       raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{host}:#{port}"
     end
 
-    def requires_timeout_reset?(command)
-      BLOCKING_COMMANDS[command] && @timeout
-    end
-
-    def set_socket_timeout!(timeout)
+    def timeout=(timeout)
       secs   = Integer(timeout)
       usecs  = Integer((timeout - secs) * 1_000_000)
       optval = [secs, usecs].pack("l_2")
