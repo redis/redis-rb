@@ -766,6 +766,13 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal({"f1" => "s1", "f2" => "s2"}, @r.hgetall("foo"))
     end
+
+    test "HMSET" do
+      @r.hmset("hash", "foo1", "bar1", "foo2", "bar2")
+
+      assert_equal "bar1", @r.hget("hash", "foo1")
+      assert_equal "bar2", @r.hget("hash", "foo2")
+    end
   end
 
   context "Sorting" do
