@@ -788,6 +788,12 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "bar1", @r.hget("hash", "foo1")
       assert_equal "bar2", @r.hget("hash", "foo2")
     end
+
+    test "HMSET with invalid arguments" do
+      assert_raise do
+        @r.hmset("hash", "foo1", "bar1", "foo2", "bar2", "foo3")
+      end
+    end
   end
 
   context "Sorting" do

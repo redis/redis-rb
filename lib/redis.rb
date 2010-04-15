@@ -276,6 +276,10 @@ class Redis
     _bool @client.call(:hset, key, field, value)
   end
 
+  def hmset(key, *attrs)
+    @client.call(:hmset, key, *attrs)
+  end
+
   def hlen(key)
     @client.call(:hlen, key)
   end
