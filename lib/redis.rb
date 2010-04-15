@@ -11,7 +11,19 @@ class Redis
 
   attr :client
 
-  def initialize(options = {})
+  def self.connect(options={})
+    url = options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0"
+    url = URI(url.to_s)
+
+    options[:host]     = url.host
+    options[:port]     = url.port
+    options[:password] = url.password
+    options[:db]       = url.path[1..-1].to_i
+
+    new(options)
+  end
+
+  def initialize(options={})
     @client = Client.new(options)
   end
 

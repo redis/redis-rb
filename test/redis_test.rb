@@ -30,6 +30,50 @@ class RedisTest < Test::Unit::TestCase
     end
   end
 
+  context "initialize with URL" do
+
+    test "defaults to 127.0.0.1:6379" do
+      redis = Redis.connect
+
+      assert_equal "127.0.0.1", redis.client.host
+      assert_equal 6379, redis.client.port
+      assert_equal 0, redis.client.db
+      assert_nil redis.client.password
+    end
+
+    test "takes a url" do
+      redis = Redis.connect :url => "redis://:secr3t@foo.com:999/2"
+
+      assert_equal "foo.com", redis.client.host
+      assert_equal 999, redis.client.port
+      assert_equal 2, redis.client.db
+      assert_equal "secr3t", redis.client.password
+    end
+
+    test "uses REDIS_URL over default if available" do
+      ENV["REDIS_URL"] = "redis://:secr3t@foo.com:999/2"
+
+      redis = Redis.connect
+
+      assert_equal "foo.com", redis.client.host
+      assert_equal 999, redis.client.port
+      assert_equal 2, redis.client.db
+      assert_equal "secr3t", redis.client.password
+
+      ENV.delete("REDIS_URL")
+    end
+
+    test "takes a URI" do
+      redis = Redis.connect :url => URI("redis://:secr3t@foo.com:999/2")
+
+      assert_equal "foo.com", redis.client.host
+      assert_equal 999, redis.client.port
+      assert_equal 2, redis.client.db
+      assert_equal "secr3t", redis.client.password
+    end
+
+  end
+
   context "Internals" do
     setup do
       @log = StringIO.new
