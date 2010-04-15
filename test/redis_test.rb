@@ -790,7 +790,7 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "HMSET with invalid arguments" do
-      assert_raise do
+      assert_raise(RuntimeError) do
         @r.hmset("hash", "foo1", "bar1", "foo2", "bar2", "foo3")
       end
     end
