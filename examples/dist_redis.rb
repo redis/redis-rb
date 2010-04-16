@@ -1,8 +1,10 @@
-require 'rubygems'
-require 'redis'
-require 'redis/dist_redis'
+require "redis"
+require "redis/distributed"
 
-r = DistRedis.new :hosts => %w[localhost:6379 localhost:6380 localhost:6381 localhost:6382]
+r = Redis::Distributed.new %w[redis://localhost:6379 redis://localhost:6380 redis://localhost:6381 redis://localhost:6382]
+
+r.flushdb
+
 r['urmom'] = 'urmom'
 r['urdad'] = 'urdad'
 r['urmom1'] = 'urmom1'
@@ -20,22 +22,22 @@ p r['urdad2']
 p r['urmom3']
 p r['urdad3']
 
-r.push_tail 'listor', 'foo1'
-r.push_tail 'listor', 'foo2'
-r.push_tail 'listor', 'foo3'
-r.push_tail 'listor', 'foo4'
-r.push_tail 'listor', 'foo5'
+r.rpush 'listor', 'foo1'
+r.rpush 'listor', 'foo2'
+r.rpush 'listor', 'foo3'
+r.rpush 'listor', 'foo4'
+r.rpush 'listor', 'foo5'
 
-p r.pop_tail('listor')
-p r.pop_tail('listor')
-p r.pop_tail('listor')
-p r.pop_tail('listor')
-p r.pop_tail('listor')
+p r.rpop('listor')
+p r.rpop('listor')
+p r.rpop('listor')
+p r.rpop('listor')
+p r.rpop('listor')
 
 puts "key distribution:"
 
-r.ring.nodes.each do |red|
-  p [red.server, red.keys("*")]
+r.ring.nodes.each do |node|
+  p [node.client, node.keys("*")]
 end
-r.delete_cloud!
+r.flushdb
 p r.keys('*')
