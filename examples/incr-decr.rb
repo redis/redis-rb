@@ -1,11 +1,10 @@
-require 'rubygems'
 require 'redis'
 
 r = Redis.new
 
 puts
 p 'incr'
-r.delete 'counter'
+r.del 'counter'
 
 p r.incr('counter')
 p r.incr('counter')

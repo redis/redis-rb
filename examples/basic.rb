@@ -1,11 +1,10 @@
-require 'rubygems'
 require 'redis'
 
 r = Redis.new
 
-r.delete('foo')
+r.del('foo')
 
-puts 
+puts
 
 p'set foo to "bar"'
 r['foo'] = 'bar'
