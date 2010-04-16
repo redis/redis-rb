@@ -20,6 +20,10 @@ class Redis
       @ring = HashRing.new urls.map { |url| Redis.connect(options.merge(:url => url)) }
     end
 
+    def select(db)
+      on_each_node :select, db
+    end
+
     def node_for(key)
       @ring.get_node(key.to_s)
     end
@@ -31,10 +35,6 @@ class Redis
     def add_node(url)
       @ring.add_node Redis.connect(@default_options.merge(:url => url))
     end
-
-    # def get(key)
-    #   with_client_for(key) { super }
-    # end
 
     def ping
       on_each_node :ping
@@ -76,10 +76,6 @@ class Redis
       node_for(key).getset(key, value)
     end
 
-    def mget(*keys)
-      @client.call(:mget, *keys)
-    end
-
     def hgetall(key)
       node_for(key).hgetall(key)
     end
@@ -97,7 +93,7 @@ class Redis
     end
 
     def randomkey
-      nodes[rand(nodes.size)].randomkey
+      raise CannotDistribute, :randomkey
     end
 
     def echo(value)
@@ -188,40 +184,12 @@ class Redis
       node_for(key).srem(key, value)
     end
 
-    def smove(source, destination, member)
-      raise CannotDistribute, :smove
-    end
-
     def spop(key)
       node_for(key).spop(key)
     end
 
     def scard(key)
       node_for(key).scard(key)
-    end
-
-    def sinter(*keys)
-      raise CannotDistribute, :sinter
-    end
-
-    def sinterstore(destination, *keys)
-      raise CannotDistribute, :sinterstore
-    end
-
-    def sunion(*keys)
-      raise CannotDistribute, :sunion
-    end
-
-    def sunionstore(destination, *keys)
-      raise CannotDistribute, :sunionstore
-    end
-
-    def sdiff(*keys)
-      raise CannotDistribute, :sdiff
-    end
-
-    def sdiffstore(destination, *keys)
-      raise CannotDistribute, :sdiffstore
     end
 
     def srandmember(key)
@@ -356,8 +324,36 @@ class Redis
       raise CannotDistribute, :mapped_mget
     end
 
+    def smove(source, destination, member)
+      raise CannotDistribute, :smove
+    end
+
+    def sinter(*keys)
+      raise CannotDistribute, :sinter
+    end
+
+    def sinterstore(destination, *keys)
+      raise CannotDistribute, :sinterstore
+    end
+
+    def sunion(*keys)
+      raise CannotDistribute, :sunion
+    end
+
+    def sunionstore(*keys)
+      raise CannotDistribute, :sunionstore
+    end
+
+    def sdiff(*keys)
+      raise CannotDistribute, :sdiff
+    end
+
+    def sdiffstore(*keys)
+      raise CannotDistribute, :sdiffstore
+    end
+
     def sort(key, options = {})
-      node_for(key).sort(key, options)
+      raise CannotDistribute, :sort
     end
 
     def incr(key)
@@ -381,7 +377,7 @@ class Redis
     end
 
     def quit
-      @client.call(:quit)
+      on_each_node :quit
     rescue Errno::ECONNRESET
     end
 
@@ -390,7 +386,7 @@ class Redis
     end
 
     def exec
-      @client.call(:exec)
+      raise CannotDistribute, :exec
     end
 
     def multi(&block)
@@ -431,13 +427,6 @@ class Redis
 
     def node_index_for(key)
       nodes.index(node_for(key))
-    end
-
-    def with_client_for(key)
-      original, @client = @client, node_for(key)
-      yield
-    ensure
-      @client = original
     end
   end
 end

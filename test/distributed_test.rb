@@ -22,7 +22,7 @@ class RedisDistributedTest < Test::Unit::TestCase
     test "Recovers from failed commands" do
       # See http://github.com/ezmobius/redis-rb/issues#issue/28
 
-      assert_raises(ArgumentError) do
+      assert_raises ArgumentError do
         @r.srem "foo"
       end
 
@@ -43,9 +43,9 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.select 14
       assert_equal nil, @r.get("foo")
 
-      @r.nodes.each { |node| node.client.disconnect }
+      @r.select 15
 
-      assert_equal nil, @r.get("foo")
+      assert_equal "bar", @r.get("foo")
     end
   end
 
@@ -91,29 +91,29 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "RANDOMKEY" do
-      assert_equal "", @r.randomkey
-
-      @r.set("foo", "s1")
-
-      assert_equal "foo", @r.randomkey
-
-      @r.set("bar", "s2")
-
-      4.times do
-        assert ["foo", "bar"].include?(@r.randomkey)
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.randomkey
       end
     end
 
     test "RENAME" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.set("foo", "s1")
         @r.rename "foo", "bar"
       end
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal nil, @r.get("bar")
     end
 
     test "RENAMENX" do
-      assert_raise Redis::Distributed::CannotDistribute do
-        @r.renamenx "foo", "bar"
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.set("foo", "s1")
+        @r.rename "foo", "bar"
       end
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal nil, @r.get("bar")
     end
 
     test "DBSIZE" do
@@ -211,13 +211,13 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "MGET" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.mget("foo", "bar")
       end
     end
 
     test "MGET mapped" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.mapped_mget("foo", "bar")
       end
     end
@@ -233,25 +233,27 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "MSET" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.mset(:foo, "s1", :bar, "s2")
       end
     end
 
     test "MSET mapped" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.mapped_mset(:foo => "s1", :bar => "s2")
       end
     end
 
     test "MSETNX" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.set("foo", "s1")
         @r.msetnx(:foo, "s2", :bar, "s3")
       end
     end
 
     test "MSETNX mapped" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.set("foo", "s1")
         @r.mapped_msetnx(:foo => "s2", :bar => "s3")
       end
     end
@@ -377,7 +379,7 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "RPOPLPUSH" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.rpoplpush("foo", "bar")
       end
     end
@@ -457,8 +459,11 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "SMOVE" do
-      assert_raise Redis::Distributed::CannotDistribute do
-        assert @r.smove("foo", "bar", "s1")
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "bar", "s2"
+
+        @r.smove("foo", "bar", "s1")
       end
     end
 
@@ -484,37 +489,66 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "SINTER" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "foo", "s2"
+        @r.sadd "bar", "s2"
+
         @r.sinter("foo", "bar")
       end
     end
 
     test "SINTERSTORE" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "foo", "s2"
+        @r.sadd "bar", "s2"
+
         @r.sinterstore("baz", "foo", "bar")
       end
     end
 
     test "SUNION" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "foo", "s2"
+        @r.sadd "bar", "s2"
+        @r.sadd "bar", "s3"
+
         @r.sunion("foo", "bar")
       end
     end
 
     test "SUNIONSTORE" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "foo", "s2"
+        @r.sadd "bar", "s2"
+        @r.sadd "bar", "s3"
+
         @r.sunionstore("baz", "foo", "bar")
       end
     end
 
+
     test "SDIFF" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "foo", "s2"
+        @r.sadd "bar", "s2"
+        @r.sadd "bar", "s3"
+
         @r.sdiff("foo", "bar")
       end
     end
 
     test "SDIFFSTORE" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.sadd "foo", "s1"
+        @r.sadd "foo", "s2"
+        @r.sadd "bar", "s2"
+        @r.sadd "bar", "s3"
+
         @r.sdiffstore("baz", "foo", "bar")
       end
     end
@@ -704,7 +738,7 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "HMSET with invalid arguments" do
-      assert_raise(RuntimeError) do
+      assert_raises RuntimeError do
         @r.hmset("hash", "foo1", "bar1", "foo2", "bar2", "foo3")
       end
     end
@@ -712,51 +746,27 @@ class RedisDistributedTest < Test::Unit::TestCase
 
   context "Sorting" do
     test "SORT" do
-      @r.set("foo:1", "s1")
-      @r.set("foo:2", "s2")
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.set("foo:1", "s1")
+        @r.set("foo:2", "s2")
 
-      @r.rpush("bar", "1")
-      @r.rpush("bar", "2")
+        @r.rpush("bar", "1")
+        @r.rpush("bar", "2")
 
-      assert_equal ["s1"], @r.sort("bar", :get => "foo:*", :limit => [0, 1])
-      assert_equal ["s2"], @r.sort("bar", :get => "foo:*", :limit => [0, 1], :order => "desc alpha")
-    end
-
-    test "SORT with an array of GETs" do
-      @r.set("foo:1:a", "s1a")
-      @r.set("foo:1:b", "s1b")
-
-      @r.set("foo:2:a", "s2a")
-      @r.set("foo:2:b", "s2b")
-
-      @r.rpush("bar", "1")
-      @r.rpush("bar", "2")
-
-      assert_equal ["s1a", "s1b"], @r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
-      assert_equal ["s2a", "s2b"], @r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
-    end
-
-    test "SORT with STORE" do
-      @r.set("foo:1", "s1")
-      @r.set("foo:2", "s2")
-
-      @r.rpush("bar", "1")
-      @r.rpush("bar", "2")
-
-      @r.sort("bar", :get => "foo:*", :store => "baz")
-      assert_equal ["s1", "s2"], @r.lrange("baz", 0, -1)
+        @r.sort("bar", :get => "foo:*", :limit => [0, 1])
+      end
     end
   end
 
   context "Transactions" do
     test "MULTI/DISCARD" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.multi { @foo = 1 }
       end
 
       assert_nil @foo
 
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.discard
       end
     end
@@ -822,7 +832,7 @@ class RedisDistributedTest < Test::Unit::TestCase
 
     test "other commands within a SUBSCRIBE"
     # do
-    #   assert_raise RuntimeError do
+    #   assert_raises RuntimeError do
     #     @r.subscribe("foo") do |on|
     #       on.subscribe do |channel, total|
     #         @r.set("bar", "s2")
@@ -833,7 +843,7 @@ class RedisDistributedTest < Test::Unit::TestCase
 
     test "SUBSCRIBE without a block"
     # do
-    #   assert_raise LocalJumpError do
+    #   assert_raises LocalJumpError do
     #     @r.subscribe("foo")
     #   end
     # end
@@ -861,7 +871,9 @@ class RedisDistributedTest < Test::Unit::TestCase
   context "Remote server control commands" do
     test "INFO" do
       %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|
-        assert @r.info[0].keys.include?(x)
+        @r.info.each do |info|
+          assert info.keys.include?(x)
+        end
       end
     end
 
@@ -881,11 +893,11 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r = Redis::Distributed.new ["redis://localhost:6379/15", *NODES]
 
       100.times do |idx|
-        @r.set(idx, "foo#{idx}")
+        @r.set(idx.to_s, "foo#{idx}")
       end
 
       100.times do |idx|
-        assert_equal "foo#{idx}", @r.get(idx)
+        assert_equal "foo#{idx}", @r.get(idx.to_s)
       end
 
       assert_equal "0", @r.keys("*").sort.first
