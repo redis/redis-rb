@@ -999,47 +999,6 @@ class RedisTest < Test::Unit::TestCase
     end
   end
 
-  context "Distributed" do
-    setup do
-      require "redis/dist_redis"
-    end
-
-    test "handle multiple servers" do
-      @r = Redis::Distributed.new ["redis://localhost:6379/15", "redis://127.0.0.1:6379/15"]
-
-      100.times do |idx|
-        @r.set(idx, "foo#{idx}")
-      end
-
-      100.times do |idx|
-        assert_equal "foo#{idx}", @r.get(idx)
-      end
-
-      assert_equal "0", @r.keys("*").sort.first
-      assert_equal "string", @r.type("1")
-    end
-
-    test "add nodes" do
-      logger = Logger.new("/dev/null")
-
-      @r = Redis::Distributed.new ["redis://localhost:6379/15"], :logger => logger, :timeout => 10
-
-      assert_equal "localhost", @r.nodes[0].client.host
-      assert_equal 6379, @r.nodes[0].client.port
-      assert_equal 15, @r.nodes[0].client.db
-      assert_equal 10, @r.nodes[0].client.timeout
-      assert_equal logger, @r.nodes[0].client.logger
-
-      @r.add_node("redis://127.0.0.1:6380/2")
-
-      assert_equal "127.0.0.1", @r.nodes[1].client.host
-      assert_equal 6380, @r.nodes[1].client.port
-      assert_equal 2, @r.nodes[1].client.db
-      assert_equal 10, @r.nodes[1].client.timeout
-      assert_equal logger, @r.nodes[1].client.logger
-    end
-  end
-
   context "Pipelining commands" do
     test "BULK commands" do
       @r.pipelined do

@@ -1,3 +1,5 @@
+require "thread"
+
 class Redis
   class Client
     MINUS    = "-".freeze
@@ -15,7 +17,7 @@ class Redis
       @timeout = (options[:timeout] || 5).to_i
       @password = options[:password]
       @logger  =  options[:logger]
-      @mutex = Mutex.new
+      @mutex = ::Mutex.new
       @sock = nil
     end
 
@@ -190,10 +192,16 @@ class Redis
       @logger.send(level, str.to_s) if @logger
     end
 
+    if defined?(Timeout)
+      TimeoutError = Timeout::Error
+    else
+      TimeoutError = Exception
+    end
+
     def connect_to(host, port)
       begin
         @sock = TCPSocket.new(host, port)
-      rescue Timeout::Error
+      rescue TimeoutError
         @sock = nil
         raise
       end

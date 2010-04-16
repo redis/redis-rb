@@ -43,7 +43,7 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.select 14
       assert_equal nil, @r.get("foo")
 
-      @r.client.disconnect
+      @r.nodes.each { |node| node.client.disconnect }
 
       assert_equal nil, @r.get("foo")
     end
@@ -105,21 +105,15 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "RENAME" do
-      @r.set("foo", "s1")
-      @r.rename "foo", "bar"
-
-      assert_equal "s1", @r.get("bar")
-      assert_equal nil, @r.get("foo")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.rename "foo", "bar"
+      end
     end
 
     test "RENAMENX" do
-      @r.set("foo", "s1")
-      @r.set("bar", "s2")
-
-      assert_equal false, @r.renamenx("foo", "bar")
-
-      assert_equal "s1", @r.get("foo")
-      assert_equal "s2", @r.get("bar")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.renamenx "foo", "bar"
+      end
     end
 
     test "DBSIZE" do
@@ -239,33 +233,27 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "MSET" do
-      @r.mset(:foo, "s1", :bar, "s2")
-
-      assert_equal "s1", @r.get("foo")
-      assert_equal "s2", @r.get("bar")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.mset(:foo, "s1", :bar, "s2")
+      end
     end
 
     test "MSET mapped" do
-      @r.mapped_mset(:foo => "s1", :bar => "s2")
-
-      assert_equal "s1", @r.get("foo")
-      assert_equal "s2", @r.get("bar")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.mapped_mset(:foo => "s1", :bar => "s2")
+      end
     end
 
     test "MSETNX" do
-      @r.set("foo", "s1")
-      @r.msetnx(:foo, "s2", :bar, "s3")
-
-      assert_equal "s1", @r.get("foo")
-      assert_equal nil, @r.get("bar")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.msetnx(:foo, "s2", :bar, "s3")
+      end
     end
 
     test "MSETNX mapped" do
-      @r.set("foo", "s1")
-      @r.mapped_msetnx(:foo => "s2", :bar => "s3")
-
-      assert_equal "s1", @r.get("foo")
-      assert_equal nil, @r.get("bar")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.mapped_msetnx(:foo => "s2", :bar => "s3")
+      end
     end
 
     test "INCR" do
@@ -469,11 +457,9 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "SMOVE" do
-      @r.sadd "foo", "s1"
-      @r.sadd "bar", "s2"
-
-      assert @r.smove("foo", "bar", "s1")
-      assert @r.sismember("bar", "s1")
+      assert_raise Redis::Distributed::CannotDistribute do
+        assert @r.smove("foo", "bar", "s1")
+      end
     end
 
     test "SCARD" do
@@ -498,62 +484,39 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "SINTER" do
-      @r.sadd "foo", "s1"
-      @r.sadd "foo", "s2"
-      @r.sadd "bar", "s2"
-
-      assert_equal ["s2"], @r.sinter("foo", "bar")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.sinter("foo", "bar")
+      end
     end
 
     test "SINTERSTORE" do
-      @r.sadd "foo", "s1"
-      @r.sadd "foo", "s2"
-      @r.sadd "bar", "s2"
-
-      @r.sinterstore("baz", "foo", "bar")
-
-      assert_equal ["s2"], @r.smembers("baz")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.sinterstore("baz", "foo", "bar")
+      end
     end
 
     test "SUNION" do
-      @r.sadd "foo", "s1"
-      @r.sadd "foo", "s2"
-      @r.sadd "bar", "s2"
-      @r.sadd "bar", "s3"
-
-      assert_equal ["s1","s2","s3"], @r.sunion("foo", "bar").sort
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.sunion("foo", "bar")
+      end
     end
 
     test "SUNIONSTORE" do
-      @r.sadd "foo", "s1"
-      @r.sadd "foo", "s2"
-      @r.sadd "bar", "s2"
-      @r.sadd "bar", "s3"
-
-      @r.sunionstore("baz", "foo", "bar")
-
-      assert_equal ["s1","s2","s3"], @r.smembers("baz").sort
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.sunionstore("baz", "foo", "bar")
+      end
     end
 
     test "SDIFF" do
-      @r.sadd "foo", "s1"
-      @r.sadd "foo", "s2"
-      @r.sadd "bar", "s2"
-      @r.sadd "bar", "s3"
-
-      assert_equal ["s1"], @r.sdiff("foo", "bar")
-      assert_equal ["s3"], @r.sdiff("bar", "foo")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.sdiff("foo", "bar")
+      end
     end
 
     test "SDIFFSTORE" do
-      @r.sadd "foo", "s1"
-      @r.sadd "foo", "s2"
-      @r.sadd "bar", "s2"
-      @r.sadd "bar", "s3"
-
-      @r.sdiffstore("baz", "foo", "bar")
-
-      assert_equal ["s1"], @r.smembers("baz")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.sdiffstore("baz", "foo", "bar")
+      end
     end
 
     test "SMEMBERS" do
@@ -891,14 +854,14 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "LASTSAVE" do
-      assert Time.at(@r.lastsave) <= Time.now
+      assert @r.lastsave.all? { |t| Time.at(t) <= Time.now }
     end
   end
 
   context "Remote server control commands" do
     test "INFO" do
       %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|
-        assert @r.info.keys.include?(x)
+        assert @r.info[0].keys.include?(x)
       end
     end
 
@@ -909,7 +872,7 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "ECHO" do
-      assert_equal "foo bar baz\n", @r.echo("foo bar baz\n")
+      assert_equal ["foo bar baz\n"], @r.echo("foo bar baz\n")
     end
   end
 
@@ -967,5 +930,9 @@ class RedisDistributedTest < Test::Unit::TestCase
         @r.not_yet_implemented_command
       end
     end
+  end
+
+  teardown do
+    @r.nodes.each { |node| node.client.disconnect }
   end
 end

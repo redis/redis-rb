@@ -21,7 +21,7 @@ class Redis
     end
 
     def node_for(key)
-      @ring.get_node(key)
+      @ring.get_node(key.to_s)
     end
 
     def nodes
@@ -65,7 +65,7 @@ class Redis
     end
 
     def info
-      Hash[*@client.call(:info).split(/:|\r\n/)]
+      on_each_node :info
     end
 
     def get(key)
@@ -81,7 +81,7 @@ class Redis
     end
 
     def hgetall(key)
-      Hash[*node_for(key).hgetall(key)]
+      node_for(key).hgetall(key)
     end
 
     def hget(key, field)
@@ -97,19 +97,23 @@ class Redis
     end
 
     def randomkey
-      @client.call(:randomkey)
+      nodes[rand(nodes.size)].randomkey
     end
 
     def echo(value)
-      @client.call(:echo, value)
+      on_each_node :echo, value
     end
 
     def lastsave
-      @client.call(:lastsave)
+      on_each_node :lastsave
     end
 
     def dbsize
       on_each_node :dbsize
+    end
+
+    def select(db)
+      on_each_node :select, db
     end
 
     def exists(key)
@@ -185,7 +189,7 @@ class Redis
     end
 
     def smove(source, destination, member)
-      @client.call(:smove, source, destination, member)
+      raise CannotDistribute, :smove
     end
 
     def spop(key)
@@ -197,27 +201,27 @@ class Redis
     end
 
     def sinter(*keys)
-      @client.call(:sinter, *keys)
+      raise CannotDistribute, :sinter
     end
 
     def sinterstore(destination, *keys)
-      @client.call(:sinterstore, destination, *keys)
+      raise CannotDistribute, :sinterstore
     end
 
     def sunion(*keys)
-      @client.call(:sunion, *keys)
+      raise CannotDistribute, :sunion
     end
 
     def sunionstore(destination, *keys)
-      @client.call(:sunionstore, destination, *keys)
+      raise CannotDistribute, :sunionstore
     end
 
     def sdiff(*keys)
-      @client.call(:sdiff, *keys)
+      raise CannotDistribute, :sdiff
     end
 
     def sdiffstore(destination, *keys)
-      @client.call(:sdiffstore, destination, *keys)
+      raise CannotDistribute, :sdiffstore
     end
 
     def srandmember(key)
@@ -273,11 +277,11 @@ class Redis
     end
 
     def rename(old_name, new_name)
-      @client.call(:rename, old_name, new_name)
+      raise CannotDistribute, :rename
     end
 
     def renamenx(old_name, new_name)
-      @client.call(:renamenx, old_name, new_name)
+      raise CannotDistribute, :renamenx
     end
 
     def expire(key, seconds)
@@ -337,15 +341,15 @@ class Redis
     end
 
     def mapped_mset(hash)
-      mset(*hash.to_a.flatten)
+      raise CannotDistribute, :mapped_mset
     end
 
     def msetnx(*args)
-      @client.call(:msetnx, *args)
+      raise CannotDistribute, :msetnx
     end
 
     def mapped_msetnx(hash)
-      msetnx(*hash.to_a.flatten)
+      raise CannotDistribute, :mapped_msetnx
     end
 
     def mapped_mget(*keys)
