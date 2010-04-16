@@ -6,7 +6,7 @@ class Redis
     DOLLAR   = "$".freeze
     ASTERISK = "*".freeze
 
-    attr_accessor :db, :host, :port, :password
+    attr_accessor :db, :host, :port, :password, :timeout, :logger
 
     def initialize(options = {})
       @host = options[:host] || "127.0.0.1"

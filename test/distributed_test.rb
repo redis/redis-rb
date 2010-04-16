@@ -1,65 +1,22 @@
 require File.join(File.dirname(__FILE__), "test_helper")
 
-class RedisTest < Test::Unit::TestCase
+require "redis/distributed"
 
-  PORT = 6379
-  OPTIONS = {:port => PORT, :db => 15, :timeout => 3}.freeze
+class RedisDistributedTest < Test::Unit::TestCase
+  NODES = ["redis://127.0.0.1:6379/15"]
 
   setup do
-    @r = Redis.new(OPTIONS)
+    @log = StringIO.new
+    @r = Redis::Distributed.new NODES, :logger => ::Logger.new(@log)
     ensure_redis_running(@r)
     @r.flushdb
   end
 
-  context "initialize with URL" do
-    test "defaults to 127.0.0.1:6379" do
-      redis = Redis.connect
-
-      assert_equal "127.0.0.1", redis.client.host
-      assert_equal 6379, redis.client.port
-      assert_equal 0, redis.client.db
-      assert_nil redis.client.password
-    end
-
-    test "takes a url" do
-      redis = Redis.connect :url => "redis://:secr3t@foo.com:999/2"
-
-      assert_equal "foo.com", redis.client.host
-      assert_equal 999, redis.client.port
-      assert_equal 2, redis.client.db
-      assert_equal "secr3t", redis.client.password
-    end
-
-    test "uses REDIS_URL over default if available" do
-      ENV["REDIS_URL"] = "redis://:secr3t@foo.com:999/2"
-
-      redis = Redis.connect
-
-      assert_equal "foo.com", redis.client.host
-      assert_equal 999, redis.client.port
-      assert_equal 2, redis.client.db
-      assert_equal "secr3t", redis.client.password
-
-      ENV.delete("REDIS_URL")
-    end
-  end
-
   context "Internals" do
-    setup do
-      @log = StringIO.new
-      @r = Redis.new(OPTIONS.merge(:logger => ::Logger.new(@log)))
-    end
-
     test "Logger" do
       @r.ping
 
       assert_match(/Redis >> PING/, @log.string)
-    end
-
-    test "Timeout" do
-      assert_nothing_raised do
-        Redis.new(OPTIONS.merge(:timeout => 0))
-      end
     end
 
     test "Recovers from failed commands" do
@@ -76,20 +33,8 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Connection handling" do
-    test "AUTH" do
-      redis = Redis.new(:port => PORT, :password => "secret").instance_variable_get("@client")
-
-      def redis.call(*attrs)
-        raise unless attrs == [:auth, "secret"]
-      end
-
-      assert_nothing_raised do
-        redis.send(:connect)
-      end
-    end
-
     test "PING" do
-      assert_equal "PONG", @r.ping
+      assert_equal ["PONG"], @r.ping
     end
 
     test "SELECT" do
@@ -178,11 +123,11 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "DBSIZE" do
-      assert_equal 0, @r.dbsize
+      assert_equal [0], @r.dbsize
 
       @r.set("foo", "s1")
 
-      assert_equal 1, @r.dbsize
+      assert_equal [1], @r.dbsize
     end
 
     test "EXPIRE" do
@@ -218,11 +163,11 @@ class RedisTest < Test::Unit::TestCase
       @r.set("foo", "s1")
       @r.set("bar", "s2")
 
-      assert_equal 2, @r.dbsize
+      assert_equal [2], @r.dbsize
 
       @r.flushdb
 
-      assert_equal 0, @r.dbsize
+      assert_equal [0], @r.dbsize
     end
   end
 
@@ -272,19 +217,15 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "MGET" do
-      @r.set("foo", "s1")
-      @r.set("bar", "s2")
-
-      assert_equal ["s1", "s2"],      @r.mget("foo", "bar")
-      assert_equal ["s1", "s2", nil], @r.mget("foo", "bar", "baz")
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.mget("foo", "bar")
+      end
     end
 
     test "MGET mapped" do
-      @r.set("foo", "s1")
-      @r.set("bar", "s2")
-
-      assert_equal({"foo" => "s1", "bar" => "s2"}, @r.mapped_mget("foo", "bar"))
-      assert_equal({"foo" => "s1", "bar" => "s2"}, @r.mapped_mget("foo", "baz", "bar"))
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.mapped_mget("foo", "bar")
+      end
     end
 
     test "SETNX" do
@@ -448,13 +389,9 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "RPOPLPUSH" do
-      @r.rpush "foo", "s1"
-      @r.rpush "foo", "s2"
-
-      assert_equal "s2", @r.rpoplpush("foo", "bar")
-      assert_equal ["s2"], @r.lrange("bar", 0, -1)
-      assert_equal "s1", @r.rpoplpush("foo", "bar")
-      assert_equal ["s1", "s2"], @r.lrange("bar", 0, -1)
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.rpoplpush("foo", "bar")
+      end
     end
   end
 
@@ -464,7 +401,7 @@ class RedisTest < Test::Unit::TestCase
       @r.lpush("foo", "s2")
 
       thread = Thread.new do
-        redis = Redis.new(OPTIONS)
+        redis = Redis::Distributed.new(NODES)
         sleep 0.3
         redis.lpush("foo", "s3")
       end
@@ -481,7 +418,7 @@ class RedisTest < Test::Unit::TestCase
       @r.rpush("foo", "s2")
 
       t = Thread.new do
-        redis = Redis.new(OPTIONS)
+        redis = Redis::Distributed.new(NODES)
         sleep 0.3
         redis.rpush("foo", "s3")
       end
@@ -494,7 +431,7 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "BRPOP should unset a configured socket timeout" do
-      @r = Redis.new(OPTIONS.merge(:timeout => 1))
+      @r = Redis::Distributed.new(NODES, :timeout => 1)
       assert_nothing_raised do
         @r.brpop("foo", 2)
       end # Errno::EAGAIN raised if socket times out before redis command times out
@@ -850,116 +787,93 @@ class RedisTest < Test::Unit::TestCase
 
   context "Transactions" do
     test "MULTI/DISCARD" do
-      @r.multi
-
-      assert_equal "QUEUED", @r.set("foo", "1")
-      assert_equal "QUEUED", @r.get("foo")
-
-      @r.discard
-
-      assert_equal nil, @r.get("foo")
-    end
-
-    test "MULTI/EXEC with a block" do
-      @r.multi do
-        @r.set "foo", "s1"
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.multi { @foo = 1 }
       end
 
-      assert_equal "s1", @r.get("foo")
+      assert_nil @foo
 
-      begin
-        @r.multi do
-          @r.set "bar", "s2"
-          raise "Some error"
-          @r.set "baz", "s3"
-        end
-      rescue
+      assert_raise Redis::Distributed::CannotDistribute do
+        @r.discard
       end
-
-      assert_nil @r.get("bar")
-      assert_nil @r.get("baz")
-    end
-
-    test "MULTI with a block yielding the client" do
-      @r.multi do |multi|
-        multi.set "foo", "s1"
-      end
-
-      assert_equal "s1", @r.get("foo")
     end
   end
 
   context "Publish/Subscribe" do
 
-    test "SUBSCRIBE and UNSUBSCRIBE" do
-      thread = Thread.new do
-        @r.subscribe("foo") do |on|
-          on.subscribe do |channel, total|
-            @subscribed = true
-            @t1 = total
-          end
+    test "SUBSCRIBE and UNSUBSCRIBE"
+    # do
+    #   thread = Thread.new do
+    #     @r.subscribe("foo") do |on|
+    #       on.subscribe do |channel, total|
+    #         @subscribed = true
+    #         @t1 = total
+    #       end
 
-          on.message do |channel, message|
-            if message == "s1"
-              @r.unsubscribe
-              @message = message
-            end
-          end
+    #       on.message do |channel, message|
+    #         if message == "s1"
+    #           @r.unsubscribe
+    #           @message = message
+    #         end
+    #       end
 
-          on.unsubscribe do |channel, total|
-            @unsubscribed = true
-            @t2 = total
-          end
-        end
-      end
+    #       on.unsubscribe do |channel, total|
+    #         @unsubscribed = true
+    #         @t2 = total
+    #       end
+    #     end
+    #   end
 
-      Redis.new(OPTIONS).publish("foo", "s1")
+    #   Redis::Distributed.new(NODES).publish("foo", "s1")
 
-      thread.join
+    #   thread.join
 
-      assert @subscribed
-      assert_equal 1, @t1
-      assert @unsubscribed
-      assert_equal 0, @t2
-      assert_equal "s1", @message
-    end
+    #   assert @subscribed
+    #   assert_equal 1, @t1
+    #   assert @unsubscribed
+    #   assert_equal 0, @t2
+    #   assert_equal "s1", @message
+    # end
 
-    test "SUBSCRIBE within SUBSCRIBE" do
-      @channels = []
+    test "SUBSCRIBE within SUBSCRIBE"
+    # do
+    #   @channels = []
 
-      thread = Thread.new do
-        @r.subscribe("foo") do |on|
-          on.subscribe do |channel, total|
-            @channels << channel
+    #   thread = Thread.new do
+    #     @r.subscribe("foo") do |on|
+    #       on.subscribe do |channel, total|
+    #         @channels << channel
 
-            @r.subscribe("bar") if channel == "foo"
-            @r.unsubscribe if channel == "bar"
-          end
-        end
-      end
+    #         @r.subscribe("bar") if channel == "foo"
+    #         @r.unsubscribe if channel == "bar"
+    #       end
+    #     end
+    #   end
 
-      Redis.new(OPTIONS).publish("foo", "s1")
+    #   Redis::Distributed.new(NODES).publish("foo", "s1")
 
-      thread.join
+    #   thread.join
 
-      assert_equal ["foo", "bar"], @channels
-    end
+    #   assert_equal ["foo", "bar"], @channels
+    # end
 
-    test "other commands within a SUBSCRIBE" do
-      assert_raise RuntimeError do
-        @r.subscribe("foo") do |on|
-          on.subscribe do |channel, total|
-            @r.set("bar", "s2")
-          end
-        end
-      end
-    end
+    test "other commands within a SUBSCRIBE"
+    # do
+    #   assert_raise RuntimeError do
+    #     @r.subscribe("foo") do |on|
+    #       on.subscribe do |channel, total|
+    #         @r.set("bar", "s2")
+    #       end
+    #     end
+    #   end
+    # end
 
-    test "SUBSCRIBE without a block" do
-      assert_raise LocalJumpError do
-        @r.subscribe("foo")
-      end
-    end
+    test "SUBSCRIBE without a block"
+    # do
+    #   assert_raise LocalJumpError do
+    #     @r.subscribe("foo")
+    #   end
+    # end
 
     test "SUBSCRIBE timeout"
 
@@ -1000,12 +914,8 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Distributed" do
-    setup do
-      require "redis/dist_redis"
-    end
-
     test "handle multiple servers" do
-      @r = Redis::Distributed.new ["redis://localhost:6379/15", "redis://127.0.0.1:6379/15"]
+      @r = Redis::Distributed.new ["redis://localhost:6379/15", *NODES]
 
       100.times do |idx|
         @r.set(idx, "foo#{idx}")
@@ -1022,89 +932,38 @@ class RedisTest < Test::Unit::TestCase
     test "add nodes" do
       logger = Logger.new("/dev/null")
 
-      @r = Redis::Distributed.new ["redis://localhost:6379/15"], :logger => logger, :timeout => 10
+      @r = Redis::Distributed.new NODES, :logger => logger, :timeout => 10
 
-      assert_equal "localhost", @r.nodes[0].client.host
+      assert_equal "127.0.0.1", @r.nodes[0].client.host
       assert_equal 6379, @r.nodes[0].client.port
       assert_equal 15, @r.nodes[0].client.db
       assert_equal 10, @r.nodes[0].client.timeout
       assert_equal logger, @r.nodes[0].client.logger
 
-      @r.add_node("redis://127.0.0.1:6380/2")
+      @r.add_node("redis://localhost:6380/14")
 
-      assert_equal "127.0.0.1", @r.nodes[1].client.host
+      assert_equal "localhost", @r.nodes[1].client.host
       assert_equal 6380, @r.nodes[1].client.port
-      assert_equal 2, @r.nodes[1].client.db
+      assert_equal 14, @r.nodes[1].client.db
       assert_equal 10, @r.nodes[1].client.timeout
       assert_equal logger, @r.nodes[1].client.logger
     end
   end
 
   context "Pipelining commands" do
-    test "BULK commands" do
-      @r.pipelined do
-        @r.lpush "foo", "s1"
-        @r.lpush "foo", "s2"
-      end
-
-      assert_equal 2, @r.llen("foo")
-      assert_equal "s2", @r.lpop("foo")
-      assert_equal "s1", @r.lpop("foo")
-    end
-
-    test "MULTI_BULK commands" do
-      @r.pipelined do
-        @r.mset("foo", "s1", "bar", "s2")
-        @r.mset("baz", "s3", "qux", "s4")
-      end
-
-      assert_equal "s1", @r.get("foo")
-      assert_equal "s2", @r.get("bar")
-      assert_equal "s3", @r.get("baz")
-      assert_equal "s4", @r.get("qux")
-    end
-
-    test "BULK and MULTI_BULK commands mixed" do
-      @r.pipelined do
-        @r.lpush "foo", "s1"
-        @r.lpush "foo", "s2"
-        @r.mset("baz", "s3", "qux", "s4")
-      end
-
-      assert_equal 2, @r.llen("foo")
-      assert_equal "s2", @r.lpop("foo")
-      assert_equal "s1", @r.lpop("foo")
-      assert_equal "s3", @r.get("baz")
-      assert_equal "s4", @r.get("qux")
-    end
-
-    test "MULTI_BULK and BULK commands mixed" do
-      @r.pipelined do
-        @r.mset("baz", "s3", "qux", "s4")
-        @r.lpush "foo", "s1"
-        @r.lpush "foo", "s2"
-      end
-
-      assert_equal 2, @r.llen("foo")
-      assert_equal "s2", @r.lpop("foo")
-      assert_equal "s1", @r.lpop("foo")
-      assert_equal "s3", @r.get("baz")
-      assert_equal "s4", @r.get("qux")
-    end
-
-    test "Pipelined with an empty block" do
-      assert_nothing_raised do
+    test "cannot be distributed" do
+      assert_raises Redis::Distributed::CannotDistribute do
         @r.pipelined do
+          @r.lpush "foo", "s1"
+          @r.lpush "foo", "s2"
         end
       end
-
-      assert_equal 0, @r.dbsize
     end
   end
 
   context "Unknown commands" do
-    should "try to work" do
-      assert_raises RuntimeError do
+    should "not work by default" do
+      assert_raises NoMethodError do
         @r.not_yet_implemented_command
       end
     end

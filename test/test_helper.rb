@@ -1,7 +1,7 @@
 $:.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 
-require "rubygems"
 require "test/unit"
+require "logger"
 require "redis"
 
 begin
@@ -16,6 +16,28 @@ def capture_stderr
   yield
 
   $stderr = stderr
+end
+
+def ensure_redis_running(r)
+  begin
+    @r.ping
+  rescue Errno::ECONNREFUSED
+    puts <<-EOS
+
+      Cannot connect to Redis.
+
+      Make sure Redis is running on localhost, port 6379.
+      This testing suite connects to the database 15.
+
+      To start the server:
+        rake start
+
+      To stop the server:
+        rake stop
+
+    EOS
+    exit 1
+  end
 end
 
 # Test::Unit loads a default test if the suite is empty, whose purpose is to
