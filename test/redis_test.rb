@@ -31,7 +31,6 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "initialize with URL" do
-
     test "defaults to 127.0.0.1:6379" do
       redis = Redis.connect
 
@@ -71,7 +70,6 @@ class RedisTest < Test::Unit::TestCase
       assert_equal 2, redis.client.db
       assert_equal "secr3t", redis.client.password
     end
-
   end
 
   context "Internals" do

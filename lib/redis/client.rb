@@ -1,5 +1,3 @@
-require 'uri'
-
 class Redis
   class Client
     MINUS    = "-".freeze
