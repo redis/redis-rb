@@ -441,6 +441,3 @@ class Redis
     end
   end
 end
-
-# For backwards compatibility
-DistRedis = Redis::Distributed
