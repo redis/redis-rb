@@ -61,15 +61,6 @@ class RedisTest < Test::Unit::TestCase
 
       ENV.delete("REDIS_URL")
     end
-
-    test "takes a URI" do
-      redis = Redis.connect :url => URI("redis://:secr3t@foo.com:999/2")
-
-      assert_equal "foo.com", redis.client.host
-      assert_equal 999, redis.client.port
-      assert_equal 2, redis.client.db
-      assert_equal "secr3t", redis.client.password
-    end
   end
 
   context "Internals" do
