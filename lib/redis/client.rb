@@ -205,7 +205,7 @@ class Redis
       # If the timeout is set we set the low level socket options in order
       # to make sure a blocking read will return after the specified number
       # of seconds. This hack is from memcached ruby client.
-      self.timeout = timeout
+      self.timeout = @timeout
 
     rescue Errno::ECONNREFUSED
       raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{host}:#{port}"
