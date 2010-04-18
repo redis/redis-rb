@@ -153,6 +153,8 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_equal 1, @r.ttl("foo")
     end
 
+    test "MOVE"
+
     test "FLUSHDB" do
       @r.set("foo", "s1")
       @r.set("bar", "s2")
@@ -529,7 +531,6 @@ class RedisDistributedTest < Test::Unit::TestCase
         @r.sunionstore("baz", "foo", "bar")
       end
     end
-
 
     test "SDIFF" do
       assert_raises Redis::Distributed::CannotDistribute do
