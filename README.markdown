@@ -1,6 +1,6 @@
 # redis-rb
 
-A Ruby client library for the [Redis](http://code.google.com/p/redis) key-value storage system.
+A Ruby client library for the [Redis](http://code.google.com/p/redis) key-value store.
 
 ## Information about Redis
 
@@ -11,64 +11,102 @@ Redis is a key-value store with some interesting features:
 
 See [the Redis homepage](http://code.google.com/p/redis/wiki/README) for more information.
 
-## Usage
+## Getting started
 
-For all types redis-rb needs redis-server running to connect to.
+You can connect to Redis by instantiating the `Redis` class:
 
-### Simple Key Value Strings can be used like a large Ruby Hash (Similar to Memcached, Tokyo Cabinet)
-	
-	require 'redis'
-	r = Redis.new
-	r['key_one'] = "value_one"
-	r['key_two'] = "value_two"
-	
-	r['key_one]  # => "value_one"
+    require "redis"
 
-### Redis only stores strings. To store Objects, Array or Hashes, you must [Marshal](http://ruby-doc.org/core/classes/Marshal.html)
-	
-	require 'redis'
-	r = Redis.new
-	
-	example_hash_to_store = {:name => "Alex", :age => 21, :password => "letmein", :cool => false}
-	
-	r['key_one'] = Marshal.dump(example_hash_to_store)
-	
-	hash_returned_from_redis = Marshal.load(r['key_one'])
-	
-### Alternatively you can use the [Redis Commands](http://code.google.com/p/redis/wiki/CommandReference)
-	
-	require 'redis'
-	r = Redis.new
-	r.set 'key_one', 'value_one'
-	r.get 'key_one' # => 'value_one'
-	
-	# Using Redis list objects
-	# Push an object to the head of the list. Creates the list if it doesn't allready exsist.
-	
-	blog_hash = {:title => "Redis Rules!", :body => "Ok so, like why, well like, RDBMS is like....", :created_at => Time.now.to_i}
-	r.lpush 'all_blogs', Marshal.dump(blog_hash)
-	
-	# Get a range of strings from the all_blogs list. Similar to offset and limit in SQL (-1, means the last one)
-	
-	r.lrange 'all_blogs', 0, -1
+    redis = Redis.new
 
-### Multiple commands at once!
+This assumes Redis was started with default values listening on `localhost`, port 6379. If you need to connect to a remote server or a different port, try:
 
-	require 'redis'
-	r = Redis.new
-	r.multi do
-	  r.set 'foo', 'bar'
-	  r.incr 'baz'
-	end
+    redis = Redis.new(:host => "10.0.1.1", :port => 6380)
+
+Once connected, you can start running commands against Redis:
+
+    >> redis.set "foo", "bar"
+    => "OK"
+
+    >> redis.get "foo"
+    => "bar"
+
+    >> redis.sadd "users", "albert"
+    => true
+
+    >> redis.sadd "users", "bernard"
+    => true
+
+    >> redis.sadd "users", "charles"
+    => true
+
+How many users?
+
+    >> redis.scard "users"
+    => 3
+
+Is `albert` a user?
+
+    >> redis.sismeber "users", "albert"
+    => true
+
+Is `isabel` a user?
+
+    >> redis.sismember "users", "isabel"
+    => false
+
+Handle groups:
+
+    >> redis.sadd "admins", "albert"
+    => true
+
+    >> redis.sadd "admins", "isabel"
+    => true
+
+Users who are also admins:
+
+    >> redis.sinter "users", "admins"
+    => ["albert"]
+
+Users who are not admins:
+
+    >> redis.sdiff "users", "admins"
+    => ["bernard", "charles"]
+
+Admins who are not users:
+
+    >> redis.sdiff "admins", "users"
+    => ["isabel"]
+
+All users and admins:
+
+    >> redis.sunion "admins", "users"
+    => ["albert", "bernard", "charles", "isabel"]
+
+
+## Storing objects
+
+Redis only stores strings as values. If you want to store an object inside a key, you can use a serialization/deseralization mechanism like JSON:
+
+    >> redis.set "foo", [1, 2, 3].to_json
+    => OK
+
+    >> JSON.parse(redis.get("foo"))
+    => [1, 2, 3]
+
+## Executing multiple commands atomically
+
+You can use `MULTI/EXEC` to run arbitrary commands in an atomic fashion:
+
+    redis.multi do
+      redis.set "foo", "bar"
+      redis.incr "baz"
+    end
+
+## More info
+
+Check the [Redis Command Reference](http://code.google.com/p/redis/wiki/CommandReference) or check the tests to find out how to use this client.
 
 ## Contributing
 
-See the build on [RunCodeRun](http://runcoderun.com/rsanheim/redis-rb).
-
-If you would like to submit patches, you'll need Redis in your development environment:
-
-		rake redis:install
-
-## Examples
-
-Check the `examples/` directory. You'll need to have an instance of `redis-server` running before running the examples.
+[Fork the project](http://github.com/ezmobius/redis-rb) and send pull requests. You can also ask for help at `#redis` on Freenode.
