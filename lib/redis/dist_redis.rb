@@ -72,7 +72,7 @@ class Redis
     def delete_cloud!
       @ring.nodes.each do |red|
         red.keys("*").each do |key|
-          red.delete key
+          red.del key
         end
       end
     end
