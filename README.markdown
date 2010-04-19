@@ -47,7 +47,7 @@ How many users?
 
 Is `albert` a user?
 
-    >> redis.sismeber "users", "albert"
+    >> redis.sismember "users", "albert"
     => true
 
 Is `isabel` a user?
