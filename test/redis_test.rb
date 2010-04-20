@@ -1049,6 +1049,16 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal 0, @r.dbsize
     end
+
+    test "Returning the result of a pipeline" do
+      result = @r.pipelined do |p|
+        p.set "foo", "bar"
+        p.get "foo"
+        p.get "bar"
+      end
+
+      assert_equal ["OK", "bar", nil], result
+    end
   end
 
   context "Deprecated methods" do
