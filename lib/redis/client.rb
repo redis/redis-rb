@@ -168,6 +168,10 @@ class Redis
       set(key, value)
     end
 
+    def get(key)
+      call_command([:get, key])
+    end
+
     def set(key, value, ttl = nil)
       if ttl
         deprecated("set with an expire", :set_with_expire, caller[0])
