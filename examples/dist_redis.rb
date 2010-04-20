@@ -20,17 +20,17 @@ p r['urdad2']
 p r['urmom3']
 p r['urdad3']
 
-r.push_tail 'listor', 'foo1'
-r.push_tail 'listor', 'foo2'
-r.push_tail 'listor', 'foo3'
-r.push_tail 'listor', 'foo4'
-r.push_tail 'listor', 'foo5'
+r.rpush 'listor', 'foo1'
+r.rpush 'listor', 'foo2'
+r.rpush 'listor', 'foo3'
+r.rpush 'listor', 'foo4'
+r.rpush 'listor', 'foo5'
 
-p r.pop_tail('listor')
-p r.pop_tail('listor')
-p r.pop_tail('listor')
-p r.pop_tail('listor')
-p r.pop_tail('listor')
+p r.rpop('listor')
+p r.rpop('listor')
+p r.rpop('listor')
+p r.rpop('listor')
+p r.rpop('listor')
 
 puts "key distribution:"
 

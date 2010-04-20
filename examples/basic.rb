@@ -3,7 +3,7 @@ require 'redis'
 
 r = Redis.new
 
-r.delete('foo')
+r.del('foo')
 
 puts 
 
