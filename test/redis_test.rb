@@ -1059,6 +1059,16 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal 0, @r.dbsize
     end
+
+    test "Returning the result of a pipeline" do
+      result = @r.pipelined do
+        @r.set "foo", "bar"
+        @r.get "foo"
+        @r.get "bar"
+      end
+
+      assert_equal ["OK", "bar", nil], result
+    end
   end
 
   context "Unknown commands" do
