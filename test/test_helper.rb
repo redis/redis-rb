@@ -3,6 +3,7 @@ $:.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 require "rubygems"
 require "test/unit"
 require "redis"
+require "stringio"
 
 begin
   require "ruby-debug"
