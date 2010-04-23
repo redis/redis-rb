@@ -496,8 +496,10 @@ class Redis
       @logger.send(level, str.to_s) if @logger
     end
 
-    def deprecated(old, new, trace = caller[0])
-      $stderr.puts "\nRedis: The method #{old} is deprecated. Use #{new} instead (in #{trace})"
+    def deprecated(old, new = nil, trace = caller[0])
+      message = "The method #{old} is deprecated and will be removed in 2.0"
+      message << " - use #{new} instead" if new
+      Redis.deprecate(message, trace)
     end
 
     def requires_timeout_reset?(command)

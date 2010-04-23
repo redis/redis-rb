@@ -975,6 +975,20 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Distributed" do
+    test "deprecation warning" do
+      capture_stderr do
+        require "redis/dist_redis"
+
+        assert $stderr.string[%q{"redis/dist_redis" is deprecated. Require "redis/distributed" and replace DistRedis for Redis::Distributed.}]
+      end
+
+      capture_stderr do
+        DistRedis.new(:hosts=> ["localhost:6379", "127.0.0.1:6379"], :db => 15)
+
+        assert $stderr.string[%q{DistRedis is deprecated in favor of Redis::Distributed.}]
+      end
+    end
+
     test "handle multiple servers" do
       require "redis/dist_redis"
 
@@ -1070,7 +1084,7 @@ class RedisTest < Test::Unit::TestCase
       capture_stderr do
         @r.set_add("foo", "s1")
 
-        assert $stderr.string["Redis: The method set_add is deprecated. Use sadd instead"]
+        assert $stderr.string["The method set_add is deprecated and will be removed in 2.0 - use sadd instead"]
       end
     end
 
@@ -1083,7 +1097,7 @@ class RedisTest < Test::Unit::TestCase
         sleep 2
 
         assert_nil @r.get("foo")
-        assert $stderr.string["Redis: The method set with an expire is deprecated. Use set_with_expire instead"]
+        assert $stderr.string["The method set with an expire is deprecated and will be removed in 2.0 - use set_with_expire instead"]
       end
     end
 
@@ -1092,7 +1106,7 @@ class RedisTest < Test::Unit::TestCase
         @r.incr("foo", 2)
 
         assert_equal "2", @r.get("foo")
-        assert $stderr.string["Redis: The method incr with an increment is deprecated. Use incrby instead"]
+        assert $stderr.string["The method incr with an increment is deprecated and will be removed in 2.0 - use incrby instead"]
       end
     end
 
@@ -1101,7 +1115,7 @@ class RedisTest < Test::Unit::TestCase
         @r.decr("foo", 2)
 
         assert_equal "-2", @r.get("foo")
-        assert $stderr.string["Redis: The method decr with a decrement is deprecated. Use decrby instead"]
+        assert $stderr.string["The method decr with a decrement is deprecated and will be removed in 2.0 - use decrby instead"]
       end
     end
 
@@ -1111,7 +1125,7 @@ class RedisTest < Test::Unit::TestCase
 
         assert_equal "s1", @r.get("foo")
         assert_equal "s2", @r.get("bar")
-        assert $stderr.string["Redis: The method mset with a hash is deprecated. Use mapped_mset instead"]
+        assert $stderr.string["The method mset with a hash is deprecated and will be removed in 2.0 - use mapped_mset instead"]
       end
     end
 
@@ -1121,7 +1135,7 @@ class RedisTest < Test::Unit::TestCase
 
         assert_equal "s1", @r.get("foo")
         assert_equal "s2", @r.get("bar")
-        assert $stderr.string["Redis: The method msetnx with a hash is deprecated. Use mapped_msetnx instead"]
+        assert $stderr.string["The method msetnx with a hash is deprecated and will be removed in 2.0 - use mapped_msetnx instead"]
       end
     end
   end

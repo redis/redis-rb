@@ -6,6 +6,10 @@ class Redis
   def self.new(*attrs)
     Client.new(*attrs)
   end
+
+  def self.deprecate(message, trace = caller[0])
+    $stderr.puts "\n#{message} (in #{trace})"
+  end
 end
 
 begin
