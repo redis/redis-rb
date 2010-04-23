@@ -146,7 +146,7 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "RANDOMKEY" do
-      assert_equal @r.randomkey.to_s.empty?
+      assert_equal "", @r.randomkey.to_s
 
       @r.set("foo", "s1")
 
