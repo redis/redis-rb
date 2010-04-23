@@ -1008,6 +1008,16 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Pipelining commands" do
+    test "deprecation warnings" do
+      capture_stderr do
+        @r.pipelined do |pipeline|
+          pipeline.lpush "foo", "s1"
+        end
+
+        assert $stderr.string["Calling pipelined commands on the yielded object will be deprecated in 2.0"]
+      end
+    end
+
     test "BULK commands" do
       @r.pipelined do |pipeline|
         pipeline.lpush "foo", "s1"

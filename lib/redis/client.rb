@@ -266,6 +266,7 @@ class Redis
     end
 
     def pipelined(&block)
+      Redis.deprecate("Calling pipelined commands on the yielded object will be deprecated in 2.0", caller[0])
       pipeline = Pipeline.new self
       yield pipeline
       pipeline.execute
