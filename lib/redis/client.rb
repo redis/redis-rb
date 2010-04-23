@@ -63,10 +63,16 @@ class Redis
       "hset"      => BOOLEAN_PROCESSOR,
       "hexists"   => BOOLEAN_PROCESSOR,
       "info"      => lambda{|r|
-        info = {}
+        info = Hash.new do |hash, key|
+          if hash.include?(key.to_s)
+            Redis.deprecate "Redis#info will return a hash of string keys, not symbols", caller[2]
+            hash[key.to_s]
+          end
+        end
+
         r.each_line {|kv|
           k,v = kv.split(":",2).map{|x| x.chomp}
-          info[k.to_sym] = v
+          info[k] = v
         }
         info
       },

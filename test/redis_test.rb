@@ -953,7 +953,22 @@ class RedisTest < Test::Unit::TestCase
   context "Remote server control commands" do
     test "INFO" do
       %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|
-        assert @r.info.keys.include?(x.to_sym)
+        assert @r.info.keys.include?(x)
+      end
+
+      capture_stderr do
+        hash = @r.info
+
+        assert hash["redis_version"] == hash[:redis_version]
+
+        assert $stderr.string["Redis#info will return a hash of string keys, not symbols"]
+        assert $stderr.string[__FILE__]
+      end
+
+      capture_stderr do
+        @r.info["xxx"]
+
+        assert $stderr.string.empty?
       end
     end
 
