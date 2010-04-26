@@ -30,29 +30,27 @@ class Redis
 
     def call(name, *args)
       ensure_connected do
-        log("Redis >> #{name.to_s.upcase} #{args.join(" ")}")
-
-        command = build_command(name, *args)
-
-        process_and_read([command]).first
+        process_and_read([[name, *args]]).first
       end
     end
 
     def call_async(name, *args)
       ensure_connected do
-        log("Redis >> #{name.to_s.upcase} #{args.join(" ")}")
-
-        process([build_command(name, *args)])
+        process([[name, *args]])
       end
     end
 
     def call_pipelined(commands)
       ensure_connected do
-        commands = commands.map do |name, *args|
-          command = build_command(name, *args)
-        end
-
         process_and_read(commands)
+      end
+    end
+
+    def call_blocking(name, *args)
+      ensure_connected do
+        without_socket_timeout do
+          call(name, *args)
+        end
       end
     end
 
@@ -130,20 +128,23 @@ class Redis
     COMMAND_DELIMITER = "\r\n"
 
     def process(commands)
-      @sock.write(join_commands(commands))
+      logging(commands) do
+        @sock.write(join_commands(commands))
+        yield if block_given?
+      end
     end
 
     def join_commands(commands)
       commands.map do |command|
-        command.join(COMMAND_DELIMITER) + COMMAND_DELIMITER
+        build_command(*command).join(COMMAND_DELIMITER) + COMMAND_DELIMITER
       end.join(COMMAND_DELIMITER) + COMMAND_DELIMITER
     end
 
     def process_and_read(commands)
-      process(commands)
-
-      @mutex.synchronize do
-        Array.new(commands.size).map { read }
+      process(commands) do
+        @mutex.synchronize do
+          Array.new(commands.size).map { read }
+        end
       end
     end
 
@@ -194,8 +195,19 @@ class Redis
       reply
     end
 
-    def log(str, level = :info)
-      @logger.send(level, str.to_s) if @logger
+    def logging(commands)
+      return yield unless @logger
+
+      begin
+        commands.each do |name, *args|
+          @logger.debug("Redis >> #{name.to_s.upcase} #{args.join(" ")}")
+        end
+
+        t1 = Time.now
+        yield
+      ensure
+        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000))
+      end
     end
 
     if defined?(Timeout)
@@ -227,12 +239,11 @@ class Redis
       secs   = Integer(timeout)
       usecs  = Integer((timeout - secs) * 1_000_000)
       optval = [secs, usecs].pack("l_2")
+
       begin
         @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
         @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
-      rescue Exception => e
-        # Solaris, for one, does not like/support socket timeouts.
-        log("Unable to use raw socket timeouts: #{e.class.name}: #{e.message}")
+      rescue Errno::ENOPROTOOPT
       end
     end
 

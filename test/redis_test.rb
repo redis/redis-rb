@@ -53,7 +53,18 @@ class RedisTest < Test::Unit::TestCase
     test "Logger" do
       @r.ping
 
-      assert_match(/Redis >> PING/, @log.string)
+      assert_match /Redis >> PING/, @log.string
+      assert_match /Redis >> 0.\d+ms/, @log.string
+    end
+
+    test "Logger with pipelining" do
+      @r.pipelined do
+        @r.set "foo", "bar"
+        @r.get "foo"
+      end
+
+      assert @log.string["SET foo bar"]
+      assert @log.string["GET foo"]
     end
 
     test "Timeout" do
