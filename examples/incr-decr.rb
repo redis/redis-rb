@@ -1,4 +1,3 @@
-require 'rubygems'
 require 'redis'
 
 r = Redis.new

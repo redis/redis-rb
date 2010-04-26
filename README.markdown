@@ -2,6 +2,14 @@
 
 A Ruby client library for the [Redis](http://code.google.com/p/redis) key-value store.
 
+## A note about versions
+
+Versions *1.0.x* target all versions of Redis. You have to use this one if you are using Redis < 1.2.
+
+Version *2.0* is a big refactoring of the previous version and makes little effort to be
+backwards-compatible when it shouldn't. It does not support Redis' original protocol, favoring the
+new, binary-safe one. You should be using this version if you're running Redis 1.2+.
+
 ## Information about Redis
 
 Redis is a key-value store with some interesting features:
