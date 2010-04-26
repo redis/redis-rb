@@ -16,12 +16,13 @@ class Redis
     attr_reader :ring
 
     def initialize(urls, options = {})
+      @tag = options.delete(:tag) || /^{(.+?)}/
       @default_options = options
       @ring = HashRing.new urls.map { |url| Redis.connect(options.merge(:url => url)) }
     end
 
     def node_for(key)
-      @ring.get_node(key.to_s)
+      @ring.get_node(key[@tag, 1] || key)
     end
 
     def nodes

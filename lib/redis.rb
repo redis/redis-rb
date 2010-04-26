@@ -464,6 +464,10 @@ class Redis
     end
   end
 
+  def id
+    @client.id
+  end
+
   def method_missing(command, *args)
     @client.call(command, *args)
   end

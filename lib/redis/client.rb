@@ -8,7 +8,8 @@ class Redis
     DOLLAR   = "$".freeze
     ASTERISK = "*".freeze
 
-    attr_accessor :db, :host, :port, :password, :timeout, :logger
+    attr_accessor :db, :host, :port, :password, :logger
+    attr :timeout
 
     def initialize(options = {})
       @host = options[:host] || "127.0.0.1"
@@ -26,6 +27,10 @@ class Redis
       call(:auth, @password) if @password
       call(:select, @db) if @db != 0
       @sock
+    end
+
+    def id
+      "redis://#{host}:#{port}/#{db}"
     end
 
     def call(name, *args)
