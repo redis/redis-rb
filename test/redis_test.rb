@@ -254,8 +254,8 @@ class RedisTest < Test::Unit::TestCase
       end
     end
 
-    test "SET with EXPIRE" do
-      @r.set_with_expire("foo", "s1", 1)
+    test "SETEX" do
+      @r.setex("foo", 1, "s1")
 
       assert_equal "s1", @r.get("foo")
 
@@ -907,6 +907,39 @@ class RedisTest < Test::Unit::TestCase
           end
 
           on.unsubscribe do |channel, total|
+            @unsubscribed = true
+            @t2 = total
+          end
+        end
+      end
+
+      Redis.new(OPTIONS).publish("foo", "s1")
+
+      thread.join
+
+      assert @subscribed
+      assert_equal 1, @t1
+      assert @unsubscribed
+      assert_equal 0, @t2
+      assert_equal "s1", @message
+    end
+
+    test "PSUBSCRIBE and PUNSUBSCRIBE" do
+      thread = Thread.new do
+        @r.psubscribe("f*") do |on|
+          on.psubscribe do |pattern, total|
+            @subscribed = true
+            @t1 = total
+          end
+
+          on.pmessage do |pattern, channel, message|
+            if message == "s1"
+              @r.punsubscribe
+              @message = message
+            end
+          end
+
+          on.punsubscribe do |pattern, total|
             @unsubscribed = true
             @t2 = total
           end

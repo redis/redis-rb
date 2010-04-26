@@ -28,6 +28,27 @@ class Redis
       @client.call_async(:unsubscribe, *channels)
       @client
     end
+
+    def psubscribe(*channels, &block)
+      @client.call_async(:psubscribe, *channels)
+
+      sub = Subscription.new(&block)
+
+      begin
+        loop do
+          type, pattern, channel, message = @client.read
+          sub.callbacks[type].call(pattern, channel, message)
+          break if type == "punsubscribe" && channel == 0
+        end
+      ensure
+        @client.call_async(:punsubscribe)
+      end
+    end
+
+    def punsubscribe(*channels)
+      @client.call_async(:punsubscribe, *channels)
+      @client
+    end
   end
 
   class Subscription
@@ -51,6 +72,18 @@ class Redis
 
     def message(&block)
       @callbacks["message"] = block
+    end
+
+    def psubscribe(&block)
+      @callbacks["psubscribe"] = block
+    end
+
+    def punsubscribe(&block)
+      @callbacks["punsubscribe"] = block
+    end
+
+    def pmessage(&block)
+      @callbacks["pmessage"] = block
     end
   end
 end

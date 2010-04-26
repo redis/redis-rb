@@ -329,11 +329,8 @@ class Redis
     @client.call(:set, key, value)
   end
 
-  def set_with_expire(key, value, ttl)
-    multi do
-      set(key, value)
-      expire(key, ttl)
-    end
+  def setex(key, ttl, value)
+    @client.call(:setex, key, ttl, value)
   end
 
   def mset(*args)
@@ -448,6 +445,19 @@ class Redis
       begin
         original, @client = @client, SubscribedClient.new(@client)
         @client.subscribe(*channels, &block)
+      ensure
+        @client = original
+      end
+    end
+  end
+
+  def psubscribe(*channels, &block)
+    if @client.kind_of?(SubscribedClient)
+      @client.call(:psubscribe, *channels)
+    else
+      begin
+        original, @client = @client, SubscribedClient.new(@client)
+        @client.psubscribe(*channels, &block)
       ensure
         @client = original
       end
