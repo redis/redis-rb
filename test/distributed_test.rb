@@ -195,8 +195,8 @@ class RedisDistributedTest < Test::Unit::TestCase
       end
     end
 
-    test "SET with EXPIRE" do
-      @r.set_with_expire("foo", "s1", 1)
+    test "SETEX" do
+      @r.setex("foo", 1, "s1")
 
       assert_equal "s1", @r.get("foo")
 

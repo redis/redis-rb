@@ -109,8 +109,8 @@ class Redis
       node_for(key).set(key, value)
     end
 
-    def set_with_expire(key, value, ttl)
-      node_for(key).set_with_expire(key, value, ttl)
+    def setex(key, ttl, value)
+      node_for(key).setex(key, ttl, value)
     end
 
     def get(key)
@@ -382,6 +382,14 @@ class Redis
     end
 
     def subscribe(*channels, &block)
+      raise NotImplementedError
+    end
+
+    def punsubscribe(*channels)
+      raise NotImplementedError
+    end
+
+    def psubscribe(*channels, &block)
       raise NotImplementedError
     end
 
