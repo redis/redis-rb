@@ -201,7 +201,7 @@ class Redis
     end
 
     def logging(commands)
-      return yield unless @logger
+      return yield unless @logger && @logger.debug?
 
       begin
         commands.each do |name, *args|
