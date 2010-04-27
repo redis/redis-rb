@@ -167,6 +167,139 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
   end
 
+  context "Commands requiring clustering" do
+    test "RENAME" do
+      @r.set("{qux}foo", "s1")
+      @r.rename "{qux}foo", "{qux}bar"
+
+      assert_equal "s1", @r.get("{qux}bar")
+      assert_equal nil, @r.get("{qux}foo")
+    end
+
+    test "RENAMENX" do
+      @r.set("{qux}foo", "s1")
+      @r.set("{qux}bar", "s2")
+
+      assert_equal false, @r.renamenx("{qux}foo", "{qux}bar")
+
+      assert_equal "s1", @r.get("{qux}foo")
+      assert_equal "s2", @r.get("{qux}bar")
+    end
+
+    test "RPOPLPUSH" do
+      @r.rpush "{qux}foo", "s1"
+      @r.rpush "{qux}foo", "s2"
+
+      assert_equal "s2", @r.rpoplpush("{qux}foo", "{qux}bar")
+      assert_equal ["s2"], @r.lrange("{qux}bar", 0, -1)
+      assert_equal "s1", @r.rpoplpush("{qux}foo", "{qux}bar")
+      assert_equal ["s1", "s2"], @r.lrange("{qux}bar", 0, -1)
+    end
+
+    test "SMOVE" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}bar", "s2"
+
+      assert @r.smove("{qux}foo", "{qux}bar", "s1")
+      assert @r.sismember("{qux}bar", "s1")
+    end
+
+    test "SINTER" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}foo", "s2"
+      @r.sadd "{qux}bar", "s2"
+
+      assert_equal ["s2"], @r.sinter("{qux}foo", "{qux}bar")
+    end
+
+    test "SINTERSTORE" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}foo", "s2"
+      @r.sadd "{qux}bar", "s2"
+
+      @r.sinterstore("{qux}baz", "{qux}foo", "{qux}bar")
+
+      assert_equal ["s2"], @r.smembers("{qux}baz")
+    end
+
+    test "SUNION" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}foo", "s2"
+      @r.sadd "{qux}bar", "s2"
+      @r.sadd "{qux}bar", "s3"
+
+      assert_equal ["s1", "s2", "s3"], @r.sunion("{qux}foo", "{qux}bar").sort
+    end
+
+    test "SUNIONSTORE" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}foo", "s2"
+      @r.sadd "{qux}bar", "s2"
+      @r.sadd "{qux}bar", "s3"
+
+      @r.sunionstore("{qux}baz", "{qux}foo", "{qux}bar")
+
+      assert_equal ["s1", "s2", "s3"], @r.smembers("{qux}baz").sort
+    end
+
+    test "SDIFF" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}foo", "s2"
+      @r.sadd "{qux}bar", "s2"
+      @r.sadd "{qux}bar", "s3"
+
+      assert_equal ["s1"], @r.sdiff("{qux}foo", "{qux}bar")
+      assert_equal ["s3"], @r.sdiff("{qux}bar", "{qux}foo")
+    end
+
+    test "SDIFFSTORE" do
+      @r.sadd "{qux}foo", "s1"
+      @r.sadd "{qux}foo", "s2"
+      @r.sadd "{qux}bar", "s2"
+      @r.sadd "{qux}bar", "s3"
+
+      @r.sdiffstore("{qux}baz", "{qux}foo", "{qux}bar")
+
+      assert_equal ["s1"], @r.smembers("{qux}baz")
+    end
+
+    test "SORT" do
+      @r.set("foo:1", "s1")
+      @r.set("foo:2", "s2")
+
+      @r.rpush("{qux}bar", "1")
+      @r.rpush("{qux}bar", "2")
+
+      assert_equal ["s1"], @r.sort("{qux}bar", :get => "foo:*", :limit => [0, 1])
+      assert_equal ["s2"], @r.sort("{qux}bar", :get => "foo:*", :limit => [0, 1], :order => "desc alpha")
+    end
+
+    test "SORT with an array of GETs" do
+      @r.set("foo:1:a", "s1a")
+      @r.set("foo:1:b", "s1b")
+
+      @r.set("foo:2:a", "s2a")
+      @r.set("foo:2:b", "s2b")
+
+      @r.rpush("{qux}bar", "1")
+      @r.rpush("{qux}bar", "2")
+
+      assert_equal ["s1a", "s1b"], @r.sort("{qux}bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
+      assert_equal ["s2a", "s2b"], @r.sort("{qux}bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
+    end
+
+    test "SORT with STORE" do
+      @r.set("foo:1", "s1")
+      @r.set("foo:2", "s2")
+
+      @r.rpush("{qux}bar", "1")
+      @r.rpush("{qux}bar", "2")
+
+      @r.sort("{qux}bar", :get => "foo:*", :store => "{qux}baz")
+      assert_equal ["s1", "s2"], @r.lrange("{qux}baz", 0, -1)
+    end
+  end
+
   context "Commands operating on string values" do
     test "SET and GET" do
       @r.set("foo", "s1")

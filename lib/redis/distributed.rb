@@ -22,7 +22,7 @@ class Redis
     end
 
     def node_for(key)
-      @ring.get_node(key[@tag, 1] || key)
+      @ring.get_node(key_tag(key) || key)
     end
 
     def nodes
@@ -75,11 +75,15 @@ class Redis
     end
 
     def rename(old_name, new_name)
-      raise CannotDistribute, :rename
+      ensure_same_node(:rename, old_name, new_name) do |node|
+        node.rename(old_name, new_name)
+      end
     end
 
     def renamenx(old_name, new_name)
-      raise CannotDistribute, :renamenx
+      ensure_same_node(:renamenx, old_name, new_name) do |node|
+        node.renamenx(old_name, new_name)
+      end
     end
 
     def dbsize
@@ -215,7 +219,9 @@ class Redis
     end
 
     def rpoplpush(source, destination)
-      raise CannotDistribute, :rpoplpush
+      ensure_same_node(:rpoplpush, source, destination) do |node|
+        node.rpoplpush(source, destination)
+      end
     end
 
     def blpop(key, timeout)
@@ -239,7 +245,9 @@ class Redis
     end
 
     def smove(source, destination, member)
-      raise CannotDistribute, :smove
+      ensure_same_node(:smove, source, destination, member) do |node|
+        node.smove(source, destination, member)
+      end
     end
 
     def scard(key)
@@ -251,27 +259,39 @@ class Redis
     end
 
     def sinter(*keys)
-      raise CannotDistribute, :sinter
+      ensure_same_node(:sinter, *keys) do |node|
+        node.sinter(*keys)
+      end
     end
 
     def sinterstore(destination, *keys)
-      raise CannotDistribute, :sinterstore
+      ensure_same_node(:sinterstore, destination, *keys) do |node|
+        node.sinterstore(destination, *keys)
+      end
     end
 
     def sunion(*keys)
-      raise CannotDistribute, :sunion
+      ensure_same_node(:sunion, *keys) do |node|
+        node.sunion(*keys)
+      end
     end
 
-    def sunionstore(*keys)
-      raise CannotDistribute, :sunionstore
+    def sunionstore(destination, *keys)
+      ensure_same_node(:sunionstore, destination, *keys) do |node|
+        node.sunionstore(destination, *keys)
+      end
     end
 
     def sdiff(*keys)
-      raise CannotDistribute, :sdiff
+      ensure_same_node(:sdiff, *keys) do |node|
+        node.sdiff(*keys)
+      end
     end
 
-    def sdiffstore(*keys)
-      raise CannotDistribute, :sdiffstore
+    def sdiffstore(destination, *keys)
+      ensure_same_node(:sdiffstore, destination, *keys) do |node|
+        node.sdiffstore(destination, *keys)
+      end
     end
 
     def smembers(key)
@@ -359,7 +379,11 @@ class Redis
     end
 
     def sort(key, options = {})
-      raise CannotDistribute, :sort
+      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
+
+      ensure_same_node(:sort, *keys) do |node|
+        node.sort(key, options)
+      end
     end
 
     def multi(&block)
@@ -432,6 +456,18 @@ class Redis
 
     def node_index_for(key)
       nodes.index(node_for(key))
+    end
+
+    def key_tag(key)
+      key[@tag, 1] if @tag
+    end
+
+    def ensure_same_node(command, *keys)
+      tags = keys.map { |key| key_tag(key) }
+
+      raise CannotDistribute, command if tags.compact.uniq.size != 1
+
+      yield(node_for(keys.first))
     end
   end
 end

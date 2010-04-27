@@ -595,7 +595,7 @@ class RedisTest < Test::Unit::TestCase
       @r.sadd "bar", "s2"
       @r.sadd "bar", "s3"
 
-      assert_equal ["s1","s2","s3"], @r.sunion("foo", "bar").sort
+      assert_equal ["s1", "s2", "s3"], @r.sunion("foo", "bar").sort
     end
 
     test "SUNIONSTORE" do
@@ -606,7 +606,7 @@ class RedisTest < Test::Unit::TestCase
 
       @r.sunionstore("baz", "foo", "bar")
 
-      assert_equal ["s1","s2","s3"], @r.smembers("baz").sort
+      assert_equal ["s1", "s2", "s3"], @r.smembers("baz").sort
     end
 
     test "SDIFF" do
