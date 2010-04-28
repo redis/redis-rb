@@ -35,7 +35,6 @@ class Redis
 
     def quit
       on_each_node :quit
-    rescue Errno::ECONNRESET
     end
 
     def select(db)
