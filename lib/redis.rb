@@ -146,11 +146,11 @@ class Redis
   end
 
   def blpop(key, timeout)
-    @client.call_blocking(:blpop, key, timeout)
+    @client.call_without_timeout(:blpop, key, timeout)
   end
 
   def brpop(key, timeout)
-    @client.call_blocking(:brpop, key, timeout)
+    @client.call_without_timeout(:brpop, key, timeout)
   end
 
   def rpoplpush(source, destination)
@@ -430,38 +430,26 @@ class Redis
     @client.call(:publish, channel, message)
   end
 
+  def subscribed?
+    @client.kind_of? SubscribedClient
+  end
+
   def unsubscribe(*channels)
-    if @client.kind_of?(SubscribedClient)
-      @client = @client.unsubscribe(*channels)
-    else
-      @client.call(:unsubscribe, *channels)
-    end
+    raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+    @client.unsubscribe(*channels)
+  end
+
+  def punsubscribe(*channels)
+    raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+    @client.punsubscribe(*channels)
   end
 
   def subscribe(*channels, &block)
-    if @client.kind_of?(SubscribedClient)
-      @client.call(:subscribe, *channels)
-    else
-      begin
-        original, @client = @client, SubscribedClient.new(@client)
-        @client.subscribe(*channels, &block)
-      ensure
-        @client = original
-      end
-    end
+    subscription(:subscribe, channels, block)
   end
 
   def psubscribe(*channels, &block)
-    if @client.kind_of?(SubscribedClient)
-      @client.call(:psubscribe, *channels)
-    else
-      begin
-        original, @client = @client, SubscribedClient.new(@client)
-        @client.psubscribe(*channels, &block)
-      ensure
-        @client = original
-      end
-    end
+    subscription(:psubscribe, channels, block)
   end
 
   def id
@@ -476,6 +464,17 @@ private
 
   def _bool(value)
     value == 1
+  end
+
+  def subscription(method, channels, block)
+    return @client.call(method, *channels) if subscribed?
+
+    begin
+      original, @client = @client, SubscribedClient.new(@client)
+      @client.send(method, *channels, &block)
+    ensure
+      @client = original
+    end
   end
 
 end

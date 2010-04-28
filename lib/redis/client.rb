@@ -33,28 +33,35 @@ class Redis
       "redis://#{host}:#{port}/#{db}"
     end
 
-    def call(name, *args)
-      ensure_connected do
-        process_and_read([[name, *args]]).first
+    def call(*args)
+      process(args) do
+        read
       end
     end
 
-    def call_async(name, *args)
-      ensure_connected do
-        process([[name, *args]])
+    def call_loop(*args)
+      process(args) do
+        loop { yield(read) }
       end
     end
 
     def call_pipelined(commands)
-      ensure_connected do
-        process_and_read(commands)
+      process(*commands) do
+        Array.new(commands.size) { read }
       end
     end
 
-    def call_blocking(name, *args)
-      ensure_connected do
-        without_socket_timeout do
-          call(name, *args)
+    def call_without_timeout(*args)
+      without_socket_timeout do
+        call(*args)
+      end
+    end
+
+    def process(*commands)
+      logging(commands) do
+        ensure_connected do
+          @sock.write(join_commands(commands))
+          yield if block_given?
         end
       end
     end
@@ -99,11 +106,13 @@ class Redis
     end
 
     def without_socket_timeout
-      begin
-        self.timeout = 0
-        yield
-      ensure
-        self.timeout = @timeout
+      ensure_connected do
+        begin
+          self.timeout = 0
+          yield
+        ensure
+          self.timeout = @timeout
+        end
       end
     end
 
@@ -132,25 +141,10 @@ class Redis
 
     COMMAND_DELIMITER = "\r\n"
 
-    def process(commands)
-      logging(commands) do
-        @sock.write(join_commands(commands))
-        yield if block_given?
-      end
-    end
-
     def join_commands(commands)
       commands.map do |command|
         build_command(*command).join(COMMAND_DELIMITER) + COMMAND_DELIMITER
       end.join(COMMAND_DELIMITER) + COMMAND_DELIMITER
-    end
-
-    def process_and_read(commands)
-      process(commands) do
-        @mutex.synchronize do
-          Array.new(commands.size).map { read }
-        end
-      end
     end
 
     if "".respond_to?(:bytesize)

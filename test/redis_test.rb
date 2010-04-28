@@ -1005,8 +1005,17 @@ class RedisTest < Test::Unit::TestCase
       end
     end
 
-    test "SUBSCRIBE timeout"
+    test "UNSUBSCRIBE without a SUBSCRIBE" do
+      assert_raise RuntimeError do
+        @r.unsubscribe
+      end
 
+      assert_raise RuntimeError do
+        @r.punsubscribe
+      end
+    end
+
+    test "SUBSCRIBE timeout"
   end
 
   context "Persistence control commands" do

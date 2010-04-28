@@ -4,50 +4,40 @@ class Redis
       @client = client
     end
 
-    def call(command, *args)
-      @client.call_async(command, *args)
+    def call(*args)
+      @client.process(args)
     end
 
     def subscribe(*channels, &block)
-      @client.call_async(:subscribe, *channels)
-
-      sub = Subscription.new(&block)
-
-      begin
-        loop do
-          type, channel, message = @client.read
-          sub.callbacks[type].call(channel, message)
-          break if type == "unsubscribe" && message == 0
-        end
-      ensure
-        @client.call_async(:unsubscribe)
-      end
-    end
-
-    def unsubscribe(*channels)
-      @client.call_async(:unsubscribe, *channels)
-      @client
+      subscription("subscribe", "unsubscribe", channels, block)
     end
 
     def psubscribe(*channels, &block)
-      @client.call_async(:psubscribe, *channels)
+      subscription("psubscribe", "punsubscribe", channels, block)
+    end
 
-      sub = Subscription.new(&block)
-
-      begin
-        loop do
-          type, pattern, channel, message = @client.read
-          sub.callbacks[type].call(pattern, channel, message)
-          break if type == "punsubscribe" && channel == 0
-        end
-      ensure
-        @client.call_async(:punsubscribe)
-      end
+    def unsubscribe(*channels)
+      call(:unsubscribe, *channels)
     end
 
     def punsubscribe(*channels)
-      @client.call_async(:punsubscribe, *channels)
-      @client
+      call(:punsubscribe, *channels)
+    end
+
+  protected
+
+    def subscription(start, stop, channels, block)
+      sub = Subscription.new(&block)
+
+      begin
+        @client.call_loop(start, *channels) do |line|
+          type, *rest = line
+          sub.callbacks[type].call(*rest)
+          break if type == stop && rest.last == 0
+        end
+      ensure
+        send(stop)
+      end
     end
   end
 
