@@ -1,5 +1,7 @@
 $:.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 
+$VERBOSE = true
+
 require "test/unit"
 require "logger"
 require "stringio"

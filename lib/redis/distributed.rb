@@ -45,10 +45,6 @@ class Redis
       on_each_node :ping
     end
 
-    def quit
-      on_each_node :quit
-    end
-
     def flushall
       on_each_node :flushall
     end

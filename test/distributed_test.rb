@@ -894,6 +894,8 @@ class RedisDistributedTest < Test::Unit::TestCase
 
   context "Transactions" do
     test "MULTI/DISCARD" do
+      @foo = nil
+
       assert_raises Redis::Distributed::CannotDistribute do
         @r.multi { @foo = 1 }
       end
