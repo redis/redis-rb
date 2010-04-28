@@ -188,10 +188,9 @@ class Redis
     end
 
     def set_with_expire(key, value, ttl)
-      multi do
-        set(key, value)
-        expire(key, ttl)
-      end
+      Redis.deprecate "Using a non-atomic set with expire. Use setex if your Redis version allows it.", caller[0]
+      set(key, value)
+      expire(key, ttl)
     end
 
     def mset(*args)
