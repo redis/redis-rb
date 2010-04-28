@@ -71,17 +71,19 @@ class Redis
     end
 
     def disconnect
+      return unless connected?
+
       begin
         @sock.close
       rescue
       ensure
         @sock = nil
       end
-      true
     end
 
     def reconnect
-      disconnect && connect
+      disconnect
+      connect
     end
 
     def read
