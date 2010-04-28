@@ -315,19 +315,11 @@ class Redis
     end
 
     def zrange(key, start, stop, with_scores = false)
-      if with_scores
-        node_for(key).zrange(key, start, stop, "WITHSCORES")
-      else
-        node_for(key).zrange(key, start, stop)
-      end
+      node_for(key).zrange(key, start, stop, with_scores)
     end
 
     def zrevrange(key, start, stop, with_scores = false)
-      if with_scores
-        node_for(key).zrevrange(key, start, stop, "WITHSCORES")
-      else
-        node_for(key).zrevrange(key, start, stop)
-      end
+      node_for(key).zrevrange(key, start, stop, with_scores)
     end
 
     def zrangebyscore(key, min, max)
