@@ -1131,4 +1131,33 @@ class RedisTest < Test::Unit::TestCase
       end
     end
   end
+
+  context "Thread safety" do
+    should "be thread safe" do
+      @r = Redis.new(OPTIONS.merge(:thread_safe => true))
+      ensure_redis_running(@r)
+      @r.flushdb
+
+      r1, r2 = nil
+
+      t1 = Thread.new do
+        r1 = @r.client.process([:set, "foo", 1]) do
+          sleep 1
+          @r.client.send(:read)
+        end
+      end
+
+      t2 = Thread.new do
+        r2 = @r.client.process([:get, "foo"]) do
+          @r.client.send(:read)
+        end
+      end
+
+      t1.join
+      t2.join
+
+      assert_equal "OK", r1
+      assert_equal "1", r2
+    end
+  end
 end

@@ -29,7 +29,11 @@ class Redis
   end
 
   def initialize(options = {})
-    @client = Client.new(options)
+    if options[:thread_safe]
+      @client = Client::ThreadSafe.new(options)
+    else
+      @client = Client.new(options)
+    end
   end
 
   def select(db)

@@ -1,5 +1,3 @@
-require "thread"
-
 class Redis
   class Client
     MINUS    = "-".freeze
@@ -17,8 +15,7 @@ class Redis
       @db = (options[:db] || 0).to_i
       @timeout = (options[:timeout] || 5).to_i
       @password = options[:password]
-      @logger  =  options[:logger]
-      @mutex = ::Mutex.new
+      @logger = options[:logger]
       @sock = nil
     end
 
@@ -258,6 +255,25 @@ class Redis
           yield
         else
           raise Errno::ECONNRESET
+        end
+      end
+    end
+
+    class ThreadSafe < self
+      def initialize(*args)
+        require "monitor"
+
+        super(*args)
+        @mutex = ::Monitor.new
+      end
+
+      def synchronize(&block)
+        @mutex.synchronize(&block)
+      end
+
+      def ensure_connected(&block)
+        super do
+          synchronize(&block)
         end
       end
     end
