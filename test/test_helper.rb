@@ -1,25 +1,12 @@
 $:.unshift File.join(File.dirname(__FILE__), '..', 'lib')
 
-$VERBOSE = true
-
 require "test/unit"
 require "logger"
-require "stringio"
-require "redis"
 require "stringio"
 
 begin
   require "ruby-debug"
 rescue LoadError
-end
-
-def capture_stderr
-  stderr = $stderr
-  $stderr = StringIO.new
-
-  yield
-
-  $stderr = stderr
 end
 
 def ensure_redis_running(r)
@@ -110,4 +97,17 @@ private
       subclass.send(:undef_method, meth.to_sym)
     end
   end
+end
+
+$VERBOSE = true
+
+require "redis"
+
+def capture_stderr
+  stderr = $stderr
+  $stderr = StringIO.new
+
+  yield
+
+  $stderr = stderr
 end
