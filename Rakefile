@@ -73,3 +73,87 @@ task :gemspec do
     file.puts spec.to_ruby
   end
 end
+
+desc "Generate YARDoc"
+task :yardoc do
+  require "yard"
+
+  opts = ["--title", "A Ruby client for Redis"]
+
+  YARD::CLI::Yardoc.run(*opts)
+end
+
+namespace :commands do
+  def redis_commands
+    $redis_commands ||= begin
+      require "nokogiri"
+
+      doc = Nokogiri::HTML(open("http://code.google.com/p/redis/wiki/CommandReference"))
+
+      commands = {}
+
+      doc.xpath("//ul/li").each do |node|
+        node.at_xpath("./a").text.split("/").each do |name|
+          if name =~ /^[A-Z]+$/
+            commands[name.downcase] = node.at_xpath("./tt").text
+          end
+        end
+      end
+
+      commands
+    end
+  end
+
+  task :doc do
+    source = File.read("lib/redis.rb")
+
+    redis_commands.each do |name, text|
+      source.sub!(/(?:^ *#.*\n)*^( *)def #{name}(\(|$)/) do
+        indent, extra_args = $1, $2
+        comment = "#{indent}# #{text.strip}"
+
+        IO.popen("par p#{2 + indent.size} 80", "r+") do |io|
+          io.puts comment
+          io.close_write
+          comment = io.read
+        end
+
+        "#{comment}#{indent}def #{name}#{extra_args}"
+      end
+    end
+
+    File.open("lib/redis.rb", "w") { |f| f.write(source) }
+  end
+
+  task :verify do
+    require "redis"
+
+    Dir["test/**/*_test.rb"].each { |f| require f }
+
+    log = StringIO.new
+
+    RedisTest::OPTIONS[:logger] = Logger.new(log)
+
+    redis = Redis.new
+
+    Test::Unit::AutoRunner.run
+
+    report = ["Command", "\033[0mDefined?\033[0m", "\033[0mTested?\033[0m"]
+
+    yes, no = "\033[1;32mYes\033[0m", "\033[1;31mNo\033[0m"
+
+    redis_commands.sort.each do |name, _|
+      defined, tested = redis.respond_to?(name), log.string[">> #{name.upcase}"]
+
+      next if defined && tested
+
+      report << name
+      report << (defined ? yes : no)
+      report << (tested ? yes : no)
+    end
+
+    IO.popen("rs 0 3", "w") do |io|
+      io.puts report.join("\n")
+    end
+  end
+end

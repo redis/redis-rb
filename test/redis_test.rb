@@ -3,7 +3,7 @@ require File.join(File.dirname(__FILE__), "test_helper")
 class RedisTest < Test::Unit::TestCase
 
   PORT = 6379
-  OPTIONS = {:port => PORT, :db => 15, :timeout => 3}.freeze
+  OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
 
   setup do
     @r = Redis.new(OPTIONS)
