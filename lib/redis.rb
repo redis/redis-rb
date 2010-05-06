@@ -73,6 +73,10 @@ class Redis
     @client.call(:append, key, value)
   end
 
+  def substr(key, start, stop)
+    @client.call(:substr, key, start, stop)
+  end
+
   def hgetall(key)
     Hash[*@client.call(:hgetall, key)]
   end
