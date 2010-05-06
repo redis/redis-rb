@@ -446,6 +446,12 @@ class RedisDistributedTest < Test::Unit::TestCase
 
       assert_equal "s1", @r.get("foo")
     end
+
+    test "SUBSTR" do
+      @r.set "foo", "lorem"
+
+      assert_equal "ore", @r.substr("foo", 1, 3)
+    end
   end
 
   context "Commands operating on lists" do
