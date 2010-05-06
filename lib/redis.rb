@@ -233,6 +233,10 @@ class Redis
     @client.call(:zrank, key, member)
   end
 
+  def zrevrank(key, member)
+    @client.call(:zrevrank, key, member)
+  end
+
   def zincrby(key, increment, member)
     @client.call(:zincrby, key, increment, member)
   end
