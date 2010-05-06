@@ -923,6 +923,20 @@ class RedisTest < Test::Unit::TestCase
         @r.hmset("hash", "foo1", "bar1", "foo2", "bar2", "foo3")
       end
     end
+
+    test "HINCRBY" do
+      @r.hincrby("foo", "f1", 1)
+
+      assert_equal "1", @r.hget("foo", "f1")
+
+      @r.hincrby("foo", "f1", 2)
+
+      assert_equal "3", @r.hget("foo", "f1")
+
+      @r.hincrby("foo", "f1", -1)
+
+      assert_equal "2", @r.hget("foo", "f1")
+    end
   end
 
   context "Sorting" do

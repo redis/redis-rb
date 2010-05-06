@@ -402,6 +402,10 @@ class Redis
       node_for(key).hmset(key, *attrs)
     end
 
+    def hincrby(key, field, increment)
+      node_for(key).hincrby(key, field, increment)
+    end
+
     def sort(key, options = {})
       keys = [key, options[:by], options[:store], *Array(options[:get])].compact
 

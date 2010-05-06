@@ -346,6 +346,10 @@ class Redis
     @client.call(:hvals, key)
   end
 
+  def hincrby(key, field, increment)
+    @client.call(:hincrby, key, field, increment)
+  end
+
   def discard
     @client.call(:discard)
   end
