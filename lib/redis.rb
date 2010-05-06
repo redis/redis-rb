@@ -229,6 +229,10 @@ class Redis
     _bool @client.call(:zadd, key, score, member)
   end
 
+  def zrank(key, member)
+    @client.call(:zrank, key, member)
+  end
+
   def zincrby(key, increment, member)
     @client.call(:zincrby, key, increment, member)
   end
