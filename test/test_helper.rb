@@ -9,9 +9,13 @@ begin
 rescue LoadError
 end
 
-def ensure_redis_running(r)
+def prepare(redis)
   begin
-    @r.ping
+    redis.flushdb
+    redis.select 14
+    redis.flushdb
+    redis.select 15
+    redis
   rescue Errno::ECONNREFUSED
     puts <<-EOS
 
@@ -69,6 +73,7 @@ class Test::Unit::TestCase
   end
 
   def self.test(name, &block)
+    puts "Pending: #{caller[0]} (#{name})" unless block
     block ||= lambda { print "P" }
     define_method(test_name(name), &block)
   end

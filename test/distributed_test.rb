@@ -7,9 +7,7 @@ class RedisDistributedTest < Test::Unit::TestCase
 
   setup do
     @log = StringIO.new
-    @r = Redis::Distributed.new NODES, :logger => ::Logger.new(@log)
-    ensure_redis_running(@r)
-    @r.flushdb
+    @r = prepare Redis::Distributed.new(NODES, :logger => ::Logger.new(@log))
   end
 
   context "Internals" do
@@ -153,7 +151,28 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_equal 1, @r.ttl("foo")
     end
 
-    test "MOVE"
+    test "MOVE" do
+      @r.select 14
+      @r.flushdb
+
+      @r.set "bar", "s3"
+
+      @r.select 15
+
+      @r.set "foo", "s1"
+      @r.set "bar", "s2"
+
+      assert @r.move("foo", 14)
+      assert_nil @r.get("foo")
+
+      assert !@r.move("bar", 14)
+      assert_equal "s2", @r.get("bar")
+
+      @r.select 14
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal "s3", @r.get("bar")
+    end
 
     test "FLUSHDB" do
       @r.set("foo", "s1")
@@ -264,38 +283,38 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "SORT" do
-      @r.set("foo:1", "s1")
-      @r.set("foo:2", "s2")
+      @r.set("{qux}foo:1", "s1")
+      @r.set("{qux}foo:2", "s2")
 
       @r.rpush("{qux}bar", "1")
       @r.rpush("{qux}bar", "2")
 
-      assert_equal ["s1"], @r.sort("{qux}bar", :get => "foo:*", :limit => [0, 1])
-      assert_equal ["s2"], @r.sort("{qux}bar", :get => "foo:*", :limit => [0, 1], :order => "desc alpha")
+      assert_equal ["s1"], @r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1])
+      assert_equal ["s2"], @r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1], :order => "desc alpha")
     end
 
     test "SORT with an array of GETs" do
-      @r.set("foo:1:a", "s1a")
-      @r.set("foo:1:b", "s1b")
+      @r.set("{qux}foo:1:a", "s1a")
+      @r.set("{qux}foo:1:b", "s1b")
 
-      @r.set("foo:2:a", "s2a")
-      @r.set("foo:2:b", "s2b")
+      @r.set("{qux}foo:2:a", "s2a")
+      @r.set("{qux}foo:2:b", "s2b")
 
       @r.rpush("{qux}bar", "1")
       @r.rpush("{qux}bar", "2")
 
-      assert_equal ["s1a", "s1b"], @r.sort("{qux}bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
-      assert_equal ["s2a", "s2b"], @r.sort("{qux}bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
+      assert_equal ["s1a", "s1b"], @r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1])
+      assert_equal ["s2a", "s2b"], @r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1], :order => "desc alpha")
     end
 
     test "SORT with STORE" do
-      @r.set("foo:1", "s1")
-      @r.set("foo:2", "s2")
+      @r.set("{qux}foo:1", "s1")
+      @r.set("{qux}foo:2", "s2")
 
       @r.rpush("{qux}bar", "1")
       @r.rpush("{qux}bar", "2")
 
-      @r.sort("{qux}bar", :get => "foo:*", :store => "{qux}baz")
+      @r.sort("{qux}bar", :get => "{qux}foo:*", :store => "{qux}baz")
       assert_equal ["s1", "s2"], @r.lrange("{qux}baz", 0, -1)
     end
   end
@@ -557,14 +576,13 @@ class RedisDistributedTest < Test::Unit::TestCase
 
     test "BRPOP should unset a configured socket timeout" do
       @r = Redis::Distributed.new(NODES, :timeout => 1)
+
       assert_nothing_raised do
         @r.brpop("foo", 2)
       end # Errno::EAGAIN raised if socket times out before redis command times out
+
+      assert @r.nodes.all? { |node| node.client.timeout == 1 }
     end
-
-    test "BRPOP should restore the timeout after the command is run"
-
-    test "BRPOP should restore the timeout even if the command fails"
   end
 
   context "Commands operating on sets" do
@@ -741,9 +759,21 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_equal "11", @r.zscore("foo", "s1")
     end
 
-    test "ZRANK"
+    test "ZRANK" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
 
-    test "ZREVRANK"
+      assert_equal 2, @r.zrank("foo", "s3")
+    end
+
+    test "ZREVRANK" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+
+      assert_equal 0, @r.zrevrank("foo", "s3")
+    end
 
     test "ZRANGE" do
       @r.zadd "foo", 1, "s1"
@@ -751,7 +781,7 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "foo", 3, "s3"
 
       assert_equal ["s1", "s2"], @r.zrange("foo", 0, 1)
-      assert_equal ["s1", "1", "s2", "2"], @r.zrange("foo", 0, 1, true)
+      assert_equal ["s1", "1", "s2", "2"], @r.zrange("foo", 0, 1, :with_scores => true)
     end
 
     test "ZREVRANGE" do
@@ -760,7 +790,7 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "foo", 3, "s3"
 
       assert_equal ["s3", "s2"], @r.zrevrange("foo", 0, 1)
-      assert_equal ["s3", "3", "s2", "2"], @r.zrevrange("foo", 0, 1, true)
+      assert_equal ["s3", "3", "s2", "2"], @r.zrevrange("foo", 0, 1, :with_scores => true)
     end
 
     test "ZRANGEBYSCORE" do
@@ -771,8 +801,26 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_equal ["s2", "s3"], @r.zrangebyscore("foo", 2, 3)
     end
 
-    test "ZRANGEBYSCORE with LIMIT"
-    test "ZRANGEBYSCORE with WITHSCORES"
+    test "ZRANGEBYSCORE with LIMIT" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "foo", 4, "s4"
+
+      assert_equal ["s2"], @r.zrangebyscore("foo", 2, 4, :limit => [0, 1])
+      assert_equal ["s3"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 1])
+      assert_equal ["s3", "s4"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 2])
+    end
+
+    test "ZRANGEBYSCORE with WITHSCORES" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "foo", 4, "s4"
+
+      assert_equal ["s2", "2"], @r.zrangebyscore("foo", 2, 4, :limit => [0, 1], :with_scores => true)
+      assert_equal ["s3", "3"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 1], :with_scores => true)
+    end
 
     test "ZCARD" do
       assert_equal 0, @r.zcard("foo")
@@ -791,13 +839,72 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_nil @r.zscore("bar", "s1")
     end
 
-    test "ZREMRANGEBYRANK"
+    test "ZREMRANGEBYRANK" do
+      @r.zadd "foo", 10, "s1"
+      @r.zadd "foo", 20, "s2"
+      @r.zadd "foo", 30, "s3"
+      @r.zadd "foo", 40, "s4"
 
-    test "ZREMRANGEBYSCORE"
+      assert_equal 3, @r.zremrangebyscore("foo", 20, 40)
+      assert_equal ["s1"], @r.zrange("foo", 0, 4)
+    end
 
-    test "ZUNION"
+    test "ZREMRANGEBYSCORE" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "foo", 4, "s4"
 
-    test "ZINTER"
+      assert_equal 3, @r.zremrangebyscore("foo", 2, 4)
+      assert_equal ["s1"], @r.zrange("foo", 0, 4)
+    end
+
+    test "ZUNION" do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.zunion("foobar", ["foo", "bar"])
+      end
+
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.zunion("{qux}foobar", ["foo", "bar"])
+      end
+
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.zunion("{qux}foobar", ["{qux}foo", "bar"])
+      end
+    end
+
+    test "ZUNION with tags" do
+      @r.zadd "{qux}foo", 1, "s1"
+      @r.zadd "{qux}bar", 2, "s2"
+      @r.zadd "{qux}foo", 3, "s3"
+      @r.zadd "{qux}bar", 4, "s4"
+
+      assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
+    end
+
+    test "ZINTER" do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.zinter("foobar", ["foo", "bar"])
+      end
+
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.zinter("{qux}foobar", ["foo", "bar"])
+      end
+
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.zinter("{qux}foobar", ["{qux}foo", "bar"])
+      end
+    end
+
+    test "ZINTER with tags" do
+      @r.zadd "{qux}foo", 1, "s1"
+      @r.zadd "{qux}bar", 2, "s1"
+      @r.zadd "{qux}foo", 3, "s3"
+      @r.zadd "{qux}bar", 4, "s4"
+
+      assert_equal 1, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal ["s1"], @r.zrange("{qux}foobar", 0, 2)
+    end
   end
 
   context "Commands operating on hashes" do
@@ -910,82 +1017,85 @@ class RedisDistributedTest < Test::Unit::TestCase
 
   context "Publish/Subscribe" do
 
-    test "SUBSCRIBE and UNSUBSCRIBE"
-    # do
-    #   thread = Thread.new do
-    #     @r.subscribe("foo") do |on|
-    #       on.subscribe do |channel, total|
-    #         @subscribed = true
-    #         @t1 = total
-    #       end
+    test "SUBSCRIBE and UNSUBSCRIBE" do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.subscribe("foo", "bar") { }
+      end
 
-    #       on.message do |channel, message|
-    #         if message == "s1"
-    #           @r.unsubscribe
-    #           @message = message
-    #         end
-    #       end
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.subscribe("{qux}foo", "bar") { }
+      end
+    end
 
-    #       on.unsubscribe do |channel, total|
-    #         @unsubscribed = true
-    #         @t2 = total
-    #       end
-    #     end
-    #   end
+    test "SUBSCRIBE and UNSUBSCRIBE with tags" do
+      thread = Thread.new do
+        @r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @subscribed = true
+            @t1 = total
+          end
 
-    #   Redis::Distributed.new(NODES).publish("foo", "s1")
+          on.message do |channel, message|
+            if message == "s1"
+              @r.unsubscribe
+              @message = message
+            end
+          end
 
-    #   thread.join
+          on.unsubscribe do |channel, total|
+            @unsubscribed = true
+            @t2 = total
+          end
+        end
+      end
 
-    #   assert @subscribed
-    #   assert_equal 1, @t1
-    #   assert @unsubscribed
-    #   assert_equal 0, @t2
-    #   assert_equal "s1", @message
-    # end
+      Redis::Distributed.new(NODES).publish("foo", "s1")
 
-    test "SUBSCRIBE within SUBSCRIBE"
-    # do
-    #   @channels = []
+      thread.join
 
-    #   thread = Thread.new do
-    #     @r.subscribe("foo") do |on|
-    #       on.subscribe do |channel, total|
-    #         @channels << channel
+      assert @subscribed
+      assert_equal 1, @t1
+      assert @unsubscribed
+      assert_equal 0, @t2
+      assert_equal "s1", @message
+    end
 
-    #         @r.subscribe("bar") if channel == "foo"
-    #         @r.unsubscribe if channel == "bar"
-    #       end
-    #     end
-    #   end
+    test "SUBSCRIBE within SUBSCRIBE" do
+      @channels = []
 
-    #   Redis::Distributed.new(NODES).publish("foo", "s1")
+      thread = Thread.new do
+        @r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @channels << channel
 
-    #   thread.join
+            @r.subscribe("bar") if channel == "foo"
+            @r.unsubscribe if channel == "bar"
+          end
+        end
+      end
 
-    #   assert_equal ["foo", "bar"], @channels
-    # end
+      Redis::Distributed.new(NODES).publish("foo", "s1")
 
-    test "other commands within a SUBSCRIBE"
-    # do
-    #   assert_raises RuntimeError do
-    #     @r.subscribe("foo") do |on|
-    #       on.subscribe do |channel, total|
-    #         @r.set("bar", "s2")
-    #       end
-    #     end
-    #   end
-    # end
+      thread.join
 
-    test "SUBSCRIBE without a block"
-    # do
-    #   assert_raises LocalJumpError do
-    #     @r.subscribe("foo")
-    #   end
-    # end
+      assert_equal ["foo", "bar"], @channels
+    end
 
-    test "SUBSCRIBE timeout"
+    test "other commands within a SUBSCRIBE" do
+      assert_raises RuntimeError do
+        @r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @r.set("bar", "s2")
+          end
+        end
+      end
+    end
 
+    test "SUBSCRIBE without a block" do
+      assert_raises LocalJumpError do
+        @r.subscribe("foo")
+      end
+    end
   end
 
   context "Persistence control commands" do

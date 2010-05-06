@@ -233,24 +233,37 @@ class Redis
     @client.call(:zcard, key)
   end
 
-  def zrange(key, start, stop, with_scores = false)
-    if with_scores
-      @client.call(:zrange, key, start, stop, "WITHSCORES")
-    else
-      @client.call(:zrange, key, start, stop)
+  def zrange(key, start, stop, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.bool :with_scores
     end
+
+    @client.call(:zrange, key, start, stop, *command.to_a)
   end
 
-  def zrangebyscore(key, min, max)
-    @client.call(:zrangebyscore, key, min, max)
+  def zrangebyscore(key, min, max, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.splat :limit
+      c.bool  :with_scores
+    end
+
+    @client.call(:zrangebyscore, key, min, max, *command.to_a)
   end
 
-  def zrevrange(key, start, stop, with_scores = false)
-    if with_scores
-      @client.call(:zrevrange, key, start, stop, "WITHSCORES")
-    else
-      @client.call(:zrevrange, key, start, stop)
+  def zrevrange(key, start, stop, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.bool :with_scores
     end
+
+    @client.call(:zrevrange, key, start, stop, *command.to_a)
+  end
+
+  def zremrangebyscore(key, min, max)
+    @client.call(:zremrangebyscore, key, min, max)
+  end
+
+  def zremrangebyrank(key, start, stop)
+    @client.call(:zremrangebyscore, key, start, stop)
   end
 
   def zscore(key, member)
@@ -259,6 +272,14 @@ class Redis
 
   def zrem(key, member)
     _bool @client.call(:zrem, key, member)
+  end
+
+  def zinter(destination, keys)
+    @client.call(:zinter, destination, keys.size, *keys)
+  end
+
+  def zunion(destination, keys)
+    @client.call(:zunion, destination, keys.size, *keys)
   end
 
   def move(key, db)
@@ -363,20 +384,15 @@ class Redis
   end
 
   def sort(key, options = {})
-    cmd = []
-    cmd << "SORT"
-    cmd << key
-    cmd += ["BY", options[:by]] if options[:by]
+    command = CommandOptions.new(options) do |c|
+      c.value :by
+      c.splat :limit
+      c.multi :get
+      c.words :order
+      c.value :store
+    end
 
-    Array(options[:get]).each do |k|
-      cmd += ["GET", k]
-    end if options[:get]
-
-    cmd += options[:order].split(" ") if options[:order]
-    cmd += ["LIMIT", *options[:limit]] if options[:limit]
-    cmd += ["STORE", options[:store]] if options[:store]
-
-    @client.call(*cmd)
+    @client.call(:sort, key, *command.to_a)
   end
 
   def incr(key)
@@ -464,6 +480,42 @@ class Redis
     @client.call(command, *args)
   end
 
+  class CommandOptions
+    def initialize(options)
+      @result = []
+      @options = options
+      yield(self)
+    end
+
+    def bool(name)
+      insert(name) { |argument, value| [argument] }
+    end
+
+    def value(name)
+      insert(name) { |argument, value| [argument, value] }
+    end
+
+    def splat(name)
+      insert(name) { |argument, value| [argument, *value] }
+    end
+
+    def multi(name)
+      insert(name) { |argument, value| [argument].product(Array(value)).flatten }
+    end
+
+    def words(name)
+      insert(name) { |argument, value| value.split(" ") }
+    end
+
+    def to_a
+      @result
+    end
+
+    def insert(name)
+      @result += yield(name.to_s.upcase.gsub("_", ""), @options[name]) if @options[name]
+    end
+  end
+
 private
 
   def _bool(value)
@@ -498,3 +550,4 @@ end
 require 'redis/client'
 require 'redis/pipeline'
 require 'redis/subscribe'
+require 'redis/compat'

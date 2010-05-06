@@ -19,6 +19,7 @@ class Redis
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
       @ring = HashRing.new urls.map { |url| Redis.connect(options.merge(:url => url)) }
+      @subscribed_node = nil
     end
 
     def node_for(key)
@@ -240,7 +241,7 @@ class Redis
     end
 
     def smove(source, destination, member)
-      ensure_same_node(:smove, source, destination, member) do |node|
+      ensure_same_node(:smove, source, destination) do |node|
         node.smove(source, destination, member)
       end
     end
@@ -309,16 +310,32 @@ class Redis
       node_for(key).zincrby(key, increment, member)
     end
 
-    def zrange(key, start, stop, with_scores = false)
-      node_for(key).zrange(key, start, stop, with_scores)
+    def zrange(key, start, stop, options = {})
+      node_for(key).zrange(key, start, stop, options)
     end
 
-    def zrevrange(key, start, stop, with_scores = false)
-      node_for(key).zrevrange(key, start, stop, with_scores)
+    def zrank(key, member)
+      node_for(key).zrank(key, member)
     end
 
-    def zrangebyscore(key, min, max)
-      node_for(key).zrangebyscore(key, min, max)
+    def zrevrank(key, member)
+      node_for(key).zrevrank(key, member)
+    end
+
+    def zrevrange(key, start, stop, options = {})
+      node_for(key).zrevrange(key, start, stop, options)
+    end
+
+    def zremrangebyscore(key, min, max)
+      node_for(key).zremrangebyscore(key, min, max)
+    end
+
+    def zremrangebyrank(key, start, stop)
+      node_for(key).zremrangebyrank(key, start, stop)
+    end
+
+    def zrangebyscore(key, min, max, options = {})
+      node_for(key).zrangebyscore(key, min, max, options)
     end
 
     def zcard(key)
@@ -327,6 +344,18 @@ class Redis
 
     def zscore(key, member)
       node_for(key).zscore(key, member)
+    end
+
+    def zinter(destination, keys)
+      ensure_same_node(:zinter, destination, *keys) do |node|
+        node.zinter(destination, keys)
+      end
+    end
+
+    def zunion(destination, keys)
+      ensure_same_node(:zunion, destination, *keys) do |node|
+        node.zunion(destination, keys)
+      end
     end
 
     def hset(key, field, value)
@@ -386,15 +415,28 @@ class Redis
     end
 
     def publish(channel, message)
-      raise NotImplementedError
+      node_for(channel).publish(channel, message)
+    end
+
+    def subscribed?
+      !! @subscribed_node
     end
 
     def unsubscribe(*channels)
-      raise NotImplementedError
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      @subscribed_node.unsubscribe(*channels)
     end
 
-    def subscribe(*channels, &block)
-      raise NotImplementedError
+    def subscribe(channel, *channels, &block)
+      if channels.empty?
+        @subscribed_node = node_for(channel)
+        @subscribed_node.subscribe(channel, &block)
+      else
+        ensure_same_node(:subscribe, channel, *channels) do |node|
+          @subscribed_node = node
+          node.subscribe(channel, *channels, &block)
+        end
+      end
     end
 
     def punsubscribe(*channels)
@@ -452,7 +494,7 @@ class Redis
     def ensure_same_node(command, *keys)
       tags = keys.map { |key| key_tag(key) }
 
-      raise CannotDistribute, command if tags.compact.uniq.size != 1
+      raise CannotDistribute, command if !tags.all? || tags.uniq.size != 1
 
       yield(node_for(keys.first))
     end

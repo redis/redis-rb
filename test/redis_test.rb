@@ -6,9 +6,7 @@ class RedisTest < Test::Unit::TestCase
   OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
 
   setup do
-    @r = Redis.new(OPTIONS)
-    ensure_redis_running(@r)
-    @r.flushdb
+    @r = prepare Redis.new(OPTIONS)
   end
 
   context "initialize with URL" do
@@ -223,6 +221,29 @@ class RedisTest < Test::Unit::TestCase
       @r.expire("foo", 1)
 
       assert_equal 1, @r.ttl("foo")
+    end
+
+    test "MOVE" do
+      @r.select 14
+      @r.flushdb
+
+      @r.set "bar", "s3"
+
+      @r.select 15
+
+      @r.set "foo", "s1"
+      @r.set "bar", "s2"
+
+      assert @r.move("foo", 14)
+      assert_nil @r.get("foo")
+
+      assert !@r.move("bar", 14)
+      assert_equal "s2", @r.get("bar")
+
+      @r.select 14
+
+      assert_equal "s1", @r.get("foo")
+      assert_equal "s3", @r.get("bar")
     end
 
     test "FLUSHDB" do
@@ -506,14 +527,23 @@ class RedisTest < Test::Unit::TestCase
 
     test "BRPOP should unset a configured socket timeout" do
       @r = Redis.new(OPTIONS.merge(:timeout => 1))
+
       assert_nothing_raised do
         @r.brpop("foo", 2)
-      end # Errno::EAGAIN raised if socket times out before redis command times out
+      end # Errno::EAGAIN raised if socket times out before Redis command times out
+
+      assert_equal 1, @r.client.timeout
     end
 
-    test "BRPOP should restore the timeout after the command is run"
+    test "BRPOP should restore the timeout even if the command fails" do
+      @r.incr "foo"
 
-    test "BRPOP should restore the timeout even if the command fails"
+      assert_raise RuntimeError do
+        @r.brpop("foo", 1)
+      end
+
+      assert_equal OPTIONS[:timeout], @r.client.timeout
+    end
   end
 
   context "Commands operating on sets" do
@@ -684,9 +714,21 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "11", @r.zscore("foo", "s1")
     end
 
-    test "ZRANK"
+    test "ZRANK" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
 
-    test "ZREVRANK"
+      assert_equal 2, @r.zrank("foo", "s3")
+    end
+
+    test "ZREVRANK" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+
+      assert_equal 0, @r.zrevrank("foo", "s3")
+    end
 
     test "ZRANGE" do
       @r.zadd "foo", 1, "s1"
@@ -694,7 +736,7 @@ class RedisTest < Test::Unit::TestCase
       @r.zadd "foo", 3, "s3"
 
       assert_equal ["s1", "s2"], @r.zrange("foo", 0, 1)
-      assert_equal ["s1", "1", "s2", "2"], @r.zrange("foo", 0, 1, true)
+      assert_equal ["s1", "1", "s2", "2"], @r.zrange("foo", 0, 1, :with_scores => true)
     end
 
     test "ZREVRANGE" do
@@ -703,7 +745,7 @@ class RedisTest < Test::Unit::TestCase
       @r.zadd "foo", 3, "s3"
 
       assert_equal ["s3", "s2"], @r.zrevrange("foo", 0, 1)
-      assert_equal ["s3", "3", "s2", "2"], @r.zrevrange("foo", 0, 1, true)
+      assert_equal ["s3", "3", "s2", "2"], @r.zrevrange("foo", 0, 1, :with_scores => true)
     end
 
     test "ZRANGEBYSCORE" do
@@ -714,8 +756,26 @@ class RedisTest < Test::Unit::TestCase
       assert_equal ["s2", "s3"], @r.zrangebyscore("foo", 2, 3)
     end
 
-    test "ZRANGEBYSCORE with LIMIT"
-    test "ZRANGEBYSCORE with WITHSCORES"
+    test "ZRANGEBYSCORE with LIMIT" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "foo", 4, "s4"
+
+      assert_equal ["s2"], @r.zrangebyscore("foo", 2, 4, :limit => [0, 1])
+      assert_equal ["s3"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 1])
+      assert_equal ["s3", "s4"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 2])
+    end
+
+    test "ZRANGEBYSCORE with WITHSCORES" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "foo", 4, "s4"
+
+      assert_equal ["s2", "2"], @r.zrangebyscore("foo", 2, 4, :limit => [0, 1], :with_scores => true)
+      assert_equal ["s3", "3"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 1], :with_scores => true)
+    end
 
     test "ZCARD" do
       assert_equal 0, @r.zcard("foo")
@@ -734,13 +794,44 @@ class RedisTest < Test::Unit::TestCase
       assert_nil @r.zscore("bar", "s1")
     end
 
-    test "ZREMRANGEBYRANK"
+    test "ZREMRANGEBYRANK" do
+      @r.zadd "foo", 10, "s1"
+      @r.zadd "foo", 20, "s2"
+      @r.zadd "foo", 30, "s3"
+      @r.zadd "foo", 40, "s4"
 
-    test "ZREMRANGEBYSCORE"
+      assert_equal 3, @r.zremrangebyscore("foo", 20, 40)
+      assert_equal ["s1"], @r.zrange("foo", 0, 4)
+    end
 
-    test "ZUNION"
+    test "ZREMRANGEBYSCORE" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "foo", 4, "s4"
 
-    test "ZINTER"
+      assert_equal 3, @r.zremrangebyscore("foo", 2, 4)
+      assert_equal ["s1"], @r.zrange("foo", 0, 4)
+    end
+
+    test "ZUNION" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "bar", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "bar", 4, "s4"
+
+      assert_equal 4, @r.zunion("foobar", ["foo", "bar"])
+    end
+
+    test "ZINTER" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "bar", 2, "s1"
+      @r.zadd "foo", 3, "s3"
+      @r.zadd "bar", 4, "s4"
+
+      assert_equal 1, @r.zinter("foobar", ["foo", "bar"])
+      assert_equal ["s1"], @r.zrange("foobar", 0, 2)
+    end
   end
 
   context "Commands operating on hashes" do
@@ -1014,8 +1105,6 @@ class RedisTest < Test::Unit::TestCase
         @r.punsubscribe
       end
     end
-
-    test "SUBSCRIBE timeout"
   end
 
   context "Persistence control commands" do
@@ -1134,9 +1223,7 @@ class RedisTest < Test::Unit::TestCase
 
   context "Thread safety" do
     should "be thread safe" do
-      @r = Redis.new(OPTIONS.merge(:thread_safe => true))
-      ensure_redis_running(@r)
-      @r.flushdb
+      @r = prepare Redis.new(OPTIONS.merge(:thread_safe => true))
 
       r1, r2 = nil
 
