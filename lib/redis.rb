@@ -69,6 +69,10 @@ class Redis
     @client.call(:mget, *keys)
   end
 
+  def append(key, value)
+    @client.call(:append, key, value)
+  end
+
   def hgetall(key)
     Hash[*@client.call(:hgetall, key)]
   end

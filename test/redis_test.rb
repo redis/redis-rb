@@ -386,6 +386,13 @@ class RedisTest < Test::Unit::TestCase
       assert_equal 1, @r.decrby("foo", 2)
       assert_equal 0, @r.decrby("foo", 1)
     end
+
+    test "APPEND" do
+      @r.set "foo", "s"
+      @r.append "foo", "1"
+
+      assert_equal "s1", @r.get("foo")
+    end
   end
 
   context "Commands operating on lists" do

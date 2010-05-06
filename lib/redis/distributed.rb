@@ -126,6 +126,10 @@ class Redis
       get(key)
     end
 
+    def append(key, value)
+      node_for(key).append(key, value)
+    end
+
     def []=(key,value)
       set(key, value)
     end
