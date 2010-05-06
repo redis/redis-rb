@@ -813,7 +813,7 @@ class RedisTest < Test::Unit::TestCase
       @r.zadd "foo", 30, "s3"
       @r.zadd "foo", 40, "s4"
 
-      assert_equal 3, @r.zremrangebyscore("foo", 20, 40)
+      assert_equal 3, @r.zremrangebyrank("foo", 1, 3)
       assert_equal ["s1"], @r.zrange("foo", 0, 4)
     end
 

@@ -271,7 +271,7 @@ class Redis
   end
 
   def zremrangebyrank(key, start, stop)
-    @client.call(:zremrangebyscore, key, start, stop)
+    @client.call(:zremrangebyrank, key, start, stop)
   end
 
   def zscore(key, member)
