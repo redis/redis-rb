@@ -895,6 +895,35 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
     end
 
+    test "ZUNION with WEIGHTS" do
+      @r.zadd "{qux}foo", 1, "s1"
+      @r.zadd "{qux}foo", 3, "s3"
+      @r.zadd "{qux}bar", 20, "s2"
+      @r.zadd "{qux}bar", 40, "s4"
+
+      assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal ["s1", "s3", "s2", "s4"], @r.zrange("{qux}foobar", 0, -1)
+
+      assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"], :weights => [10, 1])
+      assert_equal ["s1", "s2", "s3", "s4"], @r.zrange("{qux}foobar", 0, -1)
+    end
+
+    test "ZUNION with AGGREGATE" do
+      @r.zadd "{qux}foo", 1, "s1"
+      @r.zadd "{qux}foo", 2, "s2"
+      @r.zadd "{qux}bar", 4, "s2"
+      @r.zadd "{qux}bar", 3, "s3"
+
+      assert_equal 3, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal ["s1", "s3", "s2"], @r.zrange("{qux}foobar", 0, -1)
+
+      assert_equal 3, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :min)
+      assert_equal ["s1", "s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
+
+      assert_equal 3, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :max)
+      assert_equal ["s1", "s3", "s2"], @r.zrange("{qux}foobar", 0, -1)
+    end
+
     test "ZINTER" do
       assert_raises Redis::Distributed::CannotDistribute do
         @r.zinter("foobar", ["foo", "bar"])
@@ -917,6 +946,48 @@ class RedisDistributedTest < Test::Unit::TestCase
 
       assert_equal 1, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
       assert_equal ["s1"], @r.zrange("{qux}foobar", 0, 2)
+    end
+
+    test "ZINTER with WEIGHTS" do
+      @r.zadd "{qux}foo", 1, "s1"
+      @r.zadd "{qux}foo", 2, "s2"
+      @r.zadd "{qux}foo", 3, "s3"
+      @r.zadd "{qux}bar", 20, "s2"
+      @r.zadd "{qux}bar", 30, "s3"
+      @r.zadd "{qux}bar", 40, "s4"
+
+      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
+
+      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"], :weights => [10, 1])
+      assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
+
+      assert_equal "40", @r.zscore("{qux}foobar", "s2")
+      assert_equal "60", @r.zscore("{qux}foobar", "s3")
+    end
+
+    test "ZINTER with AGGREGATE" do
+      @r.zadd "{qux}foo", 1, "s1"
+      @r.zadd "{qux}foo", 2, "s2"
+      @r.zadd "{qux}foo", 3, "s3"
+      @r.zadd "{qux}bar", 20, "s2"
+      @r.zadd "{qux}bar", 30, "s3"
+      @r.zadd "{qux}bar", 40, "s4"
+
+      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
+      assert_equal "22", @r.zscore("{qux}foobar", "s2")
+      assert_equal "33", @r.zscore("{qux}foobar", "s3")
+
+      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :min)
+      assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
+      assert_equal "2", @r.zscore("{qux}foobar", "s2")
+      assert_equal "3", @r.zscore("{qux}foobar", "s3")
+
+      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :max)
+      assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
+      assert_equal "20", @r.zscore("{qux}foobar", "s2")
+      assert_equal "30", @r.zscore("{qux}foobar", "s3")
     end
   end
 

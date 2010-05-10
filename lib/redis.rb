@@ -290,12 +290,22 @@ class Redis
     _bool @client.call(:zrem, key, member)
   end
 
-  def zinter(destination, keys)
-    @client.call(:zinter, destination, keys.size, *keys)
+  def zinter(destination, keys, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.splat :weights
+      c.value :aggregate
+    end
+
+    @client.call(:zinter, destination, keys.size, *(keys + command.to_a))
   end
 
-  def zunion(destination, keys)
-    @client.call(:zunion, destination, keys.size, *keys)
+  def zunion(destination, keys, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.splat :weights
+      c.value :aggregate
+    end
+
+    @client.call(:zunion, destination, keys.size, *(keys + command.to_a))
   end
 
   def move(key, db)
