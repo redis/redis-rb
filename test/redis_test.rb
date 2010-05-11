@@ -1230,9 +1230,22 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "MONITOR" do
-      assert_raises NotImplementedError do
-        @r.monitor
+      log = []
+
+      t1 = Thread.new do
+        Redis.new(OPTIONS).monitor do |line|
+          log << line
+          break if log.size == 3
+        end
       end
+
+      while log.empty?; end # Faster than sleep
+
+      @r.set "foo", "s1"
+
+      t1.join
+
+      assert log[-1][%q{(db 15) "set" "foo" "s1"}]
     end
 
     test "ECHO" do

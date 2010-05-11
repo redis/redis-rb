@@ -368,8 +368,8 @@ class Redis
     _bool @client.call(:hexists, key, field)
   end
 
-  def monitor
-    raise NotImplementedError
+  def monitor(&block)
+    @client.call_loop(:monitor, &block)
   end
 
   def [](key)
