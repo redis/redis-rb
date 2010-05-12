@@ -348,6 +348,10 @@ class Redis
     @client.call(:hmset, key, *attrs)
   end
 
+  def mapped_hmset(key, hash)
+    hmset(key, *hash.to_a.flatten)
+  end
+
   def hlen(key)
     @client.call(:hlen, key)
   end

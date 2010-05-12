@@ -996,6 +996,13 @@ class RedisTest < Test::Unit::TestCase
       end
     end
 
+    test "Mapped HMSET" do
+      @r.mapped_hmset("foo", :f1 => "s1", :f2 => "s2")
+
+      assert_equal "s1", @r.hget("foo", "f1")
+      assert_equal "s2", @r.hget("foo", "f2")
+    end
+
     test "HINCRBY" do
       @r.hincrby("foo", "f1", 1)
 
