@@ -473,11 +473,12 @@ class Redis
 
     begin
       yield(self)
-      exec
     rescue Exception => e
       discard
       raise e
     end
+
+    exec
   end
 
   def publish(channel, message)

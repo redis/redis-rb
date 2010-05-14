@@ -1088,6 +1088,19 @@ class RedisTest < Test::Unit::TestCase
       assert_nil @r.get("baz")
     end
 
+    test "MULTI/EXEC with a block operating on a wrong kind of key" do
+      begin
+        @r.multi do
+          @r.set "foo", "s1"
+          @r.lpush "foo", "s2"
+          @r.get "foo"
+        end
+      rescue RuntimeError
+      end
+
+      assert_equal "s1", @r.get("foo")
+    end
+
     test "MULTI with a block yielding the client" do
       @r.multi do |multi|
         multi.set "foo", "s1"
