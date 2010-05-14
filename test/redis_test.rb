@@ -827,7 +827,7 @@ class RedisTest < Test::Unit::TestCase
       assert_equal ["s1"], @r.zrange("foo", 0, -1)
     end
 
-    test "ZUNION" do
+    test "ZUNIONSTORE" do
       @r.zadd "foo", 1, "s1"
       @r.zadd "bar", 2, "s2"
       @r.zadd "foo", 3, "s3"
@@ -843,7 +843,7 @@ class RedisTest < Test::Unit::TestCase
       @r.zadd "bar", 20, "s2"
       @r.zadd "bar", 40, "s4"
 
-      assert_equal 4, @r.zunion("foobar", ["foo", "bar"])
+      assert_equal 4, @r.zunionstore("foobar", ["foo", "bar"])
       assert_equal ["s1", "s3", "s2", "s4"], @r.zrange("foobar", 0, -1)
 
       assert_equal 4, @r.zunionstore("foobar", ["foo", "bar"], :weights => [10, 1])
