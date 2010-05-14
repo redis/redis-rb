@@ -354,15 +354,15 @@ class Redis
       node_for(key).zscore(key, member)
     end
 
-    def zinter(destination, keys, options = {})
-      ensure_same_node(:zinter, destination, *keys) do |node|
-        node.zinter(destination, keys, options)
+    def zinterstore(destination, keys, options = {})
+      ensure_same_node(:zinterstore, destination, *keys) do |node|
+        node.zinterstore(destination, keys, options)
       end
     end
 
-    def zunion(destination, keys, options = {})
-      ensure_same_node(:zunion, destination, *keys) do |node|
-        node.zunion(destination, keys, options)
+    def zunionstore(destination, keys, options = {})
+      ensure_same_node(:zunionstore, destination, *keys) do |node|
+        node.zunionstore(destination, keys, options)
       end
     end
 

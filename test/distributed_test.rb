@@ -874,15 +874,15 @@ class RedisDistributedTest < Test::Unit::TestCase
 
     test "ZUNION" do
       assert_raises Redis::Distributed::CannotDistribute do
-        @r.zunion("foobar", ["foo", "bar"])
+        @r.zunionstore("foobar", ["foo", "bar"])
       end
 
       assert_raises Redis::Distributed::CannotDistribute do
-        @r.zunion("{qux}foobar", ["foo", "bar"])
+        @r.zunionstore("{qux}foobar", ["foo", "bar"])
       end
 
       assert_raises Redis::Distributed::CannotDistribute do
-        @r.zunion("{qux}foobar", ["{qux}foo", "bar"])
+        @r.zunionstore("{qux}foobar", ["{qux}foo", "bar"])
       end
     end
 
@@ -892,19 +892,19 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "{qux}foo", 3, "s3"
       @r.zadd "{qux}bar", 4, "s4"
 
-      assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal 4, @r.zunionstore("{qux}foobar", ["{qux}foo", "{qux}bar"])
     end
 
-    test "ZUNION with WEIGHTS" do
+    test "ZUNIONSTORE with WEIGHTS" do
       @r.zadd "{qux}foo", 1, "s1"
       @r.zadd "{qux}foo", 3, "s3"
       @r.zadd "{qux}bar", 20, "s2"
       @r.zadd "{qux}bar", 40, "s4"
 
-      assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal 4, @r.zunionstore("{qux}foobar", ["{qux}foo", "{qux}bar"])
       assert_equal ["s1", "s3", "s2", "s4"], @r.zrange("{qux}foobar", 0, -1)
 
-      assert_equal 4, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"], :weights => [10, 1])
+      assert_equal 4, @r.zunionstore("{qux}foobar", ["{qux}foo", "{qux}bar"], :weights => [10, 1])
       assert_equal ["s1", "s2", "s3", "s4"], @r.zrange("{qux}foobar", 0, -1)
     end
 
@@ -914,27 +914,27 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "{qux}bar", 4, "s2"
       @r.zadd "{qux}bar", 3, "s3"
 
-      assert_equal 3, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal 3, @r.zunionstore("{qux}foobar", ["{qux}foo", "{qux}bar"])
       assert_equal ["s1", "s3", "s2"], @r.zrange("{qux}foobar", 0, -1)
 
-      assert_equal 3, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :min)
+      assert_equal 3, @r.zunionstore("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :min)
       assert_equal ["s1", "s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
 
-      assert_equal 3, @r.zunion("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :max)
+      assert_equal 3, @r.zunionstore("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :max)
       assert_equal ["s1", "s3", "s2"], @r.zrange("{qux}foobar", 0, -1)
     end
 
     test "ZINTER" do
       assert_raises Redis::Distributed::CannotDistribute do
-        @r.zinter("foobar", ["foo", "bar"])
+        @r.zinterstore("foobar", ["foo", "bar"])
       end
 
       assert_raises Redis::Distributed::CannotDistribute do
-        @r.zinter("{qux}foobar", ["foo", "bar"])
+        @r.zinterstore("{qux}foobar", ["foo", "bar"])
       end
 
       assert_raises Redis::Distributed::CannotDistribute do
-        @r.zinter("{qux}foobar", ["{qux}foo", "bar"])
+        @r.zinterstore("{qux}foobar", ["{qux}foo", "bar"])
       end
     end
 
@@ -944,7 +944,7 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "{qux}foo", 3, "s3"
       @r.zadd "{qux}bar", 4, "s4"
 
-      assert_equal 1, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal 1, @r.zinterstore("{qux}foobar", ["{qux}foo", "{qux}bar"])
       assert_equal ["s1"], @r.zrange("{qux}foobar", 0, 2)
     end
 
@@ -956,10 +956,10 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "{qux}bar", 30, "s3"
       @r.zadd "{qux}bar", 40, "s4"
 
-      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal 2, @r.zinterstore("{qux}foobar", ["{qux}foo", "{qux}bar"])
       assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
 
-      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"], :weights => [10, 1])
+      assert_equal 2, @r.zinterstore("{qux}foobar", ["{qux}foo", "{qux}bar"], :weights => [10, 1])
       assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
 
       assert_equal "40", @r.zscore("{qux}foobar", "s2")
@@ -974,17 +974,17 @@ class RedisDistributedTest < Test::Unit::TestCase
       @r.zadd "{qux}bar", 30, "s3"
       @r.zadd "{qux}bar", 40, "s4"
 
-      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"])
+      assert_equal 2, @r.zinterstore("{qux}foobar", ["{qux}foo", "{qux}bar"])
       assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
       assert_equal "22", @r.zscore("{qux}foobar", "s2")
       assert_equal "33", @r.zscore("{qux}foobar", "s3")
 
-      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :min)
+      assert_equal 2, @r.zinterstore("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :min)
       assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
       assert_equal "2", @r.zscore("{qux}foobar", "s2")
       assert_equal "3", @r.zscore("{qux}foobar", "s3")
 
-      assert_equal 2, @r.zinter("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :max)
+      assert_equal 2, @r.zinterstore("{qux}foobar", ["{qux}foo", "{qux}bar"], :aggregate => :max)
       assert_equal ["s2", "s3"], @r.zrange("{qux}foobar", 0, -1)
       assert_equal "20", @r.zscore("{qux}foobar", "s2")
       assert_equal "30", @r.zscore("{qux}foobar", "s3")
