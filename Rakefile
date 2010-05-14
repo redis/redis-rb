@@ -8,7 +8,7 @@ require 'redis'
 GEM = 'redis'
 GEM_NAME = 'redis'
 GEM_VERSION = Redis::VERSION
-AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi']
+AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi', 'Michel Martens', 'Damian Janowski']
 EMAIL = "ez@engineyard.com"
 HOMEPAGE = "http://github.com/ezmobius/redis-rb"
 SUMMARY = "Ruby client library for Redis, the key value storage server"
