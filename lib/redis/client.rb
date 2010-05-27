@@ -188,8 +188,11 @@ class Redis
     end
 
     def format_multi_bulk_reply(line)
+      n = line.to_i
+      return if n == -1
+
       reply = []
-      line.to_i.times { reply << read }
+      n.times { reply << read }
       reply
     end
 
