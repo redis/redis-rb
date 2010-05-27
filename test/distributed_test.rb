@@ -1111,6 +1111,16 @@ class RedisDistributedTest < Test::Unit::TestCase
         @r.discard
       end
     end
+
+    test "WATCH/UNWATCH" do
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.watch("foo")
+      end
+
+      assert_raises Redis::Distributed::CannotDistribute do
+        @r.unwatch
+      end
+    end
   end
 
   context "Publish/Subscribe" do

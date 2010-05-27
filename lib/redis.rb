@@ -462,6 +462,14 @@ class Redis
     @client = original
   end
 
+  def watch(*keys)
+    @client.call(:watch, *keys)
+  end
+
+  def unwatch
+    @client.call(:unwatch)
+  end
+
   def exec
     @client.call(:exec)
   end

@@ -418,6 +418,14 @@ class Redis
       raise CannotDistribute, :multi
     end
 
+    def watch(*keys)
+      raise CannotDistribute, :watch
+    end
+
+    def unwatch
+      raise CannotDistribute, :unwatch
+    end
+
     def exec
       raise CannotDistribute, :exec
     end

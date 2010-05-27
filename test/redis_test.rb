@@ -1108,6 +1108,37 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal "s1", @r.get("foo")
     end
+
+    test "WATCH with an unmodified key" do
+      @r.watch "foo"
+      @r.multi do |multi|
+        multi.set "foo", "s1"
+      end
+
+      assert_equal "s1", @r.get("foo")
+    end
+
+    test "WATCH with a modified key" do
+      @r.watch "foo"
+      @r.set "foo", "s1"
+      res = @r.multi do |multi|
+        multi.set "foo", "s2"
+      end
+
+      assert_nil res
+      assert_equal "s1", @r.get("foo")
+    end
+
+    test "UNWATCH with a modified key" do
+      @r.watch "foo"
+      @r.set "foo", "s1"
+      @r.unwatch
+      @r.multi do |multi|
+        multi.set "foo", "s2"
+      end
+
+      assert_equal "s2", @r.get("foo")
+    end
   end
 
   context "Publish/Subscribe" do
