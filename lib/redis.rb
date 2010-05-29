@@ -94,7 +94,7 @@ class Redis
   end
 
   def keys(pattern = "*")
-    @client.call(:keys, pattern)
+    _array @client.call(:keys, pattern)
   end
 
   def randomkey
@@ -563,6 +563,10 @@ private
 
   def _bool(value)
     value == 1
+  end
+
+  def _array(value)
+    value.kind_of?(Array) ? value : value.split(" ")
   end
 
   def subscription(method, channels, block)
