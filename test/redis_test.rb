@@ -548,6 +548,23 @@ class RedisTest < Test::Unit::TestCase
       assert_equal 1, @r.client.timeout
     end
 
+    test "BLPOP can block on multiple lists" do
+      @r.lpush("queue1", "job1")
+      @r.lpush("queue2", "job2")
+
+      t = Thread.new do
+        redis = Redis.new(OPTIONS)
+        sleep 0.3
+        redis.lpush("queue3", "job3")
+      end
+
+      assert_equal @r.blpop("queue1", "queue2", "queue3", 0.1), ["queue1", "job1"]
+      assert_equal @r.blpop("queue1", "queue2", "queue3", 0.1), ["queue2", "job2"]
+      assert_equal @r.blpop("queue1", "queue2", "queue3", 0.6), ["queue3", "job3"]
+
+      t.join
+    end
+
     test "BRPOP should restore the timeout even if the command fails" do
       @r.incr "foo"
 
