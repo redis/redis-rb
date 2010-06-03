@@ -4,6 +4,5 @@ rdsrv
 pkg/*
 coverage/*
 .idea
-*.gemspec
 *.rdb
 *.swp
