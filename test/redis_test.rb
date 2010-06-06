@@ -82,6 +82,10 @@ class RedisTest < Test::Unit::TestCase
         @r.info
       end
     end
+
+    test "provides a meaningful inspect" do
+      assert_equal "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{@r.info["redis_version"]})>", @r.inspect
+    end
   end
 
   context "Connection handling" do

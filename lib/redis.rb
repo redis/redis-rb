@@ -519,6 +519,10 @@ class Redis
     @client.id
   end
 
+  def inspect
+    "#<Redis client v#{Redis::VERSION} connected to #{id} (Redis v#{info["redis_version"]})>"
+  end
+
   def method_missing(command, *args)
     @client.call(command, *args)
   end
