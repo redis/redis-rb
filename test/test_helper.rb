@@ -24,6 +24,9 @@ def prepare(redis)
       Make sure Redis is running on localhost, port 6379.
       This testing suite connects to the database 15.
 
+      To install redis:
+        visit <http://code.google.com/p/redis/>.
+
       To start the server:
         rake start
 
