@@ -432,6 +432,8 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal ["s2", "s3"], @r.lrange("foo", 1, -1)
       assert_equal ["s1", "s2"], @r.lrange("foo", 0, 1)
+
+      assert_equal [], @r.lrange("bar", 0, -1)
     end
 
     test "LTRIM" do
