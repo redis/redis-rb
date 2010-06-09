@@ -40,16 +40,22 @@ task :run => [:start, :test, :stop]
 
 desc "Start the Redis server"
 task :start do
-  unless File.exists?(REDIS_PID)
-    system "redis-server #{REDIS_CNF}"
-  end
+  redis_running = \
+    begin
+      File.exists?(REDIS_PID) && Process.kill(0, File.read(REDIS_PID).to_i)
+    rescue Errno::ESRCH
+      FileUtils.rm REDIS_PID
+      false
+    end
+
+  system "redis-server #{REDIS_CNF}" unless redis_running
 end
 
 desc "Stop the Redis server"
 task :stop do
   if File.exists?(REDIS_PID)
-    system "kill #{File.read(REDIS_PID)}"
-    system "rm #{REDIS_PID}"
+    Process.kill "INT", File.read(REDIS_PID).to_i
+    FileUtils.rm REDIS_PID
   end
 end
 
