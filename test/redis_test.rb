@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), "test_helper")
+require File.expand_path(File.join(File.dirname(__FILE__), "test_helper"))
 
 class RedisTest < Test::Unit::TestCase
 
@@ -52,7 +52,7 @@ class RedisTest < Test::Unit::TestCase
       @r.ping
 
       assert_match(/Redis >> PING/, @log.string)
-      assert_match(/Redis >> 0.\d+ms/, @log.string)
+      assert_match(/Redis >> \d+\.\d+ms/, @log.string)
     end
 
     test "Logger with pipelining" do
