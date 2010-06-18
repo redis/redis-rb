@@ -115,6 +115,12 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal nil, @r.get("foo")
     end
+
+    test "QUIT" do
+      @r.quit
+
+      assert !@r.client.connected?
+    end
   end
 
   context "Commands operating on all the kind of values" do
