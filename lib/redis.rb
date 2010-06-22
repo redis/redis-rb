@@ -49,6 +49,12 @@ class Redis
     Hash[*@client.call(:info).split(/:|\r\n/)]
   end
 
+  def config(action, *args)
+    response = @client.call(:config, action, *args)
+    response = Hash[*response] if action == :get
+    response
+  end
+
   def flushdb
     @client.call(:flushdb)
   end

@@ -141,6 +141,24 @@ class RedisTest < Test::Unit::TestCase
         assert_equal "SLAVEOF localhost 6381", redis.slaveof("localhost", 6381)
       end
     end
+
+    test "CONFIG GET" do
+      assert_equal "300", @r.config(:get, "*")["timeout"]
+
+      assert_equal @r.config(:get, "timeout"), "timeout" => "300"
+    end
+
+    test "CONFIG SET" do
+      begin
+        assert_equal "OK", @r.config(:set, "timeout", 200)
+        assert_equal "200", @r.config(:get, "*")["timeout"]
+
+        assert_equal "OK", @r.config(:set, "timeout", 100)
+        assert_equal "100", @r.config(:get, "*")["timeout"]
+      ensure
+        @r.config :set, "timeout", 300
+      end
+    end
   end
 
   context "Commands operating on all the kind of values" do
