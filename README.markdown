@@ -117,4 +117,4 @@ Check the [Redis Command Reference](http://code.google.com/p/redis/wiki/CommandR
 
 ## Contributing
 
-[Fork the project](http://github.com/ezmobius/redis-rb) and send pull requests. You can also ask for help at `#redis` on Freenode.
+[Fork the project](http://github.com/ezmobius/redis-rb) and send pull requests. You can also ask for help at `#redis-rb` on Freenode.
