@@ -452,6 +452,8 @@ class Redis
   def quit
     @client.call(:quit)
   rescue Errno::ECONNRESET
+  ensure
+    @client.disconnect
   end
 
   def pipelined
