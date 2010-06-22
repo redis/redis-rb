@@ -1,4 +1,5 @@
 require File.expand_path(File.join(File.dirname(__FILE__), "test_helper"))
+require File.expand_path(File.join(File.dirname(__FILE__), "redis_mock"))
 
 class RedisTest < Test::Unit::TestCase
 
@@ -579,6 +580,25 @@ class RedisTest < Test::Unit::TestCase
       end
 
       assert_equal OPTIONS[:timeout], @r.client.timeout
+    end
+
+    include RedisMock::Helper
+
+    test "BLPOP losing connection" do
+      replies = {
+        :blpop => lambda { |*_| Process.kill(9, Process.pid) },
+        :ping  => lambda { |*_| "+PONG" },
+      }
+
+      redis_mock(replies) do
+        redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+        assert_equal "PONG", redis.ping
+
+        assert_raises(Errno::ECONNREFUSED) do
+          redis.blpop "foo", 1
+        end
+      end
     end
   end
 

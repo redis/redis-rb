@@ -110,7 +110,7 @@ class Redis
           self.timeout = 0
           yield
         ensure
-          self.timeout = @timeout
+          self.timeout = @timeout if connected?
         end
       end
     end
