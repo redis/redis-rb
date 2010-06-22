@@ -1462,4 +1462,8 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "1", r2
     end
   end
+
+  teardown do
+    @r.client.disconnect if @r
+  end
 end
