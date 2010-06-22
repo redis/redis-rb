@@ -90,15 +90,18 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Connection handling" do
+    include RedisMock::Helper
+
     test "AUTH" do
-      redis = Redis.new(:port => PORT, :password => "secret").instance_variable_get("@client")
+      replies = {
+        :auth => lambda { |password| $auth = password; "+OK" },
+        :get  => lambda { |key| $auth == "secret" ? "$3\r\nbar" : "$-1" },
+      }
 
-      def redis.call(*attrs)
-        raise unless attrs == [:auth, "secret"]
-      end
+      redis_mock(replies) do
+        redis = Redis.new(:port => 6380, :password => "secret")
 
-      assert_nothing_raised do
-        redis.send(:connect)
+        assert_equal "bar", redis.get("foo")
       end
     end
 
