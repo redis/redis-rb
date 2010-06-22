@@ -36,6 +36,10 @@ class Redis
     end
   end
 
+  def auth(password)
+    @client.call(:auth, password)
+  end
+
   def select(db)
     @client.db = db
     @client.call(:select, db)
@@ -47,6 +51,10 @@ class Redis
 
   def flushdb
     @client.call(:flushdb)
+  end
+
+  def flushall
+    @client.call(:flushall)
   end
 
   def save
@@ -454,6 +462,14 @@ class Redis
   rescue Errno::ECONNRESET
   ensure
     @client.disconnect
+  end
+
+  def shutdown
+    @client.call(:shutdown)
+  end
+
+  def slaveof(host, port)
+    @client.call(:slaveof, host, port)
   end
 
   def pipelined

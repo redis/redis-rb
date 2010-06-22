@@ -47,7 +47,10 @@ module RedisMock
         yield
 
       ensure
-        Process.kill("TERM", pid) if pid
+        if pid
+          Process.kill("TERM", pid)
+          Process.wait(pid)
+        end
       end
     end
   end

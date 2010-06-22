@@ -3,6 +3,8 @@ require File.expand_path(File.join(File.dirname(__FILE__), "redis_mock"))
 
 class RedisTest < Test::Unit::TestCase
 
+  include RedisMock::Helper
+
   PORT = 6379
   OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
 
@@ -90,8 +92,6 @@ class RedisTest < Test::Unit::TestCase
   end
 
   context "Connection handling" do
-    include RedisMock::Helper
-
     test "AUTH" do
       replies = {
         :auth => lambda { |password| $auth = password; "+OK" },
@@ -99,7 +99,7 @@ class RedisTest < Test::Unit::TestCase
       }
 
       redis_mock(replies) do
-        redis = Redis.new(:port => 6380, :password => "secret")
+        redis = Redis.new(OPTIONS.merge(:port => 6380, :password => "secret"))
 
         assert_equal "bar", redis.get("foo")
       end
@@ -124,6 +124,22 @@ class RedisTest < Test::Unit::TestCase
       @r.quit
 
       assert !@r.client.connected?
+    end
+
+    test "SHUTDOWN" do
+      redis_mock(:shutdown => lambda { "+SHUTDOWN" }) do
+        redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+        assert_equal "SHUTDOWN", redis.shutdown
+      end
+    end
+
+    test "SLAVEOF" do
+      redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
+        redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+        assert_equal "SLAVEOF localhost 6381", redis.slaveof("localhost", 6381)
+      end
     end
   end
 
@@ -269,6 +285,14 @@ class RedisTest < Test::Unit::TestCase
       @r.flushdb
 
       assert_equal 0, @r.dbsize
+    end
+
+    test "FLUSHALL" do
+      redis_mock(:flushall => lambda { "+FLUSHALL" }) do
+        redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+        assert_equal "FLUSHALL", redis.flushall
+      end
     end
   end
 
@@ -590,8 +614,6 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal OPTIONS[:timeout], @r.client.timeout
     end
-
-    include RedisMock::Helper
 
     test "BLPOP losing connection" do
       replies = {
