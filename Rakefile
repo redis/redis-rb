@@ -91,6 +91,7 @@ end
 namespace :commands do
   def redis_commands
     $redis_commands ||= begin
+      require "open-uri"
       require "nokogiri"
 
       doc = Nokogiri::HTML(open("http://code.google.com/p/redis/wiki/CommandReference"))
@@ -133,7 +134,7 @@ namespace :commands do
   task :verify do
     require "redis"
 
-    Dir["test/**/*_test.rb"].each { |f| require f }
+    Dir["test/**/*_test.rb"].each { |f| require "./#{f}" }
 
     log = StringIO.new
 
