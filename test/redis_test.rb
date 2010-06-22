@@ -142,6 +142,14 @@ class RedisTest < Test::Unit::TestCase
       end
     end
 
+    test "BGREWRITEAOF" do
+      redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do
+        redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+        assert_equal "BGREWRITEAOF", redis.bgrewriteaof
+      end
+    end
+
     test "CONFIG GET" do
       assert_equal "300", @r.config(:get, "*")["timeout"]
 

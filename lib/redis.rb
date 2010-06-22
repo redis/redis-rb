@@ -71,6 +71,10 @@ class Redis
     @client.call(:bgsave)
   end
 
+  def bgrewriteaof
+    @client.call(:bgrewriteaof)
+  end
+
   def get(key)
     @client.call(:get, key)
   end
