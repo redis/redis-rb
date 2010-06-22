@@ -360,6 +360,14 @@ class Redis
     hmset(key, *hash.to_a.flatten)
   end
 
+  def hmget(key, *fields)
+    @client.call(:hmget, key, *fields)
+  end
+
+  def mapped_hmget(key, *fields)
+    Hash[*fields.zip(hmget(key, *fields)).flatten]
+  end
+
   def hlen(key)
     @client.call(:hlen, key)
   end
@@ -417,12 +425,7 @@ class Redis
   end
 
   def mapped_mget(*keys)
-    result = {}
-    mget(*keys).each do |value|
-      key = keys.shift
-      result.merge!(key => value) unless value.nil?
-    end
-    result
+    Hash[*keys.zip(mget(*keys)).flatten]
   end
 
   def sort(key, options = {})

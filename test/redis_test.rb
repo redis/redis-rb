@@ -353,8 +353,16 @@ class RedisTest < Test::Unit::TestCase
       @r.set("foo", "s1")
       @r.set("bar", "s2")
 
-      assert_equal({"foo" => "s1", "bar" => "s2"}, @r.mapped_mget("foo", "bar"))
-      assert_equal({"foo" => "s1", "bar" => "s2"}, @r.mapped_mget("foo", "baz", "bar"))
+      response = @r.mapped_mget("foo", "bar")
+
+      assert_equal "s1", response["foo"]
+      assert_equal "s2", response["bar"]
+
+      response = @r.mapped_mget("foo", "bar", "baz")
+
+      assert_equal "s1", response["foo"]
+      assert_equal "s2", response["bar"]
+      assert_equal nil,  response["baz"]
     end
 
     test "SETNX" do
@@ -1055,6 +1063,23 @@ class RedisTest < Test::Unit::TestCase
       @r.hset("foo", "f2", "s2")
 
       assert_equal({"f1" => "s1", "f2" => "s2"}, @r.hgetall("foo"))
+    end
+
+    test "HMGET" do
+      @r.hset("foo", "f1", "s1")
+      @r.hset("foo", "f2", "s2")
+      @r.hset("foo", "f3", "s3")
+
+      assert_equal ["s2", "s3"], @r.hmget("foo", "f2", "f3")
+    end
+
+    test "HMGET mapped" do
+      @r.hset("foo", "f1", "s1")
+      @r.hset("foo", "f2", "s2")
+      @r.hset("foo", "f3", "s3")
+
+      assert_equal({"f1" => "s1"}, @r.mapped_hmget("foo", "f1"))
+      assert_equal({"f1" => "s1", "f2" => "s2"}, @r.mapped_hmget("foo", "f1", "f2"))
     end
 
     test "HMSET" do
