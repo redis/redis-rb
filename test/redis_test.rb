@@ -898,6 +898,14 @@ class RedisTest < Test::Unit::TestCase
       assert_equal ["s3", "3"], @r.zrangebyscore("foo", 2, 4, :limit => [1, 1], :with_scores => true)
     end
 
+    test "ZCOUNT" do
+      @r.zadd "foo", 1, "s1"
+      @r.zadd "foo", 2, "s2"
+      @r.zadd "foo", 3, "s3"
+
+      assert_equal 2, @r.zcount("foo", 2, 3)
+    end
+
     test "ZCARD" do
       assert_equal 0, @r.zcard("foo")
 
