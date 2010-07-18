@@ -1526,6 +1526,7 @@ class RedisTest < Test::Unit::TestCase
   context "Thread safety" do
     should "be thread safe" do
       @r = prepare Redis.new(OPTIONS.merge(:thread_safe => true))
+      @r.client.disconnect
 
       r1, r2 = nil
 

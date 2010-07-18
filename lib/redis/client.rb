@@ -266,9 +266,7 @@ class Redis
       end
 
       def ensure_connected(&block)
-        super do
-          synchronize(&block)
-        end
+        synchronize { super }
       end
     end
 
