@@ -211,18 +211,9 @@ class Redis
       end
     end
 
-    if defined?(Timeout)
-      TimeoutError = Timeout::Error
-    else
-      TimeoutError = Exception
-    end
-
     def connect_to(host, port)
-      begin
+      with_timeout(@timeout) do
         @sock = TCPSocket.new(host, port)
-      rescue TimeoutError
-        @sock = nil
-        raise
       end
 
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
@@ -277,6 +268,28 @@ class Redis
       def ensure_connected(&block)
         super do
           synchronize(&block)
+        end
+      end
+    end
+
+    if RUBY_VERSION >= "1.9"
+      require "timeout"
+
+      def with_timeout(seconds, &block)
+        Timeout.timeout(seconds, &block)
+      end
+    else
+      begin
+        require "system_timer"
+
+        def with_timeout(seconds, &block)
+          SystemTimer.timeout_after(seconds, &block)
+        end
+      rescue LoadError
+        $stderr.puts "WARNING: Could not find a good alternative for performing time outs -- connecting to Redis will not time out. Try installing the SystemTimer gem."
+
+        def with_timeout(*args)
+          yield
         end
       end
     end

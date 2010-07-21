@@ -74,6 +74,12 @@ class RedisTest < Test::Unit::TestCase
       end
     end
 
+    test "Connection timeout" do
+      assert_raises(Timeout::Error) do
+        Redis.new(OPTIONS.merge(:host => "127.0.0.2", :timeout => 1)).ping
+      end
+    end
+
     test "Recovers from failed commands" do
       # See http://github.com/ezmobius/redis-rb/issues#issue/28
 
