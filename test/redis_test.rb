@@ -1,3 +1,5 @@
+# encoding: UTF-8
+
 require File.expand_path(File.join(File.dirname(__FILE__), "test_helper"))
 require File.expand_path(File.join(File.dirname(__FILE__), "redis_mock"))
 
@@ -1550,6 +1552,23 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "1", r2
     end
   end
+
+  context "Encoding" do
+    should "return properly encoded strings" do
+      original_encoding = Encoding.default_external
+
+      begin
+        capture_stderr { Encoding.default_external = Encoding::UTF_8 }
+
+        @r.set "foo", "שלום"
+
+        assert_equal "Shalom שלום", "Shalom " + @r.get("foo")
+
+      ensure
+        capture_stderr { Encoding.default_external = original_encoding }
+      end
+    end
+  end if defined?(Encoding)
 
   teardown do
     @r.client.disconnect if @r

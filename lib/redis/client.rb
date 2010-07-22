@@ -84,7 +84,6 @@ class Redis
     end
 
     def read
-
       # We read the first byte using read() mainly because gets() is
       # immune to raw socket timeouts.
       begin
@@ -182,7 +181,7 @@ class Redis
     def format_bulk_reply(line)
       bulklen = line.to_i
       return if bulklen == -1
-      reply = @sock.read(bulklen)
+      reply = encode(@sock.read(bulklen))
       @sock.read(2) # Discard CRLF.
       reply
     end
@@ -191,9 +190,7 @@ class Redis
       n = line.to_i
       return if n == -1
 
-      reply = []
-      n.times { reply << read }
-      reply
+      Array.new(n) { read }
     end
 
     def logging(commands)
@@ -289,6 +286,16 @@ class Redis
         def with_timeout(*args)
           yield
         end
+      end
+    end
+
+    if defined?(Encoding)
+      def encode(string)
+        string.force_encoding(Encoding::default_external)
+      end
+    else
+      def encode(string)
+        string
       end
     end
   end
