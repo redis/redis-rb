@@ -60,7 +60,8 @@ task :stop do
 end
 
 Rake::TestTask.new(:test) do |t|
-  t.pattern = 'test/**/*_test.rb'
+  t.pattern = "test/**/*_test.rb"
+  t.ruby_opts << "-r rubygems"
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|
