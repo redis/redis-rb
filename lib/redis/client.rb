@@ -244,7 +244,7 @@ class Redis
 
       begin
         yield
-      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED
+      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF
         if reconnect
           yield
         else
