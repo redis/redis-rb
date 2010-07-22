@@ -339,11 +339,13 @@ class RedisDistributedTest < Test::Unit::TestCase
     end
 
     test "SET and GET with ASCII characters" do
-      (0..255).each do |i|
-        str = "#{i.chr}---#{i.chr}"
-        @r.set("foo", str)
+      with_external_encoding("ASCII-8BIT") do
+        (0..255).each do |i|
+          str = "#{i.chr}---#{i.chr}"
+          @r.set("foo", str)
 
-        assert_equal str, @r.get("foo")
+          assert_equal str, @r.get("foo")
+        end
       end
     end
 

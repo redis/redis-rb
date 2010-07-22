@@ -350,11 +350,13 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "SET and GET with ASCII characters" do
-      (0..255).each do |i|
-        str = "#{i.chr}---#{i.chr}"
-        @r.set("foo", str)
+      with_external_encoding("ASCII-8BIT") do
+        (0..255).each do |i|
+          str = "#{i.chr}---#{i.chr}"
+          @r.set("foo", str)
 
-        assert_equal str, @r.get("foo")
+          assert_equal str, @r.get("foo")
+        end
       end
     end
 
@@ -1555,17 +1557,10 @@ class RedisTest < Test::Unit::TestCase
 
   context "Encoding" do
     should "return properly encoded strings" do
-      original_encoding = Encoding.default_external
-
-      begin
-        capture_stderr { Encoding.default_external = Encoding::UTF_8 }
-
+      with_external_encoding("UTF-8") do
         @r.set "foo", "שלום"
 
         assert_equal "Shalom שלום", "Shalom " + @r.get("foo")
-
-      ensure
-        capture_stderr { Encoding.default_external = original_encoding }
       end
     end
   end if defined?(Encoding)
