@@ -1320,6 +1320,8 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "PSUBSCRIBE and PUNSUBSCRIBE" do
+      listening = false
+
       thread = Thread.new do
         @r.psubscribe("f*") do |on|
           on.psubscribe do |pattern, total|
@@ -1338,8 +1340,12 @@ class RedisTest < Test::Unit::TestCase
             @unsubscribed = true
             @t2 = total
           end
+
+          listening = true
         end
       end
+
+      while !listening; end
 
       Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -1353,6 +1359,8 @@ class RedisTest < Test::Unit::TestCase
     end
 
     test "SUBSCRIBE within SUBSCRIBE" do
+      listening = false
+
       @channels = []
 
       thread = Thread.new do
@@ -1363,8 +1371,12 @@ class RedisTest < Test::Unit::TestCase
             @r.subscribe("bar") if channel == "foo"
             @r.unsubscribe if channel == "bar"
           end
+
+          listening = true
         end
       end
+
+      while !listening; end
 
       Redis.new(OPTIONS).publish("foo", "s1")
 
