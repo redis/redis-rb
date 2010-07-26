@@ -267,25 +267,20 @@ class Redis
       end
     end
 
-    if RUBY_VERSION >= "1.9" || RUBY_PLATFORM =~ /java/
+    begin
+      require "system_timer"
+
+      def with_timeout(seconds, &block)
+        SystemTimer.timeout_after(seconds, &block)
+      end
+
+    rescue LoadError
+      warn "WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang." unless RUBY_VERSION >= "1.9" || RUBY_PLATFORM =~ /java/
+
       require "timeout"
 
       def with_timeout(seconds, &block)
         Timeout.timeout(seconds, &block)
-      end
-    else
-      begin
-        require "system_timer"
-
-        def with_timeout(seconds, &block)
-          SystemTimer.timeout_after(seconds, &block)
-        end
-      rescue LoadError
-        $stderr.puts "WARNING: Could not find a good alternative for performing time outs -- connecting to Redis will not time out. Try installing the SystemTimer gem."
-
-        def with_timeout(*args)
-          yield
-        end
       end
     end
 
