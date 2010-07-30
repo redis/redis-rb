@@ -16,6 +16,8 @@ class Redis
   attr :client
 
   def self.connect(options = {})
+    options = options.dup
+
     require "uri"
 
     url = URI(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
