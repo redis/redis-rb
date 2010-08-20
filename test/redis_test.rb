@@ -683,6 +683,25 @@ class RedisTest < Test::Unit::TestCase
         end
       end
     end
+
+    test "BLPOP should try to reconnect when disconnected by Redis" do
+      times = 0
+
+      replies = {
+        :blpop => lambda do |*_|
+          times += 1
+          "+OK" if times > 2
+        end
+      }
+
+      redis_mock(replies) do
+        assert_equal "OK", Redis.new(OPTIONS.merge(:port => 6380)).blpop("foo", 0)
+      end
+    end
+
+    test "BLPOP with a timeout should return nil when hitting the timeout" do
+      assert_equal nil, @r.blpop("foo", 1)
+    end
   end
 
   context "Commands operating on sets" do

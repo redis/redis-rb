@@ -52,6 +52,8 @@ class Redis
       without_socket_timeout do
         call(*args)
       end
+    rescue Errno::ECONNRESET
+      retry
     end
 
     def process(*commands)
@@ -104,13 +106,13 @@ class Redis
     end
 
     def without_socket_timeout
-      ensure_connected do
-        begin
-          self.timeout = 0
-          yield
-        ensure
-          self.timeout = @timeout if connected?
-        end
+      connect unless connected?
+
+      begin
+        self.timeout = 0
+        yield
+      ensure
+        self.timeout = @timeout if connected?
       end
     end
 
