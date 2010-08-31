@@ -347,7 +347,7 @@ class RedisDistributedTest < Test::Unit::TestCase
           assert_equal str, @r.get("foo")
         end
       end
-    end
+    end if defined?(Encoding)
 
     test "SETEX" do
       @r.setex("foo", 1, "s1")
