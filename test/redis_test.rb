@@ -24,7 +24,7 @@ class RedisTest < Test::Unit::TestCase
       assert_nil redis.client.password
     end
 
-    test "takes a url" do
+    test "takes a URL" do
       redis = Redis.connect :url => "redis://:secr3t@foo.com:999/2"
 
       assert_equal "foo.com", redis.client.host
@@ -33,7 +33,16 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "secr3t", redis.client.password
     end
 
-    test "doesn not modify the passed options" do
+    test "overrides the URL if another connection option is passed" do
+      redis = Redis.connect :url => "redis://:secr3t@foo.com:999/2", :port => 1000
+
+      assert_equal "foo.com", redis.client.host
+      assert_equal 1000, redis.client.port
+      assert_equal 2, redis.client.db
+      assert_equal "secr3t", redis.client.password
+    end
+
+    test "does not modify the passed options" do
       options = { :url => "redis://:secr3t@foo.com:999/2" }
 
       redis = Redis.connect(options)
