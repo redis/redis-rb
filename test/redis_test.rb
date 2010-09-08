@@ -615,9 +615,9 @@ class RedisTest < Test::Unit::TestCase
         redis.lpush("foo", "s3")
       end
 
-      assert_equal @r.blpop("foo", 0.1), ["foo", "s2"]
-      assert_equal @r.blpop("foo", 0.1), ["foo", "s1"]
-      assert_equal @r.blpop("foo", 0.4), ["foo", "s3"]
+      assert_equal ["foo", "s2"], @r.blpop("foo", 1)
+      assert_equal ["foo", "s1"], @r.blpop("foo", 1)
+      assert_equal ["foo", "s3"], @r.blpop("foo", 1)
 
       thread.join
     end
@@ -632,9 +632,9 @@ class RedisTest < Test::Unit::TestCase
         redis.rpush("foo", "s3")
       end
 
-      assert_equal @r.brpop("foo", 0.1), ["foo", "s2"]
-      assert_equal @r.brpop("foo", 0.1), ["foo", "s1"]
-      assert_equal @r.brpop("foo", 0.4), ["foo", "s3"]
+      assert_equal ["foo", "s2"], @r.brpop("foo", 1)
+      assert_equal ["foo", "s1"], @r.brpop("foo", 1)
+      assert_equal ["foo", "s3"], @r.brpop("foo", 1)
 
       t.join
     end
@@ -659,9 +659,9 @@ class RedisTest < Test::Unit::TestCase
         redis.lpush("queue3", "job3")
       end
 
-      assert_equal @r.blpop("queue1", "queue2", "queue3", 0.1), ["queue1", "job1"]
-      assert_equal @r.blpop("queue1", "queue2", "queue3", 0.1), ["queue2", "job2"]
-      assert_equal @r.blpop("queue1", "queue2", "queue3", 0.6), ["queue3", "job3"]
+      assert_equal ["queue1", "job1"], @r.blpop("queue1", "queue2", "queue3", 1)
+      assert_equal ["queue2", "job2"], @r.blpop("queue1", "queue2", "queue3", 1)
+      assert_equal ["queue3", "job3"], @r.blpop("queue1", "queue2", "queue3", 1)
 
       t.join
     end
