@@ -144,6 +144,14 @@ class RedisDistributedTest < Test::Unit::TestCase
       assert_equal nil, @r.get("foo")
     end
 
+    test "PERSIST" do
+      @r.set("foo", "s1")
+      @r.expire("foo", 1)
+      @r.persist("foo")
+
+      assert_equal(-1, @r.ttl("foo"))
+    end
+
     test "TTL" do
       @r.set("foo", "s1")
       @r.expire("foo", 1)

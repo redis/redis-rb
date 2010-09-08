@@ -94,6 +94,10 @@ class Redis
       node_for(key).expireat(key, unix_time)
     end
 
+    def persist(key)
+      node_for(key).persist(key)
+    end
+
     def ttl(key)
       node_for(key).ttl(key)
     end

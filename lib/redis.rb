@@ -356,6 +356,10 @@ class Redis
     _bool @client.call(:expire, key, seconds)
   end
 
+  def persist(key)
+    _bool @client.call(:persist, key)
+  end
+
   def ttl(key)
     @client.call(:ttl, key)
   end
