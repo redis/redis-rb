@@ -93,21 +93,7 @@ namespace :commands do
   def redis_commands
     $redis_commands ||= begin
       require "open-uri"
-      require "nokogiri"
-
-      doc = Nokogiri::HTML(open("http://code.google.com/p/redis/wiki/CommandReference"))
-
-      commands = {}
-
-      doc.xpath("//ul/li").each do |node|
-        node.at_xpath("./a").text.split("/").each do |name|
-          if name =~ /^[A-Z]+$/
-            commands[name.downcase] = node.at_xpath("./tt").text
-          end
-        end
-      end
-
-      commands
+      open("http://dimaion.com/redis/master").read.split
     end
   end
 
