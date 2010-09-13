@@ -210,11 +210,11 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal ["bar", "baz", "foo"], @r.keys("*").sort
 
-      @r.del "foo"
+      assert_equal 1, @r.del("foo")
 
       assert_equal ["bar", "baz"], @r.keys("*").sort
 
-      @r.del "bar", "baz"
+      assert_equal 2, @r.del("bar", "baz")
 
       assert_equal [], @r.keys("*").sort
     end

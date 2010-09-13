@@ -341,7 +341,7 @@ class Redis
   end
 
   def del(*keys)
-    _bool @client.call(:del, *keys)
+    @client.call(:del, *keys)
   end
 
   def rename(old_name, new_name)
