@@ -97,6 +97,10 @@ class Redis
     @client.call(:substr, key, start, stop)
   end
 
+  def strlen(key)
+    @client.call(:strlen, key)
+  end
+
   def hgetall(key)
     Hash[*@client.call(:hgetall, key)]
   end
@@ -157,6 +161,10 @@ class Redis
     @client.call(:lindex, key, index)
   end
 
+  def linsert(key, where, pivot, value)
+    @client.call(:linsert, key, where, pivot, value)
+  end
+
   def lset(key, index, value)
     @client.call(:lset, key, index, value)
   end
@@ -169,8 +177,16 @@ class Redis
     @client.call(:rpush, key, value)
   end
 
+  def rpushx(key, value)
+    @client.call(:rpushx, key, value)
+  end
+
   def lpush(key, value)
     @client.call(:lpush, key, value)
+  end
+
+  def lpushx(key, value)
+    @client.call(:lpushx, key, value)
   end
 
   def rpop(key)
@@ -372,6 +388,10 @@ class Redis
     _bool @client.call(:hset, key, field, value)
   end
 
+  def hsetnx(key, field, value)
+    _bool @client.call(:hsetnx, key, field, value)
+  end
+
   def hmset(key, *attrs)
     @client.call(:hmset, key, *attrs)
   end
@@ -410,6 +430,14 @@ class Redis
 
   def monitor(&block)
     @client.call_loop(:monitor, &block)
+  end
+
+  def debug(*args)
+    @client.call(:debug, *args)
+  end
+
+  def sync
+    @client.call(:sync)
   end
 
   def [](key)

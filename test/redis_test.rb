@@ -506,6 +506,12 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal "ore", @r.substr("foo", 1, 3)
     end
+
+    test "STRLEN" do
+      @r.set "foo", "lorem"
+
+      assert_equal 5, @r.strlen("foo")
+    end
   end
 
   context "Commands operating on lists" do
@@ -517,12 +523,30 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "s2", @r.rpop("foo")
     end
 
+    test "RPUSHX" do
+      @r.rpushx "foo", "s1"
+      @r.rpush "foo", "s2"
+      @r.rpushx "foo", "s3"
+
+      assert_equal 2, @r.llen("foo")
+      assert_equal ["s2", "s3"], @r.lrange("foo", 0, -1)
+    end
+
     test "LPUSH" do
       @r.lpush "foo", "s1"
       @r.lpush "foo", "s2"
 
       assert_equal 2, @r.llen("foo")
       assert_equal "s2", @r.lpop("foo")
+    end
+
+    test "LPUSHX" do
+      @r.lpushx "foo", "s1"
+      @r.lpush "foo", "s2"
+      @r.lpushx "foo", "s3"
+
+      assert_equal 2, @r.llen("foo")
+      assert_equal ["s3", "s2"], @r.lrange("foo", 0, -1)
     end
 
     test "LLEN" do
@@ -560,6 +584,19 @@ class RedisTest < Test::Unit::TestCase
 
       assert_equal "s1", @r.lindex("foo", 0)
       assert_equal "s2", @r.lindex("foo", 1)
+    end
+
+    test "LINSERT" do
+      @r.rpush "foo", "s1"
+      @r.rpush "foo", "s3"
+      @r.linsert "foo", :before, "s3", "s2"
+
+      assert_equal ["s1", "s2", "s3"], @r.lrange("foo", 0, -1)
+
+      # no se si es necesario
+      assert_raise(RuntimeError) do
+        @r.linsert "foo", :anywhere, "s3", "s2"
+      end
     end
 
     test "LSET" do
@@ -1096,6 +1133,18 @@ class RedisTest < Test::Unit::TestCase
       assert_equal "s1", @r.hget("foo", "f1")
     end
 
+    test "HSETNX" do
+      @r.hset("foo", "f1", "s1")
+      @r.hsetnx("foo", "f1", "s2")
+
+      assert_equal "s1", @r.hget("foo", "f1")
+
+      @r.del("foo")
+      @r.hsetnx("foo", "f1", "s2")
+
+      assert_equal "s2", @r.hget("foo", "f1")
+    end
+
     test "HDEL" do
       @r.hset("foo", "f1", "s1")
 
@@ -1500,6 +1549,22 @@ class RedisTest < Test::Unit::TestCase
 
     test "ECHO" do
       assert_equal "foo bar baz\n", @r.echo("foo bar baz\n")
+    end
+
+    test "DEBUG" do
+      @r.set "foo", "s1"
+
+      assert @r.debug(:object, "foo").kind_of?(String)
+    end
+
+    test "SYNC" do
+      replies = {:sync => lambda { "+OK" }}
+
+      redis_mock(replies) do
+        redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+        assert_equal "OK", redis.sync
+      end
     end
   end
 
