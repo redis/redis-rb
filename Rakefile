@@ -120,33 +120,34 @@ namespace :commands do
 
   task :verify do
     require "redis"
-
-    Dir["test/**/*_test.rb"].each { |f| require "./#{f}" }
+    require "stringio"
 
     log = StringIO.new
 
+    at_exit do
+      redis = Redis.new
+
+      report = ["Command", "\033[0mDefined?\033[0m", "\033[0mTested?\033[0m"]
+
+      yes, no = "\033[1;32mYes\033[0m", "\033[1;31mNo\033[0m"
+
+      redis_commands.sort.each do |name, _|
+        defined, tested = redis.respond_to?(name), log.string[">> #{name.upcase}"]
+
+        next if defined && tested
+
+        report << name
+        report << (defined ? yes : no)
+        report << (tested ? yes : no)
+      end
+
+      IO.popen("rs 0 3", "w") do |io|
+        io.puts report.join("\n")
+      end
+    end
+
+    Dir["test/**/redis_test.rb"].each { |f| require "./#{f}" }
+
     RedisTest::OPTIONS[:logger] = Logger.new(log)
-
-    redis = Redis.new
-
-    Test::Unit::AutoRunner.run
-
-    report = ["Command", "\033[0mDefined?\033[0m", "\033[0mTested?\033[0m"]
-
-    yes, no = "\033[1;32mYes\033[0m", "\033[1;31mNo\033[0m"
-
-    redis_commands.sort.each do |name, _|
-      defined, tested = redis.respond_to?(name), log.string[">> #{name.upcase}"]
-
-      next if defined && tested
-
-      report << name
-      report << (defined ? yes : no)
-      report << (tested ? yes : no)
-    end
-
-    IO.popen("rs 0 3", "w") do |io|
-      io.puts report.join("\n")
-    end
   end
 end
