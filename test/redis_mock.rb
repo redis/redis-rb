@@ -20,7 +20,7 @@ module RedisMock
         response = yield(*parts)
 
         if response.nil?
-          session.shutdown
+          session.shutdown(Socket::SHUT_RDWR)
           break
         else
           session.write(response)
