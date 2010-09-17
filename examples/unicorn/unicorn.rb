@@ -1,0 +1,17 @@
+require "redis"
+
+worker_processes 3
+
+# If you set the connection to Redis *before* forking,
+# you will cause forks to share a file descriptor.
+# This causes a concurrency problem by which one fork
+# can read or write to the socket while others are
+# performing other operations.
+# Most likely you'll be getting exceptions about
+# about a 'Protocol error' and the initial reply byte.
+# Thus we need to connect to Redis after forking the
+# worker processes.
+
+after_fork do |server, worker|
+  $redis = Redis.connect
+end
