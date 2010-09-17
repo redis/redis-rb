@@ -114,6 +114,14 @@ class RedisTest < Test::Unit::TestCase
     test "provides a meaningful inspect" do
       assert_equal "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{@r.info["redis_version"]})>", @r.inspect
     end
+
+    test "raises on protocol errors" do
+      redis_mock(:ping => lambda { |*_| "foo" }) do
+        assert_raise(Redis::ProtocolError) do
+          Redis.connect(:port => 6380).ping
+        end
+      end
+    end
   end
 
   context "Connection handling" do
