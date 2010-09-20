@@ -286,7 +286,7 @@ class Redis
       end
     end
 
-    if defined?(Encoding)
+    if defined?(Encoding::default_external)
       def encode(string)
         string.force_encoding(Encoding::default_external)
       end
