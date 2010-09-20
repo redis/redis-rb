@@ -59,9 +59,11 @@ task :stop do
   end
 end
 
-Rake::TestTask.new(:test) do |t|
-  t.pattern = "test/**/*_test.rb"
-  t.ruby_opts << "-r rubygems"
+desc "Run the test suite"
+task :test do
+  require 'cutest'
+
+  Cutest.run(Dir['./test/**/*_test.rb'])
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|
