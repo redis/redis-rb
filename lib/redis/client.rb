@@ -249,6 +249,9 @@ class Redis
         else
           raise Errno::ECONNRESET
         end
+      rescue Exception
+        disconnect
+        raise
       end
     end
 
