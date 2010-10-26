@@ -55,6 +55,12 @@ class Redis
     end
 
     def del(*keys)
+      keys.each do |key|
+        node_for(key).del(key)
+      end
+    end
+
+    def del_each_node(*keys)
       on_each_node(:del, *keys)
     end
 
