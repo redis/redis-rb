@@ -1,25 +1,31 @@
-require 'rubygems'
-require 'redis'
+require "redis"
 
-puts "To play with this example use redis-cli from another terminal, like this:"
-puts "  ./redis-cli publish one hello"
-puts "Finally force the example to exit sending the 'exit' message with"
-puts "  ./redis-cli publish two exit"
-puts ""
+puts <<-EOS
+To play with this example use redis-cli from another terminal, like this:
 
-@redis = Redis.new(:timeout => 0)
+  $ redis-cli publish one hello
 
-@redis.subscribe('one','two') do |on|
-  on.subscribe {|klass, num_subs| puts "Subscribed to #{klass} (#{num_subs} subscriptions)" }
-  on.message do |klass, msg| 
-    puts "#{klass} received: #{msg}"
-    if msg == 'exit'
-      @redis.unsubscribe
-    end
+Finally force the example to exit sending the 'exit' message with:
+
+  $ redis-cli publish two exit
+
+EOS
+
+redis = Redis.connect
+
+trap(:INT) { puts; exit }
+
+redis.subscribe(:one, :two) do |on|
+  on.subscribe do |channel, subscriptions|
+    puts "Subscribed to ##{channel} (#{subscriptions} subscriptions)"
   end
-  on.unsubscribe {|klass, num_subs| puts "Unsubscribed to #{klass} (#{num_subs} subscriptions)" }
+
+  on.message do |channel, message|
+    puts "##{klass}: #{message}"
+    redis.unsubscribe if message == "exit"
+  end
+
+  on.unsubscribe do |channel, subscriptions|
+    puts "Unsubscribed from ##{klass} (#{subscriptions} subscriptions)"
+  end
 end
-
-
-
-
