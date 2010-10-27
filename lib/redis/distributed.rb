@@ -379,7 +379,7 @@ class Redis
     def hset(key, field, value)
       node_for(key).hset(key, field, value)
     end
-
+    
     def hget(key, field)
       node_for(key).hget(key, field)
     end
@@ -404,12 +404,24 @@ class Redis
       node_for(key).hvals(key)
     end
 
+    def hmget(key, *fields)
+      node_for(key).hmget(key, *fields)
+    end
+
+    def mapped_hmget(key, *fields)
+      node_for(key).mapped_hmget(key, *fields)
+    end
+
     def hgetall(key)
       node_for(key).hgetall(key)
     end
 
     def hmset(key, *attrs)
       node_for(key).hmset(key, *attrs)
+    end
+
+    def mapped_hmset(key, hash)
+      node_for(key).hmset(key, *hash.to_a.flatten)
     end
 
     def hincrby(key, field, increment)

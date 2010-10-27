@@ -88,3 +88,20 @@ test "HINCRBY" do |r|
   assert "2" == r.hget("foo", "f1")
 end
 
+test "MAPPED_HMSET" do |r|
+  r.mapped_hmset("mhmset", {"f1" => "s1", "f2" => "s2"})
+  
+  assert({"f1" => "s1", "f2" => "s2"} == r.hgetall("mhmset"))
+end
+
+test "HMGET" do |r|
+  r.hmset("hmget", "foo1", "bar1", "foo2", "bar2")
+
+  assert(["bar1", "bar2"] == r.hmget("hmget", "foo1", "foo2"))
+end
+
+test "MAPPED_HMGET" do |r|
+  r.hmset("mhmget", "foo1", "bar1", "foo2", "bar2")
+
+  assert({"foo1"=>"bar1", "foo2"=>"bar2"} == r.mapped_hmget("mhmget", "foo1", "foo2"))
+end
