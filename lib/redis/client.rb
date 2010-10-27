@@ -37,8 +37,10 @@ class Redis
     end
 
     def call_loop(*args)
-      process(args) do
-        loop { yield(read) }
+      without_socket_timeout do
+        process(args) do
+          loop { yield(read) }
+        end
       end
     end
 

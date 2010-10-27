@@ -36,6 +36,14 @@ class Redis
     new(options)
   end
 
+  def self.current
+    Thread.current[:redis] ||= Redis.connect
+  end
+
+  def self.current=(redis)
+    Thread.current[:redis] = redis
+  end
+
   def initialize(options = {})
     if options[:thread_safe]
       @client = Client::ThreadSafe.new(options)

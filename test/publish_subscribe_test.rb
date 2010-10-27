@@ -131,3 +131,21 @@ test "UNSUBSCRIBE without a SUBSCRIBE" do |r|
   end
 end
 
+test "SUBSCRIBE past a timeout" do |r|
+  # For some reason, a thread here doesn't reproduce the issue.
+  fork do
+    sleep OPTIONS[:timeout] + 1
+    Redis.new(OPTIONS).publish "foo", "bar"
+  end
+
+  received = false
+
+  r.subscribe "foo" do |on|
+    on.message do |channel, message|
+      received = true
+      r.unsubscribe
+    end
+  end
+
+  assert received
+end
