@@ -111,6 +111,15 @@ You can use `MULTI/EXEC` to run arbitrary commands in an atomic fashion:
       redis.incr "baz"
     end
 
+## Multithreaded Operation
+
+To use redis safely in a multithreaded environment, be sure to initialize the client with :thread_safe=>true
+
+    Redis.new(:thread_safe=>true)
+
+See the tests and benchmarks for examples.
+
+
 ## More info
 
 Check the [Redis Command Reference](http://code.google.com/p/redis/wiki/CommandReference) or check the tests to find out how to use this client.
