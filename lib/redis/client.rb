@@ -146,7 +146,7 @@ class Redis
     def join_commands(commands)
       commands.map do |command|
         build_command(*command).join(COMMAND_DELIMITER) + COMMAND_DELIMITER
-      end.join(COMMAND_DELIMITER) + COMMAND_DELIMITER
+      end.join(nil)
     end
 
     if "".respond_to?(:bytesize)

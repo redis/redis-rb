@@ -15,8 +15,6 @@ module RedisMock
           argument
         end
 
-        session.read(2) # Discard \r\n
-
         response = yield(*parts)
 
         if response.nil?
