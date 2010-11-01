@@ -1,7 +1,7 @@
 require 'socket'
 
 class Redis
-  VERSION = "2.0.12"
+  VERSION = "2.0.13"
 
   class ProtocolError < RuntimeError
     def initialize(reply_type)
