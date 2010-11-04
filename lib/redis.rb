@@ -669,7 +669,8 @@ private
 
 end
 
-require 'redis/client'
-require 'redis/pipeline'
-require 'redis/subscribe'
-require 'redis/compat'
+require "redis/connection" unless defined?(Redis::Connection)
+require "redis/client"
+require "redis/pipeline"
+require "redis/subscribe"
+require "redis/compat"
