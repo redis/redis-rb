@@ -86,7 +86,7 @@ class Redis
         # We want to make sure it reconnects on the next command after the
         # timeout. Otherwise the server may reply in the meantime leaving
         # the protocol in a desync status.
-        connection.disconnect
+        disconnect
 
         raise Errno::EAGAIN, "Timeout reading from the socket"
 
