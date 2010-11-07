@@ -21,11 +21,11 @@ redis.subscribe(:one, :two) do |on|
   end
 
   on.message do |channel, message|
-    puts "##{klass}: #{message}"
+    puts "##{channel}: #{message}"
     redis.unsubscribe if message == "exit"
   end
 
   on.unsubscribe do |channel, subscriptions|
-    puts "Unsubscribed from ##{klass} (#{subscriptions} subscriptions)"
+    puts "Unsubscribed from ##{channel} (#{subscriptions} subscriptions)"
   end
 end
