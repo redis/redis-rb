@@ -406,6 +406,18 @@ class Redis
       node_for(key).hmset(key, *attrs)
     end
 
+    def mapped_hmset(key, hash)
+      node_for(key).hmset(key, *hash.to_a.flatten)
+    end
+
+    def hmget(key, *fields)
+      node_for(key).hmget(key, *fields)
+    end
+
+    def mapped_hmget(key, *fields)
+      Hash[*fields.zip(hmget(key, *fields)).flatten]
+    end
+
     def hincrby(key, field, increment)
       node_for(key).hincrby(key, field, increment)
     end
