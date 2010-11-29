@@ -12,9 +12,12 @@ setup do
 end
 
 $TEST_PIPELINING = true
-$TEST_INSPECT    = true
 
 load File.expand_path("./lint/internals.rb", File.dirname(__FILE__))
+
+test "provides a meaningful inspect" do |r, _|
+  assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
+end
 
 test "Redis.current" do
   Redis.current.set("foo", "bar")

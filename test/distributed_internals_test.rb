@@ -13,6 +13,15 @@ setup do
 end
 
 $TEST_PIPELINING = false
-$TEST_INSPECT    = false
 
 load File.expand_path("./lint/internals.rb", File.dirname(__FILE__))
+
+test "provides a meaningful inspect" do |r, _|
+  nodes = ["redis://localhost:6379/15", *NODES]
+  @r = Redis::Distributed.new nodes
+
+  node_info = nodes.map do |node|
+    "#{node} (Redis v#{@r.info.first["redis_version"]})"
+  end
+  assert "#<Redis client v#{Redis::VERSION} connected to #{node_info.join(', ')}>" == @r.inspect
+end
