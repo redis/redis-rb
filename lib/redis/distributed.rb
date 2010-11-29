@@ -655,6 +655,13 @@ class Redis
       raise CannotDistribute, :pipelined
     end
 
+    def inspect
+      node_info = nodes.map do |node|
+        "#{node.id} (Redis v#{node.info['redis_version']})"
+      end
+      "<Redis client v#{Redis::VERSION} connected to #{node_info.join(', ')}>"
+    end
+
   protected
 
     def on_each_node(command, *args)
