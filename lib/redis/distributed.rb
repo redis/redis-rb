@@ -659,7 +659,7 @@ class Redis
       node_info = nodes.map do |node|
         "#{node.id} (Redis v#{node.info['redis_version']})"
       end
-      "<Redis client v#{Redis::VERSION} connected to #{node_info.join(', ')}>"
+      "#<Redis client v#{Redis::VERSION} connected to #{node_info.join(', ')}>"
     end
 
   protected

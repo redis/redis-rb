@@ -27,10 +27,6 @@ test "Recovers from failed commands" do |r, _|
   end
 end
 
-test "provides a meaningful inspect" do |r, _|
-  assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
-end if $TEST_INSPECT
-
 test "raises on protocol errors" do
   redis_mock(:ping => lambda { |*_| "foo" }) do
     assert_raise(Redis::ProtocolError) do

@@ -57,4 +57,3 @@ test "Unknown commands does not work by default" do |r|
     r.not_yet_implemented_command
   end
 end
-
