@@ -55,7 +55,11 @@ class Redis
     end
 
     def del(*keys)
-      Array(keys.inject(0) { |acc, key| acc += node_for(key).del(key) })
+      if keys.size > nodes.size
+        on_each_node :del, *keys
+      else
+        Array(keys.inject(0) { |acc, key| acc += node_for(key).del(key) })
+      end
     end
 
     def type(key)

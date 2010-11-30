@@ -14,14 +14,16 @@ test "DEL" do |r|
   r.set "foo", "s1"
   r.set "bar", "s2"
   r.set "baz", "s3"
+  r.set "boo", "s4"
+  r.set "bam", "s5"
 
-  assert ["bar", "baz", "foo"] == r.keys("*").sort
+  assert ["bam", "bar", "baz", "boo", "foo"] == r.keys("*").sort
 
   assert [1] == r.del("foo")
 
-  assert ["bar", "baz"] == r.keys("*").sort
+  assert ["bam", "bar", "baz", "boo"] == r.keys("*").sort
 
-  assert [2] == r.del("bar", "baz")
+  assert [4] == r.del("bam", "bar", "baz", "boo")
 
   assert [] == r.keys("*").sort
 end
