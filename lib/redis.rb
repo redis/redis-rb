@@ -116,7 +116,8 @@ class Redis
   end
 
   def hgetall(key)
-    Hash[*@client.call(:hgetall, key)]
+    response = @client.call(:hgetall, key)
+    Hash[*response] unless response == 'QUEUED'
   end
 
   def hget(key, field)
@@ -419,7 +420,8 @@ class Redis
   end
 
   def mapped_hmget(key, *fields)
-    Hash[*fields.zip(hmget(key, *fields)).flatten]
+    response = hmget(key, *fields)
+    Hash[*fields.zip(response).flatten] unless response == 'QUEUED'
   end
 
   def hlen(key)
@@ -487,7 +489,8 @@ class Redis
   end
 
   def mapped_mget(*keys)
-    Hash[*keys.zip(mget(*keys)).flatten]
+    response = mget(*keys)
+    Hash[*keys.zip(response).flatten] unless response == 'QUEUED'
   end
 
   def sort(key, options = {})
