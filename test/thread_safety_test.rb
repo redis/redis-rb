@@ -6,29 +6,25 @@ setup do
   init Redis.new(OPTIONS)
 end
 
-test "thread safety" do |r|
-  r = init Redis.new(OPTIONS.merge(:thread_safe => true))
-  r.client.disconnect
+test "thread safety" do
+  redis = Redis.connect(OPTIONS.merge(:thread_safe => true))
 
-  r1, r2 = nil
+  redis.set "foo", 1
+  redis.set "bar", 2
+
+  sample = 100
 
   t1 = Thread.new do
-    r1 = r.client.process([:set, "foo", 1]) do
-      sleep 1
-      r.client.send(:read)
-    end
+    $foos = Array.new(sample) { redis.get "foo" }
   end
 
   t2 = Thread.new do
-    r2 = r.client.process([:get, "foo"]) do
-      r.client.send(:read)
-    end
+    $bars = Array.new(sample) { redis.get "bar" }
   end
 
   t1.join
   t2.join
 
-  assert "OK" == r1
-  assert "1" == r2
+  assert_equal ["1"], $foos.uniq
+  assert_equal ["2"], $bars.uniq
 end
-
