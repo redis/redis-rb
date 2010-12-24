@@ -122,7 +122,7 @@ See the tests and benchmarks for examples.
 
 ## More info
 
-Check the [Redis Command Reference](http://code.google.com/p/redis/wiki/CommandReference) or check the tests to find out how to use this client.
+Check the [Redis Command Reference](http://redis.io/commands) or check the tests to find out how to use this client.
 
 ## Contributing
 
