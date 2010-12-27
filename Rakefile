@@ -95,7 +95,10 @@ namespace :commands do
   def redis_commands
     $redis_commands ||= begin
       require "open-uri"
-      open("http://dimaion.com/redis/master").read.split
+
+      JSON.parse(open("https://github.com/antirez/redis-doc/raw/master/commands.json").read).keys.map do |key|
+        key.split(" ").first.downcase
+      end.uniq
     end
   end
 
@@ -121,35 +124,36 @@ namespace :commands do
   end
 
   task :verify do
+    require "json"
     require "redis"
     require "stringio"
 
-    log = StringIO.new
+    require "./test/helper"
 
-    at_exit do
-      redis = Redis.new
+    OPTIONS[:logger] = Logger.new("./tmp/log")
 
-      report = ["Command", "\033[0mDefined?\033[0m", "\033[0mTested?\033[0m"]
+    Rake::Task["test"].invoke
 
-      yes, no = "\033[1;32mYes\033[0m", "\033[1;31mNo\033[0m"
+    redis = Redis.new
 
-      redis_commands.sort.each do |name, _|
-        defined, tested = redis.respond_to?(name), log.string[">> #{name.upcase}"]
+    report = ["Command", "\033[0mDefined?\033[0m", "\033[0mTested?\033[0m"]
 
-        next if defined && tested
+    yes, no = "\033[1;32mYes\033[0m", "\033[1;31mNo\033[0m"
 
-        report << name
-        report << (defined ? yes : no)
-        report << (tested ? yes : no)
-      end
+    log = File.read("./tmp/log")
 
-      IO.popen("rs 0 3", "w") do |io|
-        io.puts report.join("\n")
-      end
+    redis_commands.sort.each do |name, _|
+      defined, tested = redis.respond_to?(name), log[">> #{name.upcase}"]
+
+      next if defined && tested
+
+      report << name
+      report << (defined ? yes : no)
+      report << (tested ? yes : no)
     end
 
-    Dir["test/**/redis_test.rb"].each { |f| require "./#{f}" }
-
-    RedisTest::OPTIONS[:logger] = Logger.new(log)
+    IO.popen("rs 0 3", "w") do |io|
+      io.puts report.join("\n")
+    end
   end
 end
