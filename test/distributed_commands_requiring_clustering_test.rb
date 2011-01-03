@@ -26,6 +26,14 @@ test "RENAMENX" do |r|
   assert "s2" == r.get("{qux}bar")
 end
 
+test "BRPOPLPUSH" do |r|
+  r.rpush "{qux}foo", "s1"
+  r.rpush "{qux}foo", "s2"
+
+  assert_equal "s2", r.brpoplpush("{qux}foo", "{qux}bar", 1)
+  assert_equal ["s2"], r.lrange("{qux}bar", 0, -1)
+end
+
 test "RPOPLPUSH" do |r|
   r.rpush "{qux}foo", "s1"
   r.rpush "{qux}foo", "s2"
@@ -138,4 +146,3 @@ test "SORT with STORE" do |r|
   r.sort("{qux}bar", :get => "{qux}foo:*", :store => "{qux}baz")
   assert ["s1", "s2"] == r.lrange("{qux}baz", 0, -1)
 end
-

@@ -240,6 +240,12 @@ class Redis
       node_for(key).brpop(key, timeout)
     end
 
+    def brpoplpush(source, destination, timeout)
+      ensure_same_node(:brpoplpush, source, destination) do |node|
+        node.brpoplpush(source, destination, timeout)
+      end
+    end
+
     def sadd(key, value)
       node_for(key).sadd(key, value)
     end

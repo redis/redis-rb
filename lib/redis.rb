@@ -215,6 +215,10 @@ class Redis
     @client.call_without_timeout(:brpop, *args)
   end
 
+  def brpoplpush(source, destination, timeout)
+    @client.call_without_timeout(:brpoplpush, source, destination, timeout)
+  end
+
   def rpoplpush(source, destination)
     @client.call(:rpoplpush, source, destination)
   end

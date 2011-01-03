@@ -16,3 +16,9 @@ test "RPOPLPUSH" do |r|
   end
 end
 
+test "BRPOPLPUSH" do |r|
+  assert_raise Redis::Distributed::CannotDistribute do
+    r.brpoplpush("foo", "bar", 1)
+  end
+end
+

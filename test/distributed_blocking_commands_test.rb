@@ -51,4 +51,3 @@ test "BRPOP should unset a configured socket timeout" do |r|
 
   assert r.nodes.all? { |node| node.client.timeout == 1 }
 end
-
