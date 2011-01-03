@@ -18,7 +18,7 @@ test "MULTI/DISCARD" do |r|
 end
 
 test "MULTI/EXEC with a block" do |r|
-  r.multi do |r|
+  r.multi do
     r.set "foo", "s1"
   end
 
