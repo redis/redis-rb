@@ -99,6 +99,10 @@ class Redis
     @client.call(:getbit, key, offset)
   end
 
+  def getrange(key, start, stop)
+    @client.call(:getrange, key, start, stop)
+  end
+
   def getset(key, value)
     @client.call(:getset, key, value)
   end
@@ -489,6 +493,10 @@ class Redis
 
   def setex(key, ttl, value)
     @client.call(:setex, key, ttl, value)
+  end
+
+  def setrange(key, offset, value)
+    @client.call(:setrange, key, offset, value)
   end
 
   def mset(*args)

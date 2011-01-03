@@ -118,6 +118,10 @@ class Redis
       node_for(key).setbit(key, offset, value)
     end
 
+    def setrange(key, offset, value)
+      node_for(key).setrange(key, offset, value)
+    end
+
     def setex(key, ttl, value)
       node_for(key).setex(key, ttl, value)
     end
@@ -128,6 +132,10 @@ class Redis
 
     def getbit(key, offset)
       node_for(key).getbit(key, offset)
+    end
+
+    def getrange(key, start, stop)
+      node_for(key).getrange(key, start, stop)
     end
 
     def getset(key, value)

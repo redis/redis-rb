@@ -114,3 +114,18 @@ test "SETBIT" do |r|
 
   assert_equal "c", r.get("foo")
 end
+
+test "GETRANGE" do |r|
+  r.set("foo", "abcde")
+
+  assert_equal "bcd", r.getrange("foo", 1, 3)
+  assert_equal "abcde", r.getrange("foo", 0, -1)
+end
+
+test "SETRANGE" do |r|
+  r.set("foo", "abcde")
+
+  r.setrange("foo", 1, "bar")
+
+  assert_equal "abare", r.get("foo")
+end
