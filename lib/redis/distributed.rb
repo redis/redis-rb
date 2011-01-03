@@ -350,6 +350,10 @@ class Redis
       node_for(key).zrangebyscore(key, min, max, options)
     end
 
+    def zrevrangebyscore(key, max, min, options = {})
+      node_for(key).zrevrangebyscore(key, max, min, options)
+    end
+
     def zcard(key)
       node_for(key).zcard(key)
     end

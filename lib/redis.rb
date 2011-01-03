@@ -328,6 +328,15 @@ class Redis
     @client.call(:zrevrange, key, start, stop, *command.to_a)
   end
 
+  def zrevrangebyscore(key, max, min, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.splat :limit
+      c.bool  :with_scores
+    end
+
+    @client.call(:zrevrangebyscore, key, max, min, *command.to_a)
+  end
+
   def zremrangebyscore(key, min, max)
     @client.call(:zremrangebyscore, key, min, max)
   end

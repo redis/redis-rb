@@ -72,6 +72,14 @@ test "ZRANGEBYSCORE" do |r|
   assert ["s2", "s3"] == r.zrangebyscore("foo", 2, 3)
 end
 
+test "ZREVRANGEBYSCORE" do |r|
+  r.zadd "foo", 1, "s1"
+  r.zadd "foo", 2, "s2"
+  r.zadd "foo", 3, "s3"
+  
+  assert ["s3", "s2"] == r.zrevrangebyscore("foo", 3, 2)
+end
+
 test "ZRANGEBYSCORE with LIMIT" do |r|
   r.zadd "foo", 1, "s1"
   r.zadd "foo", 2, "s2"
@@ -83,6 +91,17 @@ test "ZRANGEBYSCORE with LIMIT" do |r|
   assert ["s3", "s4"] == r.zrangebyscore("foo", 2, 4, :limit => [1, 2])
 end
 
+test "ZREVRANGEBYSCORE with LIMIT" do |r|
+  r.zadd "foo", 1, "s1"
+  r.zadd "foo", 2, "s2"
+  r.zadd "foo", 3, "s3"
+  r.zadd "foo", 4, "s4"
+
+  assert ["s4"] == r.zrevrangebyscore("foo", 4, 2, :limit => [0, 1])
+  assert ["s3"] == r.zrevrangebyscore("foo", 4, 2, :limit => [1, 1])
+  assert ["s3", "s2"] == r.zrevrangebyscore("foo", 4, 2, :limit => [1, 2])
+end
+
 test "ZRANGEBYSCORE with WITHSCORES" do |r|
   r.zadd "foo", 1, "s1"
   r.zadd "foo", 2, "s2"
@@ -91,6 +110,16 @@ test "ZRANGEBYSCORE with WITHSCORES" do |r|
 
   assert ["s2", "2"] == r.zrangebyscore("foo", 2, 4, :limit => [0, 1], :with_scores => true)
   assert ["s3", "3"] == r.zrangebyscore("foo", 2, 4, :limit => [1, 1], :with_scores => true)
+end
+
+test "ZREVRANGEBYSCORE with WITHSCORES" do |r|
+  r.zadd "foo", 1, "s1"
+  r.zadd "foo", 2, "s2"
+  r.zadd "foo", 3, "s3"
+  r.zadd "foo", 4, "s4"
+
+  assert ["s4", "4"] == r.zrevrangebyscore("foo", 4, 2, :limit => [0, 1], :with_scores => true)
+  assert ["s3", "3"] == r.zrevrangebyscore("foo", 4, 2, :limit => [1, 1], :with_scores => true)
 end
 
 test "ZCARD" do |r|
