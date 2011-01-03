@@ -95,6 +95,10 @@ class Redis
     @client.call(:get, key)
   end
 
+  def getbit(key, offset)
+    @client.call(:getbit, key, offset)
+  end
+
   def getset(key, value)
     @client.call(:getset, key, value)
   end
@@ -477,6 +481,10 @@ class Redis
 
   def set(key, value)
     @client.call(:set, key, value)
+  end
+
+  def setbit(key, offset, value)
+    @client.call(:setbit, key, offset, value)
   end
 
   def setex(key, ttl, value)

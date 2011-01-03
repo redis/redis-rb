@@ -67,4 +67,3 @@ test "STRLEN" do |r|
 
   assert 5 == r.strlen("foo")
 end
-

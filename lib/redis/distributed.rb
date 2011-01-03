@@ -114,12 +114,20 @@ class Redis
       node_for(key).set(key, value)
     end
 
+    def setbit(key, offset, value)
+      node_for(key).setbit(key, offset, value)
+    end
+
     def setex(key, ttl, value)
       node_for(key).setex(key, ttl, value)
     end
 
     def get(key)
       node_for(key).get(key)
+    end
+
+    def getbit(key, offset)
+      node_for(key).getbit(key, offset)
     end
 
     def getset(key, value)

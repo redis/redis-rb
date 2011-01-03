@@ -27,7 +27,6 @@ test "SET and GET with ASCII characters" do |r|
   end
 end if defined?(Encoding)
 
-
 test "SETEX" do |r|
   r.setex("foo", 1, "s1")
 
@@ -96,3 +95,22 @@ test "SUBSTR" do |r|
   assert "ore" == r.substr("foo", 1, 3)
 end
 
+test "GETBIT" do |r|
+  r.set("foo", "a")
+
+  assert_equal 1, r.getbit("foo", 1)
+  assert_equal 1, r.getbit("foo", 2)
+  assert_equal 0, r.getbit("foo", 3)
+  assert_equal 0, r.getbit("foo", 4)
+  assert_equal 0, r.getbit("foo", 5)
+  assert_equal 0, r.getbit("foo", 6)
+  assert_equal 1, r.getbit("foo", 7)
+end
+
+test "SETBIT" do |r|
+  r.set("foo", "a")
+
+  r.setbit("foo", 6, 1)
+
+  assert_equal "c", r.get("foo")
+end
