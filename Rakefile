@@ -93,22 +93,27 @@ end
 
 namespace :commands do
   def redis_commands
-    $redis_commands ||= begin
-      require "open-uri"
+    $redis_commands ||= doc.keys.map do |key|
+      key.split(" ").first.downcase
+    end.uniq
+  end
 
-      JSON.parse(open("https://github.com/antirez/redis-doc/raw/master/commands.json").read).keys.map do |key|
-        key.split(" ").first.downcase
-      end.uniq
+  def doc
+    $doc ||= begin
+      require "open-uri"
+      require "json"
+
+      JSON.parse(open("https://github.com/antirez/redis-doc/raw/master/commands.json").read)
     end
   end
 
   task :doc do
     source = File.read("lib/redis.rb")
 
-    redis_commands.each do |name, text|
-      source.sub!(/(?:^ *#.*\n)*^( *)def #{name}(\(|$)/) do
-        indent, extra_args = $1, $2
-        comment = "#{indent}# #{text.strip}"
+    doc.each do |name, command|
+      source.sub!(/(?:^ *# .*\n)*(^ *#\n(^ *# .+?\n)*)*^( *)def #{name.downcase}(\(|$)/) do
+        extra_comments, indent, extra_args = $1, $3, $4
+        comment = "#{indent}# #{command["summary"].strip}."
 
         IO.popen("par p#{2 + indent.size} 80", "r+") do |io|
           io.puts comment
@@ -116,7 +121,7 @@ namespace :commands do
           comment = io.read
         end
 
-        "#{comment}#{indent}def #{name}#{extra_args}"
+        "#{comment}#{extra_comments}#{indent}def #{name.downcase}#{extra_args}"
       end
     end
 
@@ -124,7 +129,6 @@ namespace :commands do
   end
 
   task :verify do
-    require "json"
     require "redis"
     require "stringio"
 
