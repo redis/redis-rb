@@ -18,17 +18,17 @@ test "MULTI/DISCARD" do |r|
 end
 
 test "MULTI/EXEC with a block" do |r|
-  r.multi do
-    r.set "foo", "s1"
+  r.multi do |multi|
+    multi.set "foo", "s1"
   end
 
   assert "s1" == r.get("foo")
 
   begin
-    r.multi do
-      r.set "bar", "s2"
+    r.multi do |multi|
+      multi.set "bar", "s2"
       raise "Some error"
-      r.set "baz", "s3"
+      multi.set "baz", "s3"
     end
   rescue
   end
@@ -39,10 +39,10 @@ end
 
 test "MULTI/EXEC with a block operating on a wrong kind of key" do |r|
   begin
-    r.multi do |r|
-      r.set "foo", "s1"
-      r.lpush "foo", "s2"
-      r.get "foo"
+    r.multi do |multi|
+      multi.set "foo", "s1"
+      multi.lpush "foo", "s2"
+      multi.get "foo"
     end
   rescue RuntimeError
   end
