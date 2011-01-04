@@ -82,13 +82,101 @@ task :gemspec do
   end
 end
 
-desc "Generate YARDoc"
-task :yardoc do
-  require "yard"
+task :doc => ["doc:generate", "doc:prepare"]
 
-  opts = ["--title", "A Ruby client for Redis"]
+namespace :doc do
+  task :generate do
+    require "shellwords"
 
-  YARD::CLI::Yardoc.run(*opts)
+    `rm -rf doc`
+
+    current_branch = `git branch`[/^\* (.*)$/, 1]
+
+    begin
+      tags = `git tag -l`.split("\n").sort.reverse
+
+      tags.each do |tag|
+        `git checkout -q #{tag} 2>/dev/null`
+
+        unless $?.success?
+          $stderr.puts "Need a clean working copy. Please git-stash away."
+          exit 1
+        end
+
+        puts tag
+
+        `mkdir -p doc/#{tag}`
+
+        files = `git ls-tree -r HEAD lib`.split("\n").map do |line|
+          line[/\t(.*)$/, 1]
+        end
+
+        opts = [
+          "--title", "A Ruby client for Redis",
+          "--output", "doc/#{tag}",
+          "--no-cache",
+          "--no-save",
+          "-q",
+          *files
+        ]
+
+        `yardoc #{Shellwords.shelljoin opts}`
+      end
+    ensure
+      `git checkout -q #{current_branch}`
+    end
+  end
+
+  task :prepare do
+    versions = `git tag -l`.split("\n").grep(/^v/).sort
+    latest_version = versions.last
+
+    File.open("doc/.htaccess", "w") do |file|
+      file.puts "RedirectMatch 302 ^/?$ /#{latest_version}"
+    end
+
+    File.open("doc/robots.txt", "w") do |file|
+      file.puts "User-Agent: *"
+
+      (versions - [latest_version]).each do |version|
+        file.puts "Disallow: /#{version}"
+      end
+    end
+
+    google_analytics = <<-EOS
+    <script type="text/javascript">
+
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-11356145-2']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+    </script>
+    EOS
+
+    Dir["doc/**/*.html"].each do |path|
+      lines = IO.readlines(path)
+
+      File.open(path, "w") do |file|
+        lines.each do |line|
+          if line.include?("</head>")
+            file.write(google_analytics)
+          end
+
+          file.write(line)
+        end
+      end
+    end
+  end
+
+  task :deploy do
+    system "rsync --del -avz doc/* redis-rb.keyvalue.org:deploys/redis-rb.keyvalue.org/"
+  end
 end
 
 namespace :commands do
@@ -107,8 +195,8 @@ namespace :commands do
     end
   end
 
-  task :doc do
-    source = File.read("lib/redis.rb")
+  def document(file)
+    source = File.read(file)
 
     doc.each do |name, command|
       source.sub!(/(?:^ *# .*\n)*(^ *#\n(^ *# .+?\n)*)*^( *)def #{name.downcase}(\(|$)/) do
@@ -125,7 +213,12 @@ namespace :commands do
       end
     end
 
-    File.open("lib/redis.rb", "w") { |f| f.write(source) }
+    File.open(file, "w") { |f| f.write(source) }
+  end
+
+  task :doc do
+    document "lib/redis.rb"
+    document "lib/redis/distributed.rb"
   end
 
   task :verify do
