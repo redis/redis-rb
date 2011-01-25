@@ -42,8 +42,7 @@ class Redis
     COMMAND_DELIMITER = "\r\n"
 
     def write(command)
-      @sock.write(build_command(*command).join(COMMAND_DELIMITER))
-      @sock.write(COMMAND_DELIMITER)
+      @sock.write(build_command(*command).join(COMMAND_DELIMITER) + COMMAND_DELIMITER)
     end
 
     def build_command(name, *args)
