@@ -65,7 +65,7 @@ class Redis
 
   # Get information and statistics about the server.
   def info
-    Hash[*@client.call(:info).split(/:|\r\n/)]
+    Hash[*@client.call(:info).split(/:|\r\n/).grep(/^[^#]/)]
   end
 
   def config(action, *args)
