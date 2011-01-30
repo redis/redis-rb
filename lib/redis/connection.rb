@@ -21,6 +21,10 @@ class Redis
       @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
     end
 
+    def connect_unix(path)
+      @sock = UNIXSocket.new("/tmp/redis.sock")
+    end
+
     def disconnect
       @sock.close
     rescue

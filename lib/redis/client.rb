@@ -5,8 +5,15 @@ class Redis
     attr :connection
 
     def initialize(options = {})
-      @host = options[:host] || "127.0.0.1"
-      @port = (options[:port] || 6379).to_i
+      if options[:path]
+        @mode = :unix
+        @path = options[:path]
+      else
+        @mode = :tcp
+        @host = options[:host] || "127.0.0.1"
+        @port = (options[:port] || 6379).to_i
+      end
+
       @db = (options[:db] || 0).to_i
       @timeout = (options[:timeout] || 5).to_i
       @password = options[:password]
@@ -15,7 +22,7 @@ class Redis
     end
 
     def connect
-      connect_to(@host, @port)
+      connect_to
       call(:auth, @password) if @password
       call(:select, @db) if @db != 0
       self
@@ -160,9 +167,13 @@ class Redis
       end
     end
 
-    def connect_to(host, port)
+    def connect_to
       with_timeout(@timeout) do
-        connection.connect(host, port)
+        if @mode == :unix
+          connection.connect_unix(@path)
+        else
+          connection.connect(@host, @port)
+        end
       end
 
       # If the timeout is set we set the low level socket options in order
@@ -171,7 +182,8 @@ class Redis
       self.timeout = @timeout
 
     rescue Errno::ECONNREFUSED
-      raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{host}:#{port}"
+      location = @mode == :unix ? @path : "#{host}:#{port}"
+      raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{location}"
     end
 
     def timeout=(timeout)
