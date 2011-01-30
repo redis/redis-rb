@@ -27,6 +27,12 @@ test "Connection timeout" do
   end
 end
 
+test "Connecting to UNIX domain socket" do
+  assert_nothing_raised do
+    Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock")).ping
+  end
+end
+
 test "Recovers from failed commands" do |r, _|
   # See http://github.com/ezmobius/redis-rb/issues#issue/28
 
