@@ -820,7 +820,7 @@ private
 
 end
 
-require "redis/connection" unless defined?(Redis::Connection)
+require "redis/connection" unless Redis.method(:const_defined?).arity == 1 ? Redis.const_defined?(:Connection) : Redis.const_defined?(:Connection, false)
 require "redis/client"
 require "redis/pipeline"
 require "redis/subscribe"
