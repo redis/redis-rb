@@ -24,13 +24,12 @@ test "MULTI/EXEC with a block" do |r|
 
   assert "s1" == r.get("foo")
 
-  begin
+  assert_raise(RuntimeError) do
     r.multi do |multi|
       multi.set "bar", "s2"
       raise "Some error"
       multi.set "baz", "s3"
     end
-  rescue
   end
 
   assert nil == r.get("bar")
@@ -38,13 +37,12 @@ test "MULTI/EXEC with a block" do |r|
 end
 
 test "MULTI/EXEC with a block operating on a wrong kind of key" do |r|
-  begin
+  assert_raise(RuntimeError) do
     r.multi do |multi|
       multi.set "foo", "s1"
       multi.lpush "foo", "s2"
       multi.get "foo"
     end
-  rescue RuntimeError
   end
 
   assert "s1" == r.get("foo")
