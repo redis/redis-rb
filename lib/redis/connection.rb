@@ -85,7 +85,7 @@ class Redis
     end
 
     def format_error_reply(line)
-      raise "-" + line.strip
+      RuntimeError.new(line.strip)
     end
 
     def format_status_reply(line)

@@ -26,9 +26,9 @@ class Redis
     end
 
     def call(*args)
-      process(args) do
-        read
-      end
+      reply = process(args) { read }
+      raise reply if reply.is_a?(RuntimeError)
+      reply
     end
 
     def call_loop(*args)
@@ -40,8 +40,22 @@ class Redis
     end
 
     def call_pipelined(commands)
-      process(*commands) do
-        Array.new(commands.size) { read }
+      error = nil
+
+      # Read all replies before raising an error reply to make sure the
+      # protocol remains in a consistent state and reconnect is not needed.
+      result = process(*commands) do
+        Array.new(commands.size) do
+          reply = read
+          error ||= reply if reply.is_a?(RuntimeError)
+          reply
+        end
+      end
+
+      if error
+        raise error
+      else
+        result
       end
     end
 

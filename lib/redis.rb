@@ -697,7 +697,15 @@ class Redis
 
   # Execute all commands issued after MULTI.
   def exec
-    @client.call(:exec)
+    result = @client.call(:exec)
+
+    if result.respond_to?(:each)
+      result.each do |reply|
+        raise reply if reply.is_a?(RuntimeError)
+      end
+    end
+
+    result
   end
 
   # Mark the start of a transaction block.
