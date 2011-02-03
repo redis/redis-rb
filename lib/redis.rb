@@ -1,5 +1,3 @@
-require 'socket'
-
 class Redis
   VERSION = "2.1.1"
 

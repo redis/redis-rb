@@ -1,3 +1,5 @@
+require "socket"
+
 class Redis
   class Connection
     MINUS    = "-".freeze
