@@ -169,12 +169,10 @@ class Redis
     end
 
     def establish_connection
-      with_timeout(@timeout) do
-        if @path
-          connection.connect_unix(@path)
-        else
-          connection.connect(@host, @port)
-        end
+      if @path
+        connection.connect_unix(@path, @timeout)
+      else
+        connection.connect(@host, @port, @timeout)
       end
 
       # If the timeout is set we set the low level socket options in order
@@ -221,23 +219,6 @@ class Redis
 
       def ensure_connected(&block)
         synchronize { super }
-      end
-    end
-
-    begin
-      require "system_timer"
-
-      def with_timeout(seconds, &block)
-        SystemTimer.timeout_after(seconds, &block)
-      end
-
-    rescue LoadError
-      warn "WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang." unless RUBY_VERSION >= "1.9" || RUBY_PLATFORM =~ /java/
-
-      require "timeout"
-
-      def with_timeout(seconds, &block)
-        Timeout.timeout(seconds, &block)
       end
     end
   end

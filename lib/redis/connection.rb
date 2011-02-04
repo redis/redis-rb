@@ -16,13 +16,17 @@ class Redis
       !! @sock
     end
 
-    def connect(host, port)
-      @sock = TCPSocket.new(host, port)
-      @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
+    def connect(host, port, timeout)
+      with_timeout(timeout) do
+        @sock = TCPSocket.new(host, port)
+        @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
+      end
     end
 
-    def connect_unix(path)
-      @sock = UNIXSocket.new(path)
+    def connect_unix(path, timeout)
+      with_timeout(timeout) do
+        @sock = UNIXSocket.new(path)
+      end
     end
 
     def disconnect
@@ -133,6 +137,23 @@ class Redis
     else
       def encode(string)
         string
+      end
+    end
+
+    begin
+      require "system_timer"
+
+      def with_timeout(seconds, &block)
+        SystemTimer.timeout_after(seconds, &block)
+      end
+
+    rescue LoadError
+      warn "WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang." unless RUBY_VERSION >= "1.9" || RUBY_PLATFORM =~ /java/
+
+      require "timeout"
+
+      def with_timeout(seconds, &block)
+        Timeout.timeout(seconds, &block)
       end
     end
   end
