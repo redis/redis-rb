@@ -20,6 +20,14 @@ test "allows to pass in a URL" do
   assert "secr3t" == redis.client.password
 end
 
+test "override URL if path option is passed" do
+  redis = Redis.connect :url => "redis://:secr3t@foo.com/foo:999/2", :path => "/tmp/redis.sock"
+
+  assert "/tmp/redis.sock" == redis.client.path
+  assert nil == redis.client.host
+  assert nil == redis.client.port
+end
+
 test "overrides URL if another connection option is passed" do
   redis = Redis.connect :url => "redis://:secr3t@foo.com:999/2", :port => 1000
 

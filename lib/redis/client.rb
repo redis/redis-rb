@@ -1,15 +1,12 @@
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :password, :logger
+    attr_accessor :db, :host, :port, :path, :password, :logger
     attr :timeout
     attr :connection
 
     def initialize(options = {})
-      if options[:path]
-        @mode = :unix
-        @path = options[:path]
-      else
-        @mode = :tcp
+      @path = options[:path]
+      if @path.nil?
         @host = options[:host] || "127.0.0.1"
         @port = (options[:port] || 6379).to_i
       end
@@ -22,14 +19,18 @@ class Redis
     end
 
     def connect
-      connect_to
+      establish_connection
       call(:auth, @password) if @password
       call(:select, @db) if @db != 0
       self
     end
 
     def id
-      "redis://#{host}:#{port}/#{db}"
+      "redis://#{location}/#{db}"
+    end
+
+    def location
+      @path || "#{@host}:#{@port}"
     end
 
     def call(*args)
@@ -167,9 +168,9 @@ class Redis
       end
     end
 
-    def connect_to
+    def establish_connection
       with_timeout(@timeout) do
-        if @mode == :unix
+        if @path
           connection.connect_unix(@path)
         else
           connection.connect(@host, @port)
@@ -182,7 +183,6 @@ class Redis
       self.timeout = @timeout
 
     rescue Errno::ECONNREFUSED
-      location = @mode == :unix ? @path : "#{host}:#{port}"
       raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{location}"
     end
 

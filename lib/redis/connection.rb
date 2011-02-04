@@ -22,7 +22,7 @@ class Redis
     end
 
     def connect_unix(path)
-      @sock = UNIXSocket.new("/tmp/redis.sock")
+      @sock = UNIXSocket.new(path)
     end
 
     def disconnect
