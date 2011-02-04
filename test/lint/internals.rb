@@ -1,6 +1,6 @@
 test "Logger" do |r, log|
   r.ping
-  
+
   assert log.string =~ /Redis >> PING/
   assert log.string =~ /Redis >> \d+\.\d+ms/
 end
@@ -21,9 +21,17 @@ test "Timeout" do
   end
 end
 
+# Don't use assert_raise because Timeour::Error in 1.8 inherits
+# Exception instead of StandardError (on 1.9).
 test "Connection timeout" do
-  assert_raise(Timeout::Error) do
+  result = false
+
+  begin
     Redis.new(OPTIONS.merge(:host => "127.0.0.2", :timeout => 1)).ping
+  rescue Timeout::Error
+    result = true
+  ensure
+    assert result
   end
 end
 
