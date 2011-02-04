@@ -44,15 +44,12 @@ class Redis
     COMMAND_DELIMITER = "\r\n"
 
     def write(command)
-      @sock.write(build_command(*command).join(COMMAND_DELIMITER))
-      @sock.write(COMMAND_DELIMITER)
+      @sock.syswrite(build_command(*command).join(COMMAND_DELIMITER))
     end
 
-    def build_command(name, *args)
+    def build_command(*args)
       command = []
-      command << "*#{args.size + 1}"
-      command << "$#{string_size name}"
-      command << name
+      command << "*#{args.size}"
 
       args.each do |arg|
         arg = arg.to_s
@@ -60,6 +57,8 @@ class Redis
         command << arg
       end
 
+      # Trailing delimiter
+      command << ""
       command
     end
 
