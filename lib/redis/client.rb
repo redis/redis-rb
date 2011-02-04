@@ -169,10 +169,13 @@ class Redis
     end
 
     def establish_connection
+      # Need timeout in usecs, like socket timeout.
+      timeout = Integer(@timeout * 1_000_000)
+
       if @path
-        connection.connect_unix(@path, @timeout)
+        connection.connect_unix(@path, timeout)
       else
-        connection.connect(@host, @port, @timeout)
+        connection.connect(@host, @port, timeout)
       end
 
       # If the timeout is set we set the low level socket options in order
