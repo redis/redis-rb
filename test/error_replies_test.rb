@@ -63,3 +63,14 @@ test "Raise first error in MULTI/EXEC block" do |r|
     assert ex.message =~ /not an integer/i
   end
 end
+
+test "Recover from raise in #call_loop" do |r|
+  begin
+    r.client.call_loop(:invalid_monitor) do
+      assert false # Should never be executed
+    end
+  rescue => ex
+  ensure
+    assert ex.message =~ /unknown command/i
+  end
+end

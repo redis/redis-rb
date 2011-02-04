@@ -32,10 +32,27 @@ class Redis
     end
 
     def call_loop(*args)
-      without_socket_timeout do
+      error = nil
+
+      result = without_socket_timeout do
         process(args) do
-          loop { yield(read) }
+          loop do
+            reply = read
+            if reply.is_a?(RuntimeError)
+              error = reply
+              break
+            else
+              yield reply
+            end
+          end
         end
+      end
+
+      # Code path is only taken when provided block does a break
+      if error
+        raise error
+      else
+        result
       end
     end
 
