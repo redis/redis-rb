@@ -34,6 +34,14 @@ test "MONITOR" do |r|
   assert log[-1][%q{(db 15) "set" "foo" "s1"}]
 end
 
+test "MONITOR returns value for break" do |r|
+  result = r.monitor do |line|
+    break line
+  end
+
+  assert result == "OK"
+end
+
 test "ECHO" do |r|
   assert "foo bar baz\n" == r.echo("foo bar baz\n")
 end
