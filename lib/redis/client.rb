@@ -223,22 +223,5 @@ class Redis
         raise
       end
     end
-
-    class ThreadSafe < self
-      def initialize(*args)
-        require "monitor"
-
-        super(*args)
-        @mutex = ::Monitor.new
-      end
-
-      def synchronize(&block)
-        @mutex.synchronize(&block)
-      end
-
-      def ensure_connected(&block)
-        synchronize { super }
-      end
-    end
   end
 end
