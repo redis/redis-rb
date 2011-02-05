@@ -61,7 +61,8 @@ class Redis
 
     # Delete a key.
     def del(*args)
-      keys_per_node(args).inject(0) do |sum, (node, keys)|
+      keys_per_node = args.group_by { |key| node_for(key) }
+      keys_per_node.inject(0) do |sum, (node, keys)|
         sum + node.del(*keys)
       end
     end
@@ -668,16 +669,6 @@ class Redis
 
     def key_tag(key)
       key[@tag, 1] if @tag
-    end
-
-    def keys_per_node(keys)
-      mapping = Hash.new { |hash, node| hash[node] = [] }
-
-      keys.each do |key|
-        mapping[node_for(key)] << key
-      end
-
-      mapping
     end
 
     def ensure_same_node(command, *keys)
