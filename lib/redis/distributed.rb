@@ -60,8 +60,10 @@ class Redis
     end
 
     # Delete a key.
-    def del(*keys)
-      on_each_node(:del, *keys)
+    def del(*args)
+      keys_per_node(args).inject(0) do |sum, (node, keys)|
+        sum + node.del(*keys)
+      end
     end
 
     # Determine the type stored at key.
@@ -666,6 +668,16 @@ class Redis
 
     def key_tag(key)
       key[@tag, 1] if @tag
+    end
+
+    def keys_per_node(keys)
+      mapping = Hash.new { |hash, node| hash[node] = [] }
+
+      keys.each do |key|
+        mapping[node_for(key)] << key
+      end
+
+      mapping
     end
 
     def ensure_same_node(command, *keys)

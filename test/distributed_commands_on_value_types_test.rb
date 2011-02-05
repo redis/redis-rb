@@ -17,11 +17,11 @@ test "DEL" do |r|
 
   assert ["bar", "baz", "foo"] == r.keys("*").sort
 
-  assert [1] == r.del("foo")
+  assert 1 == r.del("foo")
 
   assert ["bar", "baz"] == r.keys("*").sort
 
-  assert [2] == r.del("bar", "baz")
+  assert 2 == r.del("bar", "baz")
 
   assert [] == r.keys("*").sort
 end
