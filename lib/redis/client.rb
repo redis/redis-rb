@@ -65,22 +65,38 @@ class Redis
     end
 
     def call_pipelined(commands)
-      error = nil
+      # The method #ensure_connected (called from #process) reconnects once on
+      # I/O errors. To make an effort in making sure that commands are not
+      # executed more than once, only allow reconnection before the first reply
+      # has been read. When an error occurs after the first reply has been
+      # read, retrying would re-execute the entire pipeline, thus re-issueing
+      # already succesfully executed commands. To circumvent this, don't retry
+      # after the first reply has been read succesfully.
+      first = process(*commands) { read }
+      error = first if first.is_a?(RuntimeError)
 
-      # Read all replies before raising an error reply to make sure the
-      # protocol remains in a consistent state and reconnect is not needed.
-      result = process(*commands) do
-        Array.new(commands.size) do
-          reply = read
-          error ||= reply if reply.is_a?(RuntimeError)
-          reply
+      begin
+        remaining = commands.size - 1
+        if remaining > 0
+          replies = Array.new(remaining) do
+            reply = read
+            error ||= reply if reply.is_a?(RuntimeError)
+            reply
+          end
+          replies.unshift first
+          replies
+        else
+          replies = [first]
         end
+      rescue Exception
+        disconnect
+        raise
       end
 
       if error
         raise error
       else
-        result
+        replies
       end
     end
 

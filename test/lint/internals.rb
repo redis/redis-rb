@@ -35,6 +35,62 @@ test "Connection timeout" do
   end
 end
 
+test "Retry when first read raises ECONNRESET" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 1; nil # Close on first command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 1)
+    assert "2" == redis.ping
+  end
+end
+
+test "Retry only once when read raises ECONNRESET" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 1; nil # Close on first command
+    when 2; nil # Close on second command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 1)
+    assert_raise Errno::ECONNRESET do
+      redis.ping
+    end
+  end
+end
+
+test "Don't retry when second read in pipeline raises ECONNRESET" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 2; nil # Close on second command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 1)
+    assert_raise Errno::ECONNRESET do
+      redis.pipelined do
+        redis.ping
+        redis.ping # Second #read times out
+      end
+    end
+  end
+end
+
 test "Connecting to UNIX domain socket" do
   assert_nothing_raised do
     Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock")).ping
