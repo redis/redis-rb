@@ -12,7 +12,7 @@ class Redis
       end
 
       @db = (options[:db] || 0).to_i
-      @timeout = (options[:timeout] || 5).to_i
+      @timeout = (options[:timeout] || 5).to_f
       @password = options[:password]
       @logger = options[:logger]
       @connection = Connection.new
