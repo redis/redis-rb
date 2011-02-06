@@ -49,7 +49,7 @@ module RedisMock
           end
         end
 
-        sleep 1 # Give time for the socket to start listening.
+        sleep 0.1 # Give time for the socket to start listening.
 
         yield
 

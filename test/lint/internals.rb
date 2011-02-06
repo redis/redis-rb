@@ -27,7 +27,7 @@ test "Connection timeout" do
   result = false
 
   begin
-    Redis.new(OPTIONS.merge(:host => "127.0.0.2", :timeout => 1)).ping
+    Redis.new(OPTIONS.merge(:host => "127.0.0.2", :timeout => 0.1)).ping
   rescue Timeout::Error
     result = true
   ensure
@@ -46,7 +46,7 @@ test "Retry when first read raises ECONNRESET" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 1)
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
     assert "2" == redis.ping
   end
 end
@@ -63,7 +63,7 @@ test "Retry only once when read raises ECONNRESET" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 1)
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
     assert_raise Errno::ECONNRESET do
       redis.ping
     end
@@ -83,7 +83,7 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 1)
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
     assert_raise Errno::ECONNRESET do
       redis.pipelined do
         redis.ping
