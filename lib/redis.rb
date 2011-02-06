@@ -937,7 +937,7 @@ class Redis
   end
 
   # Mark the start of a transaction block.
-  def multi(&block)
+  def multi
     synchronize do
       if !block_given?
         @client.call :multi

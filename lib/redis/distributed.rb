@@ -558,7 +558,7 @@ class Redis
     end
 
     # Mark the start of a transaction block.
-    def multi(&block)
+    def multi
       raise CannotDistribute, :multi
     end
 
