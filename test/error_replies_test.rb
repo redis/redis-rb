@@ -42,13 +42,14 @@ test "Raise first error reply in pipeline" do |r|
 end
 
 test "Recover from immediate raise in MULTI/EXEC" do |r|
-  result = r.multi do |m|
-    assert_raise RuntimeError do
+  assert_raise RuntimeError do
+    r.multi do |m|
+      m.set("foo", "s1")
       m.unknown_command
     end
   end
 
-  assert result == []
+  assert nil == r.get("foo")
 end
 
 test "Raise first error in MULTI/EXEC block" do |r|
