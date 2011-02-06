@@ -216,8 +216,14 @@ class Redis
         yield
       rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF
         if reconnect
-          yield
+          begin
+            yield
+          rescue
+            disconnect
+            raise Errno::ECONNRESET
+          end
         else
+          disconnect
           raise Errno::ECONNRESET
         end
       rescue Exception

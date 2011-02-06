@@ -67,6 +67,8 @@ test "Retry only once when read raises ECONNRESET" do
     assert_raise Errno::ECONNRESET do
       redis.ping
     end
+
+    assert !redis.client.connected?
   end
 end
 
