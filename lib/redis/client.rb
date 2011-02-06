@@ -210,20 +210,19 @@ class Redis
     end
 
     def ensure_connected
-      connect unless connected?
+      tries = 0
 
       begin
+        connect unless connected?
+        tries += 1
+
         yield
       rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF
-        if reconnect
-          begin
-            yield
-          rescue
-            disconnect
-            raise Errno::ECONNRESET
-          end
+        disconnect
+
+        if tries < 2
+          retry
         else
-          disconnect
           raise Errno::ECONNRESET
         end
       rescue Exception
