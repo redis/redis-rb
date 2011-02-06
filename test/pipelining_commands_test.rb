@@ -76,3 +76,14 @@ test "Returning the result of a pipeline" do |r|
   assert ["OK", "bar", nil] == result
 end
 
+test "Nesting pipeline blocks" do |r|
+  r.pipelined do
+    r.set("foo", "s1")
+    r.pipelined do
+      r.set("bar", "s2")
+    end
+  end
+
+  assert "s1" == r.get("foo")
+  assert "s2" == r.get("bar")
+end

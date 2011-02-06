@@ -9,5 +9,9 @@ class Redis
     def call(*args)
       @commands << args
     end
+
+    def call_pipelined(commands)
+      @commands.concat commands
+    end
   end
 end
