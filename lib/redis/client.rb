@@ -64,7 +64,9 @@ class Redis
       end
     end
 
-    def call_pipelined(commands)
+    def call_pipelined(commands, options = {})
+      options[:raise] = true unless options.has_key?(:raise)
+
       # The method #ensure_connected (called from #process) reconnects once on
       # I/O errors. To make an effort in making sure that commands are not
       # executed more than once, only allow reconnection before the first reply
@@ -93,7 +95,7 @@ class Redis
         raise
       end
 
-      if error
+      if error && options[:raise]
         raise error
       else
         replies

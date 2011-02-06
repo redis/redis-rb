@@ -903,12 +903,12 @@ class Redis
     end
   end
 
-  def pipelined
+  def pipelined(options = {})
     synchronize do
       begin
         original, @client = @client, Pipeline.new
         yield
-        original.call_pipelined(@client.commands) unless @client.commands.empty?
+        original.call_pipelined(@client.commands, options) unless @client.commands.empty?
       ensure
         @client = original
       end
