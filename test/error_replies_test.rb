@@ -41,30 +41,6 @@ test "Raise first error reply in pipeline" do |r|
   end
 end
 
-test "Recover from immediate raise in MULTI/EXEC" do |r|
-  assert_raise RuntimeError do
-    r.multi do |m|
-      m.set("foo", "s1")
-      m.unknown_command
-    end
-  end
-
-  assert nil == r.get("foo")
-end
-
-test "Raise first error in MULTI/EXEC block" do |r|
-  begin
-    r.multi do |m|
-      m.set("foo", "s1")
-      m.incr("foo") # not an integer
-      m.lpush("foo", "value") # wrong kind of value
-    end
-  rescue => ex
-  ensure
-    assert ex.message =~ /not an integer/i
-  end
-end
-
 test "Recover from raise in #call_loop" do |r|
   begin
     r.client.call_loop(:invalid_monitor) do

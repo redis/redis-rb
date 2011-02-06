@@ -36,15 +36,26 @@ test "MULTI/EXEC with a block" do |r|
   assert nil == r.get("baz")
 end
 
-test "MULTI/EXEC with a block operating on a wrong kind of key" do |r|
-  assert_raise(RuntimeError) do
-    r.multi do |multi|
-      multi.set "foo", "s1"
-      multi.lpush "foo", "s2"
-      multi.get "foo"
-    end
+test "Don't raise (and ignore) immediate error in MULTI/EXEC" do |r|
+  result = r.multi do |m|
+    m.set("foo", "s1")
+    m.unknown_command
   end
 
+  assert 1 == result.size
+  assert "OK" == result.first
+  assert "s1" == r.get("foo")
+end
+
+test "Don't raise delayed error in MULTI/EXEC" do |r|
+  result = r.multi do |m|
+    m.set("foo", "s1")
+    m.incr("foo") # not an integer
+    m.lpush("foo", "value") # wrong kind of value
+  end
+
+  assert result[1].message =~ /not an integer/i
+  assert result[2].message =~ /wrong kind of value/i
   assert "s1" == r.get("foo")
 end
 

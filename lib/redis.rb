@@ -932,33 +932,24 @@ class Redis
   # Execute all commands issued after MULTI.
   def exec
     synchronize do
-      result = @client.call(:exec)
-
-      if result.respond_to?(:each)
-        result.each do |reply|
-          raise reply if reply.is_a?(RuntimeError)
-        end
-      end
-
-      result
+      @client.call(:exec)
     end
   end
 
   # Mark the start of a transaction block.
   def multi(&block)
     synchronize do
-      result = @client.call :multi
+      if !block_given?
+        @client.call :multi
+      else
+        result = pipelined(:raise => false) do
+          multi
+          yield(self)
+          exec
+        end
 
-      return result unless block_given?
-
-      begin
-        yield(self)
-      rescue Exception => e
-        discard
-        raise e
+        result.last
       end
-
-      exec
     end
   end
 
