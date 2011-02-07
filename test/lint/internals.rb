@@ -115,6 +115,18 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
   end
 end
 
+test "Don't retry when read raises EAGAIN" do
+  command = lambda do
+    sleep(0.2)
+    "+PONG"
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert_raise(Errno::EAGAIN) { redis.ping }
+  end
+end
+
 test "Connecting to UNIX domain socket" do
   assert_nothing_raised do
     Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock")).ping
