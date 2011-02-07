@@ -712,7 +712,13 @@ class Redis
   end
 
   def mapped_hmget(key, *fields)
-    Hash[*fields.zip(hmget(key, *fields)).flatten]
+    reply = hmget(key, *fields)
+
+    if reply.is_a?(Array)
+      Hash[*fields.zip(reply).flatten]
+    else
+      reply
+    end
   end
 
   # Get the number of fields in a hash.
@@ -829,7 +835,13 @@ class Redis
   end
 
   def mapped_mget(*keys)
-    Hash[*keys.zip(mget(*keys)).flatten]
+    reply = mget(*keys)
+
+    if reply.is_a?(Array)
+      Hash[*keys.zip(reply).flatten]
+    else
+      reply
+    end
   end
 
   # Sort the elements in a list, set or sorted set.
