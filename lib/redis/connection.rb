@@ -1,4 +1,6 @@
 begin
+  raise LoadError if ENV["HIREDIS"] == "0"
+
   # Use hiredis when it is available. Explicitly check its version because
   # 0.3.0 is API compliant with redis-rb 2.2.
   require "hiredis/ext/connection"

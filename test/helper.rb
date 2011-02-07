@@ -46,6 +46,14 @@ $VERBOSE = true
 
 require "redis"
 
+# Check if hiredis was loaded when tests should be run against it
+if ENV["HIREDIS"] == "1"
+  ancestors = Redis::Connection.ancestors.map(&:to_s)
+  unless ancestors.include?("Hiredis::Ext::Connection")
+    flunk("hiredis was not loaded")
+  end
+end
+
 def capture_stderr
   stderr = $stderr
   $stderr = StringIO.new
