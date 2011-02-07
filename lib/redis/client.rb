@@ -227,7 +227,7 @@ class Redis
         tries += 1
 
         yield
-      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF
+      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL
         disconnect
 
         if tries < 2 && @reconnect
