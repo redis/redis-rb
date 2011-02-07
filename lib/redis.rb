@@ -1,8 +1,6 @@
 require "monitor"
 
 class Redis
-  VERSION = "2.1.1"
-
   class ProtocolError < RuntimeError
     def initialize(reply_type)
       super(<<-EOS.gsub(/(?:^|\n)\s*/, " "))
@@ -1080,6 +1078,7 @@ private
 
 end
 
+require "redis/version"
 require "redis/connection"
 require "redis/client"
 require "redis/pipeline"
