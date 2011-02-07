@@ -16,6 +16,7 @@ class Redis
       @password = options[:password]
       @logger = options[:logger]
       @connection = Connection.new
+      @reconnect = true
     end
 
     def connect
@@ -163,6 +164,15 @@ class Redis
       end
     end
 
+    def without_reconnect
+      begin
+        original, @reconnect = @reconnect, false
+        yield
+      ensure
+        @reconnect = original
+      end
+    end
+
   protected
 
     def deprecated(old, new = nil, trace = caller[0])
@@ -220,7 +230,7 @@ class Redis
       rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF
         disconnect
 
-        if tries < 2
+        if tries < 2 && @reconnect
           retry
         else
           raise Errno::ECONNRESET

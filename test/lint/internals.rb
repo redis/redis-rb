@@ -51,6 +51,28 @@ test "Retry when first read raises ECONNRESET" do
   end
 end
 
+test "Don't retry when wrapped inside #without_reconnect" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 1; nil # Close on first command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert_raise Errno::ECONNRESET do
+      redis.without_reconnect do
+        redis.ping
+      end
+    end
+
+    assert !redis.client.connected?
+  end
+end
+
 test "Retry only once when read raises ECONNRESET" do
   $request = 0
 

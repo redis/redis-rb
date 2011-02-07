@@ -52,6 +52,13 @@ class Redis
     @mutex = Monitor.new
   end
 
+  # Run code without the client reconnecting
+  def without_reconnect(&block)
+    synchronize do
+      @client.without_reconnect(&block)
+    end
+  end
+
   # Authenticate to the server.
   def auth(password)
     synchronize do
