@@ -13,6 +13,12 @@ class Redis
     end
   end
 
+  module DisableThreadSafety
+    def synchronize
+      yield
+    end
+  end
+
   def self.deprecate(message, trace = caller[0])
     $stderr.puts "\n#{message} (in #{trace})"
   end
@@ -45,9 +51,15 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
-    super()
     @client = Client.new(options)
-    @mutex = Monitor.new
+
+    if options[:thread_safe] == false
+      # Override #synchronize
+      extend DisableThreadSafety
+    else
+      # Monitor#initialize
+      super()
+    end
   end
 
   # Run code without the client reconnecting
