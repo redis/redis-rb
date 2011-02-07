@@ -511,6 +511,7 @@ class Redis
   # Return a range of members in a sorted set, by index.
   def zrange(key, start, stop, options = {})
     command = CommandOptions.new(options) do |c|
+      c.bool :withscores
       c.bool :with_scores
     end
 
@@ -523,6 +524,7 @@ class Redis
   def zrangebyscore(key, min, max, options = {})
     command = CommandOptions.new(options) do |c|
       c.splat :limit
+      c.bool  :withscores
       c.bool  :with_scores
     end
 
@@ -542,6 +544,7 @@ class Redis
   # from high to low.
   def zrevrange(key, start, stop, options = {})
     command = CommandOptions.new(options) do |c|
+      c.bool :withscores
       c.bool :with_scores
     end
 
@@ -555,6 +558,7 @@ class Redis
   def zrevrangebyscore(key, max, min, options = {})
     command = CommandOptions.new(options) do |c|
       c.splat :limit
+      c.bool  :withscores
       c.bool  :with_scores
     end
 
