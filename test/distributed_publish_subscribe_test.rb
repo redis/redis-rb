@@ -19,6 +19,8 @@ test "SUBSCRIBE and UNSUBSCRIBE" do |r|
 end
 
 test "SUBSCRIBE and UNSUBSCRIBE with tags" do |r|
+  listening = false
+
   thread = Thread.new do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
@@ -37,8 +39,12 @@ test "SUBSCRIBE and UNSUBSCRIBE with tags" do |r|
         @unsubscribed = true
         @t2 = total
       end
+
+      listening = true
     end
   end
+
+  Thread.pass while !listening
 
   Redis::Distributed.new(NODES).publish("foo", "s1")
 
@@ -52,6 +58,7 @@ test "SUBSCRIBE and UNSUBSCRIBE with tags" do |r|
 end
 
 test "SUBSCRIBE within SUBSCRIBE" do |r|
+  listening = false
   @channels = []
 
   thread = Thread.new do
@@ -62,8 +69,12 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
         r.subscribe("bar") if channel == "foo"
         r.unsubscribe if channel == "bar"
       end
+
+      listening = true
     end
   end
+
+  Thread.pass while !listening
 
   Redis::Distributed.new(NODES).publish("foo", "s1")
 

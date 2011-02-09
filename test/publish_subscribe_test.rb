@@ -7,6 +7,8 @@ setup do
 end
 
 test "SUBSCRIBE and UNSUBSCRIBE" do |r|
+  listening = false
+
   thread = Thread.new do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
@@ -25,8 +27,12 @@ test "SUBSCRIBE and UNSUBSCRIBE" do |r|
         @unsubscribed = true
         @t2 = total
       end
+
+      listening = true
     end
   end
+
+  Thread.pass while !listening
 
   Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -65,7 +71,7 @@ test "PSUBSCRIBE and PUNSUBSCRIBE" do |r|
     end
   end
 
-  while !listening; end
+  Thread.pass while !listening
 
   Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -96,7 +102,7 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
     end
   end
 
-  while !listening; end
+  Thread.pass while !listening
 
   Redis.new(OPTIONS).publish("foo", "s1")
 
