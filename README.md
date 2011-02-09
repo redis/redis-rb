@@ -1,6 +1,6 @@
 # redis-rb
 
-A Ruby client library for the [Redis](http://code.google.com/p/redis) key-value store.
+A Ruby client library for the [Redis](http://redis.io) key-value store.
 
 ## A note about versions
 
@@ -15,9 +15,9 @@ new, binary-safe one. You should be using this version if you're running Redis 1
 Redis is a key-value store with some interesting features:
 
 1. It's fast.
-2. Keys are strings but values are typed. Currently Redis supports strings, lists, sets, sorted sets and hashes. [Atomic operations](http://code.google.com/p/redis/wiki/CommandReference) can be done on all of these types.
+2. Keys are strings but values are typed. Currently Redis supports strings, lists, sets, sorted sets and hashes. [Atomic operations](http://redis.io/commands) can be done on all of these types.
 
-See [the Redis homepage](http://code.google.com/p/redis/wiki/README) for more information.
+See [the Redis homepage](http://redis.io) for more information.
 
 ## Getting started
 
