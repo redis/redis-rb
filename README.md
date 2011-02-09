@@ -124,6 +124,18 @@ To use redis safely in a multithreaded environment, be sure to initialize the cl
 See the tests and benchmarks for examples.
 
 
+## Known issues
+
+* Ruby 1.9 doesn't raise on socket timeouts in `IO#read` but rather retries the
+  read operation. This means socket timeouts don't work on 1.9 when using the
+  pure Ruby I/O code. Use hiredis when you want use socket timeouts on 1.9.
+
+* Ruby 1.8 *does* raise on socket timeouts in `IO#read`, but prints a warning
+  that using `IO#read` for non blocking reads is obsolete. This is wrong, since
+  the read is in fact blocking, but `EAGAIN` (which is returned on socket
+  timeouts) is interpreted as if the read was non blocking. Use hiredis to
+  prevent seeing this warning.
+
 ## More info
 
 Check the [Redis Command Reference](http://redis.io/commands) or check the tests to find out how to use this client.
