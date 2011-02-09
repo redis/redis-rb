@@ -117,12 +117,12 @@ You can use `MULTI/EXEC` to run arbitrary commands in an atomic fashion:
 
 ## Multithreaded Operation
 
-To use redis safely in a multithreaded environment, be sure to initialize the client with :thread_safe=>true
+To use Redis safely in a multithreaded environment, be sure to initialize the client with `:thread_safe => true` for
+version <= 2.1.x. The client is thread-safe by default since 2.2.
 
-    Redis.new(:thread_safe=>true)
+    Redis.new(:thread_safe => true)
 
 See the tests and benchmarks for examples.
-
 
 ## Known issues
 
