@@ -31,6 +31,10 @@ This assumes Redis was started with default values listening on `localhost`, por
 
     redis = Redis.new(:host => "10.0.1.1", :port => 6380)
 
+To connect to Redis listening on a unix socket, try:
+
+    redis = Redis.new(:path => "/tmp/redis.sock")
+
 Once connected, you can start running commands against Redis:
 
     >> redis.set "foo", "bar"
