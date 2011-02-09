@@ -25,7 +25,7 @@ test "MONITOR" do |r|
     end
   end
 
-  while log.empty?; end # Faster than sleep
+  Thread.pass while log.empty? # Faster than sleep
 
   r.set "foo", "s1"
 
