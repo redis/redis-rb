@@ -27,7 +27,7 @@ test "Connection timeout" do
   result = false
 
   begin
-    Redis.new(OPTIONS.merge(:host => "127.0.0.2", :timeout => 0.1)).ping
+    Redis.new(OPTIONS.merge(:host => "10.255.255.254", :timeout => 0.1)).ping
   rescue Timeout::Error
     result = true
   ensure
