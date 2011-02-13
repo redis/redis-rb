@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.description = %q{Ruby client library for Redis, the key value storage server}
   s.email = %q{ez@engineyard.com}
   s.extra_rdoc_files = ["LICENSE"]
-  s.files = ["LICENSE", "README.markdown", "Rakefile", "lib/redis", "lib/redis/client.rb", "lib/redis/compat.rb", "lib/redis/connection.rb", "lib/redis/distributed.rb", "lib/redis/hash_ring.rb", "lib/redis/pipeline.rb", "lib/redis/subscribe.rb", "lib/redis.rb"]
+  s.files = ["LICENSE", "README.md", "Rakefile", "lib/redis", "lib/redis/client.rb", "lib/redis/compat.rb", "lib/redis/connection.rb", "lib/redis/distributed.rb", "lib/redis/hash_ring.rb", "lib/redis/pipeline.rb", "lib/redis/subscribe.rb", "lib/redis.rb"]
   s.homepage = %q{http://github.com/ezmobius/redis-rb}
   s.require_paths = ["lib"]
   s.rubygems_version = %q{1.3.7}

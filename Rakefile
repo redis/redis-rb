@@ -26,7 +26,7 @@ spec = Gem::Specification.new do |s|
   s.homepage = HOMEPAGE
   s.require_path = 'lib'
   s.autorequire = GEM
-  s.files = %w(LICENSE README.markdown Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
+  s.files = %w(LICENSE README.md Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
 end
 
 REDIS_DIR = File.expand_path(File.join("..", "test"), __FILE__)
