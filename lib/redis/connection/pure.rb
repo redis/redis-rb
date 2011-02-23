@@ -59,7 +59,7 @@ class Redis
       command = []
       command << "*#{args.size}"
 
-      args.each do |arg|
+      args.flatten.each do |arg|
         arg = arg.to_s
         command << "$#{string_size arg}"
         command << arg
