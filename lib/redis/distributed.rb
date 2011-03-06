@@ -23,7 +23,7 @@ class Redis
     end
 
     def node_for(key)
-      @ring.get_node(key_tag(key) || key)
+      @ring.get_node(key_tag(key.to_s) || key.to_s)
     end
 
     def nodes
@@ -668,7 +668,7 @@ class Redis
     end
 
     def key_tag(key)
-      key[@tag, 1] if @tag
+      key.to_s[@tag, 1] if @tag
     end
 
     def ensure_same_node(command, *keys)

@@ -10,6 +10,12 @@ test "SET and GET with brackets" do |r|
   assert "s1" == r["foo"]
 end
 
+test "SET and GET with brackets and symbol" do |r|
+  r[:foo] = "s1"
+
+  assert "s1" == r[:foo]
+end
+
 test "SET and GET with newline characters" do |r|
   r.set("foo", "1\n")
 
