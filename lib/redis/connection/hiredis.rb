@@ -1,24 +1,45 @@
 require "timeout"
 
 class Redis
-  class Connection < ::Hiredis::Ext::Connection
+  module Connection
+    class Hiredis
+      def initialize
+        @connection = ::Hiredis::Connection.new
+      end
 
-    def connect(*args)
-      super
-    rescue Errno::ETIMEDOUT
-      raise Timeout::Error
-    end
+      def connected?
+        @connection.connected?
+      end
 
-    def connect_unix(*args)
-      super
-    rescue Errno::ETIMEDOUT
-      raise Timeout::Error
-    end
+      def timeout=(usecs)
+        @connection.timeout = usecs
+      end
 
-    def read(*args)
-      super
-    rescue RuntimeError => err
-      raise ::Redis::ProtocolError.new(err.message)
+      def connect(host, port, timeout)
+        @connection.connect(host, port, timeout)
+      rescue Errno::ETIMEDOUT
+        raise Timeout::Error
+      end
+
+      def connect_unix(path, timeout)
+        @connection.connect_unix(path, timeout)
+      rescue Errno::ETIMEDOUT
+        raise Timeout::Error
+      end
+
+      def disconnect
+        @connection.disconnect
+      end
+
+      def write(command)
+        @connection.write(command)
+      end
+
+      def read
+        @connection.read
+      rescue RuntimeError => err
+        raise ::Redis::ProtocolError.new(err.message)
+      end
     end
   end
 end

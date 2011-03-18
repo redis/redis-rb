@@ -15,8 +15,13 @@ class Redis
       @timeout = (options[:timeout] || 5).to_f
       @password = options[:password]
       @logger = options[:logger]
-      @connection = Connection.new
       @reconnect = true
+
+      if defined?(::Hiredis)
+        @connection = Connection::Hiredis.new
+      else
+        @connection = Connection::Ruby.new
+      end
     end
 
     def connect
