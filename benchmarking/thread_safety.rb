@@ -24,11 +24,11 @@ def stress(redis)
   end
 end
 
-default = Redis.new
+thread_unsafe = Redis.new(:thread_safe => false)
 thread_safe = Redis.new(:thread_safe => true)
 
-benchmark "Default" do
-  stress(default)
+benchmark "Thread-unsafe" do
+  stress(thread_unsafe)
 end
 
 benchmark "Thread-safe" do
