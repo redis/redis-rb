@@ -61,9 +61,21 @@ end
 
 desc "Run the test suite"
 task :test do
+  require 'redis'
   require 'cutest'
 
   Cutest.run(Dir['./test/**/*_test.rb'])
+
+  begin
+    require 'hiredis'
+
+    puts
+    puts "Running tests against hiredis v#{Hiredis::VERSION}"
+
+    Cutest.run(Dir['./test/**/*_test.rb'])
+  rescue
+    puts "Skipping tests against hiredis"
+  end
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|
