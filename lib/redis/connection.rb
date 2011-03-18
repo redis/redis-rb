@@ -13,5 +13,5 @@ begin
 
   require "redis/connection/hiredis"
 rescue LoadError
-  require "redis/connection/pure"
+  require "redis/connection/ruby"
 end
