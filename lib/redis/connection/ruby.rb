@@ -3,6 +3,8 @@ require "socket"
 class Redis
   module Connection
     class Ruby
+      include Redis::Connection::CommandHelper
+
       MINUS    = "-".freeze
       PLUS     = "+".freeze
       COLON    = ":".freeze
@@ -50,25 +52,8 @@ class Redis
         end
       end
 
-      COMMAND_DELIMITER = "\r\n"
-
       def write(command)
         @sock.syswrite(build_command(*command).join(COMMAND_DELIMITER))
-      end
-
-      def build_command(*args)
-        command = []
-        command << "*#{args.size}"
-
-        args.each do |arg|
-          arg = arg.to_s
-          command << "$#{string_size arg}"
-          command << arg
-        end
-
-        # Trailing delimiter
-        command << ""
-        command
       end
 
       def read
@@ -120,26 +105,6 @@ class Redis
       end
 
     protected
-
-      if "".respond_to?(:bytesize)
-        def string_size(string)
-          string.to_s.bytesize
-        end
-      else
-        def string_size(string)
-          string.to_s.size
-        end
-      end
-
-      if defined?(Encoding::default_external)
-        def encode(string)
-          string.force_encoding(Encoding::default_external)
-        end
-      else
-        def encode(string)
-          string
-        end
-      end
 
       begin
         require "system_timer"
