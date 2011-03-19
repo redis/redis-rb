@@ -3,6 +3,10 @@
 
 require "redis/connection/command_helper"
 
-require "redis/connection/synchrony" if defined?(EventMachine::Synchrony)
-require "redis/connection/hiredis" if defined?(::Hiredis)
-require "redis/connection/ruby"
+if defined?(EventMachine::Synchrony)
+  require "redis/connection/synchrony"
+elsif defined?(::Hiredis)
+  require "redis/connection/hiredis"
+else
+  require "redis/connection/ruby"
+end
