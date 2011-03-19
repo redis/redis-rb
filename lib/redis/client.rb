@@ -17,7 +17,9 @@ class Redis
       @logger = options[:logger]
       @reconnect = true
 
-      if defined?(::Hiredis)
+      if defined?(EventMachine::Synchrony)
+        @connection = Connection::Synchrony.new
+      elsif defined?(::Hiredis)
         @connection = Connection::Hiredis.new
       else
         @connection = Connection::Ruby.new
