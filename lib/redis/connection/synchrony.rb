@@ -1,3 +1,4 @@
+require "em-synchrony"
 require "hiredis/reader"
 
 class Redis
@@ -59,7 +60,7 @@ class Redis
 
       def connect(host, port, timeout)
         conn = EventMachine.connect(host, port, RedisClient) do |c|
-          c.pending_connect_timeout = Integer(timeout / 1_000_000)
+          c.pending_connect_timeout = [Float(timeout / 1_000_000), 0.1].max
         end
 
         setup_connect_callbacks(conn, Fiber.current)
