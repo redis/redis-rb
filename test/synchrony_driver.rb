@@ -1,7 +1,9 @@
 # encoding: UTF-8
 
-require 'eventmachine'
 require 'em-synchrony'
+
+require 'redis'
+require 'redis/connection/synchrony'
 
 require File.expand_path("./helper", File.dirname(__FILE__))
 

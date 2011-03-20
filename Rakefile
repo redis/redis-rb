@@ -41,12 +41,12 @@ task :run => [:start, :test, :stop]
 desc "Start the Redis server"
 task :start do
   redis_running = \
-    begin
-      File.exists?(REDIS_PID) && Process.kill(0, File.read(REDIS_PID).to_i)
-    rescue Errno::ESRCH
-      FileUtils.rm REDIS_PID
-      false
-    end
+  begin
+    File.exists?(REDIS_PID) && Process.kill(0, File.read(REDIS_PID).to_i)
+  rescue Errno::ESRCH
+    FileUtils.rm REDIS_PID
+    false
+  end
 
   system "redis-server #{REDIS_CNF}" unless redis_running
 end
@@ -67,7 +67,7 @@ task :test do
   Cutest.run(Dir['./test/**/*_test.rb'])
 
   begin
-    require 'hiredis'
+    require 'redis/connection/hiredis'
 
     puts
     puts "Running tests against hiredis v#{Hiredis::VERSION}"
@@ -75,6 +75,48 @@ task :test do
     Cutest.run(Dir['./test/**/*_test.rb'])
   rescue
     puts "Skipping tests against hiredis"
+  end
+
+  begin
+    require 'redis/connection/synchrony'
+
+    # Make cutest fiber + eventmachine aware
+    undef test if defined? test
+    def test(name = nil, &block)
+      cutest[:test] = name
+
+      blk = Proc.new do
+        prepare.each { |blk| blk.call }
+        block.call(setup && setup.call)
+      end
+
+      t = Thread.current[:cutest]
+      if defined? EventMachine
+        EM.synchrony do
+          Thread.current[:cutest] = t
+          blk.call
+          EM.stop
+        end
+      else
+        blk.call
+      end
+    end
+
+    puts
+    puts "Running tests against em-synchrony"
+
+    threaded_tests = [
+      './test/distributed_blocking_commands_test.rb',
+      './test/distributed_publish_subscribe_test.rb',
+      './test/publish_subscribe_test.rb',
+      './test/remote_server_control_commands_test.rb',
+      './test/thread_safety_test.rb',
+      './test/error_replies_test.rb'
+    ]
+
+    Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
+  rescue
+    puts "Skipping tests against em-synchrony"
   end
 end
 

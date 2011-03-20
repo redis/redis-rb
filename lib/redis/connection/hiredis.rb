@@ -1,3 +1,4 @@
+require "hiredis"
 require "timeout"
 
 class Redis
