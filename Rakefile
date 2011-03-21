@@ -59,22 +59,33 @@ task :stop do
   end
 end
 
+def isolated(&block)
+  pid = fork { yield }
+  Process.wait(pid)
+end
+
 desc "Run the test suite"
 task :test do
-  require 'redis'
   require 'cutest'
 
-  Cutest.run(Dir['./test/**/*_test.rb'])
-
-  begin
-    require 'hiredis'
-
-    puts
-    puts "Running tests against hiredis v#{Hiredis::VERSION}"
-
+  isolated do
+    require 'redis'
     Cutest.run(Dir['./test/**/*_test.rb'])
-  rescue
-    puts "Skipping tests against hiredis"
+  end
+
+  isolated do
+    require 'redis'
+
+    begin
+      require 'hiredis'
+
+      puts
+      puts "Running tests against hiredis v#{Hiredis::VERSION}"
+
+      Cutest.run(Dir['./test/**/*_test.rb'])
+    rescue
+      puts "Skipping tests against hiredis"
+    end
   end
 end
 
