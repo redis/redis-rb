@@ -25,3 +25,121 @@ test "Redis.current" do
 
   assert Redis.current.get("foo").nil?
 end
+
+test "Timeout" do
+  assert_nothing_raised do
+    Redis.new(OPTIONS.merge(:timeout => 0))
+  end
+end
+
+# Don't use assert_raise because Timeour::Error in 1.8 inherits
+# Exception instead of StandardError (on 1.9).
+test "Connection timeout" do
+  result = false
+
+  begin
+    Redis.new(OPTIONS.merge(:host => "10.255.255.254", :timeout => 0.1)).ping
+  rescue Timeout::Error
+    result = true
+  ensure
+    assert result
+  end
+end
+
+test "Retry when first read raises ECONNRESET" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 1; nil # Close on first command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert "2" == redis.ping
+  end
+end
+
+test "Don't retry when wrapped inside #without_reconnect" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 1; nil # Close on first command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert_raise Errno::ECONNRESET do
+      redis.without_reconnect do
+        redis.ping
+      end
+    end
+
+    assert !redis.client.connected?
+  end
+end
+
+test "Retry only once when read raises ECONNRESET" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 1; nil # Close on first command
+    when 2; nil # Close on second command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert_raise Errno::ECONNRESET do
+      redis.ping
+    end
+
+    assert !redis.client.connected?
+  end
+end
+
+test "Don't retry when second read in pipeline raises ECONNRESET" do
+  $request = 0
+
+  command = lambda do
+    case ($request += 1)
+    when 2; nil # Close on second command
+    else "+%d" % $request
+    end
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert_raise Errno::ECONNRESET do
+      redis.pipelined do
+        redis.ping
+        redis.ping # Second #read times out
+      end
+    end
+  end
+end
+
+test "Don't retry when read raises EAGAIN" do
+  command = lambda do
+    sleep(0.2)
+    "+PONG"
+  end
+
+  redis_mock(:ping => command) do
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    assert_raise(Errno::EAGAIN) { redis.ping }
+  end
+end
+
+test "Connecting to UNIX domain socket" do
+  assert_nothing_raised do
+    Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock")).ping
+  end
+end
