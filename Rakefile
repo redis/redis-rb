@@ -66,23 +66,33 @@ def isolated(&block)
 end
 
 desc "Run the test suite"
-task :test do
-  require 'cutest'
+task :test => ["test:ruby", "test:hiredis"]
 
-  isolated do
-    Cutest.run(Dir['./test/**/*_test.rb'])
+namespace :test do
+  desc "Run tests against the Ruby driver"
+  task :ruby do
+    require "cutest"
+
+    isolated do
+      Cutest.run(Dir["./test/**/*_test.rb"])
+    end
   end
 
-  isolated do
-    begin
-      require 'redis/connection/hiredis'
+  desc "Run tests against the hiredis driver"
+  task :hiredis do
+    require "cutest"
 
-      puts
-      puts "Running tests against hiredis v#{Hiredis::VERSION}"
+    isolated do
+      begin
+        require "redis/connection/hiredis"
 
-      Cutest.run(Dir['./test/**/*_test.rb'])
-    rescue
-      puts "Skipping tests against hiredis"
+        puts
+        puts "Running tests against hiredis v#{Hiredis::VERSION}"
+
+        Cutest.run(Dir["./test/**/*_test.rb"])
+      rescue
+        puts "Skipping tests against hiredis"
+      end
     end
   end
 end
