@@ -66,7 +66,7 @@ def isolated(&block)
 end
 
 desc "Run the test suite"
-task :test => ["test:ruby", "test:hiredis"]
+task :test => ["test:ruby", "test:hiredis", "test:synchrony"]
 
 namespace :test do
   desc "Run tests against the Ruby driver"
