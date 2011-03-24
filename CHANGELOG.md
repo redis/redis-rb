@@ -23,7 +23,7 @@
 * Accept both `:with_scores` _and_ `:withscores` as argument to sorted set
   commands.
 
-* Use hiredis (0.3) when it is loaded.
+* Use hiredis (0.3) by requiring "redis/connection/hiredis".
 
 # 2.1.1
 
