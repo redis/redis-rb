@@ -69,15 +69,12 @@ task :test do
   require 'cutest'
 
   isolated do
-    require 'redis'
     Cutest.run(Dir['./test/**/*_test.rb'])
   end
 
   isolated do
-    require 'redis'
-
     begin
-      require 'hiredis'
+      require 'redis/connection/hiredis'
 
       puts
       puts "Running tests against hiredis v#{Hiredis::VERSION}"
