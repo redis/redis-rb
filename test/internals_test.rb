@@ -126,15 +126,16 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
   end
 end
 
-test "Don't retry when read raises EAGAIN" do
-  command = lambda do
-    sleep(0.2)
-    "+PONG"
-  end
+test "Bubble EAGAIN without retrying" do |redis,log|
+  mocha_setup
 
-  redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+  begin
+    redis.client.connection.stubs(:read).raises(Errno::EAGAIN).once
     assert_raise(Errno::EAGAIN) { redis.ping }
+
+    mocha_verify
+  ensure
+    mocha_teardown
   end
 end
 

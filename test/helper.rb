@@ -1,6 +1,7 @@
 $:.unshift File.expand_path('../lib', File.dirname(__FILE__))
 
 require "cutest"
+require "mocha"
 require "logger"
 require "stringio"
 
@@ -8,6 +9,8 @@ begin
   require "ruby-debug"
 rescue LoadError
 end
+
+include Mocha::API
 
 PORT    = 6379
 OPTIONS = {:port => PORT, :db => 15, :timeout => 3}

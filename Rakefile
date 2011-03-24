@@ -27,6 +27,7 @@ spec = Gem::Specification.new do |s|
   s.require_path = 'lib'
   s.autorequire = GEM
   s.files = %w(LICENSE README.md Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
+  s.add_development_dependency "mocha", "~> 0.9"
 end
 
 REDIS_DIR = File.expand_path(File.join("..", "test"), __FILE__)
