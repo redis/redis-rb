@@ -1,3 +1,5 @@
+require "redis/connection/registry"
+require "hiredis/connection"
 require "timeout"
 
 class Redis
@@ -43,3 +45,5 @@ class Redis
     end
   end
 end
+
+Redis::Connection.drivers << Redis::Connection::Hiredis
