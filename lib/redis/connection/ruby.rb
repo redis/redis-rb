@@ -1,3 +1,5 @@
+require "redis/connection/registry"
+require "redis/connection/command_helper"
 require "socket"
 
 class Redis
@@ -125,3 +127,5 @@ class Redis
     end
   end
 end
+
+Redis::Connection.drivers << Redis::Connection::Ruby

@@ -1,3 +1,7 @@
+require "redis/connection/command_helper"
+require "redis/connection/registry"
+require "hiredis/connection"
+
 require "em-synchrony"
 require "hiredis/reader"
 
@@ -109,3 +113,5 @@ class Redis
     end
   end
 end
+
+Redis::Connection.drivers << Redis::Connection::Synchrony

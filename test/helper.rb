@@ -1,6 +1,7 @@
 $:.unshift File.expand_path('../lib', File.dirname(__FILE__))
 
 require "cutest"
+require "mocha"
 require "logger"
 require "stringio"
 
@@ -8,6 +9,8 @@ begin
   require "ruby-debug"
 rescue LoadError
 end
+
+include Mocha::API
 
 PORT    = 6379
 OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
@@ -45,14 +48,6 @@ end
 $VERBOSE = true
 
 require "redis"
-
-# Check if hiredis was loaded when tests should be run against it
-if ENV["HIREDIS"] == "1"
-  ancestors = Redis::Connection.ancestors.map(&:to_s)
-  unless ancestors.include?("Hiredis::Ext::Connection")
-    flunk("hiredis was not loaded")
-  end
-end
 
 def capture_stderr
   stderr = $stderr

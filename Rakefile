@@ -8,7 +8,7 @@ require 'redis/version'
 GEM = 'redis'
 GEM_NAME = 'redis'
 GEM_VERSION = Redis::VERSION
-AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi', 'Michel Martens', 'Damian Janowski']
+AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi', 'Michel Martens', 'Damian Janowski', 'Pieter Noordhuis']
 EMAIL = "ez@engineyard.com"
 HOMEPAGE = "http://github.com/ezmobius/redis-rb"
 SUMMARY = "Ruby client library for Redis, the key value storage server"
@@ -27,6 +27,7 @@ spec = Gem::Specification.new do |s|
   s.require_path = 'lib'
   s.autorequire = GEM
   s.files = %w(LICENSE README.md Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
+  s.add_development_dependency "mocha", "~> 0.9"
 end
 
 REDIS_DIR = File.expand_path(File.join("..", "test"), __FILE__)
@@ -59,66 +60,94 @@ task :stop do
   end
 end
 
+def isolated(&block)
+  pid = fork { yield }
+  Process.wait(pid)
+end
+
 desc "Run the test suite"
-task :test do
-  require 'redis'
-  require 'cutest'
+task :test => ["test:ruby", "test:hiredis"]
 
-  Cutest.run(Dir['./test/**/*_test.rb'])
+namespace :test do
+  desc "Run tests against the Ruby driver"
+  task :ruby do
+    require "cutest"
 
-  begin
-    require 'redis/connection/hiredis'
-
-    puts
-    puts "Running tests against hiredis v#{Hiredis::VERSION}"
-
-    Cutest.run(Dir['./test/**/*_test.rb'])
-  rescue
-    puts "Skipping tests against hiredis"
+    isolated do
+      Cutest.run(Dir["./test/**/*_test.rb"])
+    end
   end
 
-  begin
-    require 'redis/connection/synchrony'
+  desc "Run tests against the hiredis driver"
+  task :hiredis do
+    require "cutest"
 
-    # Make cutest fiber + eventmachine aware
-    undef test if defined? test
-    def test(name = nil, &block)
-      cutest[:test] = name
+    isolated do
+      begin
+        require "redis/connection/hiredis"
 
-      blk = Proc.new do
-        prepare.each { |blk| blk.call }
-        block.call(setup && setup.call)
-      end
+        puts
+        puts "Running tests against hiredis v#{Hiredis::VERSION}"
 
-      t = Thread.current[:cutest]
-      if defined? EventMachine
-        EM.synchrony do
-          Thread.current[:cutest] = t
-          blk.call
-          EM.stop
-        end
-      else
-        blk.call
+        Cutest.run(Dir["./test/**/*_test.rb"])
+      rescue
+        puts "Skipping tests against hiredis"
       end
     end
+  end
 
-    puts
-    puts "Running tests against em-synchrony"
+  desc "Run tests against the em-synchrony driver"
+  task :synchrony do
+    require "cutest"
 
-    threaded_tests = [
-      './test/distributed_blocking_commands_test.rb',
-      './test/distributed_publish_subscribe_test.rb',
-      './test/publish_subscribe_test.rb',
-      './test/remote_server_control_commands_test.rb',
-      './test/thread_safety_test.rb',
-      './test/error_replies_test.rb'
-    ]
+    isolated do
+      begin
+        require "redis/connection/synchrony"
 
-    Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
-  rescue
-    puts "Skipping tests against em-synchrony"
+        # Make cutest fiber + eventmachine aware
+        undef test if defined? test
+        def test(name = nil, &block)
+          cutest[:test] = name
+
+          blk = Proc.new do
+            prepare.each { |blk| blk.call }
+            block.call(setup && setup.call)
+          end
+
+          t = Thread.current[:cutest]
+          if defined? EventMachine
+            EM.synchrony do
+              Thread.current[:cutest] = t
+              blk.call
+              EM.stop
+            end
+          else
+            blk.call
+          end
+        end
+
+        puts
+        puts "Running tests against em-synchrony"
+
+        threaded_tests = [
+          './test/distributed_blocking_commands_test.rb',
+          './test/distributed_publish_subscribe_test.rb',
+          './test/publish_subscribe_test.rb',
+          './test/remote_server_control_commands_test.rb',
+          './test/thread_safety_test.rb',
+          './test/error_replies_test.rb'
+        ]
+
+        Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
+      rescue Exception => e
+        puts e
+        puts e.backtrace.join("\n")
+        puts "Skipping tests against em-synchrony"
+      end
+    end
   end
 end
+
 
 Rake::GemPackageTask.new(spec) do |pkg|
   pkg.gem_spec = spec

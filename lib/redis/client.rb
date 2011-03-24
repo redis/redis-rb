@@ -16,14 +16,7 @@ class Redis
       @password = options[:password]
       @logger = options[:logger]
       @reconnect = true
-
-      if defined?(EventMachine)
-        @connection = Connection::Synchrony.new
-      elsif defined?(::Hiredis)
-        @connection = Connection::Hiredis.new
-      else
-        @connection = Connection::Ruby.new
-      end
+      @connection = Connection.drivers.last.new
     end
 
     def connect

@@ -1,8 +1,9 @@
-# Not requiring the pure Ruby connection class when ::Hiredis is defined saves
-# about ~100KB RSS on MRI 1.8.7 and ~150KB RSS on MRI 1.9.2.
+require "redis/connection/registry"
 
-require "redis/connection/command_helper"
-
-if !defined?(::Hiredis) && !defined?(EventMachine)
-  require "redis/connection/ruby"
-end
+# If a connection driver was required before this file, the array
+# Redis::Connection.drivers will contain one or more classes. The last driver
+# in this array will be used as default driver. If this array is empty, we load
+# the plain Ruby driver as our default. Another driver can be required at a
+# later point in time, causing it to be the last element of the #drivers array
+# and therefore be chosen by default.
+require "redis/connection/ruby" if Redis::Connection.drivers.empty?
