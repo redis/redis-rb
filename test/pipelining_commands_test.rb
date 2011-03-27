@@ -87,3 +87,37 @@ test "Nesting pipeline blocks" do |r|
   assert "s1" == r.get("foo")
   assert "s2" == r.get("bar")
 end
+
+test "INFO in a pipeline" do |r|
+  result = r.pipelined do
+    r.info
+  end
+
+  assert result.first.kind_of?(String)
+end
+
+test "CONFIG GET in a pipeline" do |r|
+  result = r.pipelined do
+    r.config(:get, "*")
+  end
+
+  assert result.first.kind_of?(Array)
+end
+
+test "HGETALL in a pipeline should not return hash" do |r|
+  r.hmset("hash", "field", "value")
+  result = r.pipelined do
+    r.hgetall("hash")
+  end
+
+  assert ["field", "value"] == result.first
+end
+
+test "KEYS in a pipeline" do |r|
+  r.set("key", "value")
+  result = r.pipelined do
+    r.keys("*")
+  end
+
+  assert ["key"] == result.first
+end

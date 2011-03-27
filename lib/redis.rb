@@ -87,15 +87,25 @@ class Redis
   # Get information and statistics about the server.
   def info
     synchronize do
-      Hash[*@client.call(:info).split(/:|\r\n/).grep(/^[^#]/)]
+      reply = @client.call(:info)
+
+      if reply.kind_of?(String)
+        Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
+      else
+        reply
+      end
     end
   end
 
   def config(action, *args)
     synchronize do
-      response = @client.call(:config, action, *args)
-      response = Hash[*response] if action == :get
-      response
+      reply = @client.call(:config, action, *args)
+
+      if reply.kind_of?(Array) && action == :get
+        Hash[*reply]
+      else
+        reply
+      end
     end
   end
 
@@ -192,7 +202,13 @@ class Redis
   # Get all the fields and values in a hash.
   def hgetall(key)
     synchronize do
-      Hash[*@client.call(:hgetall, key)]
+      reply = @client.call(:hgetall, key)
+
+      if reply.kind_of?(Array)
+        Hash[*reply]
+      else
+        reply
+      end
     end
   end
 
@@ -220,7 +236,13 @@ class Redis
   # Find all keys matching the given pattern.
   def keys(pattern = "*")
     synchronize do
-      _array @client.call(:keys, pattern)
+      reply = @client.call(:keys, pattern)
+
+      if reply.kind_of?(String)
+        reply.split(" ")
+      else
+        reply
+      end
     end
   end
 
@@ -730,7 +752,7 @@ class Redis
   def mapped_hmget(key, *fields)
     reply = hmget(key, *fields)
 
-    if reply.is_a?(Array)
+    if reply.kind_of?(Array)
       Hash[*fields.zip(reply).flatten]
     else
       reply
@@ -853,7 +875,7 @@ class Redis
   def mapped_mget(*keys)
     reply = mget(*keys)
 
-    if reply.is_a?(Array)
+    if reply.kind_of?(Array)
       Hash[*keys.zip(reply).flatten]
     else
       reply
@@ -1087,10 +1109,6 @@ private
 
   def _bool(value)
     value == 1
-  end
-
-  def _array(value)
-    value.kind_of?(Array) ? value : value.split(" ")
   end
 
   def subscription(method, channels, block)
