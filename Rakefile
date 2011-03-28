@@ -273,7 +273,7 @@ namespace :commands do
 
     OPTIONS[:logger] = Logger.new("./tmp/log")
 
-    Rake::Task["test"].invoke
+    Rake::Task["test:ruby"].invoke
 
     redis = Redis.new
 
