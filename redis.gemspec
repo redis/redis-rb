@@ -7,7 +7,6 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Ezra Zygmuntowicz", "Taylor Weibley", "Matthew Clark", "Brian McKinney", "Salvatore Sanfilippo", "Luca Guidi", "Michel Martens", "Damian Janowski", "Pieter Noordhuis"]
   s.autorequire = %q{redis}
-  s.date = %q{2011-03-24}
   s.description = %q{Ruby client library for Redis, the key value storage server}
   s.summary = %q{Ruby client library for Redis, the key value storage server}
   s.email = %q{ez@engineyard.com}
