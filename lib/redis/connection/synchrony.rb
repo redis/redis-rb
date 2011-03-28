@@ -19,14 +19,21 @@ class Redis
 
       def receive_data(data)
         @reader.feed(data)
-        until (reply = @reader.gets) == false
-          @req.succeed reply
+
+        begin
+          until (reply = @reader.gets) == false
+            @req.succeed reply
+          end
+        rescue RuntimeError => err
+          @req.fail ::Redis::ProtocolError.new(err.message)
         end
       end
 
       def read
         @req = EventMachine::DefaultDeferrable.new
-        EventMachine::Synchrony.sync @req
+        r = EventMachine::Synchrony.sync @req
+        raise r if r.is_a?(::Redis::ProtocolError)
+        r
       end
 
       def send(data)
