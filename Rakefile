@@ -5,31 +5,6 @@ require 'rake/testtask'
 $:.unshift File.join(File.dirname(__FILE__), 'lib')
 require 'redis/version'
 
-GEM = 'redis'
-GEM_NAME = 'redis'
-GEM_VERSION = Redis::VERSION
-AUTHORS = ['Ezra Zygmuntowicz', 'Taylor Weibley', 'Matthew Clark', 'Brian McKinney', 'Salvatore Sanfilippo', 'Luca Guidi', 'Michel Martens', 'Damian Janowski', 'Pieter Noordhuis']
-EMAIL = "ez@engineyard.com"
-HOMEPAGE = "http://github.com/ezmobius/redis-rb"
-SUMMARY = "Ruby client library for Redis, the key value storage server"
-
-spec = Gem::Specification.new do |s|
-  s.name = GEM
-  s.version = GEM_VERSION
-  s.platform = Gem::Platform::RUBY
-  s.has_rdoc = true
-  s.extra_rdoc_files = ["LICENSE"]
-  s.summary = SUMMARY
-  s.description = s.summary
-  s.authors = AUTHORS
-  s.email = EMAIL
-  s.homepage = HOMEPAGE
-  s.require_path = 'lib'
-  s.autorequire = GEM
-  s.files = %w(LICENSE README.md Rakefile) + Dir.glob("{lib,tasks,spec}/**/*")
-  s.add_development_dependency "mocha", "~> 0.9"
-end
-
 REDIS_DIR = File.expand_path(File.join("..", "test"), __FILE__)
 REDIS_CNF = File.join(REDIS_DIR, "test.conf")
 REDIS_PID = File.join(REDIS_DIR, "db", "redis.pid")
@@ -100,6 +75,9 @@ namespace :test do
   task :synchrony do
     require "cutest"
 
+    # Synchrony needs 1.9
+    next if RUBY_VERSION < "1.9"
+
     isolated do
       begin
         require "redis/connection/synchrony"
@@ -145,23 +123,6 @@ namespace :test do
         puts "Skipping tests against em-synchrony"
       end
     end
-  end
-end
-
-
-Rake::GemPackageTask.new(spec) do |pkg|
-  pkg.gem_spec = spec
-end
-
-desc "install the gem locally"
-task :install => [:package] do
-  sh %{gem install pkg/#{GEM}-#{GEM_VERSION}}
-end
-
-desc "create a gemspec file"
-task :gemspec do
-  File.open("#{GEM}.gemspec", "w") do |file|
-    file.puts spec.to_ruby
   end
 end
 
