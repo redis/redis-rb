@@ -113,7 +113,8 @@ namespace :test do
           './test/publish_subscribe_test.rb',
           './test/remote_server_control_commands_test.rb',
           './test/thread_safety_test.rb',
-          './test/error_replies_test.rb'
+          './test/error_replies_test.rb',
+          './test/internals_test.rb'
         ]
 
         Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
