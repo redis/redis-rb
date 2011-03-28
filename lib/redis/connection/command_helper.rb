@@ -19,28 +19,27 @@ class Redis
         command
       end
 
-      protected
+    protected
 
-        if "".respond_to?(:bytesize)
-          def string_size(string)
-            string.to_s.bytesize
-          end
-        else
-          def string_size(string)
-            string.to_s.size
-          end
+      if "".respond_to?(:bytesize)
+        def string_size(string)
+          string.to_s.bytesize
         end
-
-        if defined?(Encoding::default_external)
-          def encode(string)
-            string.force_encoding(Encoding::default_external)
-          end
-        else
-          def encode(string)
-            string
-          end
+      else
+        def string_size(string)
+          string.to_s.size
         end
+      end
 
+      if defined?(Encoding::default_external)
+        def encode(string)
+          string.force_encoding(Encoding::default_external)
+        end
+      else
+        def encode(string)
+          string
+        end
+      end
     end
   end
 end

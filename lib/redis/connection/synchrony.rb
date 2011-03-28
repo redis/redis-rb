@@ -1,7 +1,5 @@
 require "redis/connection/command_helper"
 require "redis/connection/registry"
-require "hiredis/connection"
-
 require "em-synchrony"
 require "hiredis/reader"
 
@@ -91,25 +89,24 @@ class Redis
         raise ::Redis::ProtocolError.new(err.message)
       end
 
-      private
+    private
 
-        def setup_connect_callbacks(conn, f)
-          conn.callback do
-            @connection = conn
-            @state = :connected
-            f.resume conn
-          end
-
-          conn.errback do
-            @connection = conn
-            f.resume :refused
-          end
-
-          r = Fiber.yield
-          raise Errno::ECONNREFUSED if r == :refused
-          r
+      def setup_connect_callbacks(conn, f)
+        conn.callback do
+          @connection = conn
+          @state = :connected
+          f.resume conn
         end
 
+        conn.errback do
+          @connection = conn
+          f.resume :refused
+        end
+
+        r = Fiber.yield
+        raise Errno::ECONNREFUSED if r == :refused
+        r
+      end
     end
   end
 end
