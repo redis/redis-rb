@@ -125,6 +125,28 @@ disabled for versions 2.2 and up by initializing the client with `:thread_safe
 
 See the tests and benchmarks for examples.
 
+## Alternate drivers
+
+Non-default connection drivers are only used when they are explicitly required.
+By default, redis-rb uses Ruby's socket library to talk with Redis.
+
+### hiredis
+
+Using redis-rb with hiredis-rb (v0.3 or higher) as backend is done by requiring
+`redis/connection/hiredis` before requiring `redis`. This will make redis-rb
+pick up hiredis as default driver automatically. This driver optimizes for
+speed, at the cost of portability. Since hiredis is a C extension, JRuby is not
+supported (by default). Use hiredis when you have large array replies (think
+`LRANGE`, `SMEMBERS`, `ZRANGE`, etc.) and/or large pipelines of commands.
+
+### synchrony
+
+This driver adds support for
+[em-synchrony](https://github.com/igrigorik/em-synchrony). Using the synchrony
+backend from redis-rb is done by requiring `redis/connection/synchrony` before
+requiring `redis`. This driver makes redis-rb work with EventMachine's
+asynchronous I/O, while not changing the exposed API.
+
 ## Testing
 
 This library (v2.2) is tested against the following interpreters:

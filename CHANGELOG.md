@@ -23,7 +23,11 @@
 * Accept both `:with_scores` _and_ `:withscores` as argument to sorted set
   commands.
 
-* Use hiredis (0.3) by requiring "redis/connection/hiredis".
+* Use [hiredis](https://github.com/pietern/hiredis-rb) (v0.3 or higher) by
+  requiring "redis/connection/hiredis".
+
+* Use [em-synchrony](https://github.com/igrigorik/em-synchrony) by requiring
+  "redis/connection/synchrony".
 
 # 2.1.1
 
