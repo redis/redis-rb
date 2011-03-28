@@ -125,6 +125,13 @@ disabled for versions 2.2 and up by initializing the client with `:thread_safe
 
 See the tests and benchmarks for examples.
 
+## Testing
+
+This library (v2.2) is tested against the following interpreters:
+
+* MRI 1.8.7 (drivers: Ruby, hiredis)
+* MRI 1.9.2 (drivers: Ruby, hiredis, em-synchrony)
+
 ## Known issues
 
 * Ruby 1.9 doesn't raise on socket timeouts in `IO#read` but rather retries the
