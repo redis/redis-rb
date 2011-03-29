@@ -153,6 +153,8 @@ This library (v2.2) is tested against the following interpreters:
 
 * MRI 1.8.7 (drivers: Ruby, hiredis)
 * MRI 1.9.2 (drivers: Ruby, hiredis, em-synchrony)
+* JRuby 1.6 (drivers: Ruby)
+* Rubinius 1.2 (drivers: Ruby, hiredis)
 
 ## Known issues
 
