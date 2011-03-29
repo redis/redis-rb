@@ -87,3 +87,16 @@ def assert_nothing_raised(*exceptions)
   end
 end
 
+def test_with_mocha(title, &block)
+  test title do |*args|
+    mocha_setup
+
+    begin
+      block.call(*args)
+      mocha_verify
+    ensure
+      mocha_teardown
+    end
+  end
+end
+

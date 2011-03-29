@@ -126,17 +126,9 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
   end
 end
 
-test "Bubble EAGAIN without retrying" do |redis,log|
-  mocha_setup
-
-  begin
-    redis.client.connection.stubs(:read).raises(Errno::EAGAIN).once
-    assert_raise(Errno::EAGAIN) { redis.ping }
-
-    mocha_verify
-  ensure
-    mocha_teardown
-  end
+test_with_mocha "Bubble EAGAIN without retrying" do |redis,log|
+  redis.client.connection.stubs(:read).raises(Errno::EAGAIN).once
+  assert_raise(Errno::EAGAIN) { redis.ping }
 end
 
 test "Connecting to UNIX domain socket" do
