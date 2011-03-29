@@ -1,6 +1,9 @@
 # encoding: UTF-8
 
 require File.expand_path("./helper", File.dirname(__FILE__))
+require File.expand_path("./redis_mock", File.dirname(__FILE__))
+
+include RedisMock::Helper
 
 setup do
   init Redis.new(OPTIONS)
@@ -75,9 +78,11 @@ test "FLUSHDB" do |r|
   assert 0 == r.dbsize
 end
 
-test_with_mocha "FLUSHALL" do |r|
-  r.client.connection.expects(:write).with [:flushall]
-  r.client.connection.expects(:read).returns "FLUSHALL"
-  assert "FLUSHALL" == r.flushall
+test "FLUSHALL" do
+  redis_mock(:flushall => lambda { "+FLUSHALL" }) do
+    redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+    assert "FLUSHALL" == redis.flushall
+  end
 end
 

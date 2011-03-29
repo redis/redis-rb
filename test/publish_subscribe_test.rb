@@ -137,9 +137,22 @@ test "UNSUBSCRIBE without a SUBSCRIBE" do |r|
   end
 end
 
-test_with_mocha "SUBSCRIBE disables timeout" do |r|
-  r.client.expects(:without_socket_timeout).yields
-  r.subscribe "foo" do |on|
-    on.subscribe { r.unsubscribe }
+test "SUBSCRIBE past a timeout" do |r|
+  # For some reason, a thread here doesn't reproduce the issue.
+  sleep = %{sleep #{OPTIONS[:timeout] + 1}}
+  publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
+  cmd = [sleep, publish].join("; ")
+
+  IO.popen(cmd, "r+") do |pipe|
+    received = false
+
+    r.subscribe "foo" do |on|
+      on.message do |channel, message|
+        received = true
+        r.unsubscribe
+      end
+    end
+
+    assert received
   end
 end

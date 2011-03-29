@@ -35,6 +35,9 @@ end
 # Don't use assert_raise because Timeour::Error in 1.8 inherits
 # Exception instead of StandardError (on 1.9).
 test "Connection timeout" do
+  # EM immediately raises CONNREFUSED
+  next if driver == :synchrony
+
   result = false
 
   begin
@@ -126,13 +129,29 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
   end
 end
 
-test_with_mocha "Bubble EAGAIN without retrying" do |redis,log|
-  redis.client.connection.stubs(:read).raises(Errno::EAGAIN).once
-  assert_raise(Errno::EAGAIN) { redis.ping }
-end
-
 test "Connecting to UNIX domain socket" do
   assert_nothing_raised do
     Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock")).ping
   end
 end
+
+# Using a mock server in a thread doesn't work here (possibly because blocking
+# socket ops, raw socket timeouts and Ruby's thread scheduling don't mix).
+test "Bubble EAGAIN without retrying" do
+  cmd = %{(sleep 0.3; echo "+PONG\r\n") | nc -l 6380}
+  IO.popen(cmd) do |_|
+    sleep 0.1 # Give nc a little time to start listening
+    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+
+    begin
+      assert_raise(Errno::EAGAIN) { redis.ping }
+    ensure
+      # Explicitly close connection so nc can quit
+      redis.client.disconnect
+
+      # Make the reactor loop do a tick to really close
+      EM::Synchrony.sleep(0) if driver == :synchrony
+    end
+  end
+end
+

@@ -30,6 +30,8 @@ module RedisMock
         # Ignore client closing the connection
       end
     end
+  ensure
+    server.close
   end
 
   module Helper
@@ -45,9 +47,7 @@ module RedisMock
     #
     def redis_mock(replies = {})
       begin
-        pid = fork do
-          trap("TERM") { exit }
-
+        thread = Thread.new do
           RedisMock.start do |command, *args|
             (replies[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
           end
@@ -58,10 +58,7 @@ module RedisMock
         yield
 
       ensure
-        if pid
-          Process.kill("TERM", pid)
-          Process.wait(pid)
-        end
+        thread.raise if thread.alive?
       end
     end
   end

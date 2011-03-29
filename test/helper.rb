@@ -1,7 +1,6 @@
 $:.unshift File.expand_path('../lib', File.dirname(__FILE__))
 
 require "cutest"
-require "mocha"
 require "logger"
 require "stringio"
 
@@ -9,8 +8,6 @@ begin
   require "ruby-debug"
 rescue LoadError
 end
-
-include Mocha::API
 
 PORT    = 6379
 OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
@@ -143,19 +140,6 @@ def assert_nothing_raised(*exceptions)
     yield
   rescue *exceptions
     flunk(caller[1])
-  end
-end
-
-def test_with_mocha(title, &block)
-  test title do |*args|
-    mocha_setup
-
-    begin
-      block.call(*args)
-      mocha_verify
-    ensure
-      mocha_teardown
-    end
   end
 end
 

@@ -87,9 +87,7 @@ namespace :test do
 
         threaded_tests = [
           './test/thread_safety_test.rb',
-          './test/error_replies_test.rb',
-          './test/distributed_internals_test.rb',
-          './test/internals_test.rb'
+          './test/error_replies_test.rb'
         ]
 
         Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
