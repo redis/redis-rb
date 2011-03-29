@@ -85,11 +85,7 @@ namespace :test do
         puts
         puts "Running tests against em-synchrony"
 
-        threaded_tests = [
-          './test/thread_safety_test.rb',
-          './test/error_replies_test.rb'
-        ]
-
+        threaded_tests = ['./test/thread_safety_test.rb']
         Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
       rescue Exception => e
         puts e
