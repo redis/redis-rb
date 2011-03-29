@@ -57,12 +57,11 @@ class Redis
         end
       end
 
-      # Code path is only taken when provided block does a break
-      if error
-        raise error
-      else
-        result
-      end
+      # Raise error when previous block broke out of the loop.
+      raise error if error
+
+      # Result is set to the value that the provided block used to break.
+      result
     end
 
     def call_pipelined(commands, options = {})
@@ -96,11 +95,10 @@ class Redis
         raise
       end
 
-      if error && options[:raise]
-        raise error
-      else
-        replies
-      end
+      # Raise first error in pipeline when we should raise.
+      raise error if error && options[:raise]
+
+      replies
     end
 
     def call_without_timeout(*args)
