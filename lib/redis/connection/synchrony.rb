@@ -22,18 +22,16 @@ class Redis
 
         begin
           until (reply = @reader.gets) == false
-            @req.succeed reply
+            @req.succeed [:reply, reply]
           end
         rescue RuntimeError => err
-          @req.fail ::Redis::ProtocolError.new(err.message)
+          @req.fail [:error, ::Redis::ProtocolError.new(err.message)]
         end
       end
 
       def read
         @req = EventMachine::DefaultDeferrable.new
-        r = EventMachine::Synchrony.sync @req
-        raise r if r.is_a?(::Redis::ProtocolError)
-        r
+        EventMachine::Synchrony.sync @req
       end
 
       def send(data)
@@ -42,7 +40,7 @@ class Redis
 
       def unbind
         if @req
-          @req.fail
+          @req.fail [:error, Errno::ECONNRESET]
           @req = nil
         else
           fail
@@ -91,9 +89,15 @@ class Redis
       end
 
       def read
-        @connection.read
-      rescue RuntimeError => err
-        raise ::Redis::ProtocolError.new(err.message)
+        type, payload = @connection.read
+
+        if type == :reply
+          payload
+        elsif type == :error
+          raise payload
+        else
+          raise "Unknown type #{type.inspect}"
+        end
       end
 
     private

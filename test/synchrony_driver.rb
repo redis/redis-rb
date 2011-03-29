@@ -50,5 +50,8 @@ EM.synchrony do
   assert "s2" == r.lpop("foo")
   assert "s1" == r.lpop("foo")
 
+  assert "OK" == r.client.call(:quit)
+  assert "PONG" == r.ping
+
   EM.stop
 end
