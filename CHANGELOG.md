@@ -1,4 +1,4 @@
-# 2.2.0 (unreleased)
+# 2.2.0
 
 * Added method `Redis#without_reconnect` that ensures the client will not try
   to reconnect when running the code inside the specified block.
