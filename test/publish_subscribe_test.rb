@@ -9,7 +9,7 @@ end
 test "SUBSCRIBE and UNSUBSCRIBE" do |r|
   listening = false
 
-  thread = Thread.new do
+  wire = Wire.new do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
         @subscribed = true
@@ -32,11 +32,11 @@ test "SUBSCRIBE and UNSUBSCRIBE" do |r|
     end
   end
 
-  Thread.pass while !listening
+  Wire.pass while !listening
 
   Redis.new(OPTIONS).publish("foo", "s1")
 
-  thread.join
+  wire.join
 
   assert @subscribed
   assert 1 == @t1
@@ -48,7 +48,7 @@ end
 test "PSUBSCRIBE and PUNSUBSCRIBE" do |r|
   listening = false
 
-  thread = Thread.new do
+  wire = Wire.new do
     r.psubscribe("f*") do |on|
       on.psubscribe do |pattern, total|
         @subscribed = true
@@ -71,11 +71,11 @@ test "PSUBSCRIBE and PUNSUBSCRIBE" do |r|
     end
   end
 
-  Thread.pass while !listening
+  Wire.pass while !listening
 
   Redis.new(OPTIONS).publish("foo", "s1")
 
-  thread.join
+  wire.join
 
   assert @subscribed
   assert 1 == @t1
@@ -89,7 +89,7 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
 
   @channels = []
 
-  thread = Thread.new do
+  wire = Wire.new do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
         @channels << channel
@@ -102,11 +102,11 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
     end
   end
 
-  Thread.pass while !listening
+  Wire.pass while !listening
 
   Redis.new(OPTIONS).publish("foo", "s1")
 
-  thread.join
+  wire.join
 
   assert ["foo", "bar"] == @channels
 end
@@ -137,21 +137,9 @@ test "UNSUBSCRIBE without a SUBSCRIBE" do |r|
   end
 end
 
-test "SUBSCRIBE past a timeout" do |r|
-  # For some reason, a thread here doesn't reproduce the issue.
-  fork do
-    sleep OPTIONS[:timeout] + 1
-    Redis.new(OPTIONS).publish "foo", "bar"
-  end
-
-  received = false
-
+test_with_mocha "SUBSCRIBE disables timeout" do |r|
+  r.client.expects(:without_socket_timeout).yields
   r.subscribe "foo" do |on|
-    on.message do |channel, message|
-      received = true
-      r.unsubscribe
-    end
+    on.subscribe { r.unsubscribe }
   end
-
-  assert received
 end

@@ -86,10 +86,9 @@ namespace :test do
         puts "Running tests against em-synchrony"
 
         threaded_tests = [
-          './test/publish_subscribe_test.rb',
-          './test/remote_server_control_commands_test.rb',
           './test/thread_safety_test.rb',
           './test/error_replies_test.rb',
+          './test/distributed_internals_test.rb',
           './test/internals_test.rb'
         ]
 

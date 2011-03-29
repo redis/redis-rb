@@ -1,9 +1,6 @@
 # encoding: UTF-8
 
 require File.expand_path("./helper", File.dirname(__FILE__))
-require File.expand_path("./redis_mock", File.dirname(__FILE__))
-
-include RedisMock::Helper
 
 setup do
   init Redis.new(OPTIONS)
@@ -18,18 +15,18 @@ end
 test "MONITOR" do |r|
   log = []
 
-  t1 = Thread.new do
+  wire = Wire.new do
     Redis.new(OPTIONS).monitor do |line|
       log << line
       break if log.size == 3
     end
   end
 
-  Thread.pass while log.empty? # Faster than sleep
+  Wire.pass while log.empty? # Faster than sleep
 
   r.set "foo", "s1"
 
-  t1.join
+  wire.join
 
   assert log[-1][%q{(db 15) "set" "foo" "s1"}]
 end
@@ -52,13 +49,9 @@ test "DEBUG" do |r|
   assert r.debug(:object, "foo").kind_of?(String)
 end
 
-test "SYNC" do |r|
-  replies = {:sync => lambda { "+OK" }}
-
-  redis_mock(replies) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
-
-    assert "OK" == redis.sync
-  end
+test_with_mocha "SYNC" do |r|
+  r.client.connection.expects(:write).with [:sync]
+  r.client.connection.expects(:read).returns "OK"
+  assert "OK" == r.sync
 end
 
