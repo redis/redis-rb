@@ -139,13 +139,26 @@ speed, at the cost of portability. Since hiredis is a C extension, JRuby is not
 supported (by default). Use hiredis when you have large array replies (think
 `LRANGE`, `SMEMBERS`, `ZRANGE`, etc.) and/or large pipelines of commands.
 
+Using redis-rb with hiredis from a Gemfile:
+
+    gem "hiredis", "~> 0.3.1"
+    gem "redis", "~> 2.2.0", :require => ["redis/connection/hiredis", "redis"]
+
 ### synchrony
 
 This driver adds support for
 [em-synchrony](https://github.com/igrigorik/em-synchrony). Using the synchrony
 backend from redis-rb is done by requiring `redis/connection/synchrony` before
 requiring `redis`. This driver makes redis-rb work with EventMachine's
-asynchronous I/O, while not changing the exposed API.
+asynchronous I/O, while not changing the exposed API. The hiredis gem needs to
+be available as well, because the synchrony driver uses hiredis for parsing the
+Redis protocol.
+
+Using redis-rb with synchrony from a Gemfile:
+
+    gem "hiredis", "~> 0.3.1"
+    gem "em-synchrony"
+    gem "redis", "~> 2.2.0", :require => ["redis/connection/synchrony", "redis"]
 
 ## Testing
 
