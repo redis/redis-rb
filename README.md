@@ -185,6 +185,24 @@ This library (v2.2) is tested against the following interpreters:
 
 Check the [Redis Command Reference](http://redis.io/commands) or check the tests to find out how to use this client.
 
+## Contributors
+
+(ordered chronologically with more than 5 commits, see `git shortlog -sn` for
+all contributors)
+
+* Ezra Zygmuntowicz
+* Taylor Weibley
+* Matthew Clark
+* Brian McKinney
+* Luca Guidi
+* Salvatore Sanfillipo
+* Chris Wanstrath
+* Damian Janowski
+* Michel Martens
+* Nick Quaranto
+* Pieter Noordhuis
+* Ilya Grigorik
+
 ## Contributing
 
 [Fork the project](http://github.com/ezmobius/redis-rb) and send pull requests. You can also ask for help at `#redis-rb` on Freenode.
