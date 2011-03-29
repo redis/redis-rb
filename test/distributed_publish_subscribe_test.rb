@@ -21,7 +21,7 @@ end
 test "SUBSCRIBE and UNSUBSCRIBE with tags" do |r|
   listening = false
 
-  thread = Thread.new do
+  wire = Wire.new do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
         @subscribed = true
@@ -44,11 +44,11 @@ test "SUBSCRIBE and UNSUBSCRIBE with tags" do |r|
     end
   end
 
-  Thread.pass while !listening
+  Wire.pass while !listening
 
   Redis::Distributed.new(NODES).publish("foo", "s1")
 
-  thread.join
+  wire.join
 
   assert @subscribed
   assert 1 == @t1
@@ -61,7 +61,7 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
   listening = false
   @channels = []
 
-  thread = Thread.new do
+  wire = Wire.new do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
         @channels << channel
@@ -74,11 +74,11 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
     end
   end
 
-  Thread.pass while !listening
+  Wire.pass while !listening
 
   Redis::Distributed.new(NODES).publish("foo", "s1")
 
-  thread.join
+  wire.join
 
   assert ["foo", "bar"] == @channels
 end

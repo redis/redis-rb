@@ -12,9 +12,9 @@ test "BLPOP" do |r|
   r.lpush("foo", "s1")
   r.lpush("foo", "s2")
 
-  thread = Thread.new do
+  wire = Wire.new do
     redis = Redis::Distributed.new(NODES)
-    sleep 0.3
+    Wire.sleep 0.3
     redis.lpush("foo", "s3")
   end
 
@@ -22,16 +22,16 @@ test "BLPOP" do |r|
   assert ["foo", "s1"] == r.blpop("foo", 1)
   assert ["foo", "s3"] == r.blpop("foo", 1)
 
-  thread.join
+  wire.join
 end
 
 test "BRPOP" do |r|
   r.rpush("foo", "s1")
   r.rpush("foo", "s2")
 
-  t = Thread.new do
+  wire = Wire.new do
     redis = Redis::Distributed.new(NODES)
-    sleep 0.3
+    Wire.sleep 0.3
     redis.rpush("foo", "s3")
   end
 
@@ -39,7 +39,7 @@ test "BRPOP" do |r|
   assert ["foo", "s1"] == r.brpop("foo", 1)
   assert ["foo", "s3"] == r.brpop("foo", 1)
 
-  t.join
+  wire.join
 end
 
 test "BRPOP should unset a configured socket timeout" do |r|
