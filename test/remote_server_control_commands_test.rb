@@ -52,6 +52,14 @@ test "DEBUG" do |r|
   assert r.debug(:object, "foo").kind_of?(String)
 end
 
+test "OBJECT" do |r|
+  r.lpush "list", "value"
+
+  assert r.object(:refcount, "list") == 1
+  assert r.object(:encoding, "list") == "ziplist"
+  assert r.object(:idletime, "list").kind_of?(Fixnum)
+end
+
 test "SYNC" do |r|
   replies = {:sync => lambda { "+OK" }}
 

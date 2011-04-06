@@ -807,6 +807,12 @@ class Redis
     end
   end
 
+  def object(*args)
+    synchronize do
+      @client.call(:object, *args)
+    end
+  end
+
   # Internal command used for replication.
   def sync
     synchronize do
