@@ -85,15 +85,22 @@ class Redis
   end
 
   # Get information and statistics about the server.
-  def info
+  def info(cmd = nil)
     synchronize do
-      reply = @client.call(:info)
+      reply = @client.call(*[:info, cmd].compact)
 
       if reply.kind_of?(String)
-        Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
-      else
-        reply
+        reply = Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
+
+        if cmd && cmd.to_s == "commandstats"
+          # Extract nested hashes for INFO COMMANDSTATS
+          reply = Hash[reply.map do |k, v|
+            [k[/^cmdstat_(.*)$/, 1], Hash[*v.split(/,|=/)]]
+          end]
+        end
       end
+
+      reply
     end
   end
 

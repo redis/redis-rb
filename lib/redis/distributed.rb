@@ -637,8 +637,8 @@ class Redis
     end
 
     # Get information and statistics about the server.
-    def info
-      on_each_node :info
+    def info(cmd = nil)
+      on_each_node :info, cmd
     end
 
     # Listen for all requests received by the server in real time.

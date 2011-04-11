@@ -15,6 +15,14 @@ test "INFO" do |r|
   end
 end
 
+test "INFO COMMANDSTATS" do |r|
+  r.config(:resetstat)
+  r.ping
+
+  result = r.info(:commandstats)
+  assert 1 == result["ping"]["calls"]
+end
+
 test "MONITOR" do |r|
   log = []
 

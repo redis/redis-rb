@@ -16,6 +16,15 @@ test "INFO" do |r|
   end
 end
 
+test "INFO COMMANDSTATS" do |r|
+  r.config(:resetstat)
+  r.ping # Executed on every node
+
+  r.info(:commandstats).each do |info|
+    assert 1 == info["ping"]["calls"]
+  end
+end
+
 test "MONITOR" do |r|
   begin
     r.monitor
