@@ -16,11 +16,14 @@ test "INFO" do |r|
 end
 
 test "INFO COMMANDSTATS" do |r|
+  # Only available on Redis >= 2.3.0
+  next if r.info["redis_version"] < "2.3.0"
+
   r.config(:resetstat)
   r.ping
 
   result = r.info(:commandstats)
-  assert 1 == result["ping"]["calls"]
+  assert "1" == result["ping"]["calls"]
 end
 
 test "MONITOR" do |r|

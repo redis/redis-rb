@@ -17,11 +17,14 @@ test "INFO" do |r|
 end
 
 test "INFO COMMANDSTATS" do |r|
-  r.config(:resetstat)
+  # Only available on Redis >= 2.3.0
+  next if r.info.first["redis_version"] < "2.3.0"
+
+  r.nodes.each { |n| n.config(:resetstat) }
   r.ping # Executed on every node
 
   r.info(:commandstats).each do |info|
-    assert 1 == info["ping"]["calls"]
+    assert "1" == info["ping"]["calls"]
   end
 end
 
