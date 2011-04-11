@@ -1,3 +1,16 @@
+# 2.2.1 (unreleased)
+
+* Internal API: Client#call and family are now called with a single array
+  argument, since splatting a large number of arguments (100K+) results in a
+  stack overflow on 1.9.2.
+
+* The `INFO` command can optionally take a subcommand. When the subcommand is
+  `COMMANDSTATS`, the client will properly format the returned statistics per
+  command. Subcommands for `INFO` are available since Redis v2.3.0 (unstable).
+
+* Change `IO#syswrite` back to the buffered `IO#write` since some Rubies do
+  short writes for large (1MB+) buffers and some don't (see issue #108).
+
 # 2.2.0
 
 * Added method `Redis#without_reconnect` that ensures the client will not try
