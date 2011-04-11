@@ -5,7 +5,7 @@ class Redis
     end
 
     def call(*args)
-      @client.process(args)
+      @client.process([args])
     end
 
     def subscribe(*channels, &block)

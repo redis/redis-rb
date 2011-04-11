@@ -34,17 +34,33 @@ class Redis
       @path || "#{@host}:#{@port}"
     end
 
+    # Starting with 2.2.1, assume that this method is called with a single
+    # array argument. Check its size for backwards compat.
     def call(*args)
-      reply = process(args) { read }
+      if args.first.is_a?(Array) && args.size == 1
+        command = args.first
+      else
+        command = args
+      end
+
+      reply = process([command]) { read }
       raise reply if reply.is_a?(RuntimeError)
       reply
     end
 
+    # Starting with 2.2.1, assume that this method is called with a single
+    # array argument. Check its size for backwards compat.
     def call_loop(*args)
+      if args.first.is_a?(Array) && args.size == 1
+        command = args.first
+      else
+        command = args
+      end
+
       error = nil
 
       result = without_socket_timeout do
-        process(args) do
+        process([command]) do
           loop do
             reply = read
             if reply.is_a?(RuntimeError)
@@ -74,7 +90,7 @@ class Redis
       # read, retrying would re-execute the entire pipeline, thus re-issueing
       # already succesfully executed commands. To circumvent this, don't retry
       # after the first reply has been read succesfully.
-      first = process(*commands) { read }
+      first = process(commands) { read }
       error = first if first.is_a?(RuntimeError)
 
       begin
@@ -109,7 +125,7 @@ class Redis
       retry
     end
 
-    def process(*commands)
+    def process(commands)
       logging(commands) do
         ensure_connected do
           commands.each do |command|
