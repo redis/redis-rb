@@ -804,7 +804,7 @@ class Redis
   # Listen for all requests received by the server in real time.
   def monitor(&block)
     synchronize do
-      @client.call_loop(:monitor, &block)
+      @client.call_loop([:monitor], &block)
     end
   end
 

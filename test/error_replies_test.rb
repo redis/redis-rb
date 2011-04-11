@@ -43,7 +43,7 @@ end
 
 test_with_reconnection_check "Recover from raise in #call_loop" do |r|
   begin
-    r.client.call_loop(:invalid_monitor) do
+    r.client.call_loop([:invalid_monitor]) do
       assert false # Should never be executed
     end
   rescue => ex

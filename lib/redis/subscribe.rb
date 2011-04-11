@@ -25,11 +25,11 @@ class Redis
     end
 
     def unsubscribe(*channels)
-      call(:unsubscribe, *channels)
+      call [:unsubscribe, *channels]
     end
 
     def punsubscribe(*channels)
-      call(:punsubscribe, *channels)
+      call [:punsubscribe, *channels]
     end
 
   protected
@@ -38,7 +38,7 @@ class Redis
       sub = Subscription.new(&block)
 
       begin
-        @client.call_loop(start, *channels) do |line|
+        @client.call_loop([start, *channels]) do |line|
           type, *rest = line
           sub.callbacks[type].call(*rest)
           break if type == stop && rest.last == 0
