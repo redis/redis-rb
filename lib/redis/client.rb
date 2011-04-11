@@ -21,8 +21,8 @@ class Redis
 
     def connect
       establish_connection
-      call(:auth, @password) if @password
-      call(:select, @db) if @db != 0
+      call [:auth, @password] if @password
+      call [:select, @db] if @db != 0
       self
     end
 
