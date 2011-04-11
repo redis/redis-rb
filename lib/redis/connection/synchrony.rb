@@ -85,7 +85,7 @@ class Redis
       end
 
       def write(command)
-        @connection.send(build_command(*command).join(COMMAND_DELIMITER))
+        @connection.send(build_command(command))
       end
 
       def read

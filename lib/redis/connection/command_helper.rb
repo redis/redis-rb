@@ -4,7 +4,7 @@ class Redis
 
       COMMAND_DELIMITER = "\r\n"
 
-      def build_command(*args)
+      def build_command(args)
         command = []
         command << "*#{args.size}"
 
@@ -16,7 +16,7 @@ class Redis
 
         # Trailing delimiter
         command << ""
-        command
+        command.join(COMMAND_DELIMITER)
       end
 
     protected
