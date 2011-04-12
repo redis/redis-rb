@@ -1120,8 +1120,11 @@ class Redis
 
 private
 
+  # Commands returning 1 for true and 0 for false may be executed in a pipeline
+  # where the method call will return nil. Propagate the nil instead of falsely
+  # returning false.
   def _bool(value)
-    value == 1
+    value == 1 if value
   end
 
   def subscription(method, channels, block)
