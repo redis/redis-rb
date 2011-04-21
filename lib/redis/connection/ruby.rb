@@ -116,7 +116,11 @@ class Redis
         end
 
       rescue LoadError
-        warn "WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang." unless RUBY_VERSION >= "1.9" || RUBY_PLATFORM =~ /java/
+        if ! defined?(RUBY_ENGINE)
+          # MRI 1.8, all other interpreters define RUBY_ENGINE, JRuby and
+          # Rubinius should have no issues with timeout.
+          warn "WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang."
+        end
 
         require "timeout"
 
