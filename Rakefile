@@ -65,7 +65,7 @@ namespace :test do
         puts "Running tests against hiredis v#{Hiredis::VERSION}"
 
         Cutest.run(Dir["./test/**/*_test.rb"])
-      rescue
+      rescue LoadError
         puts "Skipping tests against hiredis"
       end
     end
@@ -87,9 +87,7 @@ namespace :test do
 
         threaded_tests = ['./test/thread_safety_test.rb']
         Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
-      rescue Exception => e
-        puts e
-        puts e.backtrace.join("\n")
+      rescue LoadError
         puts "Skipping tests against em-synchrony"
       end
     end
