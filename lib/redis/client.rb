@@ -43,7 +43,12 @@ class Redis
         command = args
       end
 
-      reply = process([command]) { read }
+      # Shutdown command donen't need get reply
+      if command != [:shutdown]
+        reply = process([command]) { read }
+      else
+        process([command])
+      end
       raise reply if reply.is_a?(RuntimeError)
       reply
     end
