@@ -16,6 +16,13 @@ class Redis
       @client.process([command])
     end
 
+    # Assume that this method is called with a single array argument. No
+    # backwards compat here, since it was introduced in 2.2.2.
+    def call_without_reply(command)
+      @commands.push command
+      nil
+    end
+
     def subscribe(*channels, &block)
       subscription("subscribe", "unsubscribe", channels, block)
     end
