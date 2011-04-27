@@ -187,7 +187,7 @@ namespace :doc do
   end
 
   task :deploy do
-    system "rsync --del -avz doc/* redis-rb.keyvalue.org:deploys/redis-rb.keyvalue.org/"
+    system "rsync --del -avz doc/ redis-rb.keyvalue.org:deploys/redis-rb.keyvalue.org/"
   end
 end
 
