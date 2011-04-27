@@ -9,22 +9,19 @@ end
 test "thread safety" do
   redis = Redis.connect(OPTIONS.merge(:thread_safe => true))
 
-  redis.set "foo", 1
-  redis.set "bar", 2
+  threads = []
 
-  sample = 100
-
-  t1 = Thread.new do
-    $foos = Array.new(sample) { redis.get "foo" }
+  (0..10).each do |index|
+    threads << Thread.new do
+      value = 2 * index
+      redis.set "foo", value
+    end
   end
 
-  t2 = Thread.new do
-    $bars = Array.new(sample) { redis.get "bar" }
-  end
+  threads.each {|t| t.join }
 
-  t1.join
-  t2.join
+  foo_value = redis.get "foo"
 
-  assert_equal ["1"], $foos.uniq
-  assert_equal ["2"], $bars.uniq
+  assert_equal "20", foo_value
+
 end
