@@ -1,6 +1,6 @@
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :path, :password, :logger
+    attr_accessor :db, :host, :port, :path, :password, :logger, :command_map
     attr :timeout
     attr :connection
 
@@ -11,6 +11,7 @@ class Redis
         @port = (options[:port] || 6379).to_i
       end
 
+      @command_map = options[:command_map]
       @db = (options[:db] || 0).to_i
       @timeout = (options[:timeout] || 5).to_f
       @password = options[:password]
@@ -42,7 +43,14 @@ class Redis
       else
         command = args
       end
-
+      
+      # iRonin: Remapping command
+      if !@command_map.nil?
+        command_name = command[0]
+        new_command_name = @command_map[command_name] || command_name 
+        command[0] = new_command_name
+      end
+      
       reply = process([command]) { read }
       raise reply if reply.is_a?(RuntimeError)
       reply
