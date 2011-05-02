@@ -10,11 +10,17 @@ class Redis
 
       def post_init
         @req = nil
+        @connected = false
         @reader = ::Hiredis::Reader.new
       end
 
       def connection_completed
+        @connected = true
         succeed
+      end
+
+      def connected?
+        @connected
       end
 
       def receive_data(data)
@@ -39,6 +45,7 @@ class Redis
       end
 
       def unbind
+        @connected = false
         if @req
           @req.fail [:error, Errno::ECONNRESET]
           @req = nil
@@ -53,12 +60,11 @@ class Redis
 
       def initialize
         @timeout = 5_000_000
-        @state = :disconnected
         @connection = nil
       end
 
       def connected?
-        @state == :connected
+        @connection && @connection.connected?
       end
 
       def timeout=(usecs)
@@ -79,7 +85,6 @@ class Redis
       end
 
       def disconnect
-        @state = :disconnected
         @connection.close_connection
         @connection = nil
       end
@@ -105,7 +110,6 @@ class Redis
       def setup_connect_callbacks(conn, f)
         conn.callback do
           @connection = conn
-          @state = :connected
           f.resume conn
         end
 
