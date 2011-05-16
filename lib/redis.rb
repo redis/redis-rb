@@ -1,4 +1,5 @@
 require "monitor"
+require "digest/sha1"
 
 class Redis
   class ProtocolError < RuntimeError
@@ -1061,6 +1062,21 @@ class Redis
   def psubscribe(*channels, &block)
     synchronize do
       subscription(:psubscribe, channels, block)
+    end
+  end
+
+  # Tries to use evalsha to run the given script
+  def evalsha(script, *args)
+    synchronize do
+      begin
+        @client.call [:evalsha, Digest::SHA1.hexdigest(script), *args]
+      rescue RuntimeError => e
+        if e.message == "NOSCRIPT No matching script. Please use EVAL."
+          @client.call [:eval, script, *args]
+        else
+          raise e
+        end
+      end
     end
   end
 
