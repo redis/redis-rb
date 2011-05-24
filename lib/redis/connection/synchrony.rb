@@ -8,6 +8,10 @@ class Redis
     class RedisClient < EventMachine::Connection
       include EventMachine::Deferrable
 
+      def name
+        "EM-Synchrony"
+      end
+
       def post_init
         @req = nil
         @connected = false

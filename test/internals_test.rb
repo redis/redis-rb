@@ -16,7 +16,7 @@ $TEST_PIPELINING = true
 load File.expand_path("./lint/internals.rb", File.dirname(__FILE__))
 
 test "provides a meaningful inspect" do |r, _|
-  assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
+  assert "#<Redis client v#{Redis::VERSION}, driver Pure Ruby connected to redis://127.0.0.1:6379/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
 end
 
 test "Redis.current" do
@@ -35,7 +35,7 @@ test "Timeout" do
   end
 end
 
-# Don't use assert_raise because Timeour::Error in 1.8 inherits
+# Don't use assert_raise because Timeout::Error in 1.8 inherits
 # Exception instead of StandardError (on 1.9).
 test "Connection timeout" do
   # EM immediately raises CONNREFUSED
@@ -141,7 +141,7 @@ end
 # Using a mock server in a thread doesn't work here (possibly because blocking
 # socket ops, raw socket timeouts and Ruby's thread scheduling don't mix).
 test "Bubble EAGAIN without retrying" do
-  cmd = %{(sleep 0.3; echo "+PONG\r\n") | nc -l 6380}
+  cmd = %{(sleep 1.5; echo "+PONG\r\n") | nc -l 6380}
   IO.popen(cmd) do |_|
     sleep 0.1 # Give nc a little time to start listening
     redis = Redis.connect(:port => 6380, :timeout => 0.1)
@@ -157,4 +157,3 @@ test "Bubble EAGAIN without retrying" do
     end
   end
 end
-

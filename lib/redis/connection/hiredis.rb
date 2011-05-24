@@ -5,6 +5,11 @@ require "timeout"
 class Redis
   module Connection
     class Hiredis
+
+      def name
+        "hiredis C Client"
+      end
+
       def initialize
         @connection = ::Hiredis::Connection.new
       end
