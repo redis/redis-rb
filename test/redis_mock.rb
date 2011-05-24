@@ -13,6 +13,7 @@ module RedisMock
     # This raises an exception in the thread calling @server.accept which
     # in turn will cause the thread to terminate.
     def shutdown
+      @server.shutdown if @server
       @server.close if @server
     rescue => ex
       $stderr.puts "Error closing mock server: #{ex.message}" if VERBOSE
@@ -73,7 +74,7 @@ module RedisMock
         yield
 
       ensure
-        server.shutdown
+        server.shutdown if server
       end
     end
   end

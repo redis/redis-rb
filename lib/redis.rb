@@ -1072,7 +1072,7 @@ class Redis
 
   def inspect
     synchronize do
-      "#<Redis client v#{Redis::VERSION} connected to #{id} (Redis v#{info["redis_version"]})>"
+      "#<Redis client v#{Redis::VERSION}, driver #{@client.connection.name} connected to #{id} (Redis v#{info["redis_version"]})>"
     end
   end
 

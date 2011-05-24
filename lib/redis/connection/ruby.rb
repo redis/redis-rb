@@ -13,6 +13,10 @@ class Redis
       DOLLAR   = "$".freeze
       ASTERISK = "*".freeze
 
+      def name
+        "Pure Ruby"
+      end
+
       def initialize
         @sock = nil
       end
