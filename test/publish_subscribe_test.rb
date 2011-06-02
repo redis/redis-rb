@@ -6,6 +6,23 @@ setup do
   init Redis.new(OPTIONS)
 end
 
+test "SUBSCRIBE to an array of channels" do |r|
+  listening = false
+	@channels = []
+
+  wire = Wire.new do
+    r.subscribe(['foo', 'bar']) do |on|
+      on.subscribe do |channel, total|
+				@channels << channel
+				r.unsubscribe if channel == 'bar'
+      end
+    end
+  end
+
+  wire.join(1)
+  assert ['foo', 'bar'] == @channels 
+end
+
 test "SUBSCRIBE and UNSUBSCRIBE" do |r|
   listening = false
 

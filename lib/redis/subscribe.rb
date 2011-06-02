@@ -42,6 +42,7 @@ class Redis
   protected
 
     def subscription(start, stop, channels, block)
+			channels.flatten!
       sub = Subscription.new(&block)
 
       begin
