@@ -1,4 +1,6 @@
-# 2.2.1 (unreleased)
+# 2.2.2 (unreleased)
+
+# 2.2.1
 
 * Internal API: Client#call and family are now called with a single array
   argument, since splatting a large number of arguments (100K+) results in a
