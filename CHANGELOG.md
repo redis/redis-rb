@@ -1,4 +1,8 @@
-# 2.2.2 (unreleased)
+# 2.2.3 (unreleased)
+
+# 2.2.2
+
+* Added method `Redis::Distributed#hsetnx`.
 
 # 2.2.1
 
