@@ -8,18 +8,6 @@ end
 
 load './test/lint/hashes.rb'
 
-test "HSETNX" do |r|
-  r.hset("foo", "f1", "s1")
-  r.hsetnx("foo", "f1", "s2")
-
-  assert "s1" == r.hget("foo", "f1")
-
-  r.del("foo")
-  r.hsetnx("foo", "f1", "s2")
-
-  assert "s2" == r.hget("foo", "f1")
-end
-
 test "Mapped HMGET in a pipeline returns plain array" do |r|
   r.hset("foo", "f1", "s1")
   r.hset("foo", "f2", "s2")

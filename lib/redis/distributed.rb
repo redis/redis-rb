@@ -490,6 +490,11 @@ class Redis
       node_for(key).hset(key, field, value)
     end
 
+    # Set the value of a hash field, only if the field does not exist.
+    def hsetnx(key, field, value)
+      node_for(key).hsetnx(key, field, value)
+    end
+
     # Get the value of a hash field.
     def hget(key, field)
       node_for(key).hget(key, field)

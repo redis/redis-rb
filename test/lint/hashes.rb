@@ -4,6 +4,18 @@ test "HSET and HGET" do |r|
   assert "s1" == r.hget("foo", "f1")
 end
 
+test "HSETNX" do |r|
+  r.hset("foo", "f1", "s1")
+  r.hsetnx("foo", "f1", "s2")
+
+  assert "s1" == r.hget("foo", "f1")
+
+  r.del("foo")
+  r.hsetnx("foo", "f1", "s2")
+
+  assert "s2" == r.hget("foo", "f1")
+end
+
 test "HDEL" do |r|
   r.hset("foo", "f1", "s1")
 
