@@ -124,6 +124,10 @@ def silent
   end
 end
 
+def version(r)
+  r.info["redis_version"].split(".").map { |v| 10 * v.to_i }.join.to_i
+end
+
 def with_external_encoding(encoding)
   original_encoding = Encoding.default_external
 
