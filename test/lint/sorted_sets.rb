@@ -1,22 +1,45 @@
 test "ZADD" do |r|
   assert 0 == r.zcard("foo")
-
-  r.zadd "foo", 1, "s1"
-
+  assert true == r.zadd("foo", 1, "s1")
+  assert false == r.zadd("foo", 1, "s1")
   assert 1 == r.zcard("foo")
 end
 
+test "Variadic ZADD" do |r|
+  next if version(r) < 203090 # 2.4-rc6
+
+  assert 0 == r.zcard("foo")
+  assert 2 == r.zadd("foo", 1, "s1", 2, "s2")
+  assert 1 == r.zadd("foo", 4, "s1", 5, "s2", 6, "s3")
+  assert 3 == r.zcard("foo")
+
+  # Wrong number of arguments
+  assert_raise { r.zadd("foo") }
+  assert_raise { r.zadd("foo", "bar") }
+  assert_raise { r.zadd("foo", "bar", "qux", "zap") }
+end
+
 test "ZREM" do |r|
-  r.zadd "foo", 1, "s1"
-
-  assert 1 == r.zcard("foo")
-
-  r.zadd "foo", 2, "s2"
+  r.zadd("foo", 1, "s1")
+  r.zadd("foo", 2, "s2")
 
   assert 2 == r.zcard("foo")
+  assert true == r.zrem("foo", "s1")
+  assert false == r.zrem("foo", "s1")
+  assert 1 == r.zcard("foo")
+end
 
-  r.zrem "foo", "s1"
+test "Variadic ZREM" do |r|
+  next if version(r) < 203090 # 2.4-rc6
 
+  r.zadd("foo", 1, "s1")
+  r.zadd("foo", 2, "s2")
+  r.zadd("foo", 3, "s3")
+
+  assert 3 == r.zcard("foo")
+  assert 1 == r.zrem("foo", "s1", "aaa")
+  assert 0 == r.zrem("foo", "bbb", "ccc" "ddd")
+  assert 1 == r.zrem("foo", "eee", "s3")
   assert 1 == r.zcard("foo")
 end
 

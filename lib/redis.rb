@@ -527,10 +527,31 @@ class Redis
     end
   end
 
-  # Add a member to a sorted set, or update its score if it already exists.
-  def zadd(key, score, member)
+  # Add one or more members to a sorted set, or update the score for members
+  # that already exist.
+  def zadd(key, *args)
     synchronize do
-      _bool @client.call [:zadd, key, score, member]
+      if args.size == 2
+        _bool @client.call [:zadd, key, args[0], args[1]]
+      elsif !args.empty? && args.size % 2 == 0
+        @client.call [:zadd, key, *args]
+      else
+        raise "wrong number of arguments"
+      end
+    end
+  end
+
+  # Remove one or more members from a sorted set.
+  def zrem(key, value, *extra)
+    synchronize do
+      rv = @client.call [:zrem, key, value, *extra]
+
+      # Compatibility: return boolean when 1 member argument was given.
+      if extra.empty?
+        _bool rv
+      else
+        rv
+      end
     end
   end
 
@@ -640,13 +661,6 @@ class Redis
   def zscore(key, member)
     synchronize do
       @client.call [:zscore, key, member]
-    end
-  end
-
-  # Remove a member from a sorted set.
-  def zrem(key, member)
-    synchronize do
-      _bool @client.call [:zrem, key, member]
     end
   end
 
