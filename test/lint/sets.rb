@@ -1,15 +1,40 @@
 test "SADD" do |r|
-  r.sadd "foo", "s1"
-  r.sadd "foo", "s2"
+  assert true == r.sadd("foo", "s1")
+  assert true == r.sadd("foo", "s2")
+  assert false == r.sadd("foo", "s1")
 
   assert ["s1", "s2"] == r.smembers("foo").sort
 end
 
-test "SREM" do |r|
-  r.sadd "foo", "s1"
-  r.sadd "foo", "s2"
+test "Variadic SADD" do |r|
+  next if version(r) < 203090 # 2.4-rc6
 
-  r.srem("foo", "s1")
+  assert 2 == r.sadd("foo", "s1", "s2")
+  assert 1 == r.sadd("foo", "s1", "s2", "s3")
+
+  assert ["s1", "s2", "s3"] == r.smembers("foo").sort
+end
+
+test "SREM" do |r|
+  r.sadd("foo", "s1")
+  r.sadd("foo", "s2")
+
+  assert true == r.srem("foo", "s1")
+  assert false == r.srem("foo", "s3")
+
+  assert ["s2"] == r.smembers("foo")
+end
+
+test "Variadic SREM" do |r|
+  next if version(r) < 203090 # 2.4-rc6
+
+  r.sadd("foo", "s1")
+  r.sadd("foo", "s2")
+  r.sadd("foo", "s3")
+
+  assert 1 == r.srem("foo", "s1", "aaa")
+  assert 0 == r.srem("foo", "bbb", "ccc" "ddd")
+  assert 1 == r.srem("foo", "eee", "s3")
 
   assert ["s2"] == r.smembers("foo")
 end

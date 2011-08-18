@@ -429,17 +429,31 @@ class Redis
     end
   end
 
-  # Add a member to a set.
-  def sadd(key, value)
+  # Add one or more members to a set.
+  def sadd(key, value, *extra)
     synchronize do
-      _bool @client.call [:sadd, key, value]
+      rv = @client.call [:sadd, key, value, *extra]
+
+      # Compatibility: return boolean when 1 member argument was given.
+      if extra.empty?
+        _bool rv
+      else
+        rv
+      end
     end
   end
 
-  # Remove a member from a set.
-  def srem(key, value)
+  # Remove one or more members from a set.
+  def srem(key, value, *extra)
     synchronize do
-      _bool @client.call [:srem, key, value]
+      rv = @client.call [:srem, key, value, *extra]
+
+      # Compatibility: return boolean when 1 member argument was given.
+      if extra.empty?
+        _bool rv
+      else
+        rv
+      end
     end
   end
 
