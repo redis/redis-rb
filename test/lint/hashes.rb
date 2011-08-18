@@ -21,9 +21,22 @@ test "HDEL" do |r|
 
   assert "s1" == r.hget("foo", "f1")
 
-  r.hdel("foo", "f1")
+  assert 1 == r.hdel("foo", "f1")
 
   assert nil == r.hget("foo", "f1")
+end
+
+test "Variadic HDEL" do |r|
+  r.hset("foo", "f1", "s1")
+  r.hset("foo", "f2", "s2")
+
+  assert "s1" == r.hget("foo", "f1")
+  assert "s2" == r.hget("foo", "f2")
+
+  assert 2 == r.hdel("foo", "f1", "f2")
+
+  assert nil == r.hget("foo", "f1")
+  assert nil == r.hget("foo", "f2")
 end
 
 test "HEXISTS" do |r|

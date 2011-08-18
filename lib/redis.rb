@@ -227,9 +227,9 @@ class Redis
   end
 
   # Delete a hash field.
-  def hdel(key, field)
+  def hdel(key, field, *fields)
     synchronize do
-      @client.call [:hdel, key, field]
+      @client.call [:hdel, key, field, *fields]
     end
   end
 
