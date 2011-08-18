@@ -226,10 +226,10 @@ class Redis
     end
   end
 
-  # Delete a hash field.
-  def hdel(key, field, *fields)
+  # Delete one or more hash hash fields.
+  def hdel(key, *fields)
     synchronize do
-      @client.call [:hdel, key, field, *fields]
+      @client.call [:hdel, key, *fields]
     end
   end
 
@@ -345,9 +345,9 @@ class Redis
   end
 
   # Append one or more values to a list.
-  def rpush(key, value, *extra)
+  def rpush(key, *values)
     synchronize do
-      @client.call [:rpush, key, value, *extra]
+      @client.call [:rpush, key, *values]
     end
   end
 
@@ -359,9 +359,9 @@ class Redis
   end
 
   # Prepend one or more values to a list.
-  def lpush(key, value, *extra)
+  def lpush(key, *values)
     synchronize do
-      @client.call [:lpush, key, value, *extra]
+      @client.call [:lpush, key, *values]
     end
   end
 
@@ -430,12 +430,12 @@ class Redis
   end
 
   # Add one or more members to a set.
-  def sadd(key, value, *extra)
+  def sadd(key, *members)
     synchronize do
-      rv = @client.call [:sadd, key, value, *extra]
+      rv = @client.call [:sadd, key, *members]
 
       # Compatibility: return boolean when 1 member argument was given.
-      if extra.empty?
+      if members.size == 1
         _bool rv
       else
         rv
@@ -444,12 +444,12 @@ class Redis
   end
 
   # Remove one or more members from a set.
-  def srem(key, value, *extra)
+  def srem(key, *members)
     synchronize do
-      rv = @client.call [:srem, key, value, *extra]
+      rv = @client.call [:srem, key, *members]
 
       # Compatibility: return boolean when 1 member argument was given.
-      if extra.empty?
+      if members.size == 1
         _bool rv
       else
         rv
@@ -542,12 +542,12 @@ class Redis
   end
 
   # Remove one or more members from a sorted set.
-  def zrem(key, value, *extra)
+  def zrem(key, *members)
     synchronize do
-      rv = @client.call [:zrem, key, value, *extra]
+      rv = @client.call [:zrem, key, *members]
 
       # Compatibility: return boolean when 1 member argument was given.
-      if extra.empty?
+      if members.size == 1
         _bool rv
       else
         rv
