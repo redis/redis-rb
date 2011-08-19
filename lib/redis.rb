@@ -28,14 +28,20 @@ class Redis
   def self.connect(options = {})
     options = options.dup
 
-    require "uri"
+    url = options.delete(:url) || ENV["REDIS_URL"]
+    if url
+      require "uri"
 
-    url = URI(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
+      uri = URI(url)
 
-    options[:host]     ||= url.host
-    options[:port]     ||= url.port
-    options[:password] ||= url.password
-    options[:db]       ||= url.path[1..-1].to_i
+      # Require the URL to have at least a host
+      raise "invalid uri" unless uri.host
+
+      options[:host]     ||= uri.host
+      options[:port]     ||= uri.port
+      options[:password] ||= uri.password
+      options[:db]       ||= uri.path[1..-1].to_i
+    end
 
     new(options)
   end
