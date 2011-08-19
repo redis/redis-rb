@@ -212,7 +212,11 @@ class Redis
       reply = @client.call [:hgetall, key]
 
       if reply.kind_of?(Array)
-        Hash[*reply]
+        hash = Hash.new
+        reply.each_slice(2) do |field, value|
+          hash[field] = value
+        end
+        hash
       else
         reply
       end
@@ -788,7 +792,11 @@ class Redis
     reply = hmget(key, *fields)
 
     if reply.kind_of?(Array)
-      Hash[*fields.zip(reply).flatten]
+      hash = Hash.new
+      fields.zip(reply).each do |field, value|
+        hash[field] = value
+      end
+      hash
     else
       reply
     end
@@ -917,7 +925,11 @@ class Redis
     reply = mget(*keys)
 
     if reply.kind_of?(Array)
-      Hash[*keys.zip(reply).flatten]
+      hash = Hash.new
+      keys.zip(reply).each do |field, value|
+        hash[field] = value
+      end
+      hash
     else
       reply
     end
