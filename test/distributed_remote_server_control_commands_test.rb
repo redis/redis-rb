@@ -17,8 +17,8 @@ test "INFO" do |r|
 end
 
 test "INFO COMMANDSTATS" do |r|
-  # Only available on Redis >= 2.3.0
-  next if r.info.first["redis_version"] < "2.3.0"
+  # Only available on Redis >= 2.9.0
+  next if version(r) < 209000
 
   r.nodes.each { |n| n.config(:resetstat) }
   r.ping # Executed on every node

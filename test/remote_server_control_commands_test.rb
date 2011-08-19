@@ -16,8 +16,8 @@ test "INFO" do |r|
 end
 
 test "INFO COMMANDSTATS" do |r|
-  # Only available on Redis >= 2.3.0
-  next if r.info["redis_version"] < "2.3.0"
+  # Only available on Redis >= 2.9.0
+  next if version(r) < 209000
 
   r.config(:resetstat)
   r.ping
