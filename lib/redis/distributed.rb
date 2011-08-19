@@ -240,14 +240,14 @@ class Redis
       node_for(key).decrby(key, decrement)
     end
 
-    # Append a value to a list.
-    def rpush(key, value)
-      node_for(key).rpush(key, value)
+    # Append one or more values to a list.
+    def rpush(key, *values)
+      node_for(key).rpush(key, *values)
     end
 
-    # Prepend a value to a list.
-    def lpush(key, value)
-      node_for(key).lpush(key, value)
+    # Prepend one or more values to a list.
+    def lpush(key, *values)
+      node_for(key).lpush(key, *values)
     end
 
     # Get the length of a list.
@@ -318,14 +318,14 @@ class Redis
       end
     end
 
-    # Add a member to a set.
-    def sadd(key, value)
-      node_for(key).sadd(key, value)
+    # Add one or more members to a set.
+    def sadd(key, *members)
+      node_for(key).sadd(key, *members)
     end
 
-    # Remove a member from a set.
-    def srem(key, value)
-      node_for(key).srem(key, value)
+    # Remove one or more members from a set.
+    def srem(key, *members)
+      node_for(key).srem(key, *members)
     end
 
     # Remove and return a random member from a set.
@@ -402,14 +402,15 @@ class Redis
       node_for(key).srandmember(key)
     end
 
-    # Add a member to a sorted set, or update its score if it already exists.
-    def zadd(key, score, member)
-      node_for(key).zadd(key, score, member)
+    # Add one or more members to a sorted set, or update the score for members
+    # that already exist.
+    def zadd(key, *args)
+      node_for(key).zadd(key, *args)
     end
 
-    # Remove a member from a sorted set.
-    def zrem(key, member)
-      node_for(key).zrem(key, member)
+    # Remove one or more members from a sorted set.
+    def zrem(key, *members)
+      node_for(key).zrem(key, *members)
     end
 
     # Increment the score of a member in a sorted set.
@@ -500,9 +501,9 @@ class Redis
       node_for(key).hget(key, field)
     end
 
-    # Delete a hash field.
-    def hdel(key, field)
-      node_for(key).hdel(key, field)
+    # Delete one or more hash fields.
+    def hdel(key, *fields)
+      node_for(key).hdel(key, *fields)
     end
 
     # Determine if a hash field exists.
