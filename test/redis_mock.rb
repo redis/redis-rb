@@ -10,9 +10,10 @@ module RedisMock
       @thread = Thread.new { run(&block) }
     end
 
-    # This raises an exception in the thread calling @server.accept which
-    # in turn will cause the thread to terminate.
+    # Bail out of @server.accept before closing the socket. This is required
+    # to avoid EADDRINUSE after a couple of iterations.
     def shutdown
+      @thread.terminate if @thread
       @server.close if @server
     rescue => ex
       $stderr.puts "Error closing mock server: #{ex.message}" if VERBOSE
