@@ -94,7 +94,7 @@ test "HMSET" do |r|
 end
 
 test "HMSET with invalid arguments" do |r|
-  assert_raise(RuntimeError) do
+  assert_raise(Redis::Error) do
     r.hmset("hash", "foo1", "bar1", "foo2", "bar2", "foo3")
   end
 end

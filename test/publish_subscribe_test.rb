@@ -112,7 +112,7 @@ test "SUBSCRIBE within SUBSCRIBE" do |r|
 end
 
 test "other commands within a SUBSCRIBE" do |r|
-  assert_raise RuntimeError do
+  assert_raise Redis::Error do
     r.subscribe("foo") do |on|
       on.subscribe do |channel, total|
         r.set("bar", "s2")
@@ -128,11 +128,11 @@ test "SUBSCRIBE without a block" do |r|
 end
 
 test "UNSUBSCRIBE without a SUBSCRIBE" do |r|
-  assert_raise RuntimeError do
+  assert_raise Redis::Error do
     r.unsubscribe
   end
 
-  assert_raise RuntimeError do
+  assert_raise Redis::Error do
     r.punsubscribe
   end
 end

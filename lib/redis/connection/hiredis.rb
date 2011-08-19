@@ -38,7 +38,9 @@ class Redis
       end
 
       def read
-        @connection.read
+        reply = @connection.read
+        reply = Error.new(reply.message) if reply.is_a?(RuntimeError)
+        reply
       rescue RuntimeError => err
         raise ::Redis::ProtocolError.new(err.message)
       end

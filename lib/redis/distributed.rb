@@ -599,7 +599,7 @@ class Redis
 
     # Stop listening for messages posted to the given channels.
     def unsubscribe(*channels)
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      raise Error, "Can't unsubscribe if not subscribed." unless subscribed?
       @subscribed_node.unsubscribe(*channels)
     end
 
