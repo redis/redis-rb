@@ -28,6 +28,7 @@ class Redis
 
         begin
           until (reply = @reader.gets) == false
+            reply = Error.new(reply.message) if reply.is_a?(RuntimeError)
             @req.succeed [:reply, reply]
           end
         rescue RuntimeError => err

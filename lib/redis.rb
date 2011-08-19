@@ -13,6 +13,9 @@ class Redis
     end
   end
 
+  class Error < RuntimeError
+  end
+
   module DisableThreadSafety
     def synchronize
       yield

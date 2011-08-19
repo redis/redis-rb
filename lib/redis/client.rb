@@ -46,7 +46,7 @@ class Redis
       end
 
       reply = process([command]) { read }
-      raise reply if reply.is_a?(RuntimeError)
+      raise reply if reply.kind_of?(RuntimeError)
       reply
     end
 
@@ -72,7 +72,7 @@ class Redis
         process([command]) do
           loop do
             reply = read
-            if reply.is_a?(RuntimeError)
+            if reply.kind_of?(RuntimeError)
               error = reply
               break
             else
@@ -100,14 +100,14 @@ class Redis
       # already succesfully executed commands. To circumvent this, don't retry
       # after the first reply has been read succesfully.
       first = process(commands) { read }
-      error = first if first.is_a?(RuntimeError)
+      error = first if first.kind_of?(RuntimeError)
 
       begin
         remaining = commands.size - 1
         if remaining > 0
           replies = Array.new(remaining) do
             reply = read
-            error ||= reply if reply.is_a?(RuntimeError)
+            error ||= reply if reply.kind_of?(RuntimeError)
             reply
           end
           replies.unshift first

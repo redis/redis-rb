@@ -80,7 +80,7 @@ class Redis
       end
 
       def format_error_reply(line)
-        RuntimeError.new(line.strip)
+        Error.new(line.strip)
       end
 
       def format_status_reply(line)
