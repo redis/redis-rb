@@ -3,6 +3,7 @@ class Redis
     attr_accessor :db, :host, :port, :path, :password, :logger
     attr :timeout
     attr :connection
+    attr :command_map
 
     def initialize(options = {})
       @path = options[:path]
@@ -17,6 +18,7 @@ class Redis
       @logger = options[:logger]
       @reconnect = true
       @connection = Connection.drivers.last.new
+      @command_map = {}
     end
 
     def connect
@@ -136,6 +138,11 @@ class Redis
       logging(commands) do
         ensure_connected do
           commands.each do |command|
+            if command_map[command.first]
+              command = command.dup
+              command[0] = command_map[command.first]
+            end
+
             connection.write(command)
           end
 
