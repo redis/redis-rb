@@ -153,4 +153,3 @@ def assert_nothing_raised(*exceptions)
     flunk(caller[1])
   end
 end
-
