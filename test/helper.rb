@@ -125,7 +125,9 @@ def silent
 end
 
 def version(r)
-  r.info["redis_version"].split(".").map { |v| 10 * v.to_i }.join.to_i
+  info = r.info
+  info = info.first unless info.is_a?(Hash)
+  info["redis_version"].split(".").map { |v| 10 * v.to_i }.join.to_i
 end
 
 def with_external_encoding(encoding)
