@@ -1086,7 +1086,7 @@ class Redis
   # Stop listening for messages posted to the given channels.
   def unsubscribe(*channels)
     synchronize do
-      raise Error, "Can't unsubscribe if not subscribed." unless subscribed?
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
       @client.unsubscribe(*channels)
     end
   end
@@ -1094,7 +1094,7 @@ class Redis
   # Stop listening for messages posted to channels matching the given patterns.
   def punsubscribe(*channels)
     synchronize do
-      raise Error, "Can't unsubscribe if not subscribed." unless subscribed?
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
       @client.punsubscribe(*channels)
     end
   end

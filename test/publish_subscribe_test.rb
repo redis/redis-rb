@@ -128,11 +128,11 @@ test "SUBSCRIBE without a block" do |r|
 end
 
 test "UNSUBSCRIBE without a SUBSCRIBE" do |r|
-  assert_raise Redis::Error do
+  assert_raise RuntimeError do
     r.unsubscribe
   end
 
-  assert_raise Redis::Error do
+  assert_raise RuntimeError do
     r.punsubscribe
   end
 end
