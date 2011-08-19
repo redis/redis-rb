@@ -128,7 +128,11 @@ end
 def version(r)
   info = r.info
   info = info.first unless info.is_a?(Hash)
-  info["redis_version"].split(".").map { |v| 10 * v.to_i }.join.to_i
+  version_str_to_i info["redis_version"]
+end
+
+def version_str_to_i(version_str)
+  version_str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
 end
 
 def with_external_encoding(encoding)
