@@ -44,6 +44,7 @@ end
 
 $VERBOSE = true
 
+require "redis/connection/%s" % (ENV["REDIS_CONNECTION_DRIVER"] || "ruby")
 require "redis"
 
 def driver

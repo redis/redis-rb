@@ -35,11 +35,6 @@ task :stop do
   end
 end
 
-def isolated(&block)
-  pid = fork { yield }
-  Process.wait(pid)
-end
-
 desc "Run the test suite"
 task :test => ["test:ruby", "test:hiredis", "test:synchrony"]
 
@@ -48,26 +43,23 @@ namespace :test do
   task :ruby do
     require "cutest"
 
-    isolated do
-      Cutest.run(Dir["./test/**/*_test.rb"])
-    end
+    Cutest.run(Dir["./test/**/*_test.rb"])
   end
 
   desc "Run tests against the hiredis driver"
   task :hiredis do
     require "cutest"
 
-    isolated do
-      begin
-        require "redis/connection/hiredis"
+    begin
+      require "redis/connection/hiredis"
 
-        puts
-        puts "Running tests against hiredis v#{Hiredis::VERSION}"
+      puts
+      puts "Running tests against hiredis v#{Hiredis::VERSION}"
 
-        Cutest.run(Dir["./test/**/*_test.rb"])
-      rescue LoadError
-        puts "Skipping tests against hiredis"
-      end
+      ENV["REDIS_CONNECTION_DRIVER"] = "hiredis"
+      Cutest.run(Dir["./test/**/*_test.rb"])
+    rescue LoadError
+      puts "Skipping tests against hiredis"
     end
   end
 
@@ -78,18 +70,18 @@ namespace :test do
     # Synchrony needs 1.9
     next if RUBY_VERSION < "1.9"
 
-    isolated do
-      begin
-        require "redis/connection/synchrony"
+    begin
+      require "redis/connection/synchrony"
 
-        puts
-        puts "Running tests against em-synchrony"
+      puts
+      puts "Running tests against em-synchrony"
 
-        threaded_tests = ['./test/thread_safety_test.rb']
-        Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
-      rescue LoadError
-        puts "Skipping tests against em-synchrony"
-      end
+      threaded_tests = ['./test/thread_safety_test.rb']
+
+      ENV["REDIS_CONNECTION_DRIVER"] = "synchrony"
+      Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
+    rescue LoadError
+      puts "Skipping tests against em-synchrony"
     end
   end
 end
