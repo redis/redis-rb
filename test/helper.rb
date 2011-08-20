@@ -29,7 +29,7 @@ def init(redis)
       This testing suite connects to the database 15.
 
       To install redis:
-        visit <http://code.google.com/p/redis/>.
+        visit <http://redis.io/download/>.
 
       To start the server:
         rake start
