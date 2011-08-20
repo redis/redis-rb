@@ -136,4 +136,3 @@ test "HINCRBY" do |r|
 
   assert "2" == r.hget("foo", "f1")
 end
-

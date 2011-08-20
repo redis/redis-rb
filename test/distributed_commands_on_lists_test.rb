@@ -21,4 +21,3 @@ test "BRPOPLPUSH" do |r|
     r.brpoplpush("foo", "bar", 1)
   end
 end
-
