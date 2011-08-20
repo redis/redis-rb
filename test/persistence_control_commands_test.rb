@@ -19,4 +19,3 @@ end
 test "LASTSAVE" do |r|
   assert Time.at(r.lastsave) <= Time.now
 end
-

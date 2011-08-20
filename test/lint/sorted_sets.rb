@@ -187,4 +187,3 @@ test "ZREMRANGEBYSCORE" do |r|
   assert 3 == r.zremrangebyscore("foo", 2, 4)
   assert ["s1"] == r.zrange("foo", 0, -1)
 end
-

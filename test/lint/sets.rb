@@ -88,4 +88,3 @@ test "SRANDMEMBER" do |r|
 
   assert 2 == r.scard("foo")
 end
-

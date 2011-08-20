@@ -9,4 +9,3 @@ setup do
 end
 
 load './test/lint/hashes.rb'
-

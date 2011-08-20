@@ -11,4 +11,3 @@ test "should try to work" do |r|
     r.not_yet_implemented_command
   end
 end
-

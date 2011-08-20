@@ -85,4 +85,3 @@ test "CONFIG SET" do |r|
     r.config :set, "timeout", 300
   end
 end
-

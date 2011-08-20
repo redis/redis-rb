@@ -98,4 +98,3 @@ test "SUBSCRIBE without a block" do |r|
     r.subscribe("foo")
   end
 end
-

@@ -40,4 +40,3 @@ end
 test "ECHO" do |r|
   assert ["foo bar baz\n"] == r.echo("foo bar baz\n")
 end
-

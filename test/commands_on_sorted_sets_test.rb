@@ -106,4 +106,3 @@ test "ZINTERSTORE with AGGREGATE" do |r|
   assert "20" == r.zscore("foobar", "s2")
   assert "30" == r.zscore("foobar", "s3")
 end
-

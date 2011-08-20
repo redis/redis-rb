@@ -50,4 +50,3 @@ test "allows passing a custom tag extractor" do |r|
 
   assert [0, 100] == r.nodes.map { |node| node.keys.size }
 end
-
