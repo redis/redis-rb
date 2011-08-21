@@ -8,6 +8,21 @@ end
 
 load './test/lint/sets.rb'
 
+test "SADD" do |r|
+  assert r.sadd( "foo", ["s1", "s2","s3"] ) == 3
+  assert r.sadd( "foo", ["s1", "s2","s4"] ) == 1
+
+  assert r.smove("foo", "bar", "s2")
+  assert r.sismember("bar", "s2")
+  assert r.smembers("foo").sort == ["s1", "s3", "s4"]
+end
+
+test "SREM" do |r|
+  assert r.sadd( "foo", ["s1", "s2","s3"] ) == 3
+  assert r.srem( "foo", ["s1", "s2","s4"] ) == 2
+  assert r.smembers("foo") == ["s3"]
+end
+
 test "SMOVE" do |r|
   r.sadd "foo", "s1"
   r.sadd "bar", "s2"

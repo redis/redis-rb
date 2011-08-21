@@ -8,6 +8,18 @@ end
 
 load './test/lint/lists.rb'
 
+test "RPUSH" do |r|
+  assert r.rpush( "foo", ["s1", "s2","s3"] ) == 3
+  assert r.rpush( "foo", ["s1", "s2","s3"] ) == 6
+  assert r.lrange( "foo", 0, -1 ) == ["s1", "s2","s3", "s1", "s2","s3"]
+end
+
+test "LPUSH" do |r|
+  assert r.lpush( "foo", ["s1", "s2","s3"] ) == 3
+  assert r.lpush( "foo", ["s1", "s2","s3"] ) == 6
+  assert r.lrange( "foo", 0, -1 ) == ["s3", "s2","s1", "s3", "s2","s1"]
+end
+
 test "RPUSHX" do |r|
   r.rpushx "foo", "s1"
   r.rpush "foo", "s2"

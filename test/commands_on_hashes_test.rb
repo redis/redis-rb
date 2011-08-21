@@ -18,3 +18,11 @@ test "Mapped HMGET in a pipeline returns plain array" do |r|
 
   assert result[0] == ["s1", "s2"]
 end
+
+
+test "HDEL" do |r|
+  r.hmset( "foo", *["s1", "v1", "s2", "v2", "s3","v3"] )
+  assert r.hdel( "foo", ["s1", "s2"] ) == 2
+  assert r.hgetall("foo") == {"s3" => "v3"}
+end
+

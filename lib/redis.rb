@@ -514,9 +514,13 @@ class Redis
   end
 
   # Add a member to a sorted set, or update its score if it already exists.
-  def zadd(key, score, member)
+  def zadd(key, *smpairs)  # score, member or [ s1, m1, s2, m2, ... ]
     synchronize do
-      @client.call [:zadd, key, score, *member]
+      if Array === smpairs.first
+        @client.call [:zadd, key, *smpairs.first]
+      else
+        @client.call [:zadd, key, *smpairs]
+      end
     end
   end
 
