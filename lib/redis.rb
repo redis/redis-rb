@@ -229,7 +229,7 @@ class Redis
   # Delete a hash field.
   def hdel(key, field)
     synchronize do
-      @client.call [:hdel, key, field]
+      @client.call [:hdel, key, *field]
     end
   end
 
@@ -347,7 +347,7 @@ class Redis
   # Append a value to a list.
   def rpush(key, value)
     synchronize do
-      @client.call [:rpush, key, value]
+      @client.call [:rpush, key, *value]
     end
   end
 
@@ -361,7 +361,7 @@ class Redis
   # Prepend a value to a list.
   def lpush(key, value)
     synchronize do
-      @client.call [:lpush, key, value]
+      @client.call [:lpush, key, *value]
     end
   end
 
@@ -432,14 +432,14 @@ class Redis
   # Add a member to a set.
   def sadd(key, value)
     synchronize do
-      _bool @client.call [:sadd, key, value]
+      @client.call [:sadd, key, *value]
     end
   end
 
   # Remove a member from a set.
   def srem(key, value)
     synchronize do
-      _bool @client.call [:srem, key, value]
+      @client.call [:srem, key, *value]
     end
   end
 
@@ -516,7 +516,7 @@ class Redis
   # Add a member to a sorted set, or update its score if it already exists.
   def zadd(key, score, member)
     synchronize do
-      _bool @client.call [:zadd, key, score, member]
+      @client.call [:zadd, key, score, *member]
     end
   end
 
@@ -632,7 +632,7 @@ class Redis
   # Remove a member from a sorted set.
   def zrem(key, member)
     synchronize do
-      _bool @client.call [:zrem, key, member]
+      @client.call [:zrem, key, *member]
     end
   end
 
