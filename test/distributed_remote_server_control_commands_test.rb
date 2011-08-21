@@ -9,11 +9,30 @@ setup do
 end
 
 test "INFO" do |r|
-  %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|
-    r.info.each do |info|
-      assert info.keys.include?(x)
-    end
-  end
+  expected_keys = %w{
+    aof_enabled                   multiplexing_api              vm_enabled
+    arch_bits                     process_id
+    bgrewriteaof_in_progress      pubsub_channels
+    bgsave_in_progress            pubsub_patterns
+    blocked_clients               redis_git_dirty
+    changes_since_last_save       redis_git_sha1
+    client_biggest_input_buf      redis_version
+    client_longest_output_list    role
+    connected_clients             total_commands_processed
+    connected_slaves              total_connections_received
+    evicted_keys                  uptime_in_days
+    expired_keys                  uptime_in_seconds
+    hash_max_zipmap_entries       use_tcmalloc
+    hash_max_zipmap_value         used_cpu_sys
+    keyspace_hits                 used_cpu_sys_children
+    keyspace_misses               used_cpu_user
+    last_save_time                used_cpu_user_children
+    loading                       used_memory
+    lru_clock                     used_memory_human
+    mem_fragmentation_ratio       used_memory_rss
+  }
+
+  r.info.each { |info| assert expected_keys.sort == info.keys.sort }
 end
 
 test "INFO COMMANDSTATS" do |r|

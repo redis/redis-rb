@@ -101,7 +101,7 @@ class Redis
       if reply.kind_of?(String)
         reply = Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
 
-        if cmd && cmd.to_s == "commandstats"
+        if cmd.to_s == "commandstats"
           # Extract nested hashes for INFO COMMANDSTATS
           reply = Hash[reply.map do |k, v|
             [k[/^cmdstat_(.*)$/, 1], Hash[*v.split(/,|=/)]]
