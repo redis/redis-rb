@@ -363,6 +363,13 @@ class Redis
       @client.call [:rpush, key, *values]
     end
   end
+  
+  # Append an array of values to a list.
+  def rpush_array(key, values)
+    synchronize do
+      @client.call [:rpush, key, *values]
+    end
+  end
 
   # Append a value to a list, only if the list exists.
   def rpushx(key, value)
@@ -373,6 +380,13 @@ class Redis
 
   # Prepend one or more values to a list.
   def lpush(key, *values)
+    synchronize do
+      @client.call [:lpush, key, *values]
+    end
+  end
+  
+  # Prepend an array of values to a list.
+  def lpush_array(key, values)
     synchronize do
       @client.call [:lpush, key, *values]
     end
@@ -467,6 +481,20 @@ class Redis
       else
         rv
       end
+    end
+  end
+
+  # Add an array of members to a set.
+  def sadd_array(key, members)
+    synchronize do
+      @client.call [:sadd, key, *members]
+    end
+  end
+
+  # Remove an array of members from a set.
+  def srem_array(key, members)
+    synchronize do
+      @client.call [:srem, key, *members]
     end
   end
 
@@ -565,6 +593,22 @@ class Redis
       else
         rv
       end
+    end
+  end
+
+  # Add an array of members to a sorted set, or update the score for members
+  # that already exist.  args is a list of score, member pairs, [s1, m1, s2, m2, ...]
+  def zadd_array(key, args)
+    raise "wrong number of arguments" unless args.size % 2 == 0
+    synchronize do
+      @client.call [:zadd, key, *args]
+    end
+  end
+  
+  # Remove one or more members from a sorted set.
+  def zrem_array(key, members)
+    synchronize do
+      @client.call [:zrem, key, *members]
     end
   end
 

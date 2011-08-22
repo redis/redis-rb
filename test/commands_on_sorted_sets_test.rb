@@ -8,6 +8,18 @@ end
 
 load './test/lint/sorted_sets.rb'
 
+test "ZADD" do |r|
+  assert r.zadd_array( "foo", [1, "s1", 2, "s2", 3, "s3"] ) == 3
+  assert r.zadd_array( "foo", [2, "s1", 3, "s2", 1, "s4"] ) == 1
+  assert r.zrange( "foo", 0, -1 ) == ["s4", "s1", "s2", "s3"]
+end
+
+test "ZREM" do |r|
+  assert r.zadd_array( "foo", [1, "s1", 2, "s2", 3, "s3"] ) == 3
+  assert r.zrem_array( "foo", ["s1", "s2","s4"] ) == 2
+  assert r.zrange("foo", 0, -1) == ["s3"]
+end
+
 test "ZCOUNT" do |r|
   r.zadd "foo", 1, "s1"
   r.zadd "foo", 2, "s2"
