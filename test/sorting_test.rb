@@ -41,4 +41,3 @@ test "SORT with STORE" do |r|
   r.sort("bar", :get => "foo:*", :store => "baz")
   assert ["s1", "s2"] == r.lrange("baz", 0, -1)
 end
-

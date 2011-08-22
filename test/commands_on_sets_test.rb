@@ -74,5 +74,3 @@ test "SDIFFSTORE" do |r|
 
   assert ["s1"] == r.smembers("baz")
 end
-
-

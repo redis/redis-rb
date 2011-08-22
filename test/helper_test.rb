@@ -1,6 +1,12 @@
-require File.expand_path("./helper", File.dirname(__FILE__))
+# encoding: UTF-8
 
-test "version_str_to_i" do
+require File.expand_path('./helper', File.dirname(__FILE__))
+
+setup do
+  init Redis.new(OPTIONS)
+end
+
+test 'version_str_to_i' do
   assert_equal 200000, version_str_to_i('2.0.0')
   assert_equal 202020, version_str_to_i('2.2.2')
   assert_equal 202022, version_str_to_i('2.2.22')

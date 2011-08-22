@@ -105,5 +105,3 @@ test "RPOP" do |r|
   assert "s2" == r.rpop("foo")
   assert 1 == r.llen("foo")
 end
-
-

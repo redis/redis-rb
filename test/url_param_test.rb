@@ -57,4 +57,3 @@ test "uses REDIS_URL over default if available" do
 
   ENV.delete("REDIS_URL")
 end
-

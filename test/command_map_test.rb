@@ -1,4 +1,4 @@
- # encoding: UTF-8
+# encoding: UTF-8
 
 require File.expand_path("./helper", File.dirname(__FILE__))
 
@@ -27,4 +27,3 @@ test "Override non-existing commands" do |r|
 
   assert "value" == r.idontexist("key")
 end
-

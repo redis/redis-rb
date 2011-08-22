@@ -13,4 +13,3 @@ test "returns properly encoded strings" do |r|
     assert "Shalom שלום" == "Shalom " + r.get("foo")
   end
 end if defined?(Encoding)
-

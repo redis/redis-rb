@@ -97,4 +97,3 @@ test "UNWATCH with a modified key" do |r|
 
   assert "s2" == r.get("foo")
 end
-

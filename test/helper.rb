@@ -29,7 +29,7 @@ def init(redis)
       This testing suite connects to the database 15.
 
       To install redis:
-        visit <http://code.google.com/p/redis/>.
+        visit <http://redis.io/download/>.
 
       To start the server:
         rake start
@@ -125,16 +125,6 @@ def silent
   end
 end
 
-def version(r)
-  info = r.info
-  info = info.first unless info.is_a?(Hash)
-  version_str_to_i info["redis_version"]
-end
-
-def version_str_to_i(version_str)
-  version_str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
-end
-
 def with_external_encoding(encoding)
   original_encoding = Encoding.default_external
 
@@ -152,4 +142,14 @@ def assert_nothing_raised(*exceptions)
   rescue *exceptions
     flunk(caller[1])
   end
+end
+
+def version(r)
+  info = r.info
+  info = info.first unless info.is_a?(Hash)
+  version_str_to_i info["redis_version"]
+end
+
+def version_str_to_i(version_str)
+  version_str.split('.').map{ |v| v.ljust(2, '0') }.join.to_i
 end

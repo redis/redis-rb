@@ -82,4 +82,3 @@ test "SDIFFSTORE" do |r|
     r.sdiffstore("baz", "foo", "bar")
   end
 end
-

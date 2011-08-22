@@ -27,6 +27,8 @@ test "HDEL" do |r|
 end
 
 test "Variadic HDEL" do |r|
+  next if version(r) < 203090
+
   r.hset("foo", "f1", "s1")
   r.hset("foo", "f2", "s2")
 
@@ -136,4 +138,3 @@ test "HINCRBY" do |r|
 
   assert "2" == r.hget("foo", "f1")
 end
-
