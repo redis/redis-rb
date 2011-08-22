@@ -154,11 +154,3 @@ end
 def version_str_to_i(version_str)
   version_str.split('.').map{ |v| v.ljust(2, '0') }.join.to_i
 end
-
-def redis_edge(r, &test_block)
-  if version(r) > version_str_to_i(REDIS_STABLE_VERSION)
-    test_block.call
-  else
-    puts 'pending redis_edge...'
-  end
-end
