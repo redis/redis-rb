@@ -12,7 +12,6 @@ end
 PORT    = 6379
 OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
 NODES   = ["redis://127.0.0.1:6379/15"]
-REDIS_STABLE_VERSION = '2.2.12'
 
 def init(redis)
   begin
