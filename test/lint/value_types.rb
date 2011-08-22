@@ -81,4 +81,3 @@ test "MOVE" do |r|
   assert "s1" == r.get("foo")
   assert "s3" == r.get("bar")
 end
-

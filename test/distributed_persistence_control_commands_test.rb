@@ -21,4 +21,3 @@ end
 test "LASTSAVE" do |r|
   assert r.lastsave.all? { |t| Time.at(t) <= Time.now }
 end
-

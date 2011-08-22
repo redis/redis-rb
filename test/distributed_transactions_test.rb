@@ -31,4 +31,3 @@ test "WATCH/UNWATCH" do |r|
     r.unwatch
   end
 end
-

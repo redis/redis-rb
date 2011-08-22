@@ -85,4 +85,3 @@ test "FLUSHALL" do
     assert "FLUSHALL" == redis.flushall
   end
 end
-

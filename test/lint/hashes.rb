@@ -27,16 +27,18 @@ test "HDEL" do |r|
 end
 
 test "Variadic HDEL" do |r|
-  r.hset("foo", "f1", "s1")
-  r.hset("foo", "f2", "s2")
+  redis_edge(r) {
+    r.hset("foo", "f1", "s1")
+    r.hset("foo", "f2", "s2")
 
-  assert "s1" == r.hget("foo", "f1")
-  assert "s2" == r.hget("foo", "f2")
+    assert "s1" == r.hget("foo", "f1")
+    assert "s2" == r.hget("foo", "f2")
 
-  assert 2 == r.hdel("foo", "f1", "f2")
+    assert 2 == r.hdel("foo", "f1", "f2")
 
-  assert nil == r.hget("foo", "f1")
-  assert nil == r.hget("foo", "f2")
+    assert nil == r.hget("foo", "f1")
+    assert nil == r.hget("foo", "f2")
+  }
 end
 
 test "HEXISTS" do |r|
@@ -136,4 +138,3 @@ test "HINCRBY" do |r|
 
   assert "2" == r.hget("foo", "f1")
 end
-

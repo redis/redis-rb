@@ -70,4 +70,3 @@ test "FLUSHDB" do |r|
 
   assert [0] == r.dbsize
 end
-

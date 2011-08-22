@@ -22,4 +22,3 @@ test "SELECT" do |r|
 
   assert "bar" == r.get("foo")
 end
-

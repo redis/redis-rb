@@ -47,4 +47,3 @@ test "MSETNX mapped" do |r|
     r.mapped_msetnx(:foo => "s2", :bar => "s3")
   end
 end
-

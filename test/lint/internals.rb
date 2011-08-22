@@ -34,4 +34,3 @@ test "raises on protocol errors" do
     end
   end
 end
-

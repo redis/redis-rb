@@ -12,6 +12,7 @@ end
 PORT    = 6379
 OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
 NODES   = ["redis://127.0.0.1:6379/15"]
+REDIS_STABLE_VERSION = '2.2.12'
 
 def init(redis)
   begin
@@ -29,7 +30,7 @@ def init(redis)
       This testing suite connects to the database 15.
 
       To install redis:
-        visit <http://code.google.com/p/redis/>.
+        visit <http://redis.io/download/>.
 
       To start the server:
         rake start
@@ -125,16 +126,6 @@ def silent
   end
 end
 
-def version(r)
-  info = r.info
-  info = info.first unless info.is_a?(Hash)
-  version_str_to_i info["redis_version"]
-end
-
-def version_str_to_i(version_str)
-  version_str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
-end
-
 def with_external_encoding(encoding)
   original_encoding = Encoding.default_external
 
@@ -151,5 +142,23 @@ def assert_nothing_raised(*exceptions)
     yield
   rescue *exceptions
     flunk(caller[1])
+  end
+end
+
+def version(r)
+  info = r.info
+  info = info.first unless info.is_a?(Hash)
+  version_str_to_i info["redis_version"]
+end
+
+def version_str_to_i(version_str)
+  version_str.split('.').map{ |v| v.ljust(2, '0') }.join.to_i
+end
+
+def redis_edge(r, &test_block)
+  if version(r) > version_str_to_i(REDIS_STABLE_VERSION)
+    test_block.call
+  else
+    puts 'pending redis_edge...'
   end
 end
