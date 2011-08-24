@@ -9,7 +9,7 @@ setup do
 end
 
 test "SORT" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.set("foo:1", "s1")
     r.set("foo:2", "s2")
 

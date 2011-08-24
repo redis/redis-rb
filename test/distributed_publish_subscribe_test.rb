@@ -9,11 +9,11 @@ setup do
 end
 
 test "SUBSCRIBE and UNSUBSCRIBE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.subscribe("foo", "bar") { }
   end
 
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.subscribe("{qux}foo", "bar") { }
   end
 end

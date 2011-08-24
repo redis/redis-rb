@@ -11,13 +11,13 @@ end
 load './test/lint/lists.rb'
 
 test "RPOPLPUSH" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.rpoplpush("foo", "bar")
   end
 end
 
 test "BRPOPLPUSH" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.brpoplpush("foo", "bar", 1)
   end
 end

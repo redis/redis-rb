@@ -44,7 +44,7 @@ test "add nodes" do
 end
 
 test "Pipelining commands cannot be distributed" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.pipelined do
       r.lpush "foo", "s1"
       r.lpush "foo", "s2"

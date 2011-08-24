@@ -2,17 +2,6 @@ require "redis/hash_ring"
 
 class Redis
   class Distributed
-
-    class CannotDistribute < RuntimeError
-      def initialize(command)
-        @command = command
-      end
-
-      def message
-        "#{@command.to_s.upcase} cannot be used in Redis::Distributed because the keys involved need to be on the same server or because we cannot guarantee that the operation will be atomic."
-      end
-    end
-
     attr_reader :ring
 
     def initialize(urls, options = {})

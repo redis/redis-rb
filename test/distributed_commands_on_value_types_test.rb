@@ -27,13 +27,13 @@ test "DEL" do |r|
 end
 
 test "RANDOMKEY" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.randomkey
   end
 end
 
 test "RENAME" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.set("foo", "s1")
     r.rename "foo", "bar"
   end
@@ -43,7 +43,7 @@ test "RENAME" do |r|
 end
 
 test "RENAMENX" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.set("foo", "s1")
     r.rename "foo", "bar"
   end

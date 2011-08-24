@@ -11,7 +11,7 @@ end
 load './test/lint/sets.rb'
 
 test "SMOVE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "bar", "s2"
 
@@ -20,7 +20,7 @@ test "SMOVE" do |r|
 end
 
 test "SINTER" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"
@@ -30,7 +30,7 @@ test "SINTER" do |r|
 end
 
 test "SINTERSTORE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"
@@ -40,7 +40,7 @@ test "SINTERSTORE" do |r|
 end
 
 test "SUNION" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"
@@ -51,7 +51,7 @@ test "SUNION" do |r|
 end
 
 test "SUNIONSTORE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"
@@ -62,7 +62,7 @@ test "SUNIONSTORE" do |r|
 end
 
 test "SDIFF" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"
@@ -73,7 +73,7 @@ test "SDIFF" do |r|
 end
 
 test "SDIFFSTORE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.sadd "foo", "s1"
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"

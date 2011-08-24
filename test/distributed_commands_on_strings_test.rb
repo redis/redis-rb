@@ -11,38 +11,38 @@ end
 load './test/lint/strings.rb'
 
 test "MGET" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.mget("foo", "bar")
   end
 end
 
 test "MGET mapped" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.mapped_mget("foo", "bar")
   end
 end
 
 test "MSET" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.mset(:foo, "s1", :bar, "s2")
   end
 end
 
 test "MSET mapped" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.mapped_mset(:foo => "s1", :bar => "s2")
   end
 end
 
 test "MSETNX" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.set("foo", "s1")
     r.msetnx(:foo, "s2", :bar, "s3")
   end
 end
 
 test "MSETNX mapped" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  assert_raise Redis::CannotDistribute do
     r.set("foo", "s1")
     r.mapped_msetnx(:foo => "s2", :bar => "s3")
   end
