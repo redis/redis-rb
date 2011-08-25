@@ -13,4 +13,16 @@ class Redis
       EOS
     end
   end
+
+  class Distributed
+    class CannotDistribute < Error
+      def initialize(command)
+        @command = command
+      end
+
+      def message
+        "#{@command.to_s.upcase} cannot be used in Redis::Distributed because the keys involved need to be on the same server or because we cannot guarantee that the operation will be atomic."
+      end
+    end
+  end
 end
