@@ -70,6 +70,10 @@ class Redis
       super()
     end
   end
+  
+  def initialize_copy(redis)
+		@client = redis.client.clone
+	end
 
   # Run code without the client reconnecting
   def without_reconnect(&block)
