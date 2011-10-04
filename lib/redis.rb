@@ -190,8 +190,12 @@ class Redis
 
   # Get the values of all the given keys.
   def mget(*keys)
-    synchronize do
-      @client.call [:mget, *keys]
+    if keys.empty?
+      []
+    else
+      synchronize do
+        @client.call [:mget, *keys]
+      end
     end
   end
 
@@ -792,8 +796,12 @@ class Redis
 
   # Get the values of all the given hash fields.
   def hmget(key, *fields)
-    synchronize do
-      @client.call [:hmget, key, *fields]
+    if fields.empty?
+      []
+    else
+      synchronize do
+        @client.call [:hmget, key, *fields]
+      end
     end
   end
 
