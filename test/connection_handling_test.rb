@@ -49,6 +49,7 @@ test "SHUTDOWN" do
 
     # SHUTDOWN does not reply: test that it does not raise here.
     assert nil == redis.shutdown
+    assert !redis.client.connected?
   end
 end
 
