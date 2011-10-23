@@ -1025,7 +1025,12 @@ class Redis
       begin
         original, @client = @client, Pipeline.new
         yield
-        original.call_pipelined(@client.commands, options) unless @client.commands.empty?
+
+        if @client.commands.empty?
+          []
+        else
+          original.call_pipelined(@client.commands, options)
+        end
       ensure
         @client = original
       end

@@ -76,6 +76,13 @@ test "Returning the result of a pipeline" do |r|
   assert ["OK", "bar", nil] == result
 end
 
+test "Returning the result of an empty pipeline" do |r|
+  result = r.pipelined do
+  end
+
+  assert [] == result
+end
+
 test "Nesting pipeline blocks" do |r|
   r.pipelined do
     r.set("foo", "s1")
