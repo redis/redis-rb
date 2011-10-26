@@ -35,12 +35,18 @@ module RedisMock
 
             response = yield(*parts)
 
-            if response.nil?
+            # Convert a nil response to :close
+            response ||= :close
+
+            if response == :exit
               session.shutdown(Socket::SHUT_RDWR)
-              break
+              return # exit server body
+            elsif response == :close
+              session.shutdown(Socket::SHUT_RDWR)
+              break # exit connection body
             else
               session.write(response)
-              session.write("\r\n")
+              session.write("\r\n") unless response.end_with?("\r\n")
             end
           end
         rescue Errno::ECONNRESET
