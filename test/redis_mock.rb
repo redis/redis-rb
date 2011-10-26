@@ -50,6 +50,8 @@ module RedisMock
     rescue => ex
       $stderr.puts "Error running mock server: #{ex.message}" if VERBOSE
       $stderr.puts ex.backtrace if VERBOSE
+    ensure
+      @server.close
     end
   end
 
