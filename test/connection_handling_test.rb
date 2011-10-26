@@ -44,7 +44,11 @@ test "QUIT" do |r|
 end
 
 test "SHUTDOWN" do
-  redis_mock(:shutdown => lambda { "+SHUTDOWN" }) do
+  commands = {
+    :shutdown => lambda { :exit }
+  }
+
+  redis_mock(commands) do
     redis = Redis.new(OPTIONS.merge(:port => 6380))
 
     # SHUTDOWN does not reply: test that it does not raise here.
