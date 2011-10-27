@@ -1009,7 +1009,14 @@ class Redis
   # Synchronously save the dataset to disk and then shut down the server.
   def shutdown
     synchronize do
-      @client.call_without_reply [:shutdown]
+      @client.without_reconnect do
+        begin
+          @client.call [:shutdown]
+        rescue Errno::ECONNRESET
+          # This means Redis has probably exited.
+          nil
+        end
+      end
     end
   end
 
