@@ -1009,11 +1009,7 @@ class Redis
   # Synchronously save the dataset to disk and then shut down the server.
   def shutdown
     synchronize do
-      begin
-        @client.call_without_reply [:shutdown]
-      ensure
-        @client.disconnect
-      end
+      @client.call_without_reply [:shutdown]
     end
   end
 
