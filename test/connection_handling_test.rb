@@ -57,6 +57,29 @@ test "SHUTDOWN" do
   end
 end
 
+test "SHUTDOWN with error" do
+  connections = 0
+  commands = {
+    :select => lambda { |*_| connections += 1; "+OK\r\n" },
+    :connections => lambda { ":#{connections}\r\n" },
+    :shutdown => lambda { "-ERR could not shutdown\r\n" }
+  }
+
+  redis_mock(commands) do
+    redis = Redis.new(OPTIONS.merge(:port => 6380))
+
+    connections = redis.connections
+
+    # SHUTDOWN replies with an error: test that it gets raised
+    assert_raise Redis::Error do
+      redis.shutdown
+    end
+
+    # The connection should remain in tact
+    assert connections == redis.connections
+  end
+end
+
 test "SLAVEOF" do
   redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
     redis = Redis.new(OPTIONS.merge(:port => 6380))
