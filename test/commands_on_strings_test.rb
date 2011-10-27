@@ -32,7 +32,7 @@ test "MGET mapped" do |r|
   assert nil  == response["baz"]
 end
 
-test "Mapped MGET in a pipeline returns plain array" do |r|
+test "Mapped MGET in a pipeline returns hash" do |r|
   r.set("foo", "s1")
   r.set("bar", "s2")
 
@@ -40,7 +40,7 @@ test "Mapped MGET in a pipeline returns plain array" do |r|
     assert nil == r.mapped_mget("foo", "bar")
   end
 
-  assert result[0] == ["s1", "s2"]
+  assert result[0] == { "foo" => "s1", "bar" => "s2" }
 end
 
 test "MSET" do |r|
