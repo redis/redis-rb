@@ -428,7 +428,7 @@ class Redis
     end
   end
 
-  # Interact with the slowlog (get, len, clear)
+  # Interact with the slowlog (get, len, reset)
   def slowlog(subcommand, length=nil)
     synchronize do
       args = [:slowlog, subcommand]
