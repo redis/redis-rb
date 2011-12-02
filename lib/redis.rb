@@ -428,6 +428,15 @@ class Redis
     end
   end
 
+  # Interact with the slowlog (get, len, reset)
+  def slowlog(subcommand, length=nil)
+    synchronize do
+      args = [:slowlog, subcommand]
+      args << length if length
+      @client.call args
+    end
+  end
+
   # Get all the members in a set.
   def smembers(key)
     synchronize do
