@@ -38,7 +38,7 @@ class Redis
 
     # Starting with 2.2.1, assume that this method is called with a single
     # array argument. Check its size for backwards compat.
-    def call(*args)
+    def call(*args, &block)
       if args.first.is_a?(Array) && args.size == 1
         command = args.first
       else
@@ -47,7 +47,12 @@ class Redis
 
       reply = process([command]) { read }
       raise reply if reply.kind_of?(RuntimeError)
-      reply
+
+      if block
+        block.call(reply)
+      else
+        reply
+      end
     end
 
     # Starting with 2.2.1, assume that this method is called with a single
@@ -82,8 +87,20 @@ class Redis
       result
     end
 
+    def call_pipeline(pipeline, options = {})
+      call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
+        if block = pipeline.blocks[i]
+          block.call(reply)
+        else
+          reply
+        end
+      end
+    end
+
     def call_pipelined(commands, options = {})
       options[:raise] = true unless options.has_key?(:raise)
+
+      return [] if commands.empty?
 
       # The method #ensure_connected (called from #process) reconnects once on
       # I/O errors. To make an effort in making sure that commands are not
@@ -119,9 +136,9 @@ class Redis
       replies
     end
 
-    def call_without_timeout(*args)
+    def call_without_timeout(*args, &blk)
       without_socket_timeout do
-        call(*args)
+        call(*args, &blk)
       end
     rescue Errno::ECONNRESET
       retry

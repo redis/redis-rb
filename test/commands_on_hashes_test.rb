@@ -8,7 +8,7 @@ end
 
 load './test/lint/hashes.rb'
 
-test "Mapped HMGET in a pipeline returns plain array" do |r|
+test "Mapped HMGET in a pipeline returns hash" do |r|
   r.hset("foo", "f1", "s1")
   r.hset("foo", "f2", "s2")
 
@@ -16,5 +16,5 @@ test "Mapped HMGET in a pipeline returns plain array" do |r|
     assert nil == r.mapped_hmget("foo", "f1", "f2")
   end
 
-  assert result[0] == ["s1", "s2"]
+  assert result[0] == { "f1" => "s1", "f2" => "s2" }
 end
