@@ -80,3 +80,9 @@ test "SYNC" do |r|
     assert "OK" == redis.sync
   end
 end
+
+test "SLOWLOG" do |r|
+  r.slowlog(:reset)
+  result = r.slowlog(:len)
+  assert result == 0
+end
