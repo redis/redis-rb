@@ -96,9 +96,11 @@ test "BGREWRITEAOF" do
 end
 
 test "CONFIG GET" do |r|
-  assert "300" == r.config(:get, "*")["timeout"]
+  assert r.config(:get, "*")["timeout"] != nil
 
-  assert r.config(:get, "timeout") == { "timeout" => "300" }
+  config = r.config(:get, "timeout")
+  assert ["timeout"] == config.keys
+  assert config.values.compact.size > 0
 end
 
 test "CONFIG SET" do |r|
