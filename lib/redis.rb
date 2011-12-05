@@ -96,31 +96,31 @@ class Redis
   # Get information and statistics about the server.
   def info(cmd = nil)
     synchronize do
-      reply = @client.call [:info, cmd].compact
+      @client.call [:info, cmd].compact do |reply|
+        if reply.kind_of?(String)
+          reply = Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
 
-      if reply.kind_of?(String)
-        reply = Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
-
-        if cmd && cmd.to_s == "commandstats"
-          # Extract nested hashes for INFO COMMANDSTATS
-          reply = Hash[reply.map do |k, v|
-            [k[/^cmdstat_(.*)$/, 1], Hash[*v.split(/,|=/)]]
-          end]
+          if cmd && cmd.to_s == "commandstats"
+            # Extract nested hashes for INFO COMMANDSTATS
+            reply = Hash[reply.map do |k, v|
+              [k[/^cmdstat_(.*)$/, 1], Hash[*v.split(/,|=/)]]
+            end]
+          end
         end
-      end
 
-      reply
+        reply
+      end
     end
   end
 
   def config(action, *args)
     synchronize do
-      reply = @client.call [:config, action, *args]
-
-      if reply.kind_of?(Array) && action == :get
-        Hash[*reply]
-      else
-        reply
+      @client.call [:config, action, *args] do |reply|
+        if reply.kind_of?(Array) && action == :get
+          Hash[*reply]
+        else
+          reply
+        end
       end
     end
   end
@@ -189,9 +189,9 @@ class Redis
   end
 
   # Get the values of all the given keys.
-  def mget(*keys)
+  def mget(*keys, &blk)
     synchronize do
-      @client.call [:mget, *keys]
+      @client.call [:mget, *keys], &blk
     end
   end
 
@@ -218,16 +218,16 @@ class Redis
   # Get all the fields and values in a hash.
   def hgetall(key)
     synchronize do
-      reply = @client.call [:hgetall, key]
-
-      if reply.kind_of?(Array)
-        hash = Hash.new
-        reply.each_slice(2) do |field, value|
-          hash[field] = value
+      @client.call [:hgetall, key] do |reply|
+        if reply.kind_of?(Array)
+          hash = Hash.new
+          reply.each_slice(2) do |field, value|
+            hash[field] = value
+          end
+          hash
+        else
+          reply
         end
-        hash
-      else
-        reply
       end
     end
   end
@@ -256,12 +256,12 @@ class Redis
   # Find all keys matching the given pattern.
   def keys(pattern = "*")
     synchronize do
-      reply = @client.call [:keys, pattern]
-
-      if reply.kind_of?(String)
-        reply.split(" ")
-      else
-        reply
+      @client.call [:keys, pattern] do |reply|
+        if reply.kind_of?(String)
+          reply.split(" ")
+        else
+          reply
+        end
       end
     end
   end
@@ -304,7 +304,7 @@ class Redis
   # Determine if a key exists.
   def exists(key)
     synchronize do
-      _bool @client.call [:exists, key]
+      @client.call [:exists, key], &_boolify
     end
   end
 
@@ -447,20 +447,20 @@ class Redis
   # Determine if a given value is a member of a set.
   def sismember(key, member)
     synchronize do
-      _bool @client.call [:sismember, key, member]
+      @client.call [:sismember, key, member], &_boolify
     end
   end
 
   # Add one or more members to a set.
   def sadd(key, *members)
     synchronize do
-      rv = @client.call [:sadd, key, *members]
-
-      # Compatibility: return boolean when 1 member argument was given.
-      if members.size == 1
-        _bool rv
-      else
-        rv
+      @client.call [:sadd, key, *members] do |reply|
+        # Compatibility: return boolean when 1 member argument was given.
+        if members.size == 1
+          _boolify.call(reply)
+        else
+          reply
+        end
       end
     end
   end
@@ -468,13 +468,13 @@ class Redis
   # Remove one or more members from a set.
   def srem(key, *members)
     synchronize do
-      rv = @client.call [:srem, key, *members]
-
-      # Compatibility: return boolean when 1 member argument was given.
-      if members.size == 1
-        _bool rv
-      else
-        rv
+      @client.call [:srem, key, *members] do |reply|
+        # Compatibility: return boolean when 1 member argument was given.
+        if members.size == 1
+          _boolify.call(reply)
+        else
+          reply
+        end
       end
     end
   end
@@ -482,7 +482,7 @@ class Redis
   # Move a member from one set to another.
   def smove(source, destination, member)
     synchronize do
-      _bool @client.call [:smove, source, destination, member]
+      @client.call [:smove, source, destination, member], &_boolify
     end
   end
 
@@ -554,7 +554,7 @@ class Redis
   def zadd(key, *args)
     synchronize do
       if args.size == 2
-        _bool @client.call [:zadd, key, args[0], args[1]]
+        @client.call [:zadd, key, args[0], args[1]], &_boolify
       elsif !args.empty? && args.size % 2 == 0
         @client.call [:zadd, key, *args]
       else
@@ -566,13 +566,13 @@ class Redis
   # Remove one or more members from a sorted set.
   def zrem(key, *members)
     synchronize do
-      rv = @client.call [:zrem, key, *members]
-
-      # Compatibility: return boolean when 1 member argument was given.
-      if members.size == 1
-        _bool rv
-      else
-        rv
+      @client.call [:zrem, key, *members] do |reply|
+        # Compatibility: return boolean when 1 member argument was given.
+        if members.size == 1
+          _boolify.call(reply)
+        else
+          reply
+        end
       end
     end
   end
@@ -714,14 +714,14 @@ class Redis
   # Move a key to another database.
   def move(key, db)
     synchronize do
-      _bool @client.call [:move, key, db]
+      @client.call [:move, key, db], &_boolify
     end
   end
 
   # Set the value of a key, only if the key does not exist.
   def setnx(key, value)
     synchronize do
-      _bool @client.call [:setnx, key, value]
+      @client.call [:setnx, key, value], &_boolify
     end
   end
 
@@ -742,21 +742,21 @@ class Redis
   # Rename a key, only if the new key does not exist.
   def renamenx(old_name, new_name)
     synchronize do
-      _bool @client.call [:renamenx, old_name, new_name]
+      @client.call [:renamenx, old_name, new_name], &_boolify
     end
   end
 
   # Set a key's time to live in seconds.
   def expire(key, seconds)
     synchronize do
-      _bool @client.call [:expire, key, seconds]
+      @client.call [:expire, key, seconds], &_boolify
     end
   end
 
   # Remove the expiration from a key.
   def persist(key)
     synchronize do
-      _bool @client.call [:persist, key]
+      @client.call [:persist, key], &_boolify
     end
   end
 
@@ -770,21 +770,21 @@ class Redis
   # Set the expiration for a key as a UNIX timestamp.
   def expireat(key, unix_time)
     synchronize do
-      _bool @client.call [:expireat, key, unix_time]
+      @client.call [:expireat, key, unix_time], &_boolify
     end
   end
 
   # Set the string value of a hash field.
   def hset(key, field, value)
     synchronize do
-      _bool @client.call [:hset, key, field, value]
+      @client.call [:hset, key, field, value], &_boolify
     end
   end
 
   # Set the value of a hash field, only if the field does not exist.
   def hsetnx(key, field, value)
     synchronize do
-      _bool @client.call [:hsetnx, key, field, value]
+      @client.call [:hsetnx, key, field, value], &_boolify
     end
   end
 
@@ -800,23 +800,23 @@ class Redis
   end
 
   # Get the values of all the given hash fields.
-  def hmget(key, *fields)
+  def hmget(key, *fields, &blk)
     synchronize do
-      @client.call [:hmget, key, *fields]
+      @client.call [:hmget, key, *fields], &blk
     end
   end
 
   def mapped_hmget(key, *fields)
-    reply = hmget(key, *fields)
-
-    if reply.kind_of?(Array)
-      hash = Hash.new
-      fields.zip(reply).each do |field, value|
-        hash[field] = value
+    hmget(key, *fields) do |reply|
+      if reply.kind_of?(Array)
+        hash = Hash.new
+        fields.zip(reply).each do |field, value|
+          hash[field] = value
+        end
+        hash
+      else
+        reply
       end
-      hash
-    else
-      reply
     end
   end
 
@@ -851,7 +851,7 @@ class Redis
   # Determine if a hash field exists.
   def hexists(key, field)
     synchronize do
-      _bool @client.call [:hexists, key, field]
+      @client.call [:hexists, key, field], &_boolify
     end
   end
 
@@ -940,16 +940,16 @@ class Redis
   end
 
   def mapped_mget(*keys)
-    reply = mget(*keys)
-
-    if reply.kind_of?(Array)
-      hash = Hash.new
-      keys.zip(reply).each do |field, value|
-        hash[field] = value
+    mget(*keys) do |reply|
+      if reply.kind_of?(Array)
+        hash = Hash.new
+        keys.zip(reply).each do |field, value|
+          hash[field] = value
+        end
+        hash
+      else
+        reply
       end
-      hash
-    else
-      reply
     end
   end
 
@@ -1042,11 +1042,7 @@ class Redis
         original, @client = @client, Pipeline.new
         yield
 
-        if @client.commands.empty?
-          []
-        else
-          original.call_pipelined(@client.commands, options)
-        end
+        original.call_pipeline(@client, options)
       ensure
         @client = original
       end
@@ -1193,8 +1189,10 @@ private
   # Commands returning 1 for true and 0 for false may be executed in a pipeline
   # where the method call will return nil. Propagate the nil instead of falsely
   # returning false.
-  def _bool(value)
-    value == 1 if value
+  def _boolify
+    lambda { |value|
+      value == 1 if value
+    }
   end
 
   def subscription(method, channels, block)
