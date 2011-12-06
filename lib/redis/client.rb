@@ -88,11 +88,32 @@ class Redis
     end
 
     def call_pipeline(pipeline, options = {})
-      call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
-        if block = pipeline.blocks[i]
-          block.call(reply)
-        else
-          reply
+      without_reconnect_wrapper = lambda do |&blk| blk.call end
+      without_reconnect_wrapper = lambda do |&blk|
+        without_reconnect(&blk)
+      end if pipeline.without_reconnect?
+
+      shutdown_wrapper = lambda do |&blk| blk.call end
+      shutdown_wrapper = lambda do |&blk|
+        begin
+          blk.call
+        rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL
+          # Assume the pipeline was sent in one piece, but execution of
+          # SHUTDOWN caused none of the replies for commands that were executed
+          # prior to it from coming back around.
+          []
+        end
+      end if pipeline.shutdown?
+
+      without_reconnect_wrapper.call do
+        shutdown_wrapper.call do
+          call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
+            if block = pipeline.blocks[i]
+              block.call(reply)
+            else
+              reply
+            end
+          end
         end
       end
     end
