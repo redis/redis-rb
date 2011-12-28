@@ -466,6 +466,11 @@ class Redis
       node_for(key).zcard(key)
     end
 
+    # Get the number of members in a particular score range.
+    def zcount(key, min, max)
+      node_for(key).zcount(key, min, max)
+    end
+
     # Get the score associated with the given member in a sorted set.
     def zscore(key, member)
       node_for(key).zscore(key, member)
