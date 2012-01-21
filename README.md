@@ -100,6 +100,9 @@ All users and admins:
 
 Redis only stores strings as values. If you want to store an object inside a key, you can use a serialization/deseralization mechanism like JSON:
 
+    >> require 'json'
+    => true 
+
     >> redis.set "foo", [1, 2, 3].to_json
     => OK
 
