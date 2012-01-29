@@ -54,7 +54,7 @@ class Redis
 
     def iter_nodes(key)
       return [nil,nil] if @ring.size == 0
-      node, pos = get_node_pos(key)
+      _, pos = get_node_pos(key)
       @sorted_keys[pos..-1].each do |k|
         yield @ring[k]
       end
@@ -98,7 +98,7 @@ class Redis
           }
           EOM
         end
-      rescue Exception => e
+      rescue Exception
         # Find the closest index in HashRing with value <= the given value
         def binary_search(ary, value, &block)
           upper = ary.size - 1
