@@ -395,14 +395,14 @@ class Redis
   # Remove and get the first element in a list, or block until one is available.
   def blpop(*args)
     synchronize do
-      @client.call_without_timeout(:blpop, *args)
+      @client.call_without_timeout [:blpop, *args]
     end
   end
 
   # Remove and get the last element in a list, or block until one is available.
   def brpop(*args)
     synchronize do
-      @client.call_without_timeout(:brpop, *args)
+      @client.call_without_timeout [:brpop, *args]
     end
   end
 
@@ -410,7 +410,7 @@ class Redis
   # until one is available.
   def brpoplpush(source, destination, timeout)
     synchronize do
-      @client.call_without_timeout(:brpoplpush, source, destination, timeout)
+      @client.call_without_timeout [:brpoplpush, source, destination, timeout]
     end
   end
 
@@ -1074,7 +1074,7 @@ class Redis
   def multi
     synchronize do
       if !block_given?
-        @client.call :multi
+        @client.call [:multi]
       else
         result = pipelined(:raise => false) do
           multi

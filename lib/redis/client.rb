@@ -36,15 +36,7 @@ class Redis
       @path || "#{@host}:#{@port}"
     end
 
-    # Starting with 2.2.1, assume that this method is called with a single
-    # array argument. Check its size for backwards compat.
-    def call(*args, &block)
-      if args.first.is_a?(Array) && args.size == 1
-        command = args.first
-      else
-        command = args
-      end
-
+    def call(command, &block)
       reply = process([command]) { read }
       raise reply if reply.kind_of?(RuntimeError)
 
@@ -55,15 +47,7 @@ class Redis
       end
     end
 
-    # Starting with 2.2.1, assume that this method is called with a single
-    # array argument. Check its size for backwards compat.
-    def call_loop(*args)
-      if args.first.is_a?(Array) && args.size == 1
-        command = args.first
-      else
-        command = args
-      end
-
+    def call_loop(command)
       error = nil
 
       result = without_socket_timeout do
@@ -157,9 +141,9 @@ class Redis
       replies
     end
 
-    def call_without_timeout(*args, &blk)
+    def call_without_timeout(command, &blk)
       without_socket_timeout do
-        call(*args, &blk)
+        call(command, &blk)
       end
     rescue Errno::ECONNRESET
       retry
