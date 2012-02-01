@@ -9,7 +9,7 @@ class Redis
           command = [nil]
 
           args.each do |i|
-            if i === Array
+            if i.is_a? Array
               i.each do |j|
                 j = j.to_s
                 command << "$#{j.bytesize}"
@@ -33,7 +33,7 @@ class Redis
           command = [nil]
 
           args.each do |i|
-            if i === Array
+            if i.is_a? Array
               i.each do |j|
                 j = j.to_s
                 command << "$#{j.size}"
