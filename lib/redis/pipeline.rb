@@ -18,15 +18,7 @@ class Redis
       @shutdown
     end
 
-    # Starting with 2.2.1, assume that this method is called with a single
-    # array argument. Check its size for backwards compat.
-    def call(*args, &block)
-      if args.first.is_a?(Array) && args.size == 1
-        command = args.first
-      else
-        command = args
-      end
-
+    def call(command, &block)
       # A pipeline that contains a shutdown should not raise ECONNRESET when
       # the connection is gone.
       @shutdown = true if command.first == :shutdown
