@@ -83,7 +83,7 @@ class Redis
       shutdown_wrapper = lambda do |&blk|
         begin
           blk.call
-        rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL
+        rescue ConnectionError
           # Assume the pipeline was sent in one piece, but execution of
           # SHUTDOWN caused none of the replies for commands that were executed
           # prior to it from coming back around.
@@ -147,7 +147,7 @@ class Redis
       without_socket_timeout do
         call(command, &blk)
       end
-    rescue Errno::ECONNRESET
+    rescue ConnectionError
       retry
     end
 
@@ -181,20 +181,23 @@ class Redis
       connect
     end
 
+    def io
+      yield
+    rescue Errno::EAGAIN
+      raise TimeoutError, "Connection timed out"
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL
+      raise ConnectionError, "Connection lost"
+    end
+
     def read
-      begin
+      io do
         connection.read
+      end
+    end
 
-      rescue Errno::EAGAIN
-        # We want to make sure it reconnects on the next command after the
-        # timeout. Otherwise the server may reply in the meantime leaving
-        # the protocol in a desync status.
-        disconnect
-
-        raise Errno::EAGAIN, "Timeout reading from the socket"
-
-      rescue Errno::ECONNRESET
-        raise Errno::ECONNRESET, "Connection lost"
+    def write(command)
+      io do
+        connection.write(command)
       end
     end
 
@@ -256,8 +259,10 @@ class Redis
       # of seconds. This hack is from memcached ruby client.
       self.timeout = @timeout
 
+    rescue Timeout::Error
+      raise TimeoutError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
-      raise Errno::ECONNREFUSED, "Unable to connect to Redis on #{location}"
+      raise ConnectionError, "Unable to connect to Redis on #{location}"
     end
 
     def timeout=(timeout)
@@ -272,13 +277,13 @@ class Redis
         tries += 1
 
         yield
-      rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL
+      rescue ConnectionError
         disconnect
 
         if tries < 2 && @reconnect
           retry
         else
-          raise Errno::ECONNRESET
+          raise
         end
       rescue Exception
         disconnect

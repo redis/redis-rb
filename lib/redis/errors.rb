@@ -19,4 +19,16 @@ class Redis
   # Raised by the client when command execution returns an error reply.
   class CommandError < BaseError
   end
+
+  # Base error for connection related errors.
+  class BaseConnectionError < BaseError
+  end
+
+  # Raised when connection to a Redis server is lost, or cannot be made.
+  class ConnectionError < BaseConnectionError
+  end
+
+  # Raised when connecting to a Redis server, or performing I/O times out.
+  class TimeoutError < BaseConnectionError
+  end
 end

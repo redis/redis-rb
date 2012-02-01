@@ -35,20 +35,11 @@ test "Timeout" do
   end
 end
 
-# Don't use assert_raise because Timeour::Error in 1.8 inherits
-# Exception instead of StandardError (on 1.9).
 test "Connection timeout" do
-  # EM immediately raises CONNREFUSED
   next if driver == :synchrony
 
-  result = false
-
-  begin
+  assert_raise Redis::TimeoutError do
     Redis.new(OPTIONS.merge(:host => "10.255.255.254", :timeout => 0.1)).ping
-  rescue Timeout::Error
-    result = true
-  ensure
-    assert result
   end
 end
 
@@ -80,7 +71,7 @@ test "Don't retry when wrapped inside #without_reconnect" do
 
   redis_mock(:ping => command) do
     redis = Redis.connect(:port => 6380, :timeout => 0.1)
-    assert_raise Errno::ECONNRESET do
+    assert_raise Redis::ConnectionError do
       redis.without_reconnect do
         redis.ping
       end
@@ -103,7 +94,7 @@ test "Retry only once when read raises ECONNRESET" do
 
   redis_mock(:ping => command) do
     redis = Redis.connect(:port => 6380, :timeout => 0.1)
-    assert_raise Errno::ECONNRESET do
+    assert_raise Redis::ConnectionError do
       redis.ping
     end
 
@@ -123,7 +114,7 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
 
   redis_mock(:ping => command) do
     redis = Redis.connect(:port => 6380, :timeout => 0.1)
-    assert_raise Errno::ECONNRESET do
+    assert_raise Redis::ConnectionError do
       redis.pipelined do
         redis.ping
         redis.ping # Second #read times out

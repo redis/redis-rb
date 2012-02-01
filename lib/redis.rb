@@ -995,7 +995,7 @@ class Redis
     synchronize do
       begin
         @client.call [:quit]
-      rescue Errno::ECONNRESET
+      rescue ConnectionError
       ensure
         @client.disconnect
       end
@@ -1008,7 +1008,7 @@ class Redis
       @client.without_reconnect do
         begin
           @client.call [:shutdown]
-        rescue Errno::ECONNRESET
+        rescue ConnectionError
           # This means Redis has probably exited.
           nil
         end
