@@ -4,19 +4,54 @@ class Redis
 
       COMMAND_DELIMITER = "\r\n"
 
-      def build_command(args)
-        command = []
-        command << "*#{args.size}"
+      if "".respond_to?(:bytesize)
+        def build_command(args)
+          command = [nil]
 
-        args.each do |arg|
-          arg = arg.to_s
-          command << "$#{string_size arg}"
-          command << arg
+          args.each do |i|
+            if i === Array
+              i.each do |j|
+                j = j.to_s
+                command << "$#{j.bytesize}"
+                command << j
+              end
+            else
+              i = i.to_s
+              command << "$#{i.bytesize}"
+              command << i
+            end
+          end
+
+          command[0] = "*#{(command.length - 1) / 2}"
+
+          # Trailing delimiter
+          command << ""
+          command.join(COMMAND_DELIMITER)
         end
+      else
+        def build_command(args)
+          command = [nil]
 
-        # Trailing delimiter
-        command << ""
-        command.join(COMMAND_DELIMITER)
+          args.each do |i|
+            if i === Array
+              i.each do |j|
+                j = j.to_s
+                command << "$#{j.size}"
+                command << j
+              end
+            else
+              i = i.to_s
+              command << "$#{i.size}"
+              command << i
+            end
+          end
+
+          command[0] = "*#{(command.length - 1) / 2}"
+
+          # Trailing delimiter
+          command << ""
+          command.join(COMMAND_DELIMITER)
+        end
       end
 
     protected

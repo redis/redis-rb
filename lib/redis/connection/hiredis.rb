@@ -34,7 +34,7 @@ class Redis
       end
 
       def write(command)
-        @connection.write(command)
+        @connection.write(command.flatten(1))
       end
 
       def read
