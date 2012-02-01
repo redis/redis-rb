@@ -35,7 +35,7 @@ test "Variadic HDEL" do |r|
   assert "s1" == r.hget("foo", "f1")
   assert "s2" == r.hget("foo", "f2")
 
-  assert 2 == r.hdel("foo", "f1", "f2")
+  assert 2 == r.hdel("foo", ["f1", "f2"])
 
   assert nil == r.hget("foo", "f1")
   assert nil == r.hget("foo", "f2")
