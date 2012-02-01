@@ -452,28 +452,30 @@ class Redis
   end
 
   # Add one or more members to a set.
-  def sadd(key, *members)
+  def sadd(key, member)
     synchronize do
-      @client.call [:sadd, key, *members] do |reply|
-        # Compatibility: return boolean when 1 member argument was given.
-        if members.size == 1
-          _boolify.call(reply)
-        else
+      @client.call [:sadd, key, member] do |reply|
+        if member.is_a? Array
+          # Variadic: return integer
           reply
+        else
+          # Single argument: return boolean
+          _boolify.call(reply)
         end
       end
     end
   end
 
   # Remove one or more members from a set.
-  def srem(key, *members)
+  def srem(key, member)
     synchronize do
-      @client.call [:srem, key, *members] do |reply|
-        # Compatibility: return boolean when 1 member argument was given.
-        if members.size == 1
-          _boolify.call(reply)
-        else
+      @client.call [:srem, key, member] do |reply|
+        if member.is_a? Array
+          # Variadic: return integer
           reply
+        else
+          # Single argument: return boolean
+          _boolify.call(reply)
         end
       end
     end
