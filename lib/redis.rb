@@ -358,9 +358,9 @@ class Redis
   end
 
   # Append one or more values to a list.
-  def rpush(key, *values)
+  def rpush(key, value)
     synchronize do
-      @client.call [:rpush, key, *values]
+      @client.call [:rpush, key, value]
     end
   end
 
@@ -372,9 +372,9 @@ class Redis
   end
 
   # Prepend one or more values to a list.
-  def lpush(key, *values)
+  def lpush(key, value)
     synchronize do
-      @client.call [:lpush, key, *values]
+      @client.call [:lpush, key, value]
     end
   end
 
