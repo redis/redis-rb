@@ -38,7 +38,7 @@ class Redis
       uri = URI(url)
 
       # Require the URL to have at least a host
-      raise "invalid uri" unless uri.host
+      raise ArgumentError, "invalid url" unless uri.host
 
       options[:host]     ||= uri.host
       options[:port]     ||= uri.port
