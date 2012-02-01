@@ -241,13 +241,13 @@ class Redis
     end
 
     # Append one or more values to a list.
-    def rpush(key, *values)
-      node_for(key).rpush(key, *values)
+    def rpush(key, value)
+      node_for(key).rpush(key, value)
     end
 
     # Prepend one or more values to a list.
-    def lpush(key, *values)
-      node_for(key).lpush(key, *values)
+    def lpush(key, value)
+      node_for(key).lpush(key, value)
     end
 
     # Get the length of a list.
@@ -319,13 +319,13 @@ class Redis
     end
 
     # Add one or more members to a set.
-    def sadd(key, *members)
-      node_for(key).sadd(key, *members)
+    def sadd(key, member)
+      node_for(key).sadd(key, member)
     end
 
     # Remove one or more members from a set.
-    def srem(key, *members)
-      node_for(key).srem(key, *members)
+    def srem(key, member)
+      node_for(key).srem(key, member)
     end
 
     # Remove and return a random member from a set.
@@ -409,8 +409,8 @@ class Redis
     end
 
     # Remove one or more members from a sorted set.
-    def zrem(key, *members)
-      node_for(key).zrem(key, *members)
+    def zrem(key, member)
+      node_for(key).zrem(key, member)
     end
 
     # Increment the score of a member in a sorted set.
@@ -507,8 +507,8 @@ class Redis
     end
 
     # Delete one or more hash fields.
-    def hdel(key, *fields)
-      node_for(key).hdel(key, *fields)
+    def hdel(key, field)
+      node_for(key).hdel(key, field)
     end
 
     # Determine if a hash field exists.
