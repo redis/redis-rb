@@ -8,15 +8,24 @@ end
 test "Variadic ZADD" do |r|
   next if version(r) < 203090 # 2.4-rc6
 
+  # Non-nested array with pairs
   assert 0 == r.zcard("foo")
-  assert 2 == r.zadd("foo", 1, "s1", 2, "s2")
-  assert 1 == r.zadd("foo", 4, "s1", 5, "s2", 6, "s3")
+  assert 2 == r.zadd("foo", [1, "s1", 2, "s2"])
+  assert 1 == r.zadd("foo", [4, "s1", 5, "s2", 6, "s3"])
   assert 3 == r.zcard("foo")
+  r.del "foo"
+
+  # Nested array with pairs
+  assert 0 == r.zcard("foo")
+  assert 2 == r.zadd("foo", [[1, "s1"], [2, "s2"]])
+  assert 1 == r.zadd("foo", [[4, "s1"], [5, "s2"], [6, "s3"]])
+  assert 3 == r.zcard("foo")
+  r.del "foo"
 
   # Wrong number of arguments
   assert_raise { r.zadd("foo") }
-  assert_raise { r.zadd("foo", "bar") }
-  assert_raise { r.zadd("foo", "bar", "qux", "zap") }
+  assert_raise { r.zadd("foo", ["bar"]) }
+  assert_raise { r.zadd("foo", ["bar", "qux", "zap"]) }
 end
 
 test "ZREM" do |r|
@@ -37,9 +46,9 @@ test "Variadic ZREM" do |r|
   r.zadd("foo", 3, "s3")
 
   assert 3 == r.zcard("foo")
-  assert 1 == r.zrem("foo", "s1", "aaa")
-  assert 0 == r.zrem("foo", "bbb", "ccc" "ddd")
-  assert 1 == r.zrem("foo", "eee", "s3")
+  assert 1 == r.zrem("foo", ["s1", "aaa"])
+  assert 0 == r.zrem("foo", ["bbb", "ccc" "ddd"])
+  assert 1 == r.zrem("foo", ["eee", "s3"])
   assert 1 == r.zcard("foo")
 end
 

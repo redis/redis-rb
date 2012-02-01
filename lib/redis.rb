@@ -240,9 +240,9 @@ class Redis
   end
 
   # Delete one or more hash fields.
-  def hdel(key, *fields)
+  def hdel(key, field)
     synchronize do
-      @client.call [:hdel, key, *fields]
+      @client.call [:hdel, key, field]
     end
   end
 
@@ -358,9 +358,9 @@ class Redis
   end
 
   # Append one or more values to a list.
-  def rpush(key, *values)
+  def rpush(key, value)
     synchronize do
-      @client.call [:rpush, key, *values]
+      @client.call [:rpush, key, value]
     end
   end
 
@@ -372,9 +372,9 @@ class Redis
   end
 
   # Prepend one or more values to a list.
-  def lpush(key, *values)
+  def lpush(key, value)
     synchronize do
-      @client.call [:lpush, key, *values]
+      @client.call [:lpush, key, value]
     end
   end
 
@@ -452,28 +452,30 @@ class Redis
   end
 
   # Add one or more members to a set.
-  def sadd(key, *members)
+  def sadd(key, member)
     synchronize do
-      @client.call [:sadd, key, *members] do |reply|
-        # Compatibility: return boolean when 1 member argument was given.
-        if members.size == 1
-          _boolify.call(reply)
-        else
+      @client.call [:sadd, key, member] do |reply|
+        if member.is_a? Array
+          # Variadic: return integer
           reply
+        else
+          # Single argument: return boolean
+          _boolify.call(reply)
         end
       end
     end
   end
 
   # Remove one or more members from a set.
-  def srem(key, *members)
+  def srem(key, member)
     synchronize do
-      @client.call [:srem, key, *members] do |reply|
-        # Compatibility: return boolean when 1 member argument was given.
-        if members.size == 1
-          _boolify.call(reply)
-        else
+      @client.call [:srem, key, member] do |reply|
+        if member.is_a? Array
+          # Variadic: return integer
           reply
+        else
+          # Single argument: return boolean
+          _boolify.call(reply)
         end
       end
     end
@@ -553,25 +555,28 @@ class Redis
   # that already exist.
   def zadd(key, *args)
     synchronize do
-      if args.size == 2
+      if args.size == 1 && args[0].is_a?(Array)
+        # Variadic: return integer
+        @client.call [:zadd, key] + args[0]
+      elsif args.size == 2
+        # Single pair: return boolean
         @client.call [:zadd, key, args[0], args[1]], &_boolify
-      elsif !args.empty? && args.size % 2 == 0
-        @client.call [:zadd, key, *args]
       else
-        raise "wrong number of arguments"
+        raise ArgumentError, "wrong number of arguments"
       end
     end
   end
 
   # Remove one or more members from a sorted set.
-  def zrem(key, *members)
+  def zrem(key, member)
     synchronize do
-      @client.call [:zrem, key, *members] do |reply|
-        # Compatibility: return boolean when 1 member argument was given.
-        if members.size == 1
-          _boolify.call(reply)
-        else
+      @client.call [:zrem, key, member] do |reply|
+        if member.is_a? Array
+          # Variadic: return integer
           reply
+        else
+          # Single argument: return boolean
+          _boolify.call(reply)
         end
       end
     end
