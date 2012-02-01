@@ -208,7 +208,7 @@ class Redis
     end
 
     def mapped_mset(hash)
-      mset(*hash.to_a.flatten)
+      raise CannotDistribute, :mapped_mset
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
