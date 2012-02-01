@@ -1,3 +1,5 @@
+require "redis/errors"
+
 class Redis
   class Client
     attr_accessor :db, :host, :port, :path, :password, :logger
@@ -38,7 +40,7 @@ class Redis
 
     def call(command, &block)
       reply = process([command]) { read }
-      raise reply if reply.kind_of?(RuntimeError)
+      raise reply if reply.is_a?(CommandError)
 
       if block
         block.call(reply)
@@ -54,7 +56,7 @@ class Redis
         process([command]) do
           loop do
             reply = read
-            if reply.kind_of?(RuntimeError)
+            if reply.is_a?(CommandError)
               error = reply
               break
             else
@@ -115,14 +117,14 @@ class Redis
       # already succesfully executed commands. To circumvent this, don't retry
       # after the first reply has been read succesfully.
       first = process(commands) { read }
-      error = first if first.kind_of?(RuntimeError)
+      error = first if first.is_a?(CommandError)
 
       begin
         remaining = commands.size - 1
         if remaining > 0
           replies = Array.new(remaining) do
             reply = read
-            error ||= reply if reply.kind_of?(RuntimeError)
+            error ||= reply if reply.is_a?(CommandError)
             reply
           end
           replies.unshift first

@@ -1,5 +1,6 @@
 require "redis/connection/registry"
 require "redis/connection/command_helper"
+require "redis/errors"
 require "socket"
 
 class Redis
@@ -80,7 +81,7 @@ class Redis
       end
 
       def format_error_reply(line)
-        Error.new(line.strip)
+        CommandError.new(line.strip)
       end
 
       def format_status_reply(line)

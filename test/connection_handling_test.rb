@@ -70,7 +70,7 @@ test "SHUTDOWN with error" do
     connections = redis.connections
 
     # SHUTDOWN replies with an error: test that it gets raised
-    assert_raise Redis::Error do
+    assert_raise Redis::CommandError do
       redis.shutdown
     end
 
@@ -110,7 +110,7 @@ test "SHUTDOWN with error from pipeline" do
     connections = redis.connections
 
     # SHUTDOWN replies with an error: test that it gets raised
-    assert_raise Redis::Error do
+    assert_raise Redis::CommandError do
       redis.pipelined do
         redis.shutdown
       end
@@ -160,7 +160,7 @@ test "SHUTDOWN with error from MULTI/EXEC" do
       redis.shutdown
     end
 
-    # We should test for Redis::Error here, but hiredis doesn't yet do custom error classes.
+    # We should test for Redis::ConnectionError here, but hiredis doesn't yet do custom error classes.
     assert result[0].is_a?(StandardError)
     assert result[0].message.match /could not shutdown/i
 
