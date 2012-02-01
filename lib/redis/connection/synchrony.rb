@@ -33,7 +33,7 @@ class Redis
             @req.succeed [:reply, reply]
           end
         rescue RuntimeError => err
-          @req.fail [:error, ::Redis::ProtocolError.new(err.message)]
+          @req.fail [:error, ProtocolError.new(err.message)]
         end
       end
 

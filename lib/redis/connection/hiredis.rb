@@ -43,7 +43,7 @@ class Redis
         reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
         reply
       rescue RuntimeError => err
-        raise ::Redis::ProtocolError.new(err.message)
+        raise ProtocolError.new(err.message)
       end
     end
   end
