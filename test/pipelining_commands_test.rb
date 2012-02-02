@@ -76,6 +76,29 @@ test "Returning the result of a pipeline" do |r|
   assert ["OK", "bar", nil] == result
 end
 
+test "Assignment of results inside the block" do |r|
+  r.pipelined do
+    @first = r.sadd("foo", 1)
+    @second = r.sadd("foo", 1)
+  end
+
+  assert_equal true, @first.value
+  assert_equal false, @second.value
+end
+
+test "Assignment of results inside a nested block" do |r|
+  r.pipelined do
+    @first = r.sadd("foo", 1)
+
+    r.pipelined do
+      @second = r.sadd("foo", 1)
+    end
+  end
+
+  assert_equal true, @first.value
+  assert_equal false, @second.value
+end
+
 test "Returning the result of an empty pipeline" do |r|
   result = r.pipelined do
   end

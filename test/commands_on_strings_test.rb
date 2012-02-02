@@ -37,7 +37,7 @@ test "Mapped MGET in a pipeline returns hash" do |r|
   r.set("bar", "s2")
 
   result = r.pipelined do
-    assert nil == r.mapped_mget("foo", "bar")
+    r.mapped_mget("foo", "bar")
   end
 
   assert result[0] == { "foo" => "s1", "bar" => "s2" }

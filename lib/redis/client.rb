@@ -93,10 +93,12 @@ class Redis
         shutdown_wrapper.call do
           call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
             if block = pipeline.blocks[i]
-              block.call(reply)
+              value = block.call(reply)
             else
-              reply
+              value = reply
             end
+            pipeline.values[i].set(value)
+            value
           end
         end
       end

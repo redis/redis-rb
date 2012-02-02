@@ -13,7 +13,7 @@ test "Mapped HMGET in a pipeline returns hash" do |r|
   r.hset("foo", "f2", "s2")
 
   result = r.pipelined do
-    assert nil == r.mapped_hmget("foo", "f1", "f2")
+    r.mapped_hmget("foo", "f1", "f2")
   end
 
   assert result[0] == { "f1" => "s1", "f2" => "s2" }
