@@ -2,6 +2,9 @@
 
 A Ruby client library for the [Redis](http://redis.io) key-value store.
 
+A simple Ruby client trying to match Redis' API one-to-one while still providing a Rubystic interface.
+It features thread safety, client-side sharding, and an obsession for performance.
+
 ## A note about versions
 
 Versions *1.0.x* target all versions of Redis. You have to use this one if you are using Redis < 1.2.
@@ -101,7 +104,7 @@ All users and admins:
 Redis only stores strings as values. If you want to store an object inside a key, you can use a serialization/deseralization mechanism like JSON:
 
     >> require 'json'
-    => true 
+    => true
 
     >> redis.set "foo", [1, 2, 3].to_json
     => OK
