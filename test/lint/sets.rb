@@ -9,8 +9,8 @@ end
 test "Variadic SADD" do |r|
   next if version(r) < 203090 # 2.4-rc6
 
-  assert 2 == r.sadd("foo", "s1", "s2")
-  assert 1 == r.sadd("foo", "s1", "s2", "s3")
+  assert 2 == r.sadd("foo", ["s1", "s2"])
+  assert 1 == r.sadd("foo", ["s1", "s2", "s3"])
 
   assert ["s1", "s2", "s3"] == r.smembers("foo").sort
 end
@@ -32,9 +32,9 @@ test "Variadic SREM" do |r|
   r.sadd("foo", "s2")
   r.sadd("foo", "s3")
 
-  assert 1 == r.srem("foo", "s1", "aaa")
-  assert 0 == r.srem("foo", "bbb", "ccc" "ddd")
-  assert 1 == r.srem("foo", "eee", "s3")
+  assert 1 == r.srem("foo", ["s1", "aaa"])
+  assert 0 == r.srem("foo", ["bbb", "ccc" "ddd"])
+  assert 1 == r.srem("foo", ["eee", "s3"])
 
   assert ["s2"] == r.smembers("foo")
 end
