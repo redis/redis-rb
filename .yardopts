@@ -1,0 +1,2 @@
+--exclude redis/connection
+--exclude redis/compat

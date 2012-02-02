@@ -6,3 +6,5 @@ coverage/*
 .idea
 *.rdb
 *.swp
+.yardoc
+doc/
