@@ -16,12 +16,6 @@ class Redis
   class Error < RuntimeError
   end
 
-  module DisableThreadSafety
-    def synchronize
-      yield
-    end
-  end
-
   def self.deprecate(message, trace = caller[0])
     $stderr.puts "\n#{message} (in #{trace})"
   end
@@ -63,12 +57,15 @@ class Redis
     @client = Client.new(options)
 
     if options[:thread_safe] == false
-      # Override #synchronize
-      extend DisableThreadSafety
+      @synchronizer = lambda { |&block| block.call }
     else
-      # Monitor#initialize
-      super()
+      @synchronizer = lambda { |&block| mon_synchronize { block.call } }
+      super() # Monitor#initialize
     end
+  end
+
+  def synchronize
+    @synchronizer.call { yield }
   end
 
   # Run code without the client reconnecting
