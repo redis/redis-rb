@@ -38,7 +38,7 @@ end
 test "Connection timeout" do
   next if driver == :synchrony
 
-  assert_raise Redis::TimeoutError do
+  assert_raise Redis::CannotConnectError do
     Redis.new(OPTIONS.merge(:host => "10.255.255.254", :timeout => 0.1)).ping
   end
 end

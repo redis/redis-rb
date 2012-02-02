@@ -260,9 +260,9 @@ class Redis
       self.timeout = @timeout
 
     rescue Timeout::Error
-      raise TimeoutError, "Timed out connecting to Redis on #{location}"
+      raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
-      raise ConnectionError, "Unable to connect to Redis on #{location}"
+      raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
     end
 
     def timeout=(timeout)

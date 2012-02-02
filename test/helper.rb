@@ -20,7 +20,7 @@ def init(redis)
     redis.flushdb
     redis.select 15
     redis
-  rescue ConnectionError
+  rescue Redis::CannotConnectError
     puts <<-EOS
 
       Cannot connect to Redis.
