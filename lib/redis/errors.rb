@@ -28,11 +28,11 @@ class Redis
   class CannotConnectError < BaseConnectionError
   end
 
-  # Raised when connection to a Redis server is lost, or cannot be made.
+  # Raised when connection to a Redis server is lost.
   class ConnectionError < BaseConnectionError
   end
 
-  # Raised when connecting to a Redis server, or performing I/O times out.
+  # Raised when performing I/O times out.
   class TimeoutError < BaseConnectionError
   end
 end
