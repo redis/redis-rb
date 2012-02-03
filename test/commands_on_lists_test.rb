@@ -26,12 +26,19 @@ test "LPUSHX" do |r|
   assert ["s3", "s2"] == r.lrange("foo", 0, -1)
 end
 
-test "LPUSH" do |r|
+test "Variadic LPUSH" do |r|
+  next if version(r) < 203090 # 2.4-rc6
   r.lpush "foo", "s1", "s2"
   assert 2 == r.llen("foo")
   assert ["s2", "s1"] == r.lrange("foo", 0, -1)
 end
 
+test "Variadic RPUSH" do |r|
+  next if version(r) < 203090 # 2.4-rc6
+  r.rpush "foo", "s1", "s2"
+  assert 2 == r.llen("foo")
+  assert ["s1", "s2"] == r.lrange("foo", 0, -1)
+end
 
 test "LINSERT" do |r|
   r.rpush "foo", "s1"
