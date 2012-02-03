@@ -1,15 +1,5 @@
 class Redis
   class Pipeline
-    class Value
-      def set(object)
-        @object = object
-      end
-
-      def value
-        @object
-      end
-    end
-
     attr :commands
     attr :blocks
     attr :values
@@ -36,7 +26,7 @@ class Redis
       @shutdown = true if command.first == :shutdown
       @commands << command
       @blocks << block
-      value = Value.new
+      value = Future.new(command)
       @values << value
       value
     end
@@ -52,6 +42,34 @@ class Redis
     def without_reconnect(&block)
       @without_reconnect = true
       yield
+    end
+  end
+
+  class FutureNotReady < RuntimeError
+    def initialize
+      super("Value will be available once the pipeline executes.")
+    end
+  end
+
+  class Future < BasicObject
+    def initialize(command)
+      @command = command
+    end
+
+    def inspect
+      "<Redis::Future #{@command.inspect}>"
+    end
+
+    def _set(object)
+      @object = object
+    end
+
+    def value
+      if defined?(@object)
+        @object
+      else
+        ::Kernel.raise FutureNotReady
+      end
     end
   end
 end

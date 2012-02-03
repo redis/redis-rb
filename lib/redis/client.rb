@@ -97,7 +97,7 @@ class Redis
             else
               value = reply
             end
-            pipeline.values[i].set(value)
+            pipeline.values[i]._set(value)
             value
           end
         end

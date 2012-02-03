@@ -36,6 +36,16 @@ test "MULTI/EXEC with a block" do |r|
   assert nil == r.get("baz")
 end
 
+test "Assignment inside MULTI/EXEC block" do |r|
+  r.multi do |m|
+    @first = m.sadd("foo", 1)
+    @second = m.sadd("foo", 1)
+  end
+
+  assert_equal true, @first.value
+  assert_equal false, @second.value
+end
+
 test "Don't raise (and ignore) immediate error in MULTI/EXEC" do |r|
   result = r.multi do |m|
     m.set("foo", "s1")

@@ -1078,13 +1078,27 @@ class Redis
       if !block_given?
         @client.call [:multi]
       else
+        pipeline, replies = nil
+
         result = pipelined(:raise => false) do
           multi
           yield(self)
           exec
+          pipeline = @client
         end
 
-        result.last
+        if replies = result.last
+          replies.size.times do |i|
+            if block = pipeline.blocks[i + 1]
+              value = block.call(replies[i])
+            else
+              value = replies[i]
+            end
+            pipeline.values[i + 1]._set(value)
+          end
+        end
+
+        replies
       end
     end
   end

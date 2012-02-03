@@ -99,6 +99,22 @@ test "Assignment of results inside a nested block" do |r|
   assert_equal false, @second.value
 end
 
+test "Futures raise when confused with something else" do |r|
+  r.pipelined do
+    @result = r.sadd("foo", 1)
+  end
+
+  assert_raise(NoMethodError) { @result.to_s }
+end
+
+test "Futures raise when trying to access their values too early" do |r|
+  r.pipelined do
+    assert_raise(Redis::FutureNotReady) do
+      r.sadd("foo", 1).value
+    end
+  end
+end
+
 test "Returning the result of an empty pipeline" do |r|
   result = r.pipelined do
   end
