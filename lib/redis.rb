@@ -369,9 +369,9 @@ class Redis
   end
 
   # Prepend one or more values to a list.
-  def lpush(key, value)
+  def lpush(key, *values)
     synchronize do
-      @client.call [:lpush, key, value]
+      @client.call [:lpush, key, *values]
     end
   end
 
