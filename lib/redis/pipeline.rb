@@ -39,6 +39,12 @@ class Redis
       @without_reconnect = true
       yield
     end
+
+    def process_replies(replies)
+      futures.each_with_index.map do |future, i|
+        future._set(replies[i])
+      end
+    end
   end
 
   class FutureNotReady < RuntimeError

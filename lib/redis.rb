@@ -1088,9 +1088,7 @@ class Redis
         end
 
         if replies = result.last
-          replies.size.times do |i|
-            pipeline.futures[i + 1]._set(replies[i])
-          end
+          pipeline.process_replies([nil] + replies)
         end
 
         replies

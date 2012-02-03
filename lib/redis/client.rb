@@ -91,9 +91,7 @@ class Redis
 
       without_reconnect_wrapper.call do
         shutdown_wrapper.call do
-          call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
-            pipeline.futures[i]._set(reply)
-          end
+          pipeline.process_replies(call_pipelined(pipeline.commands, options))
         end
       end
     end
