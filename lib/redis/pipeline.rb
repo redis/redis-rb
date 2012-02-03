@@ -25,7 +25,7 @@ class Redis
       future
     end
 
-    def call_pipeline(pipeline, options = {})
+    def call_pipeline(pipeline)
       @shutdown = true if pipeline.shutdown?
       @futures.concat(pipeline.futures)
       nil

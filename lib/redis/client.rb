@@ -71,7 +71,7 @@ class Redis
       result
     end
 
-    def call_pipeline(pipeline, options = {})
+    def call_pipeline(pipeline)
       without_reconnect_wrapper = lambda do |&blk| blk.call end
       without_reconnect_wrapper = lambda do |&blk|
         without_reconnect(&blk)
@@ -91,12 +91,12 @@ class Redis
 
       without_reconnect_wrapper.call do
         shutdown_wrapper.call do
-          pipeline.process_replies(call_pipelined(pipeline.commands, options))
+          pipeline.process_replies(call_pipelined(pipeline.commands))
         end
       end
     end
 
-    def call_pipelined(commands, options = {})
+    def call_pipelined(commands)
       return [] if commands.empty?
 
       # The method #ensure_connected (called from #process) reconnects once on

@@ -1038,12 +1038,12 @@ class Redis
     end
   end
 
-  def pipelined(options = {})
+  def pipelined
     synchronize do
       begin
         original, @client = @client, Pipeline.new
         yield
-        original.call_pipeline(@client, options)
+        original.call_pipeline(@client)
       ensure
         @client = original
       end
