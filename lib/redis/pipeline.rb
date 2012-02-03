@@ -1,12 +1,10 @@
 class Redis
   class Pipeline
-    attr :commands
     attr :futures
 
     def initialize
       @without_reconnect = false
       @shutdown = false
-      @commands = []
       @futures = []
     end
 
@@ -22,7 +20,6 @@ class Redis
       # A pipeline that contains a shutdown should not raise ECONNRESET when
       # the connection is gone.
       @shutdown = true if command.first == :shutdown
-      @commands << command
       future = Future.new(command, block)
       @futures << future
       future
@@ -30,9 +27,12 @@ class Redis
 
     def call_pipeline(pipeline, options = {})
       @shutdown = true if pipeline.shutdown?
-      @commands.concat(pipeline.commands)
       @futures.concat(pipeline.futures)
       nil
+    end
+
+    def commands
+      @futures.map { |f| f._command }
     end
 
     def without_reconnect(&block)
@@ -67,6 +67,10 @@ class Redis
 
     def _set(object)
       @object = @transformation.call(object)
+    end
+
+    def _command
+      @command
     end
 
     def value
