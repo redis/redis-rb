@@ -1,3 +1,7 @@
+require File.expand_path("../redis_mock", File.dirname(__FILE__))
+
+include RedisMock::Helper
+
 test "EXISTS" do |r|
   assert false == r.exists("foo")
 
@@ -23,25 +27,19 @@ test "KEYS" do |r|
 end
 
 test "EXPIRE" do |r|
-  r.set("foo", "s1")
-  r.expire("foo", 1)
+  redis_mock(:expire => lambda { |*args| args == ["foo", "1"] ? ":1" : ":0" }) do
+    r = Redis.new(OPTIONS.merge(:port => 6380))
 
-  assert "s1" == r.get("foo")
-
-  sleep 2
-
-  assert nil == r.get("foo")
+    assert r.expire("foo", 1)
+  end
 end
 
 test "EXPIREAT" do |r|
-  r.set("foo", "s1")
-  r.expireat("foo", Time.now.to_i + 1)
+  redis_mock(:expireat => lambda { |*args| args == ["foo", "1328236326"] ? ":1" : ":0" }) do
+    r = Redis.new(OPTIONS.merge(:port => 6380))
 
-  assert "s1" == r.get("foo")
-
-  sleep 2
-
-  assert nil == r.get("foo")
+    assert r.expireat("foo", 1328236326)
+  end
 end
 
 test "PERSIST" do |r|
