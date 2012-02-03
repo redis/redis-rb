@@ -106,30 +106,25 @@ class Redis
       # read, retrying would re-execute the entire pipeline, thus re-issuing
       # already successfully executed commands. To circumvent this, don't retry
       # after the first reply has been read successfully.
-      first = process(commands) { read }
-      error = first if first.kind_of?(RuntimeError)
+
+      result = Array.new(commands.size)
+      reconnect = @reconnect
 
       begin
-        remaining = commands.size - 1
-        if remaining > 0
-          replies = Array.new(remaining) do
-            reply = read
-            error ||= reply if reply.kind_of?(RuntimeError)
-            reply
+        process(commands) do
+          result[0] = read
+
+          @reconnect = false
+
+          (commands.size - 1).times do |i|
+            result[i + 1] = read
           end
-          replies.unshift first
-          replies
-        else
-          replies = [first]
         end
-      rescue Exception
-        disconnect
-        raise
+      ensure
+        @reconnect = reconnect
       end
 
-      raise error if error
-
-      replies
+      result
     end
 
     def call_without_timeout(command, &blk)
