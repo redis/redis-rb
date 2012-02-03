@@ -54,9 +54,12 @@ class Redis
   end
 
   class Future < BasicObject
+    FutureNotReady = ::Redis::FutureNotReady.new
+
     def initialize(command, transformation)
       @command = command
       @transformation = transformation
+      @object = FutureNotReady
     end
 
     def inspect
@@ -65,6 +68,7 @@ class Redis
 
     def _set(object)
       @object = @transformation ? @transformation.call(object) : object
+      value
     end
 
     def _command
@@ -72,11 +76,8 @@ class Redis
     end
 
     def value
-      if defined?(@object)
-        @object
-      else
-        ::Kernel.raise FutureNotReady
-      end
+      ::Kernel.raise(@object) if @object.kind_of?(::Exception)
+      @object
     end
   end
 end

@@ -1043,7 +1043,6 @@ class Redis
       begin
         original, @client = @client, Pipeline.new
         yield
-
         original.call_pipeline(@client, options)
       ensure
         @client = original
@@ -1078,9 +1077,9 @@ class Redis
       if !block_given?
         @client.call [:multi]
       else
-        pipeline, replies = nil
+        pipeline = nil
 
-        result = pipelined(:raise => false) do
+        result = pipelined do
           multi
           yield(self)
           exec

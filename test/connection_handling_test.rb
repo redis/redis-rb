@@ -156,15 +156,13 @@ test "SHUTDOWN with error from MULTI/EXEC" do
     connections = redis.connections
 
     # SHUTDOWN replies with an error: test that it gets returned
-    result = redis.multi do
-      redis.shutdown
+    # We should test for Redis::Error here, but hiredis doesn't yet do
+    # custom error classes.
+    assert_raise(RuntimeError) do
+      redis.multi { redis.shutdown }
     end
 
-    # We should test for Redis::Error here, but hiredis doesn't yet do custom error classes.
-    assert result[0].is_a?(StandardError)
-    assert result[0].message.match /could not shutdown/i
-
-    # The connection should remain in tact
+    # The connection should remain intact
     assert connections == redis.connections
   end
 end

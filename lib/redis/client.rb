@@ -97,17 +97,15 @@ class Redis
     end
 
     def call_pipelined(commands, options = {})
-      options[:raise] = true unless options.has_key?(:raise)
-
       return [] if commands.empty?
 
       # The method #ensure_connected (called from #process) reconnects once on
       # I/O errors. To make an effort in making sure that commands are not
       # executed more than once, only allow reconnection before the first reply
       # has been read. When an error occurs after the first reply has been
-      # read, retrying would re-execute the entire pipeline, thus re-issueing
-      # already succesfully executed commands. To circumvent this, don't retry
-      # after the first reply has been read succesfully.
+      # read, retrying would re-execute the entire pipeline, thus re-issuing
+      # already successfully executed commands. To circumvent this, don't retry
+      # after the first reply has been read successfully.
       first = process(commands) { read }
       error = first if first.kind_of?(RuntimeError)
 
@@ -129,8 +127,7 @@ class Redis
         raise
       end
 
-      # Raise first error in pipeline when we should raise.
-      raise error if error && options[:raise]
+      raise error if error
 
       replies
     end

@@ -23,17 +23,6 @@ test "MULTI/EXEC with a block" do |r|
   end
 
   assert "s1" == r.get("foo")
-
-  assert_raise(RuntimeError) do
-    r.multi do |multi|
-      multi.set "bar", "s2"
-      raise "Some error"
-      multi.set "baz", "s3"
-    end
-  end
-
-  assert nil == r.get("bar")
-  assert nil == r.get("baz")
 end
 
 test "Assignment inside MULTI/EXEC block" do |r|
@@ -46,27 +35,44 @@ test "Assignment inside MULTI/EXEC block" do |r|
   assert_equal false, @second.value
 end
 
-test "Don't raise (and ignore) immediate error in MULTI/EXEC" do |r|
-  result = r.multi do |m|
-    m.set("foo", "s1")
-    m.unknown_command
+test "Raise immediate errors in MULTI/EXEC" do |r|
+  assert_raise(RuntimeError) do
+    r.multi do |multi|
+      multi.set "bar", "s2"
+      raise "Some error"
+      multi.set "baz", "s3"
+    end
   end
 
-  assert 1 == result.size
-  assert "OK" == result.first
+  assert nil == r.get("bar")
+  assert nil == r.get("baz")
+end
+
+test "Raise command errors in MULTI/EXEC" do |r|
+  assert_raise do
+    r.multi do |m|
+      m.set("foo", "s1")
+      m.incr("foo") # not an integer
+      m.lpush("foo", "value") # wrong kind of value
+    end
+  end
+
   assert "s1" == r.get("foo")
 end
 
-test "Don't raise delayed error in MULTI/EXEC" do |r|
-  result = r.multi do |m|
-    m.set("foo", "s1")
-    m.incr("foo") # not an integer
-    m.lpush("foo", "value") # wrong kind of value
+test "Raise command errors when accessing futures after MULTI/EXEC" do |r|
+  begin
+    r.multi do |m|
+      m.set("foo", "s1")
+      @counter = m.incr("foo") # not an integer
+    end
+  rescue Exception
+    # Not gonna deal with it
   end
 
-  assert result[1].message =~ /not an integer/i
-  assert result[2].message =~ /wrong kind of value/i
-  assert "s1" == r.get("foo")
+  # We should test for Redis::Error here, but hiredis doesn't yet do
+  # custom error classes.
+  assert_raise(RuntimeError) { @counter.value }
 end
 
 test "MULTI with a block yielding the client" do |r|
