@@ -1089,12 +1089,7 @@ class Redis
 
         if replies = result.last
           replies.size.times do |i|
-            if block = pipeline.blocks[i + 1]
-              value = block.call(replies[i])
-            else
-              value = replies[i]
-            end
-            pipeline.values[i + 1]._set(value)
+            pipeline.futures[i + 1]._set(replies[i])
           end
         end
 

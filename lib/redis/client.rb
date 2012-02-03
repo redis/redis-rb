@@ -92,13 +92,7 @@ class Redis
       without_reconnect_wrapper.call do
         shutdown_wrapper.call do
           call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
-            if block = pipeline.blocks[i]
-              value = block.call(reply)
-            else
-              value = reply
-            end
-            pipeline.values[i]._set(value)
-            value
+            pipeline.futures[i]._set(reply)
           end
         end
       end

@@ -1,15 +1,13 @@
 class Redis
   class Pipeline
     attr :commands
-    attr :blocks
-    attr :values
+    attr :futures
 
     def initialize
       @without_reconnect = false
       @shutdown = false
       @commands = []
-      @blocks = []
-      @values = []
+      @futures = []
     end
 
     def without_reconnect?
@@ -25,17 +23,15 @@ class Redis
       # the connection is gone.
       @shutdown = true if command.first == :shutdown
       @commands << command
-      @blocks << block
-      value = Future.new(command)
-      @values << value
-      value
+      future = Future.new(command, block)
+      @futures << future
+      future
     end
 
     def call_pipeline(pipeline, options = {})
       @shutdown = true if pipeline.shutdown?
       @commands.concat(pipeline.commands)
-      @blocks.concat(pipeline.blocks)
-      @values.concat(pipeline.values)
+      @futures.concat(pipeline.futures)
       nil
     end
 
@@ -52,8 +48,11 @@ class Redis
   end
 
   class Future < BasicObject
-    def initialize(command)
+    NOOP = lambda { |o| o }
+
+    def initialize(command, transformation)
       @command = command
+      @transformation = transformation || NOOP
     end
 
     def inspect
@@ -61,7 +60,7 @@ class Redis
     end
 
     def _set(object)
-      @object = object
+      @object = @transformation.call(object)
     end
 
     def value
