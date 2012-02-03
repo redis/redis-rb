@@ -19,7 +19,7 @@ end
 test "Override non-existing commands" do |r|
   r.set("key", "value")
 
-  assert_raise RuntimeError do
+  assert_raise Redis::CommandError do
     r.idontexist("key")
   end
 

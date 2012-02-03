@@ -1,4 +1,5 @@
 require "redis/connection/registry"
+require "redis/errors"
 require "hiredis/connection"
 require "timeout"
 
@@ -39,10 +40,10 @@ class Redis
 
       def read
         reply = @connection.read
-        reply = Error.new(reply.message) if reply.is_a?(RuntimeError)
+        reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
         reply
       rescue RuntimeError => err
-        raise ::Redis::ProtocolError.new(err.message)
+        raise ProtocolError.new(err.message)
       end
     end
   end

@@ -1,6 +1,6 @@
 $:.unshift File.expand_path('../lib', File.dirname(__FILE__))
 
-require "cutest"
+#require "cutest"
 require "logger"
 require "stringio"
 
@@ -20,7 +20,7 @@ def init(redis)
     redis.flushdb
     redis.select 15
     redis
-  rescue Errno::ECONNREFUSED
+  rescue Redis::CannotConnectError
     puts <<-EOS
 
       Cannot connect to Redis.

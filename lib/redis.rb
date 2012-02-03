@@ -1,20 +1,7 @@
 require "monitor"
+require "redis/errors"
 
 class Redis
-  class ProtocolError < RuntimeError
-    def initialize(reply_type)
-      super(<<-EOS.gsub(/(?:^|\n)\s*/, " "))
-      Got '#{reply_type}' as initial reply byte.
-      If you're running in a multi-threaded environment, make sure you
-      pass the :thread_safe option when initializing the connection.
-      If you're in a forking environment, such as Unicorn, you need to
-      connect to Redis after forking.
-      EOS
-    end
-  end
-
-  class Error < RuntimeError
-  end
 
   def self.deprecate(message, trace = caller[0])
     $stderr.puts "\n#{message} (in #{trace})"
@@ -32,7 +19,7 @@ class Redis
       uri = URI(url)
 
       # Require the URL to have at least a host
-      raise "invalid uri" unless uri.host
+      raise ArgumentError, "invalid url" unless uri.host
 
       options[:host]     ||= uri.host
       options[:port]     ||= uri.port
@@ -1010,7 +997,7 @@ class Redis
     synchronize do
       begin
         @client.call [:quit]
-      rescue Errno::ECONNRESET
+      rescue ConnectionError
       ensure
         @client.disconnect
       end
@@ -1023,7 +1010,7 @@ class Redis
       @client.without_reconnect do
         begin
           @client.call [:shutdown]
-        rescue Errno::ECONNRESET
+        rescue ConnectionError
           # This means Redis has probably exited.
           nil
         end

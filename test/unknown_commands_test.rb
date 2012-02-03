@@ -7,7 +7,7 @@ setup do
 end
 
 test "should try to work" do |r|
-  assert_raise Redis::Error do
+  assert_raise Redis::CommandError do
     r.not_yet_implemented_command
   end
 end
