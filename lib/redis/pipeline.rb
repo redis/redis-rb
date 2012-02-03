@@ -54,11 +54,9 @@ class Redis
   end
 
   class Future < BasicObject
-    NOOP = lambda { |o| o }
-
     def initialize(command, transformation)
       @command = command
-      @transformation = transformation || NOOP
+      @transformation = transformation
     end
 
     def inspect
@@ -66,7 +64,7 @@ class Redis
     end
 
     def _set(object)
-      @object = @transformation.call(object)
+      @object = @transformation ? @transformation.call(object) : object
     end
 
     def _command
