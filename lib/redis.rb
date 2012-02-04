@@ -1138,6 +1138,12 @@ class Redis
     end
   end
 
+  def name
+    synchronize do
+      @client.name
+    end
+  end
+
   def inspect
     synchronize do
       "#<Redis client v#{Redis::VERSION} connected to #{id} (Redis v#{info["redis_version"]})>"

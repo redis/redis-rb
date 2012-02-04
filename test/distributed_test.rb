@@ -43,6 +43,24 @@ test "add nodes" do
   assert logger == @r.nodes[1].client.logger
 end
 
+test "named nodes" do
+  logger = Logger.new("/dev/null")
+
+  @r = Redis::Distributed.new [ { name: "node_1", url: "redis://127.0.0.1:6379/15" } ], :logger => logger, :timeout => 10
+
+  @r.set "key_1", 1
+  @r.set "key_2", 2
+  @r.set "key_3", 3
+  @r.set "key_4", 4
+
+  @r = Redis::Distributed.new [ { name: "node_2", url: "redis://127.0.0.1:6379/15" }, { name: "node_1", url: "redis://127.0.0.1:6380/15" } ], :logger => logger, :timeout => 10
+
+  assert @r.nodes.last == @r.node_for("key_1")
+  assert @r.nodes.last == @r.node_for("key_2")
+  assert @r.nodes.last == @r.node_for("key_3")
+  assert @r.nodes.last == @r.node_for("key_4")
+end
+
 test "Pipelining commands cannot be distributed" do |r|
   assert_raise Redis::Distributed::CannotDistribute do
     r.pipelined do
