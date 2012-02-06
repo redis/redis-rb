@@ -40,14 +40,14 @@ class Redis
       yield
     end
 
-    def process_replies(replies)
+    def finish(replies)
       futures.each_with_index.map do |future, i|
         future._set(replies[i])
       end
     end
 
     class Multi < self
-      def process_replies(replies)
+      def finish(replies)
         return if replies.last.nil? # The transaction failed because of WATCH.
 
         if replies.last.size < futures.size - 2

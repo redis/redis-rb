@@ -91,7 +91,7 @@ class Redis
 
       without_reconnect_wrapper.call do
         shutdown_wrapper.call do
-          pipeline.process_replies(call_pipelined(pipeline.commands))
+          pipeline.finish(call_pipelined(pipeline.commands))
         end
       end
     end
