@@ -25,6 +25,17 @@ test "MULTI/EXEC with a block" do |r|
   assert "s1" == r.get("foo")
 end
 
+test "MULTI/EXEC with a block doesn't return replies for MULTI and EXEC" do |r|
+  r1, r2, nothing_else = r.multi do |multi|
+    multi.set "foo", "s1"
+    multi.get "foo"
+  end
+
+  assert_equal "OK", r1
+  assert_equal "s1", r2
+  assert_equal nil, nothing_else
+end
+
 test "Assignment inside MULTI/EXEC block" do |r|
   r.multi do |m|
     @first = m.sadd("foo", 1)
@@ -80,7 +91,7 @@ test "Raise immediate errors in MULTI/EXEC" do |r|
 end
 
 test "Transformed replies as return values for MULTI/EXEC block" do |r|
-  _, info = r.multi do |m|
+  info, _ = r.multi do |m|
     r.info
   end
 

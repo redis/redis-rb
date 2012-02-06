@@ -55,7 +55,11 @@ class Redis
           raise replies.detect { |r| r.kind_of?(::Exception) }
         end
 
-        super([nil] + replies.last)
+        super(replies.last)
+      end
+
+      def commands
+        [[:multi], *super, [:exec]]
       end
     end
   end

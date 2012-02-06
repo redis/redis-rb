@@ -1080,9 +1080,7 @@ class Redis
         begin
           pipeline = Pipeline::Multi.new
           original, @client = @client, pipeline
-          multi
           yield(self)
-          exec
           original.call_pipeline(pipeline)
         ensure
           @client = original
