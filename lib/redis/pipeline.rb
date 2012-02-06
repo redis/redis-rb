@@ -50,6 +50,11 @@ class Redis
       def process_replies(replies)
         return if replies.last.nil? # The transaction failed because of WATCH.
 
+        if replies.last.size < futures.size - 2
+          # Some command wasn't recognized by Redis.
+          raise replies.detect { |r| r.kind_of?(::Exception) }
+        end
+
         super([nil] + replies.last)
 
         replies.last

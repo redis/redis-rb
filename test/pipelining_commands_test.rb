@@ -86,6 +86,23 @@ test "Assignment of results inside the block" do |r|
   assert_equal false, @second.value
 end
 
+# Although we could support accessing the values in these futures,
+# it doesn't make a lot of sense.
+test "Assignment of results inside the block with errors" do |r|
+  assert_raise do
+    r.pipelined do
+      r.doesnt_exist
+      @first = r.sadd("foo", 1)
+      r.doesnt_exist
+      @second = r.sadd("foo", 1)
+      r.doesnt_exist
+    end
+  end
+
+  assert_raise(Redis::FutureNotReady) { @first.value }
+  assert_raise(Redis::FutureNotReady) { @second.value }
+end
+
 test "Assignment of results inside a nested block" do |r|
   r.pipelined do
     @first = r.sadd("foo", 1)
