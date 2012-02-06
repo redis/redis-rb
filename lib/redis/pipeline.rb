@@ -56,8 +56,6 @@ class Redis
         end
 
         super([nil] + replies.last)
-
-        replies.last
       end
     end
   end
