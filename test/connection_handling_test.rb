@@ -91,7 +91,7 @@ test "SHUTDOWN from pipeline" do
       redis.shutdown
     end
 
-    assert [] == result
+    assert nil == result
     assert !redis.client.connected?
   end
 end

@@ -45,6 +45,16 @@ class Redis
         future._set(replies[i])
       end
     end
+
+    class Multi < self
+      def process_replies(replies)
+        return if replies.last.nil? # The transaction failed because of WATCH.
+
+        super([nil] + replies.last)
+
+        replies.last
+      end
+    end
   end
 
   class FutureNotReady < RuntimeError

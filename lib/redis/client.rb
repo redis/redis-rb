@@ -85,7 +85,7 @@ class Redis
           # Assume the pipeline was sent in one piece, but execution of
           # SHUTDOWN caused none of the replies for commands that were executed
           # prior to it from coming back around.
-          []
+          nil
         end
       end if pipeline.shutdown?
 

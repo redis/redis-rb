@@ -1077,20 +1077,16 @@ class Redis
       if !block_given?
         @client.call [:multi]
       else
-        pipeline = nil
-
-        result = pipelined do
+        begin
+          pipeline = Pipeline::Multi.new
+          original, @client = @client, pipeline
           multi
           yield(self)
           exec
-          pipeline = @client
+          original.call_pipeline(pipeline)
+        ensure
+          @client = original
         end
-
-        if replies = result.last
-          pipeline.process_replies([nil] + replies)
-        end
-
-        replies
       end
     end
   end

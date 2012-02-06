@@ -48,6 +48,14 @@ test "Raise immediate errors in MULTI/EXEC" do |r|
   assert nil == r.get("baz")
 end
 
+test "Command transforming reply inside MULTI/EXEC block" do |r|
+  r.multi do |m|
+    @info = r.info
+  end
+
+  assert @info.value.kind_of?(Hash)
+end
+
 test "Raise command errors in MULTI/EXEC" do |r|
   assert_raise do
     r.multi do |m|
