@@ -71,7 +71,7 @@ class Redis
       result
     end
 
-    def call_pipeline(pipeline, options = {})
+    def call_pipeline(pipeline)
       without_reconnect_wrapper = lambda do |&blk| blk.call end
       without_reconnect_wrapper = lambda do |&blk|
         without_reconnect(&blk)
@@ -85,60 +85,46 @@ class Redis
           # Assume the pipeline was sent in one piece, but execution of
           # SHUTDOWN caused none of the replies for commands that were executed
           # prior to it from coming back around.
-          []
+          nil
         end
       end if pipeline.shutdown?
 
       without_reconnect_wrapper.call do
         shutdown_wrapper.call do
-          call_pipelined(pipeline.commands, options).each_with_index.map do |reply, i|
-            if block = pipeline.blocks[i]
-              block.call(reply)
-            else
-              reply
-            end
-          end
+          pipeline.finish(call_pipelined(pipeline.commands))
         end
       end
     end
 
-    def call_pipelined(commands, options = {})
-      options[:raise] = true unless options.has_key?(:raise)
-
+    def call_pipelined(commands)
       return [] if commands.empty?
 
       # The method #ensure_connected (called from #process) reconnects once on
       # I/O errors. To make an effort in making sure that commands are not
       # executed more than once, only allow reconnection before the first reply
       # has been read. When an error occurs after the first reply has been
-      # read, retrying would re-execute the entire pipeline, thus re-issueing
-      # already succesfully executed commands. To circumvent this, don't retry
-      # after the first reply has been read succesfully.
-      first = process(commands) { read }
-      error = first if first.kind_of?(RuntimeError)
+      # read, retrying would re-execute the entire pipeline, thus re-issuing
+      # already successfully executed commands. To circumvent this, don't retry
+      # after the first reply has been read successfully.
+
+      result = Array.new(commands.size)
+      reconnect = @reconnect
 
       begin
-        remaining = commands.size - 1
-        if remaining > 0
-          replies = Array.new(remaining) do
-            reply = read
-            error ||= reply if reply.kind_of?(RuntimeError)
-            reply
+        process(commands) do
+          result[0] = read
+
+          @reconnect = false
+
+          (commands.size - 1).times do |i|
+            result[i + 1] = read
           end
-          replies.unshift first
-          replies
-        else
-          replies = [first]
         end
-      rescue Exception
-        disconnect
-        raise
+      ensure
+        @reconnect = reconnect
       end
 
-      # Raise first error in pipeline when we should raise.
-      raise error if error && options[:raise]
-
-      replies
+      result
     end
 
     def call_without_timeout(command, &blk)
