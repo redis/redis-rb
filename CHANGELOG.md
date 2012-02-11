@@ -1,5 +1,18 @@
 # 3.0 (unreleased)
 
+* The client now raises custom exceptions where it makes sense.
+
+  If by any chance you were rescuing low-level exceptions (`Errno::*`),
+  you should now rescue as follows:
+
+      Errno::ECONNRESET    -> Redis::ConnectionError
+      Errno::EPIPE         -> Redis::ConnectionError
+      Errno::ECONNABORTED  -> Redis::ConnectionError
+      Errno::EBADF         -> Redis::ConnectionError
+      Errno::EINVAL        -> Redis::ConnectionError
+      Errno::EAGAIN        -> Redis::TimeoutError
+      Errno::ECONNREFUSED  -> Redis::CannotConnectError
+
 * Always raise exceptions inside pipelines and MULTI/EXEC blocks.
 
   The old behavior (swallowing exceptions) could cause application bugs
