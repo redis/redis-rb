@@ -33,7 +33,7 @@ test "LINSERT" do |r|
 
   assert ["s1", "s2", "s3"] == r.lrange("foo", 0, -1)
 
-  assert_raise(Redis::Error) do
+  assert_raise(Redis::CommandError) do
     r.linsert "foo", :anywhere, "s3", "s2"
   end
 end

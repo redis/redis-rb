@@ -75,7 +75,7 @@ test "LSET" do |r|
   assert r.lset("foo", 1, "s3")
   assert "s3" == r.lindex("foo", 1)
 
-  assert_raise Redis::Error do
+  assert_raise Redis::CommandError do
     r.lset("foo", 4, "s3")
   end
 end
