@@ -1,4 +1,40 @@
-# 2.2.3 (unreleased)
+# 3.0 (unreleased)
+
+* Always raise exceptions inside pipelines and MULTI/EXEC blocks.
+
+  The old behavior (swallowing exceptions) could cause application bugs
+  to go unnoticed.
+
+* Implement futures for assigning values inside pipelines and MULTI/EXEC
+  blocks.
+
+* Ruby 1.8 is supported only via polyfilling.
+
+  Check `lib/redis/compat.rb` for the exact changes which make Ruby core
+  classes behave like in 1.9.
+
+  If you're uncomfortable using these extensions, assume the last
+  supported version is 2.2.2.
+
+* Support `ZCOUNT` in `Redis::Distributed` (Michael Dungan).
+
+* Pipelined commands now return the same replies as when called outside
+  a pipeline.
+
+  In the past, pipelined replies were returned raw.
+
+* Support `SLOWLOG` command (Michael Bernstein).
+
+* Calling `SHUTDOWN` effectively disconnects the client (Stefan Kaes).
+
+* Basic support for mapping commands so that they can be renamed on the
+  server.
+
+* Connecting using a URL now checks that a host is given.
+
+  It's just a small sanity check, cf. #126
+
+* Support variadic commands introduced in Redis 2.4.
 
 # 2.2.2
 
