@@ -1,6 +1,6 @@
 class Redis
   # Base error for all redis-rb errors.
-  class BaseError < StandardError
+  class BaseError < RuntimeError
   end
 
   # Raised by the connection when a protocol error occurs.
