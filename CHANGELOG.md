@@ -13,13 +13,23 @@
       Errno::EAGAIN        -> Redis::TimeoutError
       Errno::ECONNREFUSED  -> Redis::CannotConnectError
 
-* Always raise exceptions inside pipelines and MULTI/EXEC blocks.
+* Always raise exceptions originating from erroneous command invocation
+  inside pipelines and MULTI/EXEC blocks.
 
   The old behavior (swallowing exceptions) could cause application bugs
   to go unnoticed.
 
 * Implement futures for assigning values inside pipelines and MULTI/EXEC
-  blocks.
+  blocks. Futures are assigned their value after the pipeline or
+  MULTI/EXEC block has executed.
+
+```ruby
+$redis.pipelined do
+  @future = $redis.get "key"
+end
+
+puts @future.value
+```
 
 * Ruby 1.8 is supported only via polyfilling.
 
@@ -34,7 +44,7 @@
 * Pipelined commands now return the same replies as when called outside
   a pipeline.
 
-  In the past, pipelined replies were returned raw.
+  In the past, pipelined replies were returned without post-processing.
 
 * Support `SLOWLOG` command (Michael Bernstein).
 
