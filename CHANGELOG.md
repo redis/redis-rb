@@ -31,13 +31,7 @@ end
 puts @future.value
 ```
 
-* Ruby 1.8 is supported only via polyfilling.
-
-  Check `lib/redis/compat.rb` for the exact changes which make Ruby core
-  classes behave like in 1.9.
-
-  If you're uncomfortable using these extensions, assume the last
-  supported version is 2.2.2.
+* Ruby 1.8.6 is officially not supported.
 
 * Support `ZCOUNT` in `Redis::Distributed` (Michael Dungan).
 

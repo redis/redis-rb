@@ -1,4 +1,10 @@
 class Redis
+  unless defined?(::BasicObject)
+    class BasicObject
+      instance_methods.each { |meth| undef_method(meth) unless meth =~ /\A(__|instance_eval)/ }
+    end
+  end
+
   class Pipeline
     attr :futures
 
@@ -59,7 +65,7 @@ class Redis
       end
 
       def commands
-        [[:multi], *super, [:exec]]
+        [[:multi]] + super + [[:exec]]
       end
     end
   end

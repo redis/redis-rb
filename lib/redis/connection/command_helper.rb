@@ -4,67 +4,31 @@ class Redis
 
       COMMAND_DELIMITER = "\r\n"
 
-      if "".respond_to?(:bytesize)
-        def build_command(args)
-          command = [nil]
+      def build_command(args)
+        command = [nil]
 
-          args.each do |i|
-            if i.is_a? Array
-              i.each do |j|
-                j = j.to_s
-                command << "$#{j.bytesize}"
-                command << j
-              end
-            else
-              i = i.to_s
-              command << "$#{i.bytesize}"
-              command << i
+        args.each do |i|
+          if i.is_a? Array
+            i.each do |j|
+              j = j.to_s
+              command << "$#{j.bytesize}"
+              command << j
             end
+          else
+            i = i.to_s
+            command << "$#{i.bytesize}"
+            command << i
           end
-
-          command[0] = "*#{(command.length - 1) / 2}"
-
-          # Trailing delimiter
-          command << ""
-          command.join(COMMAND_DELIMITER)
         end
-      else
-        def build_command(args)
-          command = [nil]
 
-          args.each do |i|
-            if i.is_a? Array
-              i.each do |j|
-                j = j.to_s
-                command << "$#{j.size}"
-                command << j
-              end
-            else
-              i = i.to_s
-              command << "$#{i.size}"
-              command << i
-            end
-          end
+        command[0] = "*#{(command.length - 1) / 2}"
 
-          command[0] = "*#{(command.length - 1) / 2}"
-
-          # Trailing delimiter
-          command << ""
-          command.join(COMMAND_DELIMITER)
-        end
+        # Trailing delimiter
+        command << ""
+        command.join(COMMAND_DELIMITER)
       end
 
     protected
-
-      if "".respond_to?(:bytesize)
-        def string_size(string)
-          string.to_s.bytesize
-        end
-      else
-        def string_size(string)
-          string.to_s.size
-        end
-      end
 
       if defined?(Encoding::default_external)
         def encode(string)
