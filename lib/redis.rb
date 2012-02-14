@@ -151,6 +151,8 @@ class Redis
     end
   end
 
+  alias :[] :get
+
   # Returns the bit value at offset in the string value stored at key.
   def getbit(key, offset)
     synchronize do
@@ -864,20 +866,14 @@ class Redis
     end
   end
 
-  def [](key)
-    get(key)
-  end
-
-  def []=(key,value)
-    set(key, value)
-  end
-
   # Set the string value of a key.
   def set(key, value)
     synchronize do
       @client.call [:set, key, value]
     end
   end
+
+  alias :[]= :set
 
   # Sets or clears the bit at offset in the string value stored at key.
   def setbit(key, offset, value)
