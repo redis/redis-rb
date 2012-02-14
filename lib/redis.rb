@@ -186,12 +186,6 @@ class Redis
     end
   end
 
-  def substr(key, start, stop)
-    synchronize do
-      @client.call [:substr, key, start, stop]
-    end
-  end
-
   # Get the length of the value stored in a key.
   def strlen(key)
     synchronize do

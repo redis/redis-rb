@@ -180,10 +180,6 @@ class Redis
       node_for(key).append(key, value)
     end
 
-    def substr(key, start, stop)
-      node_for(key).substr(key, start, stop)
-    end
-
     def []=(key,value)
       set(key, value)
     end

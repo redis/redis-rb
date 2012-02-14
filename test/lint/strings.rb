@@ -97,12 +97,6 @@ test "APPEND" do |r|
   assert "s1" == r.get("foo")
 end
 
-test "SUBSTR" do |r|
-  r.set "foo", "lorem"
-
-  assert "ore" == r.substr("foo", 1, 3)
-end
-
 test "GETBIT" do |r|
   r.set("foo", "a")
 
