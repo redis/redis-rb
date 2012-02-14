@@ -53,13 +53,11 @@ test "Variadic ZREM" do |r|
 end
 
 test "ZINCRBY" do |r|
-  r.zincrby "foo", 1, "s1"
+  rv = r.zincrby "foo", 1, "s1"
+  assert 1.0 == rv
 
-  assert "1" == r.zscore("foo", "s1")
-
-  r.zincrby "foo", 10, "s1"
-
-  assert "11" == r.zscore("foo", "s1")
+  rv = r.zincrby "foo", 10, "s1"
+  assert 11.0 == rv
 end
 
 test "ZRANK" do |r|
@@ -171,7 +169,7 @@ end
 test "ZSCORE" do |r|
   r.zadd "foo", 1, "s1"
 
-  assert "1" == r.zscore("foo", "s1")
+  assert 1.0 == r.zscore("foo", "s1")
 
   assert nil == r.zscore("foo", "s2")
   assert nil == r.zscore("bar", "s1")

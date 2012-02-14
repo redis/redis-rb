@@ -79,8 +79,8 @@ test "ZINTERSTORE with WEIGHTS" do |r|
   assert 2 == r.zinterstore("foobar", ["foo", "bar"], :weights => [10, 1])
   assert ["s2", "s3"] == r.zrange("foobar", 0, -1)
 
-  assert "40" == r.zscore("foobar", "s2")
-  assert "60" == r.zscore("foobar", "s3")
+  assert 40.0 == r.zscore("foobar", "s2")
+  assert 60.0 == r.zscore("foobar", "s3")
 end
 
 test "ZINTERSTORE with AGGREGATE" do |r|
@@ -93,16 +93,16 @@ test "ZINTERSTORE with AGGREGATE" do |r|
 
   assert 2 == r.zinterstore("foobar", ["foo", "bar"])
   assert ["s2", "s3"] == r.zrange("foobar", 0, -1)
-  assert "22" == r.zscore("foobar", "s2")
-  assert "33" == r.zscore("foobar", "s3")
+  assert 22.0 == r.zscore("foobar", "s2")
+  assert 33.0 == r.zscore("foobar", "s3")
 
   assert 2 == r.zinterstore("foobar", ["foo", "bar"], :aggregate => :min)
   assert ["s2", "s3"] == r.zrange("foobar", 0, -1)
-  assert "2" == r.zscore("foobar", "s2")
-  assert "3" == r.zscore("foobar", "s3")
+  assert 2.0 == r.zscore("foobar", "s2")
+  assert 3.0 == r.zscore("foobar", "s3")
 
   assert 2 == r.zinterstore("foobar", ["foo", "bar"], :aggregate => :max)
   assert ["s2", "s3"] == r.zrange("foobar", 0, -1)
-  assert "20" == r.zscore("foobar", "s2")
-  assert "30" == r.zscore("foobar", "s3")
+  assert 20.0 == r.zscore("foobar", "s2")
+  assert 30.0 == r.zscore("foobar", "s3")
 end

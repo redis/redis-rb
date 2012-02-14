@@ -1,5 +1,8 @@
 # 3.0 (unreleased)
 
+* The `ZINCRBY` and `ZSCORE` commands now return a `Float` score instead
+  of a string holding a representation of the score.
+
 * The client now raises custom exceptions where it makes sense.
 
   If by any chance you were rescuing low-level exceptions (`Errno::*`),

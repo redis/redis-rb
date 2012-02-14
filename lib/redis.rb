@@ -808,10 +808,12 @@ class Redis
   # @param [String] key
   # @param [Float] increment
   # @param [String] member
-  # @return [String] float score of the member after incrementing it, represented as string
+  # @return [Float] score of the member after the incrementing it
   def zincrby(key, increment, member)
     synchronize do
-      @client.call [:zincrby, key, increment, member]
+      @client.call [:zincrby, key, increment, member] do |reply|
+        Float(reply) if reply
+      end
     end
   end
 
@@ -941,10 +943,12 @@ class Redis
   #
   # @param [String] key
   # @param [String] member
-  # @return [String] float score of the member, represented as string
+  # @return [Float] score of the member
   def zscore(key, member)
     synchronize do
-      @client.call [:zscore, key, member]
+      @client.call [:zscore, key, member] do |reply|
+        Float(reply) if reply
+      end
     end
   end
 
