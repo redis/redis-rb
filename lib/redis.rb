@@ -1357,7 +1357,7 @@ class Redis
   # Set multiple keys to multiple values, only if none of the keys exist.
   def msetnx(*args)
     synchronize do
-      @client.call [:msetnx, *args]
+      @client.call [:msetnx, *args], &_boolify
     end
   end
 

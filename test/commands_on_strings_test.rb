@@ -59,18 +59,26 @@ end
 
 test "MSETNX" do |r|
   r.set("foo", "s1")
-  r.msetnx(:foo, "s2", :bar, "s3")
-
+  assert false == r.msetnx(:foo, "s2", :bar, "s3")
   assert "s1" == r.get("foo")
   assert nil == r.get("bar")
+
+  r.del("foo")
+  assert true == r.msetnx(:foo, "s2", :bar, "s3")
+  assert "s2" == r.get("foo")
+  assert "s3" == r.get("bar")
 end
 
 test "MSETNX mapped" do |r|
   r.set("foo", "s1")
-  r.mapped_msetnx(:foo => "s2", :bar => "s3")
-
+  assert false == r.mapped_msetnx(:foo => "s2", :bar => "s3")
   assert "s1" == r.get("foo")
   assert nil == r.get("bar")
+
+  r.del("foo")
+  assert true == r.mapped_msetnx(:foo => "s2", :bar => "s3")
+  assert "s2" == r.get("foo")
+  assert "s3" == r.get("bar")
 end
 
 test "STRLEN" do |r|
