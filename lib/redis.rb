@@ -882,6 +882,28 @@ class Redis
     end
   end
 
+  # Return a range of members in a sorted set, by index, with scores ordered
+  # from high to low.
+  #
+  # @example Retrieve all members from a sorted set
+  #   redis.zrevrange("zset", 0, -1)
+  #     # => ["b", "a"]
+  # @example Retrieve all members and their scores from a sorted set
+  #   redis.zrevrange("zset", 0, -1, :with_scores => true)
+  #     # => ["b", "64" "a", "32"]
+  #
+  # @see #zrange
+  def zrevrange(key, start, stop, options = {})
+    command = CommandOptions.new(options) do |c|
+      c.bool :withscores
+      c.bool :with_scores
+    end
+
+    synchronize do
+      @client.call [:zrevrange, key, start, stop, *command.to_a]
+    end
+  end
+
   # Return a range of members in a sorted set, by score.
   #
   # @example Retrieve members with score `>= 5` and `< 100`
@@ -922,51 +944,6 @@ class Redis
     end
   end
 
-  # Count the members in a sorted set with scores within the given values.
-  #
-  # @example Count members with score `>= 5` and `< 100`
-  #   redis.zcount("zset", "5", "(100")
-  #     # => 2
-  # @example Count members with scores `> 5`
-  #   redis.zcount("zset", "(5", "+inf")
-  #     # => 2
-  #
-  # @param [String] key
-  # @param [String] min
-  #   - inclusive minimum score is specified verbatim
-  #   - exclusive minimum score is specified by prefixing `(`
-  # @param [String] max
-  #   - inclusive maximum score is specified verbatim
-  #   - exclusive maximum score is specified by prefixing `(`
-  # @return [Fixnum] number of members in within the specified range
-  def zcount(key, start, stop)
-    synchronize do
-      @client.call [:zcount, key, start, stop]
-    end
-  end
-
-  # Return a range of members in a sorted set, by index, with scores ordered
-  # from high to low.
-  #
-  # @example Retrieve all members from a sorted set
-  #   redis.zrevrange("zset", 0, -1)
-  #     # => ["b", "a"]
-  # @example Retrieve all members and their scores from a sorted set
-  #   redis.zrevrange("zset", 0, -1, :with_scores => true)
-  #     # => ["b", "64" "a", "32"]
-  #
-  # @see #zrange
-  def zrevrange(key, start, stop, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.bool :withscores
-      c.bool :with_scores
-    end
-
-    synchronize do
-      @client.call [:zrevrange, key, start, stop, *command.to_a]
-    end
-  end
-
   # Return a range of members in a sorted set, by score, with scores ordered
   # from high to low.
   #
@@ -990,6 +967,29 @@ class Redis
 
     synchronize do
       @client.call [:zrevrangebyscore, key, max, min, *command.to_a]
+    end
+  end
+
+  # Count the members in a sorted set with scores within the given values.
+  #
+  # @example Count members with score `>= 5` and `< 100`
+  #   redis.zcount("zset", "5", "(100")
+  #     # => 2
+  # @example Count members with scores `> 5`
+  #   redis.zcount("zset", "(5", "+inf")
+  #     # => 2
+  #
+  # @param [String] key
+  # @param [String] min
+  #   - inclusive minimum score is specified verbatim
+  #   - exclusive minimum score is specified by prefixing `(`
+  # @param [String] max
+  #   - inclusive maximum score is specified verbatim
+  #   - exclusive maximum score is specified by prefixing `(`
+  # @return [Fixnum] number of members in within the specified range
+  def zcount(key, start, stop)
+    synchronize do
+      @client.call [:zcount, key, start, stop]
     end
   end
 
