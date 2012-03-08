@@ -737,13 +737,21 @@ class Redis
   # Add one or more members to a sorted set, or update the score for members
   # that already exist.
   #
+  # @example Add a single `(score, member)` pair to a sorted set
+  #   redis.zadd("zset", 32.0, "member")
+  # @example Add an array of `(score, member)` pairs to a sorted set
+  #   redis.zadd("zset", [[32.0, "a"], [64.0, "b"]])
+  #
   # @param [String] key
-  # @param [(Float, String), Array<(Float,String)>] args one `(score, member)`
-  #   tuple, or array of `(score, member)` tuples
-  # @return [Boolean, Fixnum] `Boolean` when a single tuple is specified,
-  #   holding whether or not the member was added to the sorted set, or
-  #   `Fixnum` when an array of tuples is specified, holding the number of
-  #   members that were added to the sorted set
+  # @param [(Float, String), Array<(Float,String)>] args
+  #   - a single `(score, member)` pair
+  #   - an array of `(score, member)` pairs
+  #
+  # @return [Boolean, Fixnum]
+  #   - `Boolean` when a single pair is specified, holding whether or not it was
+  #   **added** to the sorted set
+  #   - `Fixnum` when an array of pairs is specified, holding the number of
+  #   pairs that were **added** to the sorted set
   def zadd(key, *args)
     synchronize do
       if args.size == 1 && args[0].is_a?(Array)
@@ -760,12 +768,21 @@ class Redis
 
   # Remove one or more members from a sorted set.
   #
+  # @example Remove a single member from a sorted set
+  #   redis.zrem("zset", "a")
+  # @example Remove an array of members from a sorted set
+  #   redis.zrem("zset", ["a", "b"])
+  #
   # @param [String] key
-  # @param [String, Array<String>] member one member, or array of members
-  # @return [Boolean, Fixnum] `Boolean` when a single member is specified,
-  #   holding whether or not removing the member succeeded, or `Fixnum` when an
-  #   array of members is specified, holding the number of members that were
-  #   successfully removed
+  # @param [String, Array<String>] member
+  #   - a single member
+  #   - an array of members
+  #
+  # @return [Boolean, Fixnum]
+  #   - `Boolean` when a single member is specified, holding whether or not it
+  #   was removed from the sorted set
+  #   - `Fixnum` when an array of pairs is specified, holding the number of
+  #   members that were removed to the sorted set
   def zrem(key, member)
     synchronize do
       @client.call [:zrem, key, member] do |reply|
@@ -805,6 +822,10 @@ class Redis
 
   # Increment the score of a member in a sorted set.
   #
+  # @example
+  #   redis.zincrby("zset", 32.0, "a")
+  #     # => 64.0
+  #
   # @param [String] key
   # @param [Float] increment
   # @param [String] member
@@ -819,6 +840,10 @@ class Redis
 
   # Get the number of members in a sorted set.
   #
+  # @example
+  #   redis.zcard("zset")
+  #     # => 4
+  #
   # @param [String] key
   # @return [Fixnum]
   def zcard(key)
@@ -829,11 +854,23 @@ class Redis
 
   # Return a range of members in a sorted set, by index.
   #
+  # @example Retrieve all members from a sorted set
+  #   redis.zrange("zset", 0, -1)
+  #     # => ["a", "b"]
+  # @example Retrieve all members and their scores from a sorted set
+  #   redis.zrange("zset", 0, -1, :with_scores => true)
+  #     # => ["a", "32" "b", "64"]
+  #
   # @param [String] key
   # @param [Fixnum] start start index
   # @param [Fixnum] stop stop index
   # @param [Hash] options
+  #   - `:with_scores => true`: include scores in output
+  #
   # @return [Array<String>]
+  #   - when `:with_scores` is not specified, an array of members
+  #   - when `:with_scores` is specified, an array of members followed by their
+  #   score
   def zrange(key, start, stop, options = {})
     command = CommandOptions.new(options) do |c|
       c.bool :withscores
@@ -847,11 +884,32 @@ class Redis
 
   # Return a range of members in a sorted set, by score.
   #
+  # @example Retrieve members with score `>= 5` and `< 100`
+  #   redis.zrangebyscore("zset", "5", "(100")
+  #     # => ["a", "b"]
+  # @example Retrieve the first 2 members with score `>= 0`
+  #   redis.zrangebyscore("zset", "0", "+inf", :limit => [0, 2])
+  #     # => ["a", "b"]
+  # @example Retrieve members and their scores with scores `> 5`
+  #   redis.zrangebyscore("zset", "(5", "+inf", :with_scores => true)
+  #     # => ["a", "32", "b", "64"]
+  #
   # @param [String] key
-  # @param [String] min minimum score (open or closed interval, specified by prefixing `(`)
-  # @param [String] max maximum score (open or closed interval, specified by prefixing `(`)
+  # @param [String] min
+  #   - inclusive minimum score is specified verbatim
+  #   - exclusive minimum score is specified by prefixing `(`
+  # @param [String] max
+  #   - inclusive maximum score is specified verbatim
+  #   - exclusive maximum score is specified by prefixing `(`
   # @param [Hash] options
+  #   - `:with_scores => true`: include scores in output
+  #   - `:limit => [offset, count]`: skip `offset` members, return a maximum of
+  #   `count` members
+  #
   # @return [Array<String>]
+  #   - when `:with_scores` is not specified, an array of members
+  #   - when `:with_scores` is specified, an array of members followed by their
+  #   score
   def zrangebyscore(key, min, max, options = {})
     command = CommandOptions.new(options) do |c|
       c.splat :limit
@@ -866,10 +924,21 @@ class Redis
 
   # Count the members in a sorted set with scores within the given values.
   #
+  # @example Count members with score `>= 5` and `< 100`
+  #   redis.zcount("zset", "5", "(100")
+  #     # => 2
+  # @example Count members with scores `> 5`
+  #   redis.zcount("zset", "(5", "+inf")
+  #     # => 2
+  #
   # @param [String] key
-  # @param [Fixnum] start start index
-  # @param [Fixnum] stop stop index
-  # @return [Fixnum]
+  # @param [String] min
+  #   - inclusive minimum score is specified verbatim
+  #   - exclusive minimum score is specified by prefixing `(`
+  # @param [String] max
+  #   - inclusive maximum score is specified verbatim
+  #   - exclusive maximum score is specified by prefixing `(`
+  # @return [Fixnum] number of members in within the specified range
   def zcount(key, start, stop)
     synchronize do
       @client.call [:zcount, key, start, stop]
@@ -879,11 +948,14 @@ class Redis
   # Return a range of members in a sorted set, by index, with scores ordered
   # from high to low.
   #
-  # @param [String] key
-  # @param [Fixnum] start start index
-  # @param [Fixnum] stop stop index
-  # @param [Hash] options
-  # @return [Array<String>]
+  # @example Retrieve all members from a sorted set
+  #   redis.zrevrange("zset", 0, -1)
+  #     # => ["b", "a"]
+  # @example Retrieve all members and their scores from a sorted set
+  #   redis.zrevrange("zset", 0, -1, :with_scores => true)
+  #     # => ["b", "64" "a", "32"]
+  #
+  # @see #zrange
   def zrevrange(key, start, stop, options = {})
     command = CommandOptions.new(options) do |c|
       c.bool :withscores
@@ -898,11 +970,17 @@ class Redis
   # Return a range of members in a sorted set, by score, with scores ordered
   # from high to low.
   #
-  # @param [String] key
-  # @param [String] max maximum score (open or closed interval, specified by prefixing `(`)
-  # @param [String] min minimum score (open or closed interval, specified by prefixing `(`)
-  # @param [Hash] options
-  # @return [Array<String>]
+  # @example Retrieve members with score `< 100` and `>= 5`
+  #   redis.zrevrangebyscore("zset", "(100", "5")
+  #     # => ["b", "a"]
+  # @example Retrieve the first 2 members with score `<= 0`
+  #   redis.zrevrangebyscore("zset", "0", "-inf", :limit => [0, 2])
+  #     # => ["b", "a"]
+  # @example Retrieve members and their scores with scores `> 5`
+  #   redis.zrevrangebyscore("zset", "+inf", "(5", :with_scores => true)
+  #     # => ["b", "64", "a", "32"]
+  #
+  # @see #zrangebyscore
   def zrevrangebyscore(key, max, min, options = {})
     command = CommandOptions.new(options) do |c|
       c.splat :limit
@@ -917,10 +995,21 @@ class Redis
 
   # Remove all members in a sorted set within the given scores.
   #
+  # @example Remove members with score `>= 5` and `< 100`
+  #   redis.zremrangebyscore("zset", "5", "(100")
+  #     # => 2
+  # @example Remove members with scores `> 5`
+  #   redis.zremrangebyscore("zset", "(5", "+inf")
+  #     # => 2
+  #
   # @param [String] key
-  # @param [String] min minimum score (open or closed interval, specified by prefixing `(`)
-  # @param [String] max maximum score (open or closed interval, specified by prefixing `(`)
-  # @return [Fixnum] the number of members that were removed
+  # @param [String] min
+  #   - inclusive minimum score is specified verbatim
+  #   - exclusive minimum score is specified by prefixing `(`
+  # @param [String] max
+  #   - inclusive maximum score is specified verbatim
+  #   - exclusive maximum score is specified by prefixing `(`
+  # @return [Fixnum] number of members that were removed
   def zremrangebyscore(key, min, max)
     synchronize do
       @client.call [:zremrangebyscore, key, min, max]
@@ -929,10 +1018,17 @@ class Redis
 
   # Remove all members in a sorted set within the given indexes.
   #
+  # @example Remove first 5 members
+  #   redis.zremrangebyrank("zset", 0, 4)
+  #     # => 5
+  # @example Remove last 5 members
+  #   redis.zremrangebyrank("zset", -5, -1)
+  #     # => 5
+  #
   # @param [String] key
   # @param [Fixnum] start start index
   # @param [Fixnum] stop stop index
-  # @return [Fixnum] the number of members that were removed
+  # @return [Fixnum] number of members that were removed
   def zremrangebyrank(key, start, stop)
     synchronize do
       @client.call [:zremrangebyrank, key, start, stop]
@@ -940,6 +1036,10 @@ class Redis
   end
 
   # Get the score associated with the given member in a sorted set.
+  #
+  # @example Get the score for member "a"
+  #   redis.zscore("zset", "a")
+  #     # => 32.0
   #
   # @param [String] key
   # @param [String] member
@@ -954,6 +1054,18 @@ class Redis
 
   # Intersect multiple sorted sets and store the resulting sorted set in a new
   # key.
+  #
+  # @example Compute the intersection of `2*zsetA` with `1*zsetB`, summing their scores
+  #   redis.zinterstore("zsetC", ["zsetA", "zsetB"], :weights => [2.0, 1.0], :aggregate => "sum")
+  #     # => 4
+  #
+  # @param [String] destination destination key
+  # @param [Array<String>] keys source keys
+  # @param [Hash] options
+  #   - `:weights => [Float, Float, ...]`: weights to associate with source
+  #   sorted sets
+  #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
+  # @return [Fixnum] number of elements in the resulting sorted set
   def zinterstore(destination, keys, options = {})
     command = CommandOptions.new(options) do |c|
       c.splat :weights
@@ -966,6 +1078,18 @@ class Redis
   end
 
   # Add multiple sorted sets and store the resulting sorted set in a new key.
+  #
+  # @example Compute the union of `2*zsetA` with `1*zsetB`, summing their scores
+  #   redis.zunionstore("zsetC", ["zsetA", "zsetB"], :weights => [2.0, 1.0], :aggregate => "sum")
+  #     # => 8
+  #
+  # @param [String] destination destination key
+  # @param [Array<String>] keys source keys
+  # @param [Hash] options
+  #   - `:weights => [Float, Float, ...]`: weights to associate with source
+  #   sorted sets
+  #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
+  # @return [Fixnum] number of elements in the resulting sorted set
   def zunionstore(destination, keys, options = {})
     command = CommandOptions.new(options) do |c|
       c.splat :weights
