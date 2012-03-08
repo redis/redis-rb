@@ -859,7 +859,7 @@ class Redis
   #     # => ["a", "b"]
   # @example Retrieve all members and their scores from a sorted set
   #   redis.zrange("zset", 0, -1, :with_scores => true)
-  #     # => ["a", "32" "b", "64"]
+  #     # => [["a", 32.0], ["b", 64.0]]
   #
   # @param [String] key
   # @param [Fixnum] start start index
@@ -867,18 +867,59 @@ class Redis
   # @param [Hash] options
   #   - `:with_scores => true`: include scores in output
   #
-  # @return [Array<String>]
+  # @return [Array<String>, Array<(String, Float)>]
   #   - when `:with_scores` is not specified, an array of members
-  #   - when `:with_scores` is specified, an array of members followed by their
-  #   score
+  #   - when `:with_scores` is specified, an array with `(member, score)` pairs
   def zrange(key, start, stop, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.bool :withscores
-      c.bool :with_scores
-    end
+    args = []
+
+    with_scores = options[:with_scores] || options[:withscores]
+    args << "WITHSCORES" if with_scores
 
     synchronize do
-      @client.call [:zrange, key, start, stop, *command.to_a]
+      @client.call [:zrange, key, start, stop, *args] do |reply|
+        if with_scores
+          if reply
+            reply.each_slice(2).map do |member, score|
+              [member, Float(score)]
+            end
+          end
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Return a range of members in a sorted set, by index, with scores ordered
+  # from high to low.
+  #
+  # @example Retrieve all members from a sorted set
+  #   redis.zrevrange("zset", 0, -1)
+  #     # => ["b", "a"]
+  # @example Retrieve all members and their scores from a sorted set
+  #   redis.zrevrange("zset", 0, -1, :with_scores => true)
+  #     # => [["b", 64.0], ["a", 32.0]]
+  #
+  # @see #zrange
+  def zrevrange(key, start, stop, options = {})
+    args = []
+
+    with_scores = options[:with_scores] || options[:withscores]
+    args << "WITHSCORES" if with_scores
+
+    synchronize do
+      @client.call [:zrevrange, key, start, stop, *args] do |reply|
+        if with_scores
+          if reply
+            reply.each_slice(2).map do |member, score|
+              [member, Float(score)]
+            end
+          end
+        else
+          reply
+        end
+      end
     end
   end
 
@@ -892,7 +933,7 @@ class Redis
   #     # => ["a", "b"]
   # @example Retrieve members and their scores with scores `> 5`
   #   redis.zrangebyscore("zset", "(5", "+inf", :with_scores => true)
-  #     # => ["a", "32", "b", "64"]
+  #     # => [["a", 32.0], ["b", 64.0]]
   #
   # @param [String] key
   # @param [String] min
@@ -906,19 +947,68 @@ class Redis
   #   - `:limit => [offset, count]`: skip `offset` members, return a maximum of
   #   `count` members
   #
-  # @return [Array<String>]
+  # @return [Array<String>, Array<(String, Float)>]
   #   - when `:with_scores` is not specified, an array of members
-  #   - when `:with_scores` is specified, an array of members followed by their
-  #   score
+  #   - when `:with_scores` is specified, an array with `(member, score)` pairs
   def zrangebyscore(key, min, max, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.splat :limit
-      c.bool  :withscores
-      c.bool  :with_scores
-    end
+    args = []
+
+    with_scores = options[:with_scores] || options[:withscores]
+    args.concat ["WITHSCORES"] if with_scores
+
+    limit = options[:limit]
+    args.concat ["LIMIT", *limit] if limit
 
     synchronize do
-      @client.call [:zrangebyscore, key, min, max, *command.to_a]
+      @client.call [:zrangebyscore, key, min, max, *args] do |reply|
+        if with_scores
+          if reply
+            reply.each_slice(2).map do |member, score|
+              [member, Float(score)]
+            end
+          end
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Return a range of members in a sorted set, by score, with scores ordered
+  # from high to low.
+  #
+  # @example Retrieve members with score `< 100` and `>= 5`
+  #   redis.zrevrangebyscore("zset", "(100", "5")
+  #     # => ["b", "a"]
+  # @example Retrieve the first 2 members with score `<= 0`
+  #   redis.zrevrangebyscore("zset", "0", "-inf", :limit => [0, 2])
+  #     # => ["b", "a"]
+  # @example Retrieve members and their scores with scores `> 5`
+  #   redis.zrevrangebyscore("zset", "+inf", "(5", :with_scores => true)
+  #     # => [["b", 64.0], ["a", 32.0]]
+  #
+  # @see #zrangebyscore
+  def zrevrangebyscore(key, max, min, options = {})
+    args = []
+
+    with_scores = options[:with_scores] || options[:withscores]
+    args.concat ["WITHSCORES"] if with_scores
+
+    limit = options[:limit]
+    args.concat ["LIMIT", *limit] if limit
+
+    synchronize do
+      @client.call [:zrevrangebyscore, key, max, min, *args] do |reply|
+        if with_scores
+          if reply
+            reply.each_slice(2).map do |member, score|
+              [member, Float(score)]
+            end
+          end
+        else
+          reply
+        end
+      end
     end
   end
 
@@ -942,54 +1032,6 @@ class Redis
   def zcount(key, start, stop)
     synchronize do
       @client.call [:zcount, key, start, stop]
-    end
-  end
-
-  # Return a range of members in a sorted set, by index, with scores ordered
-  # from high to low.
-  #
-  # @example Retrieve all members from a sorted set
-  #   redis.zrevrange("zset", 0, -1)
-  #     # => ["b", "a"]
-  # @example Retrieve all members and their scores from a sorted set
-  #   redis.zrevrange("zset", 0, -1, :with_scores => true)
-  #     # => ["b", "64" "a", "32"]
-  #
-  # @see #zrange
-  def zrevrange(key, start, stop, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.bool :withscores
-      c.bool :with_scores
-    end
-
-    synchronize do
-      @client.call [:zrevrange, key, start, stop, *command.to_a]
-    end
-  end
-
-  # Return a range of members in a sorted set, by score, with scores ordered
-  # from high to low.
-  #
-  # @example Retrieve members with score `< 100` and `>= 5`
-  #   redis.zrevrangebyscore("zset", "(100", "5")
-  #     # => ["b", "a"]
-  # @example Retrieve the first 2 members with score `<= 0`
-  #   redis.zrevrangebyscore("zset", "0", "-inf", :limit => [0, 2])
-  #     # => ["b", "a"]
-  # @example Retrieve members and their scores with scores `> 5`
-  #   redis.zrevrangebyscore("zset", "+inf", "(5", :with_scores => true)
-  #     # => ["b", "64", "a", "32"]
-  #
-  # @see #zrangebyscore
-  def zrevrangebyscore(key, max, min, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.splat :limit
-      c.bool  :withscores
-      c.bool  :with_scores
-    end
-
-    synchronize do
-      @client.call [:zrevrangebyscore, key, max, min, *command.to_a]
     end
   end
 

@@ -1,5 +1,9 @@
 # 3.0 (unreleased)
 
+* The `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE` and `ZREVRANGEBYSCORE` commands
+  now return an array containing `[String, Float]` pairs when
+  `:with_scores => true` is passed.
+
 * The `ZINCRBY` and `ZSCORE` commands now return a `Float` score instead
   of a string holding a representation of the score.
 
