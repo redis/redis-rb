@@ -1598,17 +1598,47 @@ class Redis
   end
 
   # Sort the elements in a list, set or sorted set.
+  #
+  # @example Retrieve the first 2 elements from an alphabetically sorted "list"
+  #   redis.sort("list", :order => "alpha", :limit => [0, 2])
+  #     # => ["a", "b"]
+  # @example Store an alphabetically descending list in "target"
+  #   redis.sort("list", :order => "desc alpha", :store => "target")
+  #     # => 26
+  #
+  # @param [String] key
+  # @param [Hash] options
+  #   - `:by => String`: use external key to sort elements by
+  #   - `:limit => [offset, count]`: skip `offset` elements, return a maximum
+  #   of `count` elements
+  #   - `:get => [String, Array<String>]`: single key or array of keys to
+  #   retrieve per element in the result
+  #   - `:order => String`: combination of `ASC`, `DESC` and optionally `ALPHA`
+  #   - `:store => String`: key to store the result at
+  #
+  # @return [Array<String>, Fixnum]
+  #   - when `:store` is not specified, an array of elements
+  #   - when `:store` is specified, the number of elements in the stored result
   def sort(key, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.value :by
-      c.splat :limit
-      c.multi :get
-      c.words :order
-      c.value :store
-    end
+    args = []
+
+    by = options[:by]
+    args.concat ["BY", by] if by
+
+    limit = options[:limit]
+    args.concat ["LIMIT", *limit] if limit
+
+    get = Array(options[:get])
+    args.concat ["GET"].product(get).flatten unless get.empty?
+
+    order = options[:order]
+    args.concat order.split(" ") if order
+
+    store = options[:store]
+    args.concat ["STORE", store] if store
 
     synchronize do
-      @client.call [:sort, key, *command.to_a]
+      @client.call [:sort, key, *args]
     end
   end
 
