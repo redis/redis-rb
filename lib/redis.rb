@@ -1135,13 +1135,16 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zinterstore(destination, keys, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.splat :weights
-      c.value :aggregate
-    end
+    args = []
+
+    weights = options[:weights]
+    args.concat ["WEIGHTS", *weights] if weights
+
+    aggregate = options[:aggregate]
+    args.concat ["AGGREGATE", aggregate] if aggregate
 
     synchronize do
-      @client.call [:zinterstore, destination, keys.size, *(keys + command.to_a)]
+      @client.call [:zinterstore, destination, keys.size, *(keys + args)]
     end
   end
 
@@ -1159,13 +1162,16 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zunionstore(destination, keys, options = {})
-    command = CommandOptions.new(options) do |c|
-      c.splat :weights
-      c.value :aggregate
-    end
+    args = []
+
+    weights = options[:weights]
+    args.concat ["WEIGHTS", *weights] if weights
+
+    aggregate = options[:aggregate]
+    args.concat ["AGGREGATE", aggregate] if aggregate
 
     synchronize do
-      @client.call [:zunionstore, destination, keys.size, *(keys + command.to_a)]
+      @client.call [:zunionstore, destination, keys.size, *(keys + args)]
     end
   end
 
@@ -1863,42 +1869,6 @@ class Redis
   def method_missing(command, *args)
     synchronize do
       @client.call [command, *args]
-    end
-  end
-
-  class CommandOptions
-    def initialize(options)
-      @result = []
-      @options = options
-      yield(self)
-    end
-
-    def bool(name)
-      insert(name) { |argument, value| [argument] }
-    end
-
-    def value(name)
-      insert(name) { |argument, value| [argument, value] }
-    end
-
-    def splat(name)
-      insert(name) { |argument, value| [argument, *value] }
-    end
-
-    def multi(name)
-      insert(name) { |argument, value| [argument].product(Array(value)).flatten }
-    end
-
-    def words(name)
-      insert(name) { |argument, value| value.split(" ") }
-    end
-
-    def to_a
-      @result
-    end
-
-    def insert(name)
-      @result += yield(name.to_s.upcase.gsub("_", ""), @options[name]) if @options[name]
     end
   end
 
