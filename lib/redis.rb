@@ -63,6 +63,10 @@ class Redis
   end
 
   # Authenticate to the server.
+  #
+  # @param [String] password must match the password specified in the
+  #   `requirepass` directive in the configuration file
+  # @return [String] `OK`
   def auth(password)
     synchronize do
       @client.call [:auth, password]
@@ -70,6 +74,9 @@ class Redis
   end
 
   # Change the selected database for the current connection.
+  #
+  # @param [Fixnum] db zero-based index of the DB to use (0 to 15)
+  # @return [String] `OK`
   def select(db)
     synchronize do
       @client.db = db
@@ -146,7 +153,7 @@ class Redis
 
   # Asynchronously save the dataset to disk.
   #
-  # @return [String]
+  # @return [String] `OK`
   def bgsave
     synchronize do
       @client.call [:bgsave]
@@ -155,7 +162,7 @@ class Redis
 
   # Asynchronously rewrite the append-only file.
   #
-  # @return [String]
+  # @return [String] `OK`
   def bgrewriteaof
     synchronize do
       @client.call [:bgrewriteaof]
@@ -186,6 +193,12 @@ class Redis
   end
 
   # Get a substring of the string stored at a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] start zero-based start offset
+  # @param [Fixnum] stop zero-based end offset. Use -1 for representing
+  #   the end of the string
+  # @return [Fixnum] `0` or `1`
   def getrange(key, start, stop)
     synchronize do
       @client.call [:getrange, key, start, stop]
@@ -196,7 +209,8 @@ class Redis
   #
   # @param [String] key
   # @param [String] value value to replace the current value with
-  # @return [String]
+  # @return [String] the old value stored in the key, or `nil` if the key
+  #   did not exist
   def getset(key, value)
     synchronize do
       @client.call [:getset, key, value]
@@ -227,7 +241,8 @@ class Redis
   # Get the length of the value stored in a key.
   #
   # @param [String] key
-  # @return [Fixnum]
+  # @return [Fixnum] the length of the value stored in the key, or 0
+  #   if the key does not exist
   def strlen(key)
     synchronize do
       @client.call [:strlen, key]
@@ -257,6 +272,7 @@ class Redis
   # Get the value of a hash field.
   #
   # @param [String] key
+  # @param [String] field
   # @return [String]
   def hget(key, field)
     synchronize do
@@ -431,7 +447,10 @@ class Redis
   # Remove elements from a list.
   #
   # @param [String] key
-  # @param [Fixnum] count
+  # @param [Fixnum] count number of elements to remove. Use a positive
+  #   value to remove the first `count` occurrences of `value`. A negative
+  #   value to remove the last `count` occurrences of `value`. Or zero, to
+  #   remove all occurrences of `value` from the list.
   # @param [String] value
   # @return [Fixnum] the number of removed elements
   def lrem(key, count, value)
@@ -440,7 +459,7 @@ class Redis
     end
   end
 
-  # Append one or more values to a list.
+  # Append one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
   # @param [String] value
@@ -462,7 +481,7 @@ class Redis
     end
   end
 
-  # Prepend one or more values to a list.
+  # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
   # @param [String] value
@@ -578,6 +597,7 @@ class Redis
   # Determine if a given value is a member of a set.
   #
   # @param [String] key
+  # @param [String] member
   # @return [Boolean]
   def sismember(key, member)
     synchronize do
@@ -829,7 +849,7 @@ class Redis
   # @param [String] key
   # @param [Float] increment
   # @param [String] member
-  # @return [Float] score of the member after the incrementing it
+  # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
     synchronize do
       @client.call [:zincrby, key, increment, member] do |reply|
