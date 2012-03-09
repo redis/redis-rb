@@ -1164,6 +1164,24 @@ class Redis
   end
 
   # Move a key to another database.
+  #
+  # @example Move a key to another database
+  #   redis.set "foo", "bar"
+  #     # => "OK"
+  #   redis.move "foo", 2
+  #     # => true
+  #   redis.exists "foo"
+  #     # => false
+  #   redis.select 2
+  #     # => "OK"
+  #   redis.exists "foo"
+  #     # => true
+  #   resis.get "foo"
+  #     # => "bar"
+  #
+  # @param [String] key
+  # @param [Fixnum] db
+  # @return [Boolean] whether the key was moved or not
   def move(key, db)
     synchronize do
       @client.call [:move, key, db], &_boolify
@@ -1171,20 +1189,31 @@ class Redis
   end
 
   # Set the value of a key, only if the key does not exist.
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return [Boolean] whether the key was set or not
   def setnx(key, value)
     synchronize do
       @client.call [:setnx, key, value], &_boolify
     end
   end
 
-  # Delete a key.
+  # Delete one or more keys.
+  #
+  # @param [String, Array<String>] keys
+  # @return [Fixnum] number of keys that were removed
   def del(*keys)
     synchronize do
       @client.call [:del, *keys]
     end
   end
 
-  # Rename a key.
+  # Rename a key. If the new key already exists it is overwritten.
+  #
+  # @param [String] old_name
+  # @param [String] new_name
+  # @return [String] `OK`
   def rename(old_name, new_name)
     synchronize do
       @client.call [:rename, old_name, new_name]
@@ -1192,6 +1221,10 @@ class Redis
   end
 
   # Rename a key, only if the new key does not exist.
+  #
+  # @param [String] old_name
+  # @param [String] new_name
+  # @return [Boolean] whether the key was renamed or not
   def renamenx(old_name, new_name)
     synchronize do
       @client.call [:renamenx, old_name, new_name], &_boolify
@@ -1199,6 +1232,11 @@ class Redis
   end
 
   # Set a key's time to live in seconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] seconds time to live. After this timeout has expired,
+  #   the key will automatically be deleted
+  # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
     synchronize do
       @client.call [:expire, key, seconds], &_boolify
@@ -1206,6 +1244,9 @@ class Redis
   end
 
   # Remove the expiration from a key.
+  #
+  # @param [String] key
+  # @return [Boolean] whether the timeout was removed or not
   def persist(key)
     synchronize do
       @client.call [:persist, key], &_boolify
@@ -1213,6 +1254,10 @@ class Redis
   end
 
   # Get the time to live for a key.
+  #
+  # @param [String] key
+  # @return [Fixnum] remaining time to live in seconds, or -1 if the
+  #   key does not exist or does not have a timeout
   def ttl(key)
     synchronize do
       @client.call [:ttl, key]
@@ -1220,6 +1265,12 @@ class Redis
   end
 
   # Set the expiration for a key as a UNIX timestamp.
+  #
+  # @param [String] key
+  # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
+  #   (seconds since January 1, 1970). After this timeout has expired,
+  #   the key will automatically be deleted
+  # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
     synchronize do
       @client.call [:expireat, key, unix_time], &_boolify
@@ -1443,6 +1494,9 @@ class Redis
   end
 
   # Determine the type stored at key.
+  #
+  # @param [String] key
+  # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
   def type(key)
     synchronize do
       @client.call [:type, key]
