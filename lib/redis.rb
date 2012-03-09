@@ -63,6 +63,10 @@ class Redis
   end
 
   # Authenticate to the server.
+  #
+  # @param [String] password must match the password specified in the
+  #   `requirepass` directive in the configuration file
+  # @return [String] `OK`
   def auth(password)
     synchronize do
       @client.call [:auth, password]
@@ -70,6 +74,9 @@ class Redis
   end
 
   # Change the selected database for the current connection.
+  #
+  # @param [Fixnum] db zero-based index of the DB to use (0 to 15)
+  # @return [String] `OK`
   def select(db)
     synchronize do
       @client.db = db
@@ -146,7 +153,7 @@ class Redis
 
   # Asynchronously save the dataset to disk.
   #
-  # @return [String]
+  # @return [String] `OK`
   def bgsave
     synchronize do
       @client.call [:bgsave]
@@ -155,7 +162,7 @@ class Redis
 
   # Asynchronously rewrite the append-only file.
   #
-  # @return [String]
+  # @return [String] `OK`
   def bgrewriteaof
     synchronize do
       @client.call [:bgrewriteaof]
@@ -186,6 +193,12 @@ class Redis
   end
 
   # Get a substring of the string stored at a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] start zero-based start offset
+  # @param [Fixnum] stop zero-based end offset. Use -1 for representing
+  #   the end of the string
+  # @return [Fixnum] `0` or `1`
   def getrange(key, start, stop)
     synchronize do
       @client.call [:getrange, key, start, stop]
@@ -196,7 +209,8 @@ class Redis
   #
   # @param [String] key
   # @param [String] value value to replace the current value with
-  # @return [String]
+  # @return [String] the old value stored in the key, or `nil` if the key
+  #   did not exist
   def getset(key, value)
     synchronize do
       @client.call [:getset, key, value]
@@ -233,7 +247,8 @@ class Redis
   # Get the length of the value stored in a key.
   #
   # @param [String] key
-  # @return [Fixnum]
+  # @return [Fixnum] the length of the value stored in the key, or 0
+  #   if the key does not exist
   def strlen(key)
     synchronize do
       @client.call [:strlen, key]
@@ -263,6 +278,7 @@ class Redis
   # Get the value of a hash field.
   #
   # @param [String] key
+  # @param [String] field
   # @return [String]
   def hget(key, field)
     synchronize do
@@ -437,7 +453,10 @@ class Redis
   # Remove elements from a list.
   #
   # @param [String] key
-  # @param [Fixnum] count
+  # @param [Fixnum] count number of elements to remove. Use a positive
+  #   value to remove the first `count` occurrences of `value`. A negative
+  #   value to remove the last `count` occurrences of `value`. Or zero, to
+  #   remove all occurrences of `value` from the list.
   # @param [String] value
   # @return [Fixnum] the number of removed elements
   def lrem(key, count, value)
@@ -446,7 +465,7 @@ class Redis
     end
   end
 
-  # Append one or more values to a list.
+  # Append one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
   # @param [String] value
@@ -468,7 +487,7 @@ class Redis
     end
   end
 
-  # Prepend one or more values to a list.
+  # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
   # @param [String] value
@@ -584,6 +603,7 @@ class Redis
   # Determine if a given value is a member of a set.
   #
   # @param [String] key
+  # @param [String] member
   # @return [Boolean]
   def sismember(key, member)
     synchronize do
@@ -835,7 +855,7 @@ class Redis
   # @param [String] key
   # @param [Float] increment
   # @param [String] member
-  # @return [Float] score of the member after the incrementing it
+  # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
     synchronize do
       @client.call [:zincrby, key, increment, member] do |reply|
@@ -1151,9 +1171,23 @@ class Redis
 
   # Move a key to another database.
   #
+  # @example Move a key to another database
+  #   redis.set "foo", "bar"
+  #     # => "OK"
+  #   redis.move "foo", 2
+  #     # => true
+  #   redis.exists "foo"
+  #     # => false
+  #   redis.select 2
+  #     # => "OK"
+  #   redis.exists "foo"
+  #     # => true
+  #   resis.get "foo"
+  #     # => "bar"
+  #
   # @param [String] key
-  # @param [Fixnum] db database number
-  # @return [Boolean] whether or not the key was moved
+  # @param [Fixnum] db
+  # @return [Boolean] whether the key was moved or not
   def move(key, db)
     synchronize do
       @client.call [:move, key, db], &_boolify
@@ -1164,16 +1198,16 @@ class Redis
   #
   # @param [String] key
   # @param [String] value
-  # @return [Boolean] whether or not the key was set
+  # @return [Boolean] whether the key was set or not
   def setnx(key, value)
     synchronize do
       @client.call [:setnx, key, value], &_boolify
     end
   end
 
-  # Delete a key.
+  # Delete one or more keys.
   #
-  # @param [Array<String>] keys one or more keys to delete
+  # @param [String, Array<String>] keys
   # @return [Fixnum] number of keys that were deleted
   def del(*keys)
     synchronize do
@@ -1181,11 +1215,11 @@ class Redis
     end
   end
 
-  # Rename a key.
+  # Rename a key. If the new key already exists it is overwritten.
   #
   # @param [String] old_name
   # @param [String] new_name
-  # @return `"OK"`
+  # @return [String] `OK`
   def rename(old_name, new_name)
     synchronize do
       @client.call [:rename, old_name, new_name]
@@ -1196,7 +1230,7 @@ class Redis
   #
   # @param [String] old_name
   # @param [String] new_name
-  # @return [Boolean] whether or not the key was renamed
+  # @return [Boolean] whether the key was renamed or not
   def renamenx(old_name, new_name)
     synchronize do
       @client.call [:renamenx, old_name, new_name], &_boolify
@@ -1206,8 +1240,9 @@ class Redis
   # Set a key's time to live in seconds.
   #
   # @param [String] key
-  # @param [Fixnum] seconds
-  # @return [Boolean] whether or not the expiry was set
+  # @param [Fixnum] seconds time to live. After this timeout has expired,
+  #   the key will automatically be deleted
+  # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
     synchronize do
       @client.call [:expire, key, seconds], &_boolify
@@ -1217,7 +1252,7 @@ class Redis
   # Remove the expiration from a key.
   #
   # @param [String] key
-  # @return [Boolean] whether or not the expiry was removed
+  # @return [Boolean] whether the timeout was removed or not
   def persist(key)
     synchronize do
       @client.call [:persist, key], &_boolify
@@ -1227,7 +1262,8 @@ class Redis
   # Get the time to live for a key.
   #
   # @param [String] key
-  # @return [Fixnum] time to live in seconds
+  # @return [Fixnum] remaining time to live in seconds, or -1 if the
+  #   key does not exist or does not have a timeout
   def ttl(key)
     synchronize do
       @client.call [:ttl, key]
@@ -1237,8 +1273,10 @@ class Redis
   # Set the expiration for a key as a UNIX timestamp.
   #
   # @param [String] key
-  # @param [Fixnum] unix_time
-  # @return [Boolean] whether or not the expiry was set
+  # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
+  #   (seconds since January 1, 1970). After this timeout has expired,
+  #   the key will automatically be deleted
+  # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
     synchronize do
       @client.call [:expireat, key, unix_time], &_boolify
@@ -1606,6 +1644,9 @@ class Redis
   end
 
   # Determine the type stored at key.
+  #
+  # @param [String] key
+  # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
   def type(key)
     synchronize do
       @client.call [:type, key]
