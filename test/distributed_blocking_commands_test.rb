@@ -18,9 +18,9 @@ test "BLPOP" do |r|
     redis.lpush("foo", "s3")
   end
 
-  assert ["foo", "s2"] == r.blpop("foo", 1)
-  assert ["foo", "s1"] == r.blpop("foo", 1)
-  assert ["foo", "s3"] == r.blpop("foo", 1)
+  assert ["foo", "s2"] == r.blpop("foo", :timeout => 1)
+  assert ["foo", "s1"] == r.blpop("foo", :timeout => 1)
+  assert ["foo", "s3"] == r.blpop("foo", :timeout => 1)
 
   wire.join
 end
@@ -35,9 +35,9 @@ test "BRPOP" do |r|
     redis.rpush("foo", "s3")
   end
 
-  assert ["foo", "s2"] == r.brpop("foo", 1)
-  assert ["foo", "s1"] == r.brpop("foo", 1)
-  assert ["foo", "s3"] == r.brpop("foo", 1)
+  assert ["foo", "s2"] == r.brpop("foo", :timeout => 1)
+  assert ["foo", "s1"] == r.brpop("foo", :timeout => 1)
+  assert ["foo", "s3"] == r.brpop("foo", :timeout => 1)
 
   wire.join
 end
@@ -46,7 +46,7 @@ test "BRPOP should unset a configured socket timeout" do |r|
   r = Redis::Distributed.new(NODES, :timeout => 1)
 
   assert_nothing_raised do
-    r.brpop("foo", 2)
+    r.brpop("foo", :timeout => 2)
   end # Errno::EAGAIN raised if socket times out before redis command times out
 
   assert r.nodes.all? { |node| node.client.timeout == 1 }

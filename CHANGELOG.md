@@ -1,5 +1,12 @@
 # 3.0 (unreleased)
 
+* Change API for `BLPOP`, `BRPOP` and `BRPOPLPUSH`. Both `BLPOP` and
+  `BRPOP` now take a single argument equal to a string key, or an array
+  with string keys, followed by an optional hash with a `:timeout` key.
+  `BRPOPLPUSH` also takes an optional hash with a `:timeout` key as last
+  argument for consistency. By default, these commands use a timeout of
+  `0` to not time out.
+
 * When `SORT` is passed multiple key patterns to get via the `:get`
   option, it now returns an array per result element, holding all `GET`
   substitutions.

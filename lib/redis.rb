@@ -521,25 +521,50 @@ class Redis
 
   # Remove and get the first element in a list, or block until one is available.
   #
-  # @param [Array<String>] args one or more keys to perform a blocking pop on,
-  #   followed by a `Fixnum` timeout value
-  # @return [nil, Array<String>] tuple of list that was popped from and element
-  #   that was popped, or nil when the blocking operation timed out
-  def blpop(*args)
+  # @example With timeout
+  #   list, element = redis.blpop("list", :timeout => 5)
+  #     # => nil on timeout
+  #     # => ["list", "element"] on success
+  # @example Without timeout
+  #   list, element = redis.blpop("list")
+  #     # => ["list", "element"]
+  # @example Blocking pop on multiple lists
+  #   list, element = redis.blpop(["list", "another_list"])
+  #     # => ["list", "element"]
+  #
+  # @param [String, Array<String>] keys one or more keys to perform the
+  #   blocking pop on
+  # @param [Hash] options
+  #   - `:timeout => Fixnum`: timeout in seconds, defaults to no timeout
+  #
+  # @return [nil, <String, String>]
+  #   - `nil` when the operation timed out
+  #   - tuple of the list that was popped from and element was popped otherwise
+  def blpop(keys, options = {})
+    timeout = options[:timeout] || 0
+
     synchronize do
-      @client.call_without_timeout [:blpop, *args]
+      @client.call_without_timeout [:blpop, keys, timeout]
     end
   end
 
   # Remove and get the last element in a list, or block until one is available.
   #
-  # @param [Array<String>] args one or more keys to perform a blocking pop on,
-  #   followed by a `Fixnum` timeout value
-  # @return [nil, Array<String>] tuple of list that was popped from and element
-  #   that was popped, or nil when the blocking operation timed out
-  def brpop(*args)
+  # @param [String, Array<String>] keys one or more keys to perform the
+  #   blocking pop on
+  # @param [Hash] options
+  #   - `:timeout => Fixnum`: timeout in seconds, defaults to no timeout
+  #
+  # @return [nil, <String, String>]
+  #   - `nil` when the operation timed out
+  #   - tuple of the list that was popped from and element was popped otherwise
+  #
+  # @see #blpop
+  def brpop(keys, options = {})
+    timeout = options[:timeout] || 0
+
     synchronize do
-      @client.call_without_timeout [:brpop, *args]
+      @client.call_without_timeout [:brpop, keys, timeout]
     end
   end
 
@@ -548,9 +573,15 @@ class Redis
   #
   # @param [String] source source key
   # @param [String] destination destination key
-  # @param [Fixnum] timeout
-  # @return [nil, String] the element, or nil when the blocking operation timed out
-  def brpoplpush(source, destination, timeout)
+  # @param [Hash] options
+  #   - `:timeout => Fixnum`: timeout in seconds, defaults to no timeout
+  #
+  # @return [nil, String]
+  #   - `nil` when the operation timed out
+  #   - the element was popped and pushed otherwise
+  def brpoplpush(source, destination, options = {})
+    timeout = options[:timeout] || 0
+
     synchronize do
       @client.call_without_timeout [:brpoplpush, source, destination, timeout]
     end
