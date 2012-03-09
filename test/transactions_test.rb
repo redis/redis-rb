@@ -150,8 +150,28 @@ test "WATCH with an unmodified key" do |r|
   assert "s1" == r.get("foo")
 end
 
+test "WATCH with an unmodified key passed as array" do |r|
+  r.watch ["foo", "bar"]
+  r.multi do |multi|
+    multi.set "foo", "s1"
+  end
+
+  assert "s1" == r.get("foo")
+end
+
 test "WATCH with a modified key" do |r|
   r.watch "foo"
+  r.set "foo", "s1"
+  res = r.multi do |multi|
+    multi.set "foo", "s2"
+  end
+
+  assert nil == res
+  assert "s1" == r.get("foo")
+end
+
+test "WATCH with a modified key passed as array" do |r|
+  r.watch ["foo", "bar"]
   r.set "foo", "s1"
   res = r.multi do |multi|
     multi.set "foo", "s2"
