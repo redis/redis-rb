@@ -1240,8 +1240,7 @@ class Redis
   # Set a key's time to live in seconds.
   #
   # @param [String] key
-  # @param [Fixnum] seconds time to live. After this timeout has expired,
-  #   the key will automatically be deleted
+  # @param [Fixnum] seconds time to live
   # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
     synchronize do
@@ -1274,8 +1273,6 @@ class Redis
   #
   # @param [String] key
   # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
-  #   (seconds since January 1, 1970). After this timeout has expired,
-  #   the key will automatically be deleted
   # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
     synchronize do
