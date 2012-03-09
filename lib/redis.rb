@@ -1616,8 +1616,11 @@ class Redis
   #   - `:order => String`: combination of `ASC`, `DESC` and optionally `ALPHA`
   #   - `:store => String`: key to store the result at
   #
-  # @return [Array<String>, Fixnum]
-  #   - when `:store` is not specified, an array of elements
+  # @return [Array<String>, Array<Array<String>>, Fixnum]
+  #   - when `:get` is not specified, or holds a single element, an array of elements
+  #   - when `:get` is specified, and holds more than one element, an array of
+  #   elements where every element is an array with the result for every
+  #   element specified in `:get`
   #   - when `:store` is specified, the number of elements in the stored result
   def sort(key, options = {})
     args = []
@@ -1638,7 +1641,15 @@ class Redis
     args.concat ["STORE", store] if store
 
     synchronize do
-      @client.call [:sort, key, *args]
+      @client.call [:sort, key, *args] do |reply|
+        if get.size > 1
+          if reply
+            reply.each_slice(get.size).to_a
+          end
+        else
+          reply
+        end
+      end
     end
   end
 

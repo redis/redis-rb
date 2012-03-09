@@ -1,5 +1,9 @@
 # 3.0 (unreleased)
 
+* When `SORT` is passed multiple key patterns to get via the `:get`
+  option, it now returns an array per result element, holding all `GET`
+  substitutions.
+
 * The `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE` and `ZREVRANGEBYSCORE` commands
   now return an array containing `[String, Float]` pairs when
   `:with_scores => true` is passed.
