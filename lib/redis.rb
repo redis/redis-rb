@@ -205,8 +205,14 @@ class Redis
 
   # Get the values of all the given keys.
   #
+  # @example
+  #   redis.mget("key1", "key1")
+  #     # => ["v1", "v2"]
+  #
   # @param [Array<String>] keys
-  # @return [Array<String>]
+  # @return [Array<String>] an array of values for the specified keys
+  #
+  # @see #mapped_mget
   def mget(*keys, &blk)
     synchronize do
       @client.call [:mget, *keys], &blk
@@ -1144,6 +1150,10 @@ class Redis
   end
 
   # Move a key to another database.
+  #
+  # @param [String] key
+  # @param [Fixnum] db database number
+  # @return [Boolean] whether or not the key was moved
   def move(key, db)
     synchronize do
       @client.call [:move, key, db], &_boolify
@@ -1151,6 +1161,10 @@ class Redis
   end
 
   # Set the value of a key, only if the key does not exist.
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return [Boolean] whether or not the key was set
   def setnx(key, value)
     synchronize do
       @client.call [:setnx, key, value], &_boolify
@@ -1158,6 +1172,9 @@ class Redis
   end
 
   # Delete a key.
+  #
+  # @param [Array<String>] keys one or more keys to delete
+  # @return [Fixnum] number of keys that were deleted
   def del(*keys)
     synchronize do
       @client.call [:del, *keys]
@@ -1165,6 +1182,10 @@ class Redis
   end
 
   # Rename a key.
+  #
+  # @param [String] old_name
+  # @param [String] new_name
+  # @return `"OK"`
   def rename(old_name, new_name)
     synchronize do
       @client.call [:rename, old_name, new_name]
@@ -1172,6 +1193,10 @@ class Redis
   end
 
   # Rename a key, only if the new key does not exist.
+  #
+  # @param [String] old_name
+  # @param [String] new_name
+  # @return [Boolean] whether or not the key was renamed
   def renamenx(old_name, new_name)
     synchronize do
       @client.call [:renamenx, old_name, new_name], &_boolify
@@ -1179,6 +1204,10 @@ class Redis
   end
 
   # Set a key's time to live in seconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] seconds
+  # @return [Boolean] whether or not the expiry was set
   def expire(key, seconds)
     synchronize do
       @client.call [:expire, key, seconds], &_boolify
@@ -1186,6 +1215,9 @@ class Redis
   end
 
   # Remove the expiration from a key.
+  #
+  # @param [String] key
+  # @return [Boolean] whether or not the expiry was removed
   def persist(key)
     synchronize do
       @client.call [:persist, key], &_boolify
@@ -1193,6 +1225,9 @@ class Redis
   end
 
   # Get the time to live for a key.
+  #
+  # @param [String] key
+  # @return [Fixnum] time to live in seconds
   def ttl(key)
     synchronize do
       @client.call [:ttl, key]
@@ -1200,6 +1235,10 @@ class Redis
   end
 
   # Set the expiration for a key as a UNIX timestamp.
+  #
+  # @param [String] key
+  # @param [Fixnum] unix_time
+  # @return [Boolean] whether or not the expiry was set
   def expireat(key, unix_time)
     synchronize do
       @client.call [:expireat, key, unix_time], &_boolify
@@ -1207,6 +1246,11 @@ class Redis
   end
 
   # Set the string value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [String] value
+  # @return [Boolean] whether or not the field was **added** to the hash
   def hset(key, field, value)
     synchronize do
       @client.call [:hset, key, field, value], &_boolify
@@ -1214,30 +1258,77 @@ class Redis
   end
 
   # Set the value of a hash field, only if the field does not exist.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [String] value
+  # @return [Boolean] whether or not the field was **added** to the hash
   def hsetnx(key, field, value)
     synchronize do
       @client.call [:hsetnx, key, field, value], &_boolify
     end
   end
 
-  # Set multiple hash fields to multiple values.
+  # Set one or more hash values.
+  #
+  # @example
+  #   redis.hmset("hash", "f1", "v1", "f2", "v2")
+  #     # => "OK"
+  #
+  # @param [String] key
+  # @param [Array<String>] attrs array of fields and values
+  # @return `"OK"`
+  #
+  # @see #mapped_hmset
   def hmset(key, *attrs)
     synchronize do
       @client.call [:hmset, key, *attrs]
     end
   end
 
+  # Set one or more hash values.
+  #
+  # @example
+  #   redis.hmset("hash", { "f1" => "v1", "f2" => "v2" })
+  #     # => "OK"
+  #
+  # @param [String] key
+  # @param [Hash] hash fields mapping to values
+  # @return `"OK"`
+  #
+  # @see #hmset
   def mapped_hmset(key, hash)
     hmset(key, *hash.to_a.flatten)
   end
 
   # Get the values of all the given hash fields.
+  #
+  # @example
+  #   redis.hmget("hash", "f1", "f2")
+  #     # => ["v1", "v2"]
+  #
+  # @param [String] key
+  # @param [Array<String>] fields array of fields
+  # @return [Array<String] an array of values for the specified fields
+  #
+  # @see #mapped_hmget
   def hmget(key, *fields, &blk)
     synchronize do
       @client.call [:hmget, key, *fields], &blk
     end
   end
 
+  # Get the values of all the given hash fields.
+  #
+  # @example
+  #   redis.hmget("hash", "f1", "f2")
+  #     # => { "f1" => "v1", "f2" => "v2" }
+  #
+  # @param [String] key
+  # @param [Array<String>] fields array of fields
+  # @return [Hash] a hash mapping the specified fields to their values
+  #
+  # @see #hmget
   def mapped_hmget(key, *fields)
     hmget(key, *fields) do |reply|
       if reply.kind_of?(Array)
@@ -1253,6 +1344,9 @@ class Redis
   end
 
   # Get the number of fields in a hash.
+  #
+  # @param [String] key
+  # @return [Fixnum] number of fields in the hash
   def hlen(key)
     synchronize do
       @client.call [:hlen, key]
@@ -1260,6 +1354,9 @@ class Redis
   end
 
   # Get all the values in a hash.
+  #
+  # @param [String] key
+  # @return [Array<String>]
   def hvals(key)
     synchronize do
       @client.call [:hvals, key]
@@ -1267,6 +1364,11 @@ class Redis
   end
 
   # Increment the integer value of a hash field by the given number.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [Fixnum] increment
+  # @return [Fixnum] value of the field after incrementing it
   def hincrby(key, field, increment)
     synchronize do
       @client.call [:hincrby, key, field, increment]
@@ -1274,6 +1376,11 @@ class Redis
   end
 
   # Discard all commands issued after MULTI.
+  #
+  # Only call this method when `#multi` was called **without** a block, and
+  # `#exec` was not yet called.
+  #
+  # @return `"OK"`
   def discard
     synchronize do
       @client.call [:discard]
@@ -1281,6 +1388,10 @@ class Redis
   end
 
   # Determine if a hash field exists.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @return [Boolean] whether or not the field exists in the hash
   def hexists(key, field)
     synchronize do
       @client.call [:hexists, key, field], &_boolify
@@ -1288,6 +1399,11 @@ class Redis
   end
 
   # Listen for all requests received by the server in real time.
+  #
+  # There is no way to interrupt this command.
+  #
+  # @yield a block to be called for every line of output
+  # @yieldparam [String] line timestamp and command that was executed
   def monitor(&block)
     synchronize do
       @client.call_loop([:monitor], &block)
@@ -1314,6 +1430,10 @@ class Redis
   end
 
   # Set the string value of a key.
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return `"OK"`
   def set(key, value)
     synchronize do
       @client.call [:set, key, value]
@@ -1323,6 +1443,11 @@ class Redis
   alias :[]= :set
 
   # Sets or clears the bit at offset in the string value stored at key.
+  #
+  # @param [String] key
+  # @param [Fixnum] offset bit offset
+  # @param [Fixnum] value bit value `0` or `1`
+  # @return [Fixnum] the original bit value stored at `offset`
   def setbit(key, offset, value)
     synchronize do
       @client.call [:setbit, key, offset, value]
@@ -1330,6 +1455,11 @@ class Redis
   end
 
   # Set the value and expiration of a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] ttl
+  # @param [String] value
+  # @return `"OK"`
   def setex(key, ttl, value)
     synchronize do
       @client.call [:setex, key, ttl, value]
@@ -1337,34 +1467,87 @@ class Redis
   end
 
   # Overwrite part of a string at key starting at the specified offset.
+  #
+  # @param [String] key
+  # @param [Fixnum] offset byte offset
+  # @param [String] value
+  # @return [Fixnum] length of the string after it was modified
   def setrange(key, offset, value)
     synchronize do
       @client.call [:setrange, key, offset, value]
     end
   end
 
-  # Set multiple keys to multiple values.
+  # Set one or more values.
+  #
+  # @example
+  #   redis.mset("key1", "v1", "key2", "v2")
+  #     # => "OK"
+  #
+  # @param [Array<String>] args array of keys and values
+  # @return `"OK"`
+  #
+  # @see #mapped_mset
   def mset(*args)
     synchronize do
       @client.call [:mset, *args]
     end
   end
 
+  # Set one or more values.
+  #
+  # @example
+  #   redis.mapped_mset({ "f1" => "v1", "f2" => "v2" })
+  #     # => "OK"
+  #
+  # @param [Hash] hash keys mapping to values
+  # @return `"OK"`
+  #
+  # @see #mset
   def mapped_mset(hash)
     mset(*hash.to_a.flatten)
   end
 
-  # Set multiple keys to multiple values, only if none of the keys exist.
+  # Set one or more values, only if none of the keys exist.
+  #
+  # @example
+  #   redis.msetnx("key1", "v1", "key2", "v2")
+  #     # => true
+  #
+  # @param [Array<String>] args array of keys and values
+  # @return [Boolean] whether or not all values were set
+  #
+  # @see #mapped_msetnx
   def msetnx(*args)
     synchronize do
       @client.call [:msetnx, *args], &_boolify
     end
   end
 
+  # Set one or more values, only if none of the keys exist.
+  #
+  # @example
+  #   redis.msetnx({ "key1" => "v1", "key2" => "v2" })
+  #     # => true
+  #
+  # @param [Hash] hash keys mapping to values
+  # @return [Boolean] whether or not all values were set
+  #
+  # @see #msetnx
   def mapped_msetnx(hash)
     msetnx(*hash.to_a.flatten)
   end
 
+  # Get the values of all the given keys.
+  #
+  # @example
+  #   redis.mapped_mget("key1", "key1")
+  #     # => { "key1" => "v1", "key2" => "v2" }
+  #
+  # @param [Array<String>] keys array of keys
+  # @return [Hash] a hash mapping the specified keys to their values
+  #
+  # @see #mget
   def mapped_mget(*keys)
     mget(*keys) do |reply|
       if reply.kind_of?(Array)
