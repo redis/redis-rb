@@ -35,7 +35,7 @@ class Redis
             end
           end
         rescue RuntimeError => err
-          @req.each {|req| req.fail [:error, ProtocolError.new(err.message)]}
+          @req.each {|r| r.fail [:error, ProtocolError.new(err.message)]}
           @req.clear
           close_connection
         end
@@ -53,7 +53,7 @@ class Redis
       def unbind
         @connected = false
         unless @req.empty?
-          @req.each {|req| req.fail [:error, Errno::ECONNRESET]}
+          @req.each {|r| r.fail [:error, Errno::ECONNRESET]}
           @req.clear
         end
         fail
