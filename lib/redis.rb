@@ -1654,6 +1654,13 @@ class Redis
   end
 
   # Increment the integer value of a key by one.
+  #
+  # @example
+  #   redis.incr("value")
+  #     # => 6
+  #
+  # @param [String] key
+  # @return [Fixnum] value after incrementing it
   def incr(key)
     synchronize do
       @client.call [:incr, key]
@@ -1661,6 +1668,14 @@ class Redis
   end
 
   # Increment the integer value of a key by the given number.
+  #
+  # @example
+  #   redis.incrby("value", 5)
+  #     # => 10
+  #
+  # @param [String] key
+  # @param [Fixnum] increment
+  # @return [Fixnum] value after incrementing it
   def incrby(key, increment)
     synchronize do
       @client.call [:incrby, key, increment]
@@ -1668,6 +1683,13 @@ class Redis
   end
 
   # Decrement the integer value of a key by one.
+  #
+  # @example
+  #   redis.decr("value")
+  #     # => 4
+  #
+  # @param [String] key
+  # @return [Fixnum] value after decrementing it
   def decr(key)
     synchronize do
       @client.call [:decr, key]
@@ -1675,6 +1697,14 @@ class Redis
   end
 
   # Decrement the integer value of a key by the given number.
+  #
+  # @example
+  #   redis.decrby("value", 5)
+  #     # => 0
+  #
+  # @param [String] key
+  # @param [Fixnum] decrement
+  # @return [Fixnum] value after decrementing it
   def decrby(key, decrement)
     synchronize do
       @client.call [:decrby, key, decrement]
