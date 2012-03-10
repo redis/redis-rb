@@ -9,11 +9,14 @@ module RedisMock
       @server.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
       @thread = Thread.new { run(&block) }
     end
-
+    
     # Bail out of @server.accept before closing the socket. This is required
     # to avoid EADDRINUSE after a couple of iterations.
     def shutdown
-      @thread.terminate if @thread
+      if @thread
+        @thread.terminate
+        @thread.join
+      end
       @server.close if @server
     rescue => ex
       $stderr.puts "Error closing mock server: #{ex.message}" if VERBOSE
@@ -82,7 +85,7 @@ module RedisMock
         yield
 
       ensure
-        server.shutdown
+        server.shutdown if server
       end
     end
   end

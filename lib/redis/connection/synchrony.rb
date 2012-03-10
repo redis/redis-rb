@@ -10,7 +10,7 @@ class Redis
       include EventMachine::Deferrable
 
       def post_init
-        @req = nil
+        @req = []
         @connected = false
         @reader = ::Hiredis::Reader.new
       end
@@ -30,16 +30,20 @@ class Redis
         begin
           until (reply = @reader.gets) == false
             reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-            @req.succeed [:reply, reply]
+            if req = @req.shift
+              req.succeed [:reply, reply]
+            end
           end
         rescue RuntimeError => err
-          @req.fail [:error, ProtocolError.new(err.message)]
+          @req.each {|r| r.fail [:error, ProtocolError.new(err.message)]}
+          @req.clear
+          close_connection
         end
       end
 
       def read
-        @req = EventMachine::DefaultDeferrable.new
-        EventMachine::Synchrony.sync @req
+        @req << EventMachine::DefaultDeferrable.new
+        EventMachine::Synchrony.sync @req.last
       end
 
       def send(data)
@@ -48,12 +52,11 @@ class Redis
 
       def unbind
         @connected = false
-        if @req
-          @req.fail [:error, Errno::ECONNRESET]
-          @req = nil
-        else
-          fail
+        unless @req.empty?
+          @req.each {|r| r.fail [:error, Errno::ECONNRESET]}
+          @req.clear
         end
+        fail
       end
     end
 
