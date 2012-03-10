@@ -537,7 +537,7 @@ class Redis
   # @param [Hash] options
   #   - `:timeout => Fixnum`: timeout in seconds, defaults to no timeout
   #
-  # @return [nil, <String, String>]
+  # @return [nil, [String, String]]
   #   - `nil` when the operation timed out
   #   - tuple of the list that was popped from and element was popped otherwise
   def blpop(keys, options = {})
@@ -555,7 +555,7 @@ class Redis
   # @param [Hash] options
   #   - `:timeout => Fixnum`: timeout in seconds, defaults to no timeout
   #
-  # @return [nil, <String, String>]
+  # @return [nil, [String, String]]
   #   - `nil` when the operation timed out
   #   - tuple of the list that was popped from and element was popped otherwise
   #
@@ -794,15 +794,15 @@ class Redis
   # Add one or more members to a sorted set, or update the score for members
   # that already exist.
   #
-  # @example Add a single `(score, member)` pair to a sorted set
+  # @example Add a single `[score, member]` pair to a sorted set
   #   redis.zadd("zset", 32.0, "member")
-  # @example Add an array of `(score, member)` pairs to a sorted set
+  # @example Add an array of `[score, member]` pairs to a sorted set
   #   redis.zadd("zset", [[32.0, "a"], [64.0, "b"]])
   #
   # @param [String] key
-  # @param [(Float, String), Array<(Float,String)>] args
-  #   - a single `(score, member)` pair
-  #   - an array of `(score, member)` pairs
+  # @param [[Float, String], Array<[Float, String]>] args
+  #   - a single `[score, member]` pair
+  #   - an array of `[score, member]` pairs
   #
   # @return [Boolean, Fixnum]
   #   - `Boolean` when a single pair is specified, holding whether or not it was
@@ -924,9 +924,9 @@ class Redis
   # @param [Hash] options
   #   - `:with_scores => true`: include scores in output
   #
-  # @return [Array<String>, Array<(String, Float)>]
+  # @return [Array<String>, Array<[String, Float]>]
   #   - when `:with_scores` is not specified, an array of members
-  #   - when `:with_scores` is specified, an array with `(member, score)` pairs
+  #   - when `:with_scores` is specified, an array with `[member, score]` pairs
   def zrange(key, start, stop, options = {})
     args = []
 
@@ -1004,9 +1004,9 @@ class Redis
   #   - `:limit => [offset, count]`: skip `offset` members, return a maximum of
   #   `count` members
   #
-  # @return [Array<String>, Array<(String, Float)>]
+  # @return [Array<String>, Array<[String, Float]>]
   #   - when `:with_scores` is not specified, an array of members
-  #   - when `:with_scores` is specified, an array with `(member, score)` pairs
+  #   - when `:with_scores` is specified, an array with `[member, score]` pairs
   def zrangebyscore(key, min, max, options = {})
     args = []
 
