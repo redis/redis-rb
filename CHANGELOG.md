@@ -11,6 +11,8 @@
   option, it now returns an array per result element, holding all `GET`
   substitutions.
 
+* The `MSETNX` command now returns a boolean.
+
 * The `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE` and `ZREVRANGEBYSCORE` commands
   now return an array containing `[String, Float]` pairs when
   `:with_scores => true` is passed.
