@@ -464,9 +464,9 @@ class Redis
   # @param [String] key
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
-  def rpush(key, value)
+  def rpush(*args)
     synchronize do
-      @client.call [:rpush, key, value]
+      @client.call [:rpush, *args]
     end
   end
 
@@ -486,9 +486,9 @@ class Redis
   # @param [String] key
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
-  def lpush(key, value)
+  def lpush(*args)
     synchronize do
-      @client.call [:lpush, key, value]
+      @client.call [:lpush, *args]
     end
   end
 
