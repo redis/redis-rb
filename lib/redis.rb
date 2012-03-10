@@ -1381,7 +1381,7 @@ class Redis
   #
   # @param [String] key
   # @param [Array<String>] fields array of fields
-  # @return [Array<String] an array of values for the specified fields
+  # @return [Array<String>] an array of values for the specified fields
   #
   # @see #mapped_hmget
   def hmget(key, *fields, &blk)
