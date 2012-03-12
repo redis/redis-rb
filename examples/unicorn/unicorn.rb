@@ -16,5 +16,5 @@ worker_processes 3
 # worker processes.
 
 after_fork do |server, worker|
-  $redis = Redis.connect
+  Redis.current.quit
 end
