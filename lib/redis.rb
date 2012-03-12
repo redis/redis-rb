@@ -43,16 +43,7 @@ class Redis
   def initialize(options = {})
     @client = Client.new(options)
 
-    if options[:thread_safe] == false
-      @synchronizer = lambda { |&block| block.call }
-    else
-      @synchronizer = lambda { |&block| mon_synchronize { block.call } }
-      super() # Monitor#initialize
-    end
-  end
-
-  def synchronize
-    @synchronizer.call { yield }
+    super() # Monitor#initialize
   end
 
   # Run code without the client reconnecting
