@@ -1,6 +1,7 @@
 require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
+require "openssl"
 require "socket"
 
 class Redis
@@ -27,6 +28,17 @@ class Redis
           @sock = TCPSocket.new(host, port)
           @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
         end
+      end
+
+      def connect_ssl(host, port, timeout)
+        with_timeout(timeout.to_f / 1_000_000) do
+          tcp_sock = TCPSocket.new(host, port)
+          tcp_sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
+          ssl_context = OpenSSL::SSL::SSLContext.new()
+          @sock = OpenSSL::SSL::SSLSocket.new(tcp_sock, ssl_context)
+          @sock.sync_close = true
+          @sock.connect
+        end  
       end
 
       def connect_unix(path, timeout)
