@@ -22,13 +22,13 @@ class Redis
       def connect(host, port, timeout)
         @connection.connect(host, port, Integer(timeout * 1_000_000))
       rescue Errno::ETIMEDOUT
-        raise Timeout::Error
+        raise TimeoutError
       end
 
       def connect_unix(path, timeout)
         @connection.connect_unix(path, Integer(timeout * 1_000_000))
       rescue Errno::ETIMEDOUT
-        raise Timeout::Error
+        raise TimeoutError
       end
 
       def disconnect
@@ -37,12 +37,16 @@ class Redis
 
       def write(command)
         @connection.write(command.flatten(1))
+      rescue Errno::EAGAIN
+        raise TimeoutError
       end
 
       def read
         reply = @connection.read
         reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
         reply
+      rescue Errno::EAGAIN
+        raise TimeoutError
       rescue RuntimeError => err
         raise ProtocolError.new(err.message)
       end

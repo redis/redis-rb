@@ -27,12 +27,16 @@ class Redis
           @sock = TCPSocket.new(host, port)
           @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
         end
+      rescue Timeout::Error
+        raise TimeoutError
       end
 
       def connect_unix(path, timeout)
         with_timeout(timeout) do
           @sock = UNIXSocket.new(path)
         end
+      rescue Timeout::Error
+        raise TimeoutError
       end
 
       def disconnect
@@ -67,6 +71,9 @@ class Redis
         raise Errno::ECONNRESET unless reply_type
 
         format_reply(reply_type, @sock.gets)
+
+      rescue Errno::EAGAIN
+        raise TimeoutError
       end
 
       def format_reply(reply_type, line)
