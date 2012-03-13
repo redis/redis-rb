@@ -226,7 +226,7 @@ class Redis
         t1 = Time.now
         yield
       ensure
-        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000))
+        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000)) if t1
       end
     end
 
