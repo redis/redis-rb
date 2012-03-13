@@ -121,15 +121,11 @@ You can use `MULTI/EXEC` to run arbitrary commands in an atomic fashion:
       redis.incr "baz"
     end
 
-## Multithreaded Operation
+## Multi-threading
 
-Starting with redis-rb 2.2.0, the client is thread-safe by default. To use
-earlier versions safely in a multithreaded environment, be sure to initialize
-the client with `:thread_safe => true`. Thread-safety can be explicitly
-disabled for versions 2.2 and up by initializing the client with `:thread_safe
-=> false`.
-
-See the tests and benchmarks for examples.
+Starting with version 2.2.0, the client is thread-safe by default. To use
+earlier versions safely in a multi-threaded environment, be sure to initialize
+the client with `:thread_safe => true`.
 
 ## Alternate drivers
 
