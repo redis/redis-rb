@@ -19,14 +19,16 @@ test "provides a meaningful inspect" do |r, _|
   assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
 end
 
-test "Redis.current" do
-  Redis.current.set("foo", "bar")
+test "Redis.current" do |r, _|
+  assert "127.0.0.1" == Redis.current.client.host
+  assert 6379 == Redis.current.client.port
+  assert 0 == Redis.current.client.db
 
-  assert "bar" == Redis.current.get("foo")
+  Redis.current = Redis.new(OPTIONS.merge(:port => 6380, :db => 1))
 
-  Redis.current = Redis.new(OPTIONS.merge(:db => 14))
-
-  assert Redis.current.get("foo").nil?
+  assert "127.0.0.1" == Redis.current.client.host
+  assert 6380 == Redis.current.client.port
+  assert 1 == Redis.current.client.db
 end
 
 test "Timeout" do
