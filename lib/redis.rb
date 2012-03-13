@@ -1495,6 +1495,8 @@ class Redis
   end
 
   # Close the connection.
+  #
+  # @return [String] `OK`
   def quit
     synchronize do
       begin
