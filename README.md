@@ -211,4 +211,4 @@ all contributors)
 
 ## Contributing
 
-[Fork the project](http://github.com/ezmobius/redis-rb) and send pull requests. You can also ask for help at `#redis-rb` on Freenode.
+[Fork the project](http://github.com/redis/redis-rb) and send pull requests. You can also ask for help at `#redis-rb` on Freenode.
