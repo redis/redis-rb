@@ -36,11 +36,9 @@ class Redis
 
       def gets
         crlf = nil
-        start = 0
 
-        while (crlf = @buffer.index(CRLF, start)) == nil
-          start = @buffer.bytesize
-          @buffer << _read_from_socket(16384)
+        while (crlf = @buffer.index(CRLF)) == nil
+          @buffer << _read_from_socket(1024)
         end
 
         @buffer.slice!(0, crlf + CRLF.bytesize)
