@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
 
   s.version = Redis::VERSION
 
-  s.homepage = "https://github.com/ezmobius/redis-rb"
+  s.homepage = "https://github.com/redis/redis-rb"
 
   s.summary = "A Ruby client library for the Redis key-value store."
 

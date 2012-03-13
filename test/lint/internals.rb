@@ -16,7 +16,7 @@ test "Logger with pipelining" do |r, log|
 end if $TEST_PIPELINING
 
 test "Recovers from failed commands" do |r, _|
-  # See http://github.com/ezmobius/redis-rb/issues#issue/28
+  # See https://github.com/redis/redis-rb/issues#issue/28
 
   assert_raise do
     r.command_that_doesnt_exist

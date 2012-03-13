@@ -1,5 +1,8 @@
 # 3.0 (unreleased)
 
+* The repository now lives at [https://github.com/redis/redis-rb](https://github.com/redis/redis-rb).
+  Thanks, Ezra!
+
 * The `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE` and `ZREVRANGEBYSCORE` commands
   now return an array containing `[String, Float]` pairs when
   `:with_scores => true` is passed.
