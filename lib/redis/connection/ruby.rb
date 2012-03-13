@@ -23,14 +23,14 @@ class Redis
       end
 
       def connect(host, port, timeout)
-        with_timeout(timeout.to_f / 1_000_000) do
+        with_timeout(timeout) do
           @sock = TCPSocket.new(host, port)
           @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
         end
       end
 
       def connect_unix(path, timeout)
-        with_timeout(timeout.to_f / 1_000_000) do
+        with_timeout(timeout) do
           @sock = UNIXSocket.new(path)
         end
       end
@@ -42,11 +42,11 @@ class Redis
         @sock = nil
       end
 
-      def timeout=(usecs)
-        secs   = Integer(usecs / 1_000_000)
-        usecs  = Integer(usecs - (secs * 1_000_000)) # 0 - 999_999
+      def timeout=(timeout)
+        tv_sec  = Integer(timeout)
+        tv_usec = Integer((timeout - tv_sec) * 1_000_000) # 0 - 999_999
 
-        optval = [secs, usecs].pack("l_2")
+        optval = [tv_sec, tv_usec].pack("l_2")
 
         begin
           @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval

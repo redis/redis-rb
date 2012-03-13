@@ -14,18 +14,19 @@ class Redis
         @connection.connected?
       end
 
-      def timeout=(usecs)
-        @connection.timeout = usecs
+      def timeout=(timeout)
+        # Hiredis works with microsecond timeouts
+        @connection.timeout = Integer(timeout * 1_000_000)
       end
 
       def connect(host, port, timeout)
-        @connection.connect(host, port, timeout)
+        @connection.connect(host, port, Integer(timeout * 1_000_000))
       rescue Errno::ETIMEDOUT
         raise Timeout::Error
       end
 
       def connect_unix(path, timeout)
-        @connection.connect_unix(path, timeout)
+        @connection.connect_unix(path, Integer(timeout * 1_000_000))
       rescue Errno::ETIMEDOUT
         raise Timeout::Error
       end

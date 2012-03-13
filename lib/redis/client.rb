@@ -191,10 +191,10 @@ class Redis
       connect unless connected?
 
       begin
-        self.timeout = 0
+        connection.timeout = 0
         yield
       ensure
-        self.timeout = @timeout if connected?
+        connection.timeout = @timeout if connected?
       end
     end
 
@@ -231,28 +231,18 @@ class Redis
     end
 
     def establish_connection
-      # Need timeout in usecs, like socket timeout.
-      timeout = Integer(@timeout * 1_000_000)
-
       if @path
         connection.connect_unix(@path, timeout)
       else
         connection.connect(@host, @port, timeout)
       end
 
-      # If the timeout is set we set the low level socket options in order
-      # to make sure a blocking read will return after the specified number
-      # of seconds. This hack is from memcached ruby client.
-      self.timeout = @timeout
+      connection.timeout = @timeout
 
     rescue Timeout::Error
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
       raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
-    end
-
-    def timeout=(timeout)
-      connection.timeout = Integer(timeout * 1_000_000)
     end
 
     def ensure_connected
