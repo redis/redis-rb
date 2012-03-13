@@ -25,6 +25,10 @@ class Redis
       options[:port]     ||= uri.port
       options[:password] ||= uri.password
       options[:db]       ||= uri.path[1..-1].to_i
+
+      # A representation of the full URI object
+      # allowing for connections to have more context
+      options[:uri]      ||= uri
     end
 
     new(options)

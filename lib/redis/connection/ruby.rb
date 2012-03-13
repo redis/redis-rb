@@ -22,7 +22,7 @@ class Redis
         !! @sock
       end
 
-      def connect(host, port, timeout)
+      def connect(host, port, timeout, uri)
         with_timeout(timeout.to_f / 1_000_000) do
           @sock = TCPSocket.new(host, port)
           @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
