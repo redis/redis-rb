@@ -220,7 +220,7 @@ class Redis
 
       begin
         commands.each do |name, *args|
-          @logger.debug("Redis >> #{name.to_s.upcase} #{args.join(" ")}")
+          @logger.debug("Redis >> #{name.to_s.upcase} #{args.map(&:to_s).join(" ")}")
         end
 
         t1 = Time.now
