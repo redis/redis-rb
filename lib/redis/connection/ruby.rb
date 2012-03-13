@@ -25,7 +25,7 @@ class Redis
       end
 
       def read(nbytes)
-        result = _read_from_buffer(nbytes)
+        result = @buffer.slice!(0, nbytes)
 
         while result.bytesize < nbytes
           result << _read_from_socket(nbytes - result.bytesize)
@@ -43,11 +43,7 @@ class Redis
           @buffer << _read_from_socket(16384)
         end
 
-        _read_from_buffer(crlf + 2)
-      end
-
-      def _read_from_buffer(nbytes)
-        @buffer.slice!(0, nbytes)
+        @buffer.slice!(0, crlf + CRLF.bytesize)
       end
 
       def _read_from_socket(nbytes)
