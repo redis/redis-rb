@@ -52,9 +52,9 @@ test "BRPOPLPUSH" do |r|
   r.rpush "foo", "s1"
   r.rpush "foo", "s2"
 
-  assert_equal "s2", r.brpoplpush("foo", "bar", 1)
+  assert_equal "s2", r.brpoplpush("foo", "bar", :timeout => 1)
 
-  assert_equal nil, r.brpoplpush("baz", "qux", 1)
+  assert_equal nil, r.brpoplpush("baz", "qux", :timeout => 1)
 
   assert_equal ["s2"], r.lrange("bar", 0, -1)
 end
