@@ -197,13 +197,9 @@ class Redis
       end
 
       def read
-        # We read the first byte using read() mainly because gets() is
-        # immune to raw socket timeouts.
-        reply_type = @sock.read(1)
-
-        raise Errno::ECONNRESET unless reply_type
-
-        format_reply(reply_type, @sock.gets)
+        line = @sock.gets
+        reply_type = line.slice!(0, 1)
+        format_reply(reply_type, line)
 
       rescue Errno::EAGAIN
         raise TimeoutError
