@@ -25,6 +25,7 @@ class Redis
       options[:port]     ||= uri.port
       options[:password] ||= uri.password
       options[:db]       ||= uri.path[1..-1].to_i
+      options[:scheme]   ||= uri.scheme
     end
 
     new(options)
