@@ -16,7 +16,7 @@ $TEST_PIPELINING = true
 load File.expand_path("./lint/internals.rb", File.dirname(__FILE__))
 
 test "provides a meaningful inspect" do |r, _|
-  assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:6379/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
+  assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:#{PORT}/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
 end
 
 test "Redis.current" do |r, _|
@@ -56,7 +56,7 @@ test "Retry when first read raises ECONNRESET" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    redis = Redis.connect(:port => MOCK_PORT, :timeout => 0.1)
     assert "2" == redis.ping
   end
 end
@@ -72,7 +72,7 @@ test "Don't retry when wrapped inside #without_reconnect" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    redis = Redis.connect(:port => MOCK_PORT, :timeout => 0.1)
     assert_raise Redis::ConnectionError do
       redis.without_reconnect do
         redis.ping
@@ -95,7 +95,7 @@ test "Retry only once when read raises ECONNRESET" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    redis = Redis.connect(:port => MOCK_PORT, :timeout => 0.1)
     assert_raise Redis::ConnectionError do
       redis.ping
     end
@@ -115,7 +115,7 @@ test "Don't retry when second read in pipeline raises ECONNRESET" do
   end
 
   redis_mock(:ping => command) do
-    redis = Redis.connect(:port => 6380, :timeout => 0.1)
+    redis = Redis.connect(:port => MOCK_PORT, :timeout => 0.1)
     assert_raise Redis::ConnectionError do
       redis.pipelined do
         redis.ping
