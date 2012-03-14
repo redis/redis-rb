@@ -18,6 +18,6 @@ end
 
 test "BRPOPLPUSH" do |r|
   assert_raise Redis::Distributed::CannotDistribute do
-    r.brpoplpush("foo", "bar", 1)
+    r.brpoplpush("foo", "bar", :timeout => 1)
   end
 end

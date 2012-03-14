@@ -169,7 +169,7 @@ class Redis
 
     def io
       yield
-    rescue Errno::EAGAIN
+    rescue TimeoutError
       raise TimeoutError, "Connection timed out"
     rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL => e
       raise ConnectionError, "Connection lost (%s)" % [e.class.name.split("::").last]
@@ -191,10 +191,10 @@ class Redis
       connect unless connected?
 
       begin
-        self.timeout = 0
+        connection.timeout = 0
         yield
       ensure
-        self.timeout = @timeout if connected?
+        connection.timeout = @timeout if connected?
       end
     end
 
@@ -220,39 +220,29 @@ class Redis
 
       begin
         commands.each do |name, *args|
-          @logger.debug("Redis >> #{name.to_s.upcase} #{args.join(" ")}")
+          @logger.debug("Redis >> #{name.to_s.upcase} #{args.map(&:to_s).join(" ")}")
         end
 
         t1 = Time.now
         yield
       ensure
-        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000))
+        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000)) if t1
       end
     end
 
     def establish_connection
-      # Need timeout in usecs, like socket timeout.
-      timeout = Integer(@timeout * 1_000_000)
-
       if @path
         connection.connect_unix(@path, timeout)
       else
         connection.connect(@host, @port, timeout)
       end
 
-      # If the timeout is set we set the low level socket options in order
-      # to make sure a blocking read will return after the specified number
-      # of seconds. This hack is from memcached ruby client.
-      self.timeout = @timeout
+      connection.timeout = @timeout
 
-    rescue Timeout::Error
+    rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
       raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
-    end
-
-    def timeout=(timeout)
-      connection.timeout = Integer(timeout * 1_000_000)
     end
 
     def ensure_connected

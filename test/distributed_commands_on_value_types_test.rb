@@ -26,6 +26,22 @@ test "DEL" do |r|
   assert [] == r.keys("*").sort
 end
 
+test "DEL with array argument" do |r|
+  r.set "foo", "s1"
+  r.set "bar", "s2"
+  r.set "baz", "s3"
+
+  assert ["bar", "baz", "foo"] == r.keys("*").sort
+
+  assert 1 == r.del(["foo"])
+
+  assert ["bar", "baz"] == r.keys("*").sort
+
+  assert 2 == r.del(["bar", "baz"])
+
+  assert [] == r.keys("*").sort
+end
+
 test "RANDOMKEY" do |r|
   assert_raise Redis::Distributed::CannotDistribute do
     r.randomkey

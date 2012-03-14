@@ -61,7 +61,7 @@ class Redis
       include Redis::Connection::CommandHelper
 
       def initialize
-        @timeout = 5_000_000
+        @timeout = 5.0
         @connection = nil
       end
 
@@ -69,13 +69,13 @@ class Redis
         @connection && @connection.connected?
       end
 
-      def timeout=(usecs)
-        @timeout = usecs
+      def timeout=(timeout)
+        @timeout = timeout
       end
 
       def connect(host, port, timeout)
         conn = EventMachine.connect(host, port, RedisClient) do |c|
-          c.pending_connect_timeout = [Float(timeout / 1_000_000), 0.1].max
+          c.pending_connect_timeout = [timeout, 0.1].max
         end
 
         setup_connect_callbacks(conn, Fiber.current)

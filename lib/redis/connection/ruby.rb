@@ -5,6 +5,155 @@ require "socket"
 
 class Redis
   module Connection
+    module SocketMixin
+
+      CRLF = "\r\n".freeze
+
+      def initialize(*args)
+        super(*args)
+
+        @timeout = nil
+        @buffer = ""
+      end
+
+      def timeout=(timeout)
+        if timeout && timeout > 0
+          @timeout = timeout
+        else
+          @timeout = nil
+        end
+      end
+
+      def read(nbytes)
+        result = @buffer.slice!(0, nbytes)
+
+        while result.bytesize < nbytes
+          result << _read_from_socket(nbytes - result.bytesize)
+        end
+
+        result
+      end
+
+      def gets
+        crlf = nil
+
+        while (crlf = @buffer.index(CRLF)) == nil
+          @buffer << _read_from_socket(1024)
+        end
+
+        @buffer.slice!(0, crlf + CRLF.bytesize)
+      end
+
+      def _read_from_socket(nbytes)
+        begin
+          read_nonblock(nbytes)
+
+        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
+          if IO.select([self], nil, nil, @timeout)
+            retry
+          else
+            raise Redis::TimeoutError
+          end
+        end
+
+      rescue EOFError
+        raise Errno::ECONNRESET
+      end
+    end
+
+    if defined?(RUBY_ENGINE) && RUBY_ENGINE == "jruby"
+
+      require "timeout"
+
+      class TCPSocket < ::TCPSocket
+
+        include SocketMixin
+
+        def self.connect(host, port, timeout)
+          Timeout.timeout(timeout) do
+            sock = new(host, port)
+            sock
+          end
+        rescue Timeout::Error
+          raise TimeoutError
+        end
+      end
+
+      class UNIXSocket < ::UNIXSocket
+
+        # This class doesn't include the mixin, because JRuby raises
+        # Errno::EAGAIN on #read_nonblock even when IO.select says it is
+        # readable. This behavior shows in 1.6.6 in both 1.8 and 1.9 mode.
+        # Therefore, fall back on the default Unix socket implementation,
+        # without timeouts.
+
+        def self.connect(path, timeout)
+          Timeout.timeout(timeout) do
+            sock = new(path)
+            sock
+          end
+        rescue Timeout::Error
+          raise TimeoutError
+        end
+      end
+
+    else
+
+      class TCPSocket < ::Socket
+
+        include SocketMixin
+
+        def self.connect(host, port, timeout)
+          # Limit lookup to IPv4, as Redis doesn't yet do IPv6...
+          addr = ::Socket.getaddrinfo(host, nil, Socket::AF_INET)
+          sock = new(::Socket.const_get(addr[0][0]), Socket::SOCK_STREAM, 0)
+          sockaddr = ::Socket.pack_sockaddr_in(port, addr[0][3])
+
+          begin
+            sock.connect_nonblock(sockaddr)
+          rescue Errno::EINPROGRESS
+            if IO.select(nil, [sock], nil, timeout) == nil
+              raise TimeoutError
+            end
+
+            begin
+              sock.connect_nonblock(sockaddr)
+            rescue Errno::EISCONN
+            end
+          end
+
+          sock
+        end
+      end
+
+      class UNIXSocket < ::Socket
+
+        # This class doesn't include the mixin to keep its behavior in sync
+        # with the JRuby implementation.
+
+        def self.connect(path, timeout)
+          sock = new(::Socket::AF_UNIX, Socket::SOCK_STREAM, 0)
+          sockaddr = ::Socket.pack_sockaddr_un(path)
+
+          begin
+            sock.connect_nonblock(sockaddr)
+          rescue Errno::EINPROGRESS
+            if IO.select(nil, [sock], nil, timeout) == nil
+              raise TimeoutError
+            end
+
+            begin
+              sock.connect_nonblock(sockaddr)
+            rescue Errno::EISCONN
+            end
+          end
+
+          sock
+        end
+      end
+
+    end
+
     class Ruby
       include Redis::Connection::CommandHelper
 
@@ -23,16 +172,11 @@ class Redis
       end
 
       def connect(host, port, timeout)
-        with_timeout(timeout.to_f / 1_000_000) do
-          @sock = TCPSocket.new(host, port)
-          @sock.setsockopt Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1
-        end
+        @sock = TCPSocket.connect(host, port, timeout)
       end
 
       def connect_unix(path, timeout)
-        with_timeout(timeout.to_f / 1_000_000) do
-          @sock = UNIXSocket.new(path)
-        end
+        @sock = UNIXSocket.connect(path, timeout)
       end
 
       def disconnect
@@ -42,16 +186,9 @@ class Redis
         @sock = nil
       end
 
-      def timeout=(usecs)
-        secs   = Integer(usecs / 1_000_000)
-        usecs  = Integer(usecs - (secs * 1_000_000)) # 0 - 999_999
-
-        optval = [secs, usecs].pack("l_2")
-
-        begin
-          @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
-          @sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
-        rescue Errno::ENOPROTOOPT
+      def timeout=(timeout)
+        if @sock.respond_to?(:timeout=)
+          @sock.timeout = timeout
         end
       end
 
@@ -60,13 +197,12 @@ class Redis
       end
 
       def read
-        # We read the first byte using read() mainly because gets() is
-        # immune to raw socket timeouts.
-        reply_type = @sock.read(1)
+        line = @sock.gets
+        reply_type = line.slice!(0, 1)
+        format_reply(reply_type, line)
 
-        raise Errno::ECONNRESET unless reply_type
-
-        format_reply(reply_type, @sock.gets)
+      rescue Errno::EAGAIN
+        raise TimeoutError
       end
 
       def format_reply(reply_type, line)
@@ -105,29 +241,6 @@ class Redis
         return if n == -1
 
         Array.new(n) { read }
-      end
-
-    protected
-
-      begin
-        require "system_timer"
-
-        def with_timeout(seconds, &block)
-          SystemTimer.timeout_after(seconds, &block)
-        end
-
-      rescue LoadError
-        if ! defined?(RUBY_ENGINE)
-          # MRI 1.8, all other interpreters define RUBY_ENGINE, JRuby and
-          # Rubinius should have no issues with timeout.
-          warn "WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang."
-        end
-
-        require "timeout"
-
-        def with_timeout(seconds, &block)
-          Timeout.timeout(seconds, &block)
-        end
       end
     end
   end
