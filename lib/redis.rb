@@ -17,14 +17,20 @@ class Redis
       require "uri"
 
       uri = URI(url)
+      if uri.scheme == "unixsocket"
+        # allow specifying db with ":" using e.g. unixsocket:///path/to/redis.socket:10
+        path, db = uri.path.split(":")
+        options[:path]     ||= path
+        options[:db]       ||= db
+      else
+        # Require the URL to have at least a host
+        raise ArgumentError, "invalid url" unless uri.host
 
-      # Require the URL to have at least a host
-      raise ArgumentError, "invalid url" unless uri.host
-
-      options[:host]     ||= uri.host
-      options[:port]     ||= uri.port
-      options[:password] ||= uri.password
-      options[:db]       ||= uri.path[1..-1].to_i
+        options[:host]     ||= uri.host
+        options[:port]     ||= uri.port
+        options[:password] ||= uri.password
+        options[:db]       ||= uri.path[1..-1].to_i
+      end
     end
 
     new(options)
