@@ -129,24 +129,21 @@ test "Connecting to UNIX domain socket" do
   end
 end
 
-# if driver == :ruby || driver == :hiredis
-#   # Using a mock server in a thread doesn't work here (possibly because blocking
-#   # socket ops, raw socket timeouts and Ruby's thread scheduling don't mix).
-#   test "Bubble EAGAIN without retrying" do
-#     cmd = %{(sleep 0.3; echo "+PONG\r\n") | nc -l 6380}
-#     IO.popen(cmd) do |_|
-#       sleep 0.1 # Give nc a little time to start listening
-#       redis = Redis.connect(:port => 6380, :timeout => 0.1)
-#
-#       begin
-#         assert_raise(Errno::EAGAIN) { redis.ping }
-#       ensure
-#         # Explicitly close connection so nc can quit
-#         redis.client.disconnect
-#
-#         # Make the reactor loop do a tick to really close
-#         EM::Synchrony.sleep(0) if driver == :synchrony
-#       end
-#     end
-#   end
-# end
+if driver == :ruby || driver == :hiredis
+  # Using a mock server in a thread doesn't work here (possibly because blocking
+  # socket ops, raw socket timeouts and Ruby's thread scheduling don't mix).
+  test "Bubble EAGAIN without retrying" do
+    cmd = %{(sleep 0.3; echo "+PONG\r\n") | nc -l 6380}
+    IO.popen(cmd) do |_|
+      sleep 0.1 # Give nc a little time to start listening
+      redis = Redis.connect(:port => 6380, :timeout => 0.1)
+
+      begin
+        assert_raise(Redis::TimeoutError) { redis.ping }
+      ensure
+        # Explicitly close connection so nc can quit
+        redis.client.disconnect
+      end
+    end
+  end
+end
