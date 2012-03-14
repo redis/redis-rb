@@ -1,23 +1,34 @@
 # encoding: UTF-8
 
 require File.expand_path("./helper", File.dirname(__FILE__))
+require File.expand_path("./redis_mock", File.dirname(__FILE__))
+
 require "redis/distributed"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
+include RedisMock::Helper
+
+MOCK_NODES = ["redis://127.0.0.1:6380/15"]
+
+test "SAVE" do
+  redis_mock(:save => lambda { "+SAVE" }) do
+    redis = Redis::Distributed.new(MOCK_NODES)
+
+    assert ["SAVE"] == redis.save
+  end
 end
 
-test "SAVE and BGSAVE" do |r|
-  assert_nothing_raised do
-    r.save
-  end
+test "BGSAVE" do
+  redis_mock(:bgsave => lambda { "+BGSAVE" }) do
+    redis = Redis::Distributed.new(MOCK_NODES)
 
-  assert_nothing_raised do
-    r.bgsave
+    assert ["BGSAVE"] == redis.bgsave
   end
 end
 
 test "LASTSAVE" do |r|
-  assert r.lastsave.all? { |t| Time.at(t) <= Time.now }
+  redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
+    redis = Redis::Distributed.new(MOCK_NODES)
+
+    assert ["LASTSAVE"] == redis.lastsave
+  end
 end
