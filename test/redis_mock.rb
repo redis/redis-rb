@@ -91,6 +91,7 @@ module RedisMock
 
       ensure
         server.shutdown
+        sleep 0.1 # Allow some time for cleanup
       end
     end
   end
