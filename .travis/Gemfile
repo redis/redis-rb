@@ -1,0 +1,12 @@
+source "https://rubygems.org"
+
+gemspec :path => "../"
+
+gem "cutest"
+
+case ENV["REDIS_CONNECTION_DRIVER"]
+when "hiredis"
+  gem "hiredis"
+when "synchrony"
+  gem "em-synchrony"
+end
