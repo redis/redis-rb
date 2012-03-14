@@ -3,6 +3,19 @@
 * The repository now lives at [https://github.com/redis/redis-rb](https://github.com/redis/redis-rb).
   Thanks, Ezra!
 
+* Change API for `BLPOP`, `BRPOP` and `BRPOPLPUSH`. Both `BLPOP` and
+  `BRPOP` now take a single argument equal to a string key, or an array
+  with string keys, followed by an optional hash with a `:timeout` key.
+  `BRPOPLPUSH` also takes an optional hash with a `:timeout` key as last
+  argument for consistency. By default, these commands use a timeout of
+  `0` to not time out.
+
+* When `SORT` is passed multiple key patterns to get via the `:get`
+  option, it now returns an array per result element, holding all `GET`
+  substitutions.
+
+* The `MSETNX` command now returns a boolean.
+
 * The `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE` and `ZREVRANGEBYSCORE` commands
   now return an array containing `[String, Float]` pairs when
   `:with_scores => true` is passed.

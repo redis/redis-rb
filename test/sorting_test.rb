@@ -27,8 +27,9 @@ test "SORT with an array of GETs" do |r|
   r.rpush("bar", "1")
   r.rpush("bar", "2")
 
-  assert ["s1a", "s1b"] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
-  assert ["s2a", "s2b"] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
+  assert [["s1a", "s1b"]] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
+  assert [["s2a", "s2b"]] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
+  assert [["s1a", "s1b"], ["s2a", "s2b"]] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"])
 end
 
 test "SORT with STORE" do |r|
