@@ -2,7 +2,7 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :path, :password, :logger
+    attr_accessor :db, :host, :port, :path, :password, :uri, :logger
     attr :timeout
     attr :connection
     attr :command_map
@@ -17,6 +17,7 @@ class Redis
       @db = (options[:db] || 0).to_i
       @timeout = (options[:timeout] || 5).to_f
       @password = options[:password]
+      @uri = options[:uri]
       @logger = options[:logger]
       @reconnect = true
       @connection = Connection.drivers.last.new
@@ -237,7 +238,7 @@ class Redis
       if @path
         connection.connect_unix(@path, timeout)
       else
-        connection.connect(@host, @port, timeout)
+        connection.connect(@host, @port, timeout, @uri)
       end
 
       # If the timeout is set we set the low level socket options in order
