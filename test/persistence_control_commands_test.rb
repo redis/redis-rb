@@ -5,10 +5,6 @@ require File.expand_path("./redis_mock", File.dirname(__FILE__))
 
 include RedisMock::Helper
 
-setup do
-  init Redis.new(OPTIONS)
-end
-
 test "SAVE" do
   redis_mock(:save => lambda { "+SAVE" }) do
     redis = Redis.new(OPTIONS.merge(:port => 6380))
@@ -25,7 +21,7 @@ test "BGSAVE" do
   end
 end
 
-test "LASTSAVE" do |r|
+test "LASTSAVE" do
   redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
     redis = Redis.new(OPTIONS.merge(:port => 6380))
 
