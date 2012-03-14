@@ -35,54 +35,12 @@ task :stop do
   end
 end
 
-desc "Run the test suite"
-task :test => ["test:ruby", "test:hiredis", "test:synchrony"]
+task :test do
+  require "cutest"
 
-namespace :test do
-  desc "Run tests against the Ruby driver"
-  task :ruby do
-    require "cutest"
-
-    Cutest.run(Dir["./test/**/*_test.rb"])
-  end
-
-  desc "Run tests against the hiredis driver"
-  task :hiredis do
-    require "cutest"
-
-    begin
-      require "redis/connection/hiredis"
-
-      puts
-      puts "Running tests against hiredis v#{Hiredis::VERSION}"
-
-      ENV["REDIS_CONNECTION_DRIVER"] = "hiredis"
-      Cutest.run(Dir["./test/**/*_test.rb"])
-    rescue LoadError
-      puts "Skipping tests against hiredis"
-    end
-  end
-
-  desc "Run tests against the em-synchrony driver"
-  task :synchrony do
-    require "cutest"
-
-    # Synchrony needs 1.9
-    next if RUBY_VERSION < "1.9"
-
-    begin
-      require "redis/connection/synchrony"
-
-      puts
-      puts "Running tests against em-synchrony"
-
-      threaded_tests = ['./test/thread_safety_test.rb']
-
-      ENV["REDIS_CONNECTION_DRIVER"] = "synchrony"
-      Cutest.run(Dir['./test/**/*_test.rb'] - threaded_tests)
-    rescue LoadError
-      puts "Skipping tests against em-synchrony"
-    end
+  files = Dir["./test/**/*_test.rb"]
+  files.each do |file|
+    Cutest.run_file(file)
   end
 end
 
