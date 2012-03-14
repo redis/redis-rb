@@ -25,7 +25,10 @@ test "pipelining" do |r|
       10.times do
         r.pipelined do
           r.set("foo", "bar")
-          r.del("foo")
+
+          r.pipelined do
+            r.del("foo")
+          end
         end
       end
     end

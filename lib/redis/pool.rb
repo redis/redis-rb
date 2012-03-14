@@ -9,12 +9,8 @@ class Redis::Pool < Redis
   end
 
   def synchronize
-    if Thread.current[@id]
-      yield(Thread.current[@id])
-    else
-      @pool.with do |client|
-        _with_client(client) { yield(client) }
-      end
+    @pool.with do |client|
+      _with_client(client) { yield(client) }
     end
   end
 
