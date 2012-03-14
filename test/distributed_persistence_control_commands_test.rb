@@ -7,7 +7,7 @@ require "redis/distributed"
 
 include RedisMock::Helper
 
-MOCK_NODES = ["redis://127.0.0.1:6380/15"]
+MOCK_NODES = ["redis://127.0.0.1:#{MOCK_PORT}/15"]
 
 test "SAVE" do
   redis_mock(:save => lambda { "+SAVE" }) do

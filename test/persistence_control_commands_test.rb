@@ -7,7 +7,7 @@ include RedisMock::Helper
 
 test "SAVE" do
   redis_mock(:save => lambda { "+SAVE" }) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "SAVE" == redis.save
   end
@@ -15,7 +15,7 @@ end
 
 test "BGSAVE" do
   redis_mock(:bgsave => lambda { "+BGSAVE" }) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "BGSAVE" == redis.bgsave
   end
@@ -23,7 +23,7 @@ end
 
 test "LASTSAVE" do
   redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "LASTSAVE" == redis.lastsave
   end
