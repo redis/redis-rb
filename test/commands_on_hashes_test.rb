@@ -16,5 +16,5 @@ test "Mapped HMGET in a pipeline returns hash" do |r|
     r.mapped_hmget("foo", "f1", "f2")
   end
 
-  assert result[0] == { "f1" => "s1", "f2" => "s2" }
+  assert_equal result[0], { "f1" => "s1", "f2" => "s2" }
 end
