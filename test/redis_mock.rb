@@ -7,6 +7,9 @@ module RedisMock
     def initialize(port, &block)
       @server = TCPServer.new("127.0.0.1", port)
       @server.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
+    end
+
+    def start(&block)
       @thread = Thread.new { run(&block) }
     end
 
@@ -75,8 +78,10 @@ module RedisMock
     #     end
     #
     def redis_mock(replies = {})
+      server = Server.new(MOCK_PORT)
+
       begin
-        server = Server.new(MOCK_PORT) do |command, *args|
+        server.start do |command, *args|
           (replies[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
         end
 
