@@ -8,5 +8,6 @@ case ENV["REDIS_CONNECTION_DRIVER"]
 when "hiredis"
   gem "hiredis"
 when "synchrony"
+  gem "hiredis"
   gem "em-synchrony"
 end
