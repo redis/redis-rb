@@ -4,7 +4,7 @@ gemspec :path => "../"
 
 gem "cutest"
 
-case ENV["REDIS_CONNECTION_DRIVER"]
+case ENV["conn"]
 when "hiredis"
   gem "hiredis"
 when "synchrony"
