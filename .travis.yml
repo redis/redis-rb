@@ -23,6 +23,15 @@ matrix:
     - rvm: jruby-18mode
       gemfile: .travis/Gemfile
       env: conn=synchrony
+    - rvm: jruby-18mode
+      gemfile: .travis/Gemfile
+      env: conn=hiredis
+    - rvm: jruby-19mode
+      gemfile: .travis/Gemfile
+      env: conn=hiredis
+    - rvm: jruby-19mode
+      gemfile: .travis/Gemfile
+      env: conn=synchrony
 
 notifications:
   irc:
