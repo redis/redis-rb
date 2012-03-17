@@ -3,6 +3,15 @@
 * The repository now lives at [https://github.com/redis/redis-rb](https://github.com/redis/redis-rb).
   Thanks, Ezra!
 
+* `Redis.current` is now thread unsafe, because the client itself is thread safe.
+
+    In the future you'll be able to do something like:
+
+        Redis.current = Redis::Pool.connect
+
+    This makes `Redis.current` actually usable in multi-threaded environments,
+    while not affecting those running a single thread.
+
 * Change API for `BLPOP`, `BRPOP` and `BRPOPLPUSH`. Both `BLPOP` and
   `BRPOP` now take a single argument equal to a string key, or an array
   with string keys, followed by an optional hash with a `:timeout` key.

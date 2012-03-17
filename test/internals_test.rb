@@ -24,6 +24,12 @@ test "Redis.current" do
 
   assert "bar" == Redis.current.get("foo")
 
+  t = Thread.new do
+    assert_equal "bar", Redis.current.get("foo")
+  end
+
+  t.join
+
   Redis.current = Redis.new(OPTIONS.merge(:db => 14))
 
   assert Redis.current.get("foo").nil?
