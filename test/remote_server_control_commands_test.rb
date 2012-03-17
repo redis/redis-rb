@@ -75,7 +75,7 @@ test "SYNC" do |r|
   replies = {:sync => lambda { "+OK" }}
 
   redis_mock(replies) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "OK" == redis.sync
   end

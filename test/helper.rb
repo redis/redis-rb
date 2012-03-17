@@ -9,9 +9,9 @@ begin
 rescue LoadError
 end
 
-PORT    = 6379
+PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15, :timeout => 3}
-NODES   = ["redis://127.0.0.1:6379/15"]
+NODES   = ["redis://127.0.0.1:#{PORT}/15"]
 
 def init(redis)
   begin
@@ -25,7 +25,7 @@ def init(redis)
 
       Cannot connect to Redis.
 
-      Make sure Redis is running on localhost, port 6379.
+      Make sure Redis is running on localhost, port #{PORT}.
       This testing suite connects to the database 15.
 
       To install redis:
@@ -44,7 +44,7 @@ end
 
 $VERBOSE = true
 
-require "redis/connection/%s" % (ENV["REDIS_CONNECTION_DRIVER"] || "ruby")
+require "redis/connection/%s" % (ENV["conn"] || "ruby")
 require "redis"
 
 def driver

@@ -9,9 +9,9 @@ setup do
 end
 
 test "hashes consistently" do
-  r1 = Redis::Distributed.new ["redis://localhost:6379/15", *NODES]
-  r2 = Redis::Distributed.new ["redis://localhost:6379/15", *NODES]
-  r3 = Redis::Distributed.new ["redis://localhost:6379/15", *NODES]
+  r1 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+  r2 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+  r3 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
 
   assert r1.node_for("foo").id == r2.node_for("foo").id
   assert r1.node_for("foo").id == r3.node_for("foo").id
@@ -19,7 +19,7 @@ end
 
 test "allows clustering of keys" do |r|
   r = Redis::Distributed.new(NODES)
-  r.add_node("redis://localhost:6379/14")
+  r.add_node("redis://localhost:#{PORT}/14")
   r.flushdb
 
   100.times do |i|
@@ -30,7 +30,7 @@ test "allows clustering of keys" do |r|
 end
 
 test "distributes keys if no clustering is used" do |r|
-  r.add_node("redis://localhost:6379/14")
+  r.add_node("redis://localhost:#{PORT}/14")
   r.flushdb
 
   r.set "users:1", 1
@@ -41,7 +41,7 @@ end
 
 test "allows passing a custom tag extractor" do |r|
   r = Redis::Distributed.new(NODES, :tag => /^(.+?):/)
-  r.add_node("redis://localhost:6379/14")
+  r.add_node("redis://localhost:#{PORT}/14")
   r.flushdb
 
   100.times do |i|

@@ -17,7 +17,7 @@ $TEST_PIPELINING = false
 load File.expand_path("./lint/internals.rb", File.dirname(__FILE__))
 
 test "provides a meaningful inspect" do |r, _|
-  nodes = ["redis://localhost:6379/15", *NODES]
+  nodes = ["redis://localhost:#{PORT}/15", *NODES]
   @r = Redis::Distributed.new nodes
 
   node_info = nodes.map do |node|

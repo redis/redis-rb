@@ -16,7 +16,7 @@ test "AUTH" do
   }
 
   redis_mock(replies) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380, :password => "secret"))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT, :password => "secret"))
 
     assert "bar" == redis.get("foo")
   end
@@ -49,7 +49,7 @@ test "SHUTDOWN" do
   }
 
   redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     # SHUTDOWN does not reply: test that it does not raise here.
     assert nil == redis.shutdown
@@ -65,7 +65,7 @@ test "SHUTDOWN with error" do
   }
 
   redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     connections = redis.connections
 
@@ -85,7 +85,7 @@ test "SHUTDOWN from pipeline" do
   }
 
   redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     result = redis.pipelined do
       redis.shutdown
@@ -105,7 +105,7 @@ test "SHUTDOWN with error from pipeline" do
   }
 
   redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     connections = redis.connections
 
@@ -129,7 +129,7 @@ test "SHUTDOWN from MULTI/EXEC" do
   }
 
   redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     result = redis.multi do
       redis.shutdown
@@ -151,7 +151,7 @@ test "SHUTDOWN with error from MULTI/EXEC" do
   }
 
   redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     connections = redis.connections
 
@@ -169,7 +169,7 @@ end
 
 test "SLAVEOF" do
   redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "SLAVEOF localhost 6381" == redis.slaveof("localhost", 6381)
   end
@@ -177,7 +177,7 @@ end
 
 test "BGREWRITEAOF" do
   redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "BGREWRITEAOF" == redis.bgrewriteaof
   end

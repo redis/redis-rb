@@ -31,11 +31,11 @@ class Redis
   end
 
   def self.current
-    Thread.current[:redis] ||= Redis.connect
+    @current ||= Redis.connect
   end
 
   def self.current=(redis)
-    Thread.current[:redis] = redis
+    @current = redis
   end
 
   include MonitorMixin

@@ -28,7 +28,7 @@ end
 
 test "EXPIRE" do |r|
   redis_mock(:expire => lambda { |*args| args == ["foo", "1"] ? ":1" : ":0" }) do
-    r = Redis.new(OPTIONS.merge(:port => 6380))
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert r.expire("foo", 1)
   end
@@ -36,7 +36,7 @@ end
 
 test "EXPIREAT" do |r|
   redis_mock(:expireat => lambda { |*args| args == ["foo", "1328236326"] ? ":1" : ":0" }) do
-    r = Redis.new(OPTIONS.merge(:port => 6380))
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert r.expireat("foo", 1328236326)
   end

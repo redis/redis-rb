@@ -4,9 +4,12 @@ module RedisMock
   class Server
     VERBOSE = false
 
-    def initialize(port = 6380, &block)
+    def initialize(port, &block)
       @server = TCPServer.new("127.0.0.1", port)
       @server.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
+    end
+
+    def start(&block)
       @thread = Thread.new { run(&block) }
     end
 
@@ -62,18 +65,23 @@ module RedisMock
   end
 
   module Helper
-    # Starts a mock Redis server in a thread on port 6380.
+
+    MOCK_PORT = 6382
+
+    # Starts a mock Redis server in a thread.
     #
     # The server will reply with a `+OK` to all commands, but you can
     # customize it by providing a hash. For example:
     #
     #     redis_mock(:ping => lambda { "+PONG" }) do
-    #       assert_equal "PONG", Redis.new(:port => 6380).ping
+    #       assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
     #     end
     #
     def redis_mock(replies = {})
+      server = Server.new(MOCK_PORT)
+
       begin
-        server = Server.new do |command, *args|
+        server.start do |command, *args|
           (replies[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
         end
 
@@ -83,6 +91,7 @@ module RedisMock
 
       ensure
         server.shutdown
+        sleep 0.1 # Allow some time for cleanup
       end
     end
   end

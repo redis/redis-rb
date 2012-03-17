@@ -30,7 +30,7 @@ end
 test "raises on protocol errors" do
   redis_mock(:ping => lambda { |*_| "foo" }) do
     assert_raise(Redis::ProtocolError) do
-      Redis.connect(:port => 6380).ping
+      Redis.connect(:port => MOCK_PORT).ping
     end
   end
 end
