@@ -38,6 +38,4 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency("rake")
   s.add_development_dependency("cutest")
-  s.add_development_dependency("hiredis")
-  s.add_development_dependency("em-synchrony")
 end

@@ -9,7 +9,7 @@ setup do
 end
 
 test "handle multiple servers" do
-  @r = Redis::Distributed.new ["redis://localhost:6379/15", *NODES]
+  @r = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
 
   100.times do |idx|
     @r.set(idx.to_s, "foo#{idx}")
@@ -29,7 +29,7 @@ test "add nodes" do
   @r = Redis::Distributed.new NODES, :logger => logger, :timeout => 10
 
   assert "127.0.0.1" == @r.nodes[0].client.host
-  assert 6379 == @r.nodes[0].client.port
+  assert PORT == @r.nodes[0].client.port
   assert 15 == @r.nodes[0].client.db
   assert 10 == @r.nodes[0].client.timeout
   assert logger == @r.nodes[0].client.logger

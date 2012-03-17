@@ -96,7 +96,7 @@ end
 
 test "FLUSHALL" do
   redis_mock(:flushall => lambda { "+FLUSHALL" }) do
-    redis = Redis.new(OPTIONS.merge(:port => 6380))
+    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert "FLUSHALL" == redis.flushall
   end

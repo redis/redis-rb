@@ -39,7 +39,7 @@ end if defined?(Encoding)
 
 test "SETEX" do
   redis_mock(:setex => lambda { |*args| "+#{args.join(" ")}" }) do
-    r = Redis.new(OPTIONS.merge(:port => 6380))
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert_equal "foo 1 s1", r.setex("foo", 1, "s1")
   end

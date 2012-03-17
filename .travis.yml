@@ -1,0 +1,42 @@
+language: ruby
+
+rvm:
+  - 1.8.7
+  - 1.9.2
+  - 1.9.3
+  - jruby-18mode
+  - jruby-19mode
+
+gemfile:
+  - .travis/Gemfile
+
+env:
+  - conn=ruby
+  - conn=hiredis
+  - conn=synchrony
+
+matrix:
+  exclude:
+    - rvm: 1.8.7
+      gemfile: .travis/Gemfile
+      env: conn=synchrony
+    - rvm: jruby-18mode
+      gemfile: .travis/Gemfile
+      env: conn=synchrony
+    - rvm: jruby-18mode
+      gemfile: .travis/Gemfile
+      env: conn=hiredis
+    - rvm: jruby-19mode
+      gemfile: .travis/Gemfile
+      env: conn=hiredis
+    - rvm: jruby-19mode
+      gemfile: .travis/Gemfile
+      env: conn=synchrony
+
+notifications:
+  irc:
+    - irc.freenode.net#redis-rb
+  email:
+    - damian.janowski@gmail.com
+    - michel@soveran.com
+    - pcnoordhuis@gmail.com
