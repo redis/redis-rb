@@ -34,34 +34,34 @@
 
 * The client now raises custom exceptions where it makes sense.
 
-  If by any chance you were rescuing low-level exceptions (`Errno::*`),
-  you should now rescue as follows:
+    If by any chance you were rescuing low-level exceptions (`Errno::*`),
+    you should now rescue as follows:
 
-      Errno::ECONNRESET    -> Redis::ConnectionError
-      Errno::EPIPE         -> Redis::ConnectionError
-      Errno::ECONNABORTED  -> Redis::ConnectionError
-      Errno::EBADF         -> Redis::ConnectionError
-      Errno::EINVAL        -> Redis::ConnectionError
-      Errno::EAGAIN        -> Redis::TimeoutError
-      Errno::ECONNREFUSED  -> Redis::CannotConnectError
+        Errno::ECONNRESET    -> Redis::ConnectionError
+        Errno::EPIPE         -> Redis::ConnectionError
+        Errno::ECONNABORTED  -> Redis::ConnectionError
+        Errno::EBADF         -> Redis::ConnectionError
+        Errno::EINVAL        -> Redis::ConnectionError
+        Errno::EAGAIN        -> Redis::TimeoutError
+        Errno::ECONNREFUSED  -> Redis::CannotConnectError
 
 * Always raise exceptions originating from erroneous command invocation
   inside pipelines and MULTI/EXEC blocks.
 
-  The old behavior (swallowing exceptions) could cause application bugs
-  to go unnoticed.
+    The old behavior (swallowing exceptions) could cause application bugs
+    to go unnoticed.
 
 * Implement futures for assigning values inside pipelines and MULTI/EXEC
   blocks. Futures are assigned their value after the pipeline or
   MULTI/EXEC block has executed.
 
-```ruby
-$redis.pipelined do
-  @future = $redis.get "key"
-end
+    ```ruby
+    $redis.pipelined do
+      @future = $redis.get "key"
+    end
 
-puts @future.value
-```
+    puts @future.value
+    ```
 
 * Ruby 1.8.6 is officially not supported.
 
@@ -70,7 +70,7 @@ puts @future.value
 * Pipelined commands now return the same replies as when called outside
   a pipeline.
 
-  In the past, pipelined replies were returned without post-processing.
+    In the past, pipelined replies were returned without post-processing.
 
 * Support `SLOWLOG` command (Michael Bernstein).
 
@@ -81,7 +81,7 @@ puts @future.value
 
 * Connecting using a URL now checks that a host is given.
 
-  It's just a small sanity check, cf. #126
+    It's just a small sanity check, cf. #126
 
 * Support variadic commands introduced in Redis 2.4.
 
