@@ -1,4 +1,4 @@
-# redis-rb
+# redis-rb [![Build Status](https://secure.travis-ci.org/redis/redis-rb.png?branch=master)](http://travis-ci.org/redis/redis-rb)
 
 A Ruby client library for the [Redis](http://redis.io) key-value store.
 
