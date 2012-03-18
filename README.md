@@ -98,20 +98,6 @@ All users and admins:
     >> redis.sunion "admins", "users"
     => ["albert", "bernard", "charles", "isabel"]
 
-
-## Storing objects
-
-Redis only stores strings as values. If you want to store an object inside a key, you can use a serialization/deseralization mechanism like JSON:
-
-    >> require 'json'
-    => true
-
-    >> redis.set "foo", [1, 2, 3].to_json
-    => OK
-
-    >> JSON.parse(redis.get("foo"))
-    => [1, 2, 3]
-
 ## Executing multiple commands atomically
 
 You can use `MULTI/EXEC` to run arbitrary commands in an atomic fashion:
