@@ -24,7 +24,17 @@ task :start do
     false
   end
 
-  system "redis-server #{REDIS_CNF}" unless redis_running
+  unless redis_running
+    unless system("which redis-server")
+      STDERR.puts "redis-server not in PATH"
+      exit 1
+    end
+
+    unless system("redis-server #{REDIS_CNF}")
+      STDERR.puts "could not start redis-server"
+      exit 1
+    end
+  end
 end
 
 desc "Stop the Redis server"
