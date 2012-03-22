@@ -439,7 +439,11 @@ class Redis
   # Remove a member from a set.
   def srem(key, value)
     synchronize do
-      _bool @client.call [:srem, key, value]
+      if value.kind_of?(Array)
+        @client.call [:srem, key, *value]
+      else
+        _bool @client.call [:srem, key, value]
+      end
     end
   end
 

@@ -75,4 +75,15 @@ test "SDIFFSTORE" do |r|
   assert ["s1"] == r.smembers("baz")
 end
 
+test "SREM" do |r|
+  r.sadd "foo", "s1"
+  r.sadd "foo", "s2"
+  r.sadd "bar", "s2"
+  r.sadd "bar", "s3"
+
+  assert r.srem("foo", "s1")
+  assert 2 == r.srem("bar", ['s2', 's3'])
+  assert ["s2"] == r.smembers('foo')
+  assert [] == r.smembers("bar")
+end
 
