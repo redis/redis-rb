@@ -256,7 +256,7 @@ class Redis
         if reply.kind_of?(Array)
           hash = Hash.new
           reply.each_slice(2) do |field, value|
-            hash[field] = value
+            hash[_hash_key(field)] = value
           end
           hash
         else
@@ -1397,7 +1397,7 @@ class Redis
       if reply.kind_of?(Array)
         hash = Hash.new
         fields.zip(reply).each do |field, value|
-          hash[field] = value
+          hash[_hash_key(field)] = value
         end
         hash
       else
@@ -1775,7 +1775,7 @@ class Redis
   def pipelined
     synchronize do
       begin
-        original, @client = @client, Pipeline.new
+        original, @client = @client, Pipeline.new(@client)
         yield
         original.call_pipeline(@client)
       ensure
@@ -1845,7 +1845,7 @@ class Redis
         @client.call [:multi]
       else
         begin
-          pipeline = Pipeline::Multi.new
+          pipeline = Pipeline::Multi.new(@client)
           original, @client = @client, pipeline
           yield(self)
           original.call_pipeline(pipeline)
@@ -1969,6 +1969,9 @@ private
     end
   end
 
+  def _hash_key(field)
+    @client.symbolize_keys ? ( field.to_sym rescue field ) : field
+  end
 end
 
 require "redis/version"

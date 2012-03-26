@@ -6,10 +6,11 @@ class Redis
   end
 
   class Pipeline
-    attr :futures
+    attr :futures, :symbolize_keys
 
-    def initialize
+    def initialize(client)
       @without_reconnect = false
+      @symbolize_keys = client.symbolize_keys
       @shutdown = false
       @futures = []
     end

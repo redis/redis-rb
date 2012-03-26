@@ -18,3 +18,17 @@ test "Mapped HMGET in a pipeline returns hash" do |r|
 
   assert result[0] == { "f1" => "s1", "f2" => "s2" }
 end
+
+test "Optionally symbolize Mapped HMGET/HGETALL result keys" do |r|
+  r.client.symbolize_keys = true
+  r.hset("foo", "f1", "s1")
+  r.hset("foo", "f2", "s2")
+
+  result = r.mapped_hmget("foo", "f1", "f2")
+  assert result == { :f1 => "s1", :f2 => "s2" }
+
+  result = r.pipelined do
+    r.mapped_hmget("foo", "f1", "f2")
+  end
+  assert result[0] == { :f1 => "s1", :f2 => "s2" }
+end
