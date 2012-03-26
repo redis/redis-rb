@@ -26,7 +26,9 @@ test "INFO COMMANDSTATS" do |r|
   assert "1" == result["ping"]["calls"]
 end
 
-test "MONITOR" do |r|
+test "MONITOR (Redis < 2.5.0)" do |r|
+  next unless version(r) < 205000
+
   log = []
 
   wire = Wire.new do
@@ -43,6 +45,27 @@ test "MONITOR" do |r|
   wire.join
 
   assert log[-1][%q{(db 15) "set" "foo" "s1"}]
+end
+
+test "MONITOR (Redis >= 2.5.0)" do |r|
+  next unless version(r) >= 205000
+
+  log = []
+
+  wire = Wire.new do
+    Redis.new(OPTIONS).monitor do |line|
+      log << line
+      break if log.size == 2
+    end
+  end
+
+  Wire.pass while log.empty? # Faster than sleep
+
+  r.set "foo", "s1"
+
+  wire.join
+
+  assert log[-1] =~ /\[15 .*?\] "set" "foo" "s1"/
 end
 
 test "MONITOR returns value for break" do |r|
