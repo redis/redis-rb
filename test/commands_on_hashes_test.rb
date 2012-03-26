@@ -20,7 +20,7 @@ test "Mapped HMGET in a pipeline returns hash" do |r|
 end
 
 test "Optionally symbolize Mapped HMGET/HGETALL result keys" do |r|
-  r.client.symbolize_keys = true
+  r.symbolize_keys = true
   r.hset("foo", "f1", "s1")
   r.hset("foo", "f2", "s2")
 

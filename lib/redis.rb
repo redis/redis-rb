@@ -8,6 +8,7 @@ class Redis
   end
 
   attr :client
+  attr_accessor :symbolize_keys
 
   def self.connect(options = {})
     options = options.dup
@@ -41,6 +42,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
+    @symbolize_keys = options.delete(:symbolize_keys)
     @client = Client.new(options)
 
     super() # Monitor#initialize
@@ -1775,7 +1777,7 @@ class Redis
   def pipelined
     synchronize do
       begin
-        original, @client = @client, Pipeline.new(@client)
+        original, @client = @client, Pipeline.new
         yield
         original.call_pipeline(@client)
       ensure
@@ -1845,7 +1847,7 @@ class Redis
         @client.call [:multi]
       else
         begin
-          pipeline = Pipeline::Multi.new(@client)
+          pipeline = Pipeline::Multi.new
           original, @client = @client, pipeline
           yield(self)
           original.call_pipeline(pipeline)
@@ -1970,7 +1972,7 @@ private
   end
 
   def _hash_key(field)
-    @client.symbolize_keys ? ( field.to_sym rescue field ) : field
+    symbolize_keys ? ( field.to_sym rescue field ) : field
   end
 end
 

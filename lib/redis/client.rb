@@ -2,7 +2,7 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :path, :password, :logger, :symbolize_keys
+    attr_accessor :db, :host, :port, :path, :password, :logger
     attr :timeout
     attr :connection
     attr :command_map
@@ -19,7 +19,6 @@ class Redis
       @password = options[:password]
       @logger = options[:logger]
       @reconnect = true
-      @symbolize_keys = options[:symbolize_keys]
       @connection = Connection.drivers.last.new
       @command_map = {}
     end
