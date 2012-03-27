@@ -41,6 +41,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
+    @symbolize_keys = options[:symbolize_keys]
     @client = Client.new(options)
 
     super() # Monitor#initialize
@@ -256,7 +257,7 @@ class Redis
         if reply.kind_of?(Array)
           hash = Hash.new
           reply.each_slice(2) do |field, value|
-            hash[field] = value
+            hash[_hash_key(field)] = value
           end
           hash
         else
@@ -1397,7 +1398,7 @@ class Redis
       if reply.kind_of?(Array)
         hash = Hash.new
         fields.zip(reply).each do |field, value|
-          hash[field] = value
+          hash[_hash_key(field)] = value
         end
         hash
       else
@@ -1969,6 +1970,9 @@ private
     end
   end
 
+  def _hash_key(field)
+    @symbolize_keys ? ( field.to_sym rescue field ) : field
+  end
 end
 
 require "redis/version"
