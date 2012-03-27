@@ -8,7 +8,6 @@ class Redis
   end
 
   attr :client
-  attr_accessor :symbolize_keys
 
   def self.connect(options = {})
     options = options.dup
@@ -1972,7 +1971,7 @@ private
   end
 
   def _hash_key(field)
-    symbolize_keys ? ( field.to_sym rescue field ) : field
+    @symbolize_keys ? ( field.to_sym rescue field ) : field
   end
 end
 
