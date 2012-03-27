@@ -19,8 +19,11 @@ test "Mapped HMGET in a pipeline returns hash" do |r|
   assert result[0] == { "f1" => "s1", "f2" => "s2" }
 end
 
+setup do
+  init Redis.new(OPTIONS.merge(symbolize_keys: true))
+end
+
 test "Optionally symbolize Mapped HMGET/HGETALL result keys" do |r|
-  r.symbolize_keys = true
   r.hset("foo", "f1", "s1")
   r.hset("foo", "f2", "s2")
 
