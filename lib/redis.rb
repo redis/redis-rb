@@ -41,7 +41,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
-    @symbolize_keys = options.delete(:symbolize_keys)
+    @symbolize_keys = options[:symbolize_keys]
     @client = Client.new(options)
 
     super() # Monitor#initialize
