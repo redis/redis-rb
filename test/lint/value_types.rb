@@ -57,6 +57,16 @@ test "TTL" do |r|
   assert 1 == r.ttl("foo")
 end
 
+test "PTTL" do |r|
+  r.set("foo", "s1")
+  r.expire("foo", 1)
+
+  assert( (1..1000).include?(r.pttl("foo")) )
+
+  sleep 1
+  assert(-1 == r.pttl("foo"))
+end
+
 test "MOVE" do |r|
   r.select 14
   r.flushdb
