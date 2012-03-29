@@ -1959,9 +1959,9 @@ private
     array.each_slice(2) do |field, value|
       hash[field] = value
     end
-    hash  
+    hash
   end
-  
+
   def subscription(method, channels, block)
     return @client.call [method, *channels] if subscribed?
 
