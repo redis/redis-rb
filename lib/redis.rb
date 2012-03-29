@@ -1776,7 +1776,7 @@ class Redis
     synchronize do
       begin
         original, @client = @client, Pipeline.new
-        yield
+        yield self
         original.call_pipeline(@client)
       ensure
         @client = original
