@@ -55,6 +55,8 @@ end
 test "Scripting commands cannot be distributed" do |r|
   assert_raise Redis::Distributed::CannotDistribute do
     r.eval('return 10', 0)
+    r.script_load('return 10')
+    r.script_exists('080c414e64bca1184bc4f6220a19c4d495ac896d')
   end
 end
 
