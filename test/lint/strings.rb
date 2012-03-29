@@ -45,6 +45,14 @@ test "SETEX" do
   end
 end
 
+test "PSETEX" do
+  redis_mock(:psetex => lambda { |*args| "+#{args.join(" ")}" }) do
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+    assert_equal "foo 1000 s1", r.psetex("foo", 1000, "s1")
+  end
+end
+
 test "GETSET" do |r|
   r.set("foo", "bar")
 

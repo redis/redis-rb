@@ -156,9 +156,14 @@ class Redis
       node_for(key).setrange(key, offset, value)
     end
 
-    # Set the value and expiration of a key.
+    # Set the value and expiration of a key, expressed in seconds.
     def setex(key, ttl, value)
       node_for(key).setex(key, ttl, value)
+    end
+
+    # Set the value and expiration of a key, expressed in milliseconds.
+    def psetex(key, ttl, value)
+      node_for(key).psetex(key, ttl, value)
     end
 
     # Get the value of a key.
