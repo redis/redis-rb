@@ -1276,6 +1276,17 @@ class Redis
     end
   end
 
+  # Set a key's time to live in milliseconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] milliseconds time to live
+  # @return [Boolean] whether the timeout was set or not
+  def pexpire(key, milliseconds)
+    synchronize do
+      @client.call [:pexpire, key, milliseconds], &_boolify
+    end
+  end
+
   # Remove the expiration from a key.
   #
   # @param [String] key
