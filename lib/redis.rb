@@ -254,11 +254,7 @@ class Redis
     synchronize do
       @client.call [:hgetall, key] do |reply|
         if reply.kind_of?(Array)
-          hash = Hash.new
-          reply.each_slice(2) do |field, value|
-            hash[field] = value
-          end
-          hash
+          _hashify(reply)
         else
           reply
         end
@@ -1958,6 +1954,14 @@ private
     }
   end
 
+  def _hashify(array)
+    hash = Hash.new
+    array.each_slice(2) do |field, value|
+      hash[field] = value
+    end
+    hash  
+  end
+  
   def subscription(method, channels, block)
     return @client.call [method, *channels] if subscribed?
 
