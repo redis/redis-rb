@@ -1319,6 +1319,17 @@ class Redis
     end
   end
 
+  # Set the expiration for a key as amount of milliseconds from UNIX Epoch.
+  #
+  # @param [String] key
+  # @param [Fixnum] ms_unix_time expiry time specified as milliseconds from UNIX Epoch.
+  # @return [Boolean] whether the timeout was set or not
+  def pexpireat(key, ms_unix_time)
+    synchronize do
+      @client.call [:pexpireat, key, ms_unix_time], &_boolify
+    end
+  end
+
   # Set the string value of a hash field.
   #
   # @param [String] key
