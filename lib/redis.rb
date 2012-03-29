@@ -1990,6 +1990,25 @@ class Redis
     end
   end
 
+  # Perform the server side evaluation of a LUA script.
+  #
+  # Example:
+  #   r.eval("return 10", 0) # => 10
+  #
+  #   r.eval("return redis.call('set','foo','bar')", 0) # => 'OK'
+  #   # equivalent to
+  #   r.eval("return redis.call('set',KEYS[1],'bar')", 1, 'foo') # => 'OK'
+  #   # equivalent to
+  #   r.eval("return redis.call('set',KEYS[1],ARGV[1])", 1, 'foo', 'bar') # => 'OK'
+  #
+  # @param [String] LUA script to be evaluated by the server.
+  # @param [Fixnum] Number of keys involved with the script.
+  # @param [Array] Keys involved with the script and/or the script arguments.
+  # @return [Object] The return value of the script.
+  def eval(script, numkeys, *args)
+    @client.call [:eval, script, numkeys, *args]
+  end
+
   def id
     synchronize do
       @client.id

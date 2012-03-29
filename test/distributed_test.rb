@@ -52,6 +52,12 @@ test "Pipelining commands cannot be distributed" do |r|
   end
 end
 
+test "Scripting commands cannot be distributed" do |r|
+  assert_raise Redis::Distributed::CannotDistribute do
+    r.eval('return 10', 0)
+  end
+end
+
 test "Unknown commands does not work by default" do |r|
   assert_raise NoMethodError do
     r.not_yet_implemented_command

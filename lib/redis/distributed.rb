@@ -687,6 +687,10 @@ class Redis
       raise CannotDistribute, :pipelined
     end
 
+    def eval(script, numkeys, *args)
+      raise CannotDistribute, :eval
+    end
+
     def inspect
       node_info = nodes.map do |node|
         "#{node.id} (Redis v#{node.info['redis_version']})"
