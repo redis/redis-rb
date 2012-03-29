@@ -6,6 +6,12 @@ setup do
   init Redis.new(OPTIONS)
 end
 
+test "Yields the connection to pipelined block" do |r|
+  r.pipelined do |yielded|
+    assert r === yielded
+  end
+end
+
 test "BULK commands" do |r|
   r.pipelined do
     r.lpush "foo", "s1"
