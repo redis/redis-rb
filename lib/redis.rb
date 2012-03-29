@@ -2009,6 +2009,14 @@ class Redis
     @client.call [:eval, script, numkeys, *args]
   end
 
+  # Load a LUA script that stays in the server forever, unless it is explicitly removed.
+  #
+  # @param [String] LUA script to be loaded.
+  # @return [String] The script SHA1 reference to use the it in the future.
+  def script_load(script)
+    @client.call [:script_load, script]
+  end
+
   def id
     synchronize do
       @client.id

@@ -6,6 +6,7 @@ class Redis
 
       def build_command(args)
         command = [nil]
+        _build_multiword_command!(args)
 
         args.each do |i|
           if i.is_a? Array
@@ -29,6 +30,20 @@ class Redis
       end
 
     protected
+
+      # Split a multiword command into an <tt>Array</tt>,
+      # otherwise leave everything as is.
+      #
+      # Example:
+      #    args # => [:script_load, 'return 0']
+      #    _build_multiword_command!(args)
+      #
+      #    args # => [['script', 'load'], 'return 0']
+      def _build_multiword_command!(args)
+        command = args[0].to_s
+        command = command.split('_') if command.match(/_/)
+        args[0] = command
+      end
 
       if defined?(Encoding::default_external)
         def encode(string)
