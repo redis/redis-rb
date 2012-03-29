@@ -1448,7 +1448,7 @@ class Redis
     end
   end
 
-  # Increment the integer value of a hash field by the given number.
+  # Increment the number value of a hash field by the given number (integer).
   #
   # @param [String] key
   # @param [String] field
@@ -1457,6 +1457,18 @@ class Redis
   def hincrby(key, field, increment)
     synchronize do
       @client.call [:hincrby, key, field, increment]
+    end
+  end
+
+  # Increment the integer value of a hash field by the given number (float).
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [Float] increment
+  # @return [Float] value of the field after incrementing it
+  def hincrbyfloat(key, field, increment)
+    synchronize do
+      @client.call [:hincrbyfloat, key, field, increment]
     end
   end
 
