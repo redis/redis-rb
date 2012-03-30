@@ -102,6 +102,17 @@ class Redis
     end
   end
 
+  # Returns the current server time as a two items lists: an UNIX timestamp
+  # and the amount of microseconds already elapsed in the current second.
+  #
+  # Example:
+  #   r.time # => [ "1333093196", "606806" ]
+  #
+  # Returns [Array] UNIX timestamp and elapsed microseconds in the current second.
+  def time
+    @client.call [:time]
+  end
+
   # Get or set server configuration parameters.
   #
   # @param [String] action e.g. `get`, `set`, `resetstat`
@@ -1270,6 +1281,17 @@ class Redis
     end
   end
 
+  # Set a key's time to live in milliseconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] milliseconds time to live
+  # @return [Boolean] whether the timeout was set or not
+  def pexpire(key, milliseconds)
+    synchronize do
+      @client.call [:pexpire, key, milliseconds], &_boolify
+    end
+  end
+
   # Remove the expiration from a key.
   #
   # @param [String] key
@@ -1299,6 +1321,17 @@ class Redis
   def expireat(key, unix_time)
     synchronize do |client|
       client.call [:expireat, key, unix_time], &_boolify
+    end
+  end
+
+  # Set the expiration for a key as amount of milliseconds from UNIX Epoch.
+  #
+  # @param [String] key
+  # @param [Fixnum] ms_unix_time expiry time specified as milliseconds from UNIX Epoch.
+  # @return [Boolean] whether the timeout was set or not
+  def pexpireat(key, ms_unix_time)
+    synchronize do
+      @client.call [:pexpireat, key, ms_unix_time], &_boolify
     end
   end
 
@@ -1420,7 +1453,7 @@ class Redis
     end
   end
 
-  # Increment the integer value of a hash field by the given number.
+  # Increment the number value of a hash field by the given number (integer).
   #
   # @param [String] key
   # @param [String] field
@@ -1429,6 +1462,18 @@ class Redis
   def hincrby(key, field, increment)
     synchronize do |client|
       client.call [:hincrby, key, field, increment]
+    end
+  end
+
+  # Increment the integer value of a hash field by the given number (float).
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [Float] increment
+  # @return [Float] value of the field after incrementing it
+  def hincrbyfloat(key, field, increment)
+    synchronize do
+      @client.call [:hincrbyfloat, key, field, increment]
     end
   end
 
@@ -1499,7 +1544,7 @@ class Redis
     end
   end
 
-  # Set the value and expiration of a key.
+  # Set the value and expiration of a key, expressed in seconds.
   #
   # @param [String] key
   # @param [Fixnum] ttl
@@ -1508,6 +1553,18 @@ class Redis
   def setex(key, ttl, value)
     synchronize do |client|
       client.call [:setex, key, ttl, value]
+    end
+  end
+
+  # Set the value and expiration of a key, expressed in milliseconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] ttl
+  # @param [String] value
+  # @return `"OK"`
+  def psetex(key, ttl, value)
+    synchronize do
+      @client.call [:psetex, key, ttl, value]
     end
   end
 
@@ -1677,7 +1734,7 @@ class Redis
     end
   end
 
-  # Increment the integer value of a key by the given number.
+  # Increment the integer value of a key by the given number (integer).
   #
   # @example
   #   redis.incrby("value", 5)
@@ -1689,6 +1746,21 @@ class Redis
   def incrby(key, increment)
     synchronize do |client|
       client.call [:incrby, key, increment]
+    end
+  end
+
+  # Increment the value of a key by the given number (float).
+  #
+  # @example
+  #   redis.incrbyfloat("value", 1.23)
+  #     # => 1.23
+  #
+  # @param [String] key
+  # @param [Float] increment
+  # @return [Float] value after incrementing it
+  def incrbyfloat(key, increment)
+    synchronize do
+      @client.call [:incrbyfloat, key, increment]
     end
   end
 
@@ -1921,6 +1993,55 @@ class Redis
     synchronize do |client|
       subscription(:psubscribe, channels, block)
     end
+  end
+
+  # Perform the server side evaluation of a LUA script.
+  #
+  # Example:
+  #   r.eval("return 10", 0) # => 10
+  #
+  #   r.eval("return redis.call('set','foo','bar')", 0) # => 'OK'
+  #   # equivalent to
+  #   r.eval("return redis.call('set',KEYS[1],'bar')", 1, 'foo') # => 'OK'
+  #   # equivalent to
+  #   r.eval("return redis.call('set',KEYS[1],ARGV[1])", 1, 'foo', 'bar') # => 'OK'
+  #
+  # @param [String] LUA script to be evaluated by the server.
+  # @param [Fixnum] Number of keys involved with the script.
+  # @param [Array] Keys involved with the script and/or the script arguments.
+  # @return [Object] The return value of the script.
+  def eval(script, numkeys, *args)
+    @client.call [:eval, script, numkeys, *args]
+  end
+
+  # Load a LUA script that stays in the server forever, unless it is explicitly removed.
+  #
+  # @param [String] LUA script to be loaded.
+  # @return [String] The script SHA1 reference to use the it in the future.
+  def script_load(script)
+    @client.call [:script_load, script]
+  end
+
+  # Check the existence of a script.
+  #
+  # @param [String] SHA1 Script reference.
+  # @return [Boolean]
+  def script_exists(script)
+    @client.call [:script_exists, script], &_boolify
+  end
+
+  # Flush the script cache.
+  #
+  # @return [String] `OK`
+  def script_flush
+    @client.call [:script_flush]
+  end
+
+  # Kills the currently executing script.
+  #
+  # @return [String] `OK`
+  def script_kill
+    @client.call [:script_kill]
   end
 
   def id

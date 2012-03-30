@@ -45,6 +45,14 @@ test "SETEX" do
   end
 end
 
+test "PSETEX" do
+  redis_mock(:psetex => lambda { |*args| "+#{args.join(" ")}" }) do
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+    assert_equal "foo 1000 s1", r.psetex("foo", 1000, "s1")
+  end
+end
+
 test "GETSET" do |r|
   r.set("foo", "bar")
 
@@ -72,6 +80,12 @@ test "INCRBY" do |r|
   assert 1 == r.incrby("foo", 1)
   assert 3 == r.incrby("foo", 2)
   assert 6 == r.incrby("foo", 3)
+end
+
+test "INCRBYFLOAT" do |r|
+  assert "1.23" == r.incrbyfloat("foo", 1.23)
+  assert "2"    == r.incrbyfloat("foo", 0.77)
+  assert "1.9"  == r.incrbyfloat("foo", -0.1)
 end
 
 test "DECR" do |r|

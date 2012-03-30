@@ -40,3 +40,7 @@ end
 test "ECHO" do |r|
   assert ["foo bar baz\n"] == r.echo("foo bar baz\n")
 end
+
+test "TIME" do |r|
+  assert Time.now.to_i.to_s == r.time.first.first
+end

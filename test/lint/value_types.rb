@@ -34,11 +34,27 @@ test "EXPIRE" do |r|
   end
 end
 
+test "PEXPIRE" do |r|
+  redis_mock(:pexpire => lambda { |*args| args == ["foo", "1000"] ? ":1" : ":0" }) do
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+    assert r.pexpire("foo", 1000)
+  end
+end
+
 test "EXPIREAT" do |r|
   redis_mock(:expireat => lambda { |*args| args == ["foo", "1328236326"] ? ":1" : ":0" }) do
     r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
     assert r.expireat("foo", 1328236326)
+  end
+end
+
+test "PEXPIREAT" do |r|
+  redis_mock(:pexpireat => lambda { |*args| args == ["foo", "1328236326000"] ? ":1" : ":0" }) do
+    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+    assert r.pexpireat("foo", 1328236326000)
   end
 end
 
@@ -55,6 +71,16 @@ test "TTL" do |r|
   r.expire("foo", 1)
 
   assert 1 == r.ttl("foo")
+end
+
+test "PTTL" do |r|
+  r.set("foo", "s1")
+  r.expire("foo", 1)
+
+  assert( (1..1000).include?(r.pttl("foo")) )
+
+  sleep 1
+  assert(-1 == r.pttl("foo"))
 end
 
 test "MOVE" do |r|

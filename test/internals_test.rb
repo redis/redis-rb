@@ -45,6 +45,10 @@ test "Timeout" do
   end
 end
 
+test "Time" do |r,_|
+  assert Time.now.to_i.to_s == r.time.first
+end
+
 test "Connection timeout" do
   next if driver == :synchrony
 
