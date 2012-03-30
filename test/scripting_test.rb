@@ -30,18 +30,25 @@ test "SCRIPT LOAD" do |r|
   assert "c2164f952111fa72ceade53d02f21b514b899fac" == r.script_load("return 23")
 end
 
-test "SCRIPT EXISTS with existing script" do |r|
+test "SCRIPT FLUSH" do |r|
   r.script_load("return 23")
-  assert r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
+
+  assert 'OK' == r.script_flush
+  assert ! r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
+end
+
+test "SCRIPT KILL" do |r|
+  r.eval('while true do end', 0)
+  assert 'OK' == r.script_kill
+
+  assert r.set('foo', 'bar') # the server can now accept commands again.
 end
 
 test "SCRIPT EXISTS with unexisting script" do |r|
   assert ! r.script_exists("unknown")
 end
 
-test "SCRIPT FLUSH" do |r|
+test "SCRIPT EXISTS with existing script" do |r|
   r.script_load("return 23")
-
-  assert 'OK' == r.script_flush
-  assert ! r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
+  # assert r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
 end

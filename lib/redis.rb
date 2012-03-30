@@ -2032,6 +2032,13 @@ class Redis
     @client.call [:script_flush]
   end
 
+  # Kills the currently executing script.
+  #
+  # @return [String] `OK`
+  def script_kill
+    @client.call [:script_kill]
+  end
+
   def id
     synchronize do
       @client.id

@@ -703,6 +703,10 @@ class Redis
       raise CannotDistribute, :script_flush
     end
 
+    def script_kill
+      raise CannotDistribute, :script_kill
+    end
+
     def inspect
       node_info = nodes.map do |node|
         "#{node.id} (Redis v#{node.info['redis_version']})"
