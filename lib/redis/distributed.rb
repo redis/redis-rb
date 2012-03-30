@@ -673,6 +673,11 @@ class Redis
       on_each_node :info, cmd
     end
 
+    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
+    def time
+      on_each_node :time
+    end
+
     # Listen for all requests received by the server in real time.
     def monitor
       raise NotImplementedError

@@ -98,6 +98,17 @@ class Redis
     end
   end
 
+  # Returns the current server time as a two items lists: an UNIX timestamp
+  # and the amount of microseconds already elapsed in the current second.
+  #
+  # Example:
+  #   r.time # => [ "1333093196", "606806" ]
+  #
+  # Returns [Array] UNIX timestamp and elapsed microseconds in the current second.
+  def time
+    @client.call [:time]
+  end
+
   # Get or set server configuration parameters.
   #
   # @param [String] action e.g. `get`, `set`, `resetstat`
