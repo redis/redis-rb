@@ -252,13 +252,7 @@ class Redis
   # @return [Hash<String, String>]
   def hgetall(key)
     synchronize do
-      @client.call [:hgetall, key] do |reply|
-        if reply.kind_of?(Array)
-          _hashify(reply)
-        else
-          reply
-        end
-      end
+      @client.call [:hgetall, key], &_hashify
     end
   end
 
@@ -1954,12 +1948,14 @@ private
     }
   end
 
-  def _hashify(array)
-    hash = Hash.new
-    array.each_slice(2) do |field, value|
-      hash[field] = value
-    end
-    hash
+  def _hashify
+    lambda { |array|
+      hash = Hash.new
+      array.each_slice(2) do |field, value|
+        hash[field] = value
+      end
+      hash
+    }
   end
 
   def subscription(method, channels, block)
