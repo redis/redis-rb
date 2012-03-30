@@ -55,7 +55,7 @@ test "MONITOR (Redis >= 2.5.0)" do |r|
   wire = Wire.new do
     Redis.new(OPTIONS).monitor do |line|
       log << line
-      break if log.size == 2
+      break if line =~ /set/
     end
   end
 
@@ -65,7 +65,7 @@ test "MONITOR (Redis >= 2.5.0)" do |r|
 
   wire.join
 
-  assert log[-1] =~ /\[15 .*?\] "set" "foo" "s1"/
+  assert log[-1] =~ /\b15\b.* "set" "foo" "s1"/
 end
 
 test "MONITOR returns value for break" do |r|
