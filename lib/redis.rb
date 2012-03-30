@@ -2022,7 +2022,14 @@ class Redis
   # @param [String] SHA1 Script reference.
   # @return [Boolean]
   def script_exists(script)
-    @client.call [:script_exists, script]
+    @client.call [:script_exists, script], &_boolify
+  end
+
+  # Flush the script cache.
+  #
+  # @return [String] `OK`
+  def script_flush
+    @client.call [:script_flush]
   end
 
   def id

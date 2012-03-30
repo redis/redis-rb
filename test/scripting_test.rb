@@ -30,7 +30,18 @@ test "SCRIPT LOAD" do |r|
   assert "c2164f952111fa72ceade53d02f21b514b899fac" == r.script_load("return 23")
 end
 
-test "SCRIPT EXISTS" do |r|
+test "SCRIPT EXISTS with existing script" do |r|
   r.script_load("return 23")
   assert r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
+end
+
+test "SCRIPT EXISTS with unexisting script" do |r|
+  assert ! r.script_exists("unknown")
+end
+
+test "SCRIPT FLUSH" do |r|
+  r.script_load("return 23")
+
+  assert 'OK' == r.script_flush
+  assert ! r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
 end
