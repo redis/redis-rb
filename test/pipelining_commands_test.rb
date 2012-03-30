@@ -184,3 +184,11 @@ test "KEYS in a pipeline" do |r|
 
   assert ["key"] == result.first
 end
+
+test "Pipeline yields a connection" do |r|
+  r.pipelined do |p|
+    p.set("foo", "bar")
+  end
+
+  assert_equal "bar", r.get("foo")
+end
