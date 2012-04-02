@@ -34,6 +34,16 @@ test "EXPIRE" do |r|
   end
 end
 
+test "PEXPIRE" do |r|
+  next if version(r) < 205040
+
+  r.set('foo', 'bar')
+  assert r.pexpire('foo', 1000)
+  sleep 1
+
+  assert ! r.exists('foo')
+end
+
 test "EXPIREAT" do |r|
   redis_mock(:expireat => lambda { |*args| args == ["foo", "1328236326"] ? ":1" : ":0" }) do
     r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))

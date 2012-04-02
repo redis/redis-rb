@@ -106,6 +106,11 @@ class Redis
       node_for(key).expire(key, seconds)
     end
 
+    # Set a key's time to live in milliseconds.
+    def pexpire(key, milliseconds)
+      node_for(key).pexpire(key, milliseconds)
+    end
+
     # Set the expiration for a key as a UNIX timestamp.
     def expireat(key, unix_time)
       node_for(key).expireat(key, unix_time)
