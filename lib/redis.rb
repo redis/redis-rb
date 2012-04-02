@@ -1291,7 +1291,7 @@ class Redis
     end
   end
 
-  # Get the time to live for a key.
+  # Get the time to live (in seconds) for a key.
   #
   # @param [String] key
   # @return [Fixnum] remaining time to live in seconds, or -1 if the
@@ -1299,6 +1299,17 @@ class Redis
   def ttl(key)
     synchronize do |client|
       client.call [:ttl, key]
+    end
+  end
+
+  # Get the time to live (in milliseconds) for a key.
+  #
+  # @param [String] key
+  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
+  #   key does not exist or does not have a timeout
+  def pttl(key)
+    synchronize do |client|
+      client.call [:pttl, key]
     end
   end
 

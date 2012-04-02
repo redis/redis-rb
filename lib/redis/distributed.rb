@@ -121,9 +121,14 @@ class Redis
       node_for(key).persist(key)
     end
 
-    # Get the time to live for a key.
+    # Get the time to live (in seconds) for a key.
     def ttl(key)
       node_for(key).ttl(key)
+    end
+
+    # Get the time to live (in milliseconds) for a key.
+    def pttl(key)
+      node_for(key).pttl(key)
     end
 
     # Move a key to another database.
