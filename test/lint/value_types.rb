@@ -52,6 +52,15 @@ test "EXPIREAT" do |r|
   end
 end
 
+test "PEXPIREAT" do |r|
+  next if version(r) < 205040
+
+  r.set('foo', 'bar')
+  assert r.pexpireat('foo', 1328236326000)
+
+  assert ! r.exists('foo')
+end
+
 test "PERSIST" do |r|
   r.set("foo", "s1")
   r.expire("foo", 1)

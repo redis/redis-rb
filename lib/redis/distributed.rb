@@ -116,6 +116,11 @@ class Redis
       node_for(key).expireat(key, unix_time)
     end
 
+    # Set the expiration for a key as number of milliseconds from UNIX Epoch.
+    def pexpireat(key, ms_unix_time)
+      node_for(key).pexpireat(key, ms_unix_time)
+    end
+
     # Remove the expiration from a key.
     def persist(key)
       node_for(key).persist(key)
