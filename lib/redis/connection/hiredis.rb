@@ -18,8 +18,8 @@ class Redis
         @connection.timeout = usecs
       end
 
-      def connect(host, port, timeout, uri)
-        @connection.connect(host, port, timeout)
+      def connect(uri, timeout)
+        @connection.connect(uri.host, uri.port, timeout)
       rescue Errno::ETIMEDOUT
         raise Timeout::Error
       end

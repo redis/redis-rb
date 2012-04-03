@@ -73,8 +73,8 @@ class Redis
         @timeout = usecs
       end
 
-      def connect(host, port, timeout, uri)
-        conn = EventMachine.connect(host, port, RedisClient) do |c|
+      def connect(uri, timeout)
+        conn = EventMachine.connect(uri.host, uri.port, RedisClient) do |c|
           c.pending_connect_timeout = [Float(timeout / 1_000_000), 0.1].max
         end
 
