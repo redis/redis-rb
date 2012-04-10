@@ -106,9 +106,19 @@ class Redis
       node_for(key).expire(key, seconds)
     end
 
+    # Set a key's time to live in milliseconds.
+    def pexpire(key, milliseconds)
+      node_for(key).pexpire(key, milliseconds)
+    end
+
     # Set the expiration for a key as a UNIX timestamp.
     def expireat(key, unix_time)
       node_for(key).expireat(key, unix_time)
+    end
+
+    # Set the expiration for a key as number of milliseconds from UNIX Epoch.
+    def pexpireat(key, ms_unix_time)
+      node_for(key).pexpireat(key, ms_unix_time)
     end
 
     # Remove the expiration from a key.
@@ -116,9 +126,14 @@ class Redis
       node_for(key).persist(key)
     end
 
-    # Get the time to live for a key.
+    # Get the time to live (in seconds) for a key.
     def ttl(key)
       node_for(key).ttl(key)
+    end
+
+    # Get the time to live (in milliseconds) for a key.
+    def pttl(key)
+      node_for(key).pttl(key)
     end
 
     # Move a key to another database.
@@ -146,9 +161,14 @@ class Redis
       node_for(key).setrange(key, offset, value)
     end
 
-    # Set the value and expiration of a key.
+    # Set the time to live in seconds of a key.
     def setex(key, ttl, value)
       node_for(key).setex(key, ttl, value)
+    end
+
+    # Set the time to live in milliseconds of a key.
+    def psetex(key, ttl, value)
+      node_for(key).psetex(key, ttl, value)
     end
 
     # Get the value of a key.
@@ -221,9 +241,14 @@ class Redis
       node_for(key).incr(key)
     end
 
-    # Increment the integer value of a key by the given number.
+    # Increment the integer value of a key by the given integer number.
     def incrby(key, increment)
       node_for(key).incrby(key, increment)
+    end
+
+    # Increment the numeric value of a key by the given float number.
+    def incrbyfloat(key, increment)
+      node_for(key).incrbyfloat(key, increment)
     end
 
     # Decrement the integer value of a key by one.
@@ -550,9 +575,14 @@ class Redis
       Hash[*fields.zip(hmget(key, *fields)).flatten]
     end
 
-    # Increment the integer value of a hash field by the given number.
+    # Increment the integer value of a hash field by the given integer number.
     def hincrby(key, field, increment)
       node_for(key).hincrby(key, field, increment)
+    end
+
+    # Increment the numeric value of a hash field by the given float number.
+    def hincrbyfloat(key, field, increment)
+      node_for(key).hincrbyfloat(key, field, increment)
     end
 
     # Sort the elements in a list, set or sorted set.
@@ -656,6 +686,11 @@ class Redis
     # Echo the given string.
     def echo(value)
       on_each_node :echo, value
+    end
+
+    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
+    def time
+      on_each_node :time
     end
 
     def pipelined

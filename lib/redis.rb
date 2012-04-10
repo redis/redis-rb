@@ -327,6 +327,17 @@ class Redis
     end
   end
 
+  # Returns the current server time as a two items lists: an UNIX timestamp
+  # and the amount of microseconds already elapsed in the current second.
+  #
+  # Example:
+  #   r.time # => [ "1333093196", "606806" ]
+  #
+  # Returns [Array] UNIX timestamp and elapsed microseconds in the current second.
+  def time
+    @client.call [:time]
+  end
+
   # Ping the server.
   #
   # @return [String] `PONG`
@@ -1270,6 +1281,17 @@ class Redis
     end
   end
 
+  # Set a key's time to live in milliseconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] milliseconds time to live
+  # @return [Boolean] whether the timeout was set or not
+  def pexpire(key, milliseconds)
+    synchronize do |client|
+      client.call [:pexpire, key, milliseconds], &_boolify
+    end
+  end
+
   # Remove the expiration from a key.
   #
   # @param [String] key
@@ -1280,7 +1302,7 @@ class Redis
     end
   end
 
-  # Get the time to live for a key.
+  # Get the time to live (in seconds) for a key.
   #
   # @param [String] key
   # @return [Fixnum] remaining time to live in seconds, or -1 if the
@@ -1288,6 +1310,17 @@ class Redis
   def ttl(key)
     synchronize do |client|
       client.call [:ttl, key]
+    end
+  end
+
+  # Get the time to live (in milliseconds) for a key.
+  #
+  # @param [String] key
+  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
+  #   key does not exist or does not have a timeout
+  def pttl(key)
+    synchronize do |client|
+      client.call [:pttl, key]
     end
   end
 
@@ -1302,6 +1335,16 @@ class Redis
     end
   end
 
+  # Set the expiration for a key as number of milliseconds from UNIX Epoch.
+  #
+  # @param [String] key
+  # @param [Fixnum] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
+  # @return [Boolean] whether the timeout was set or not
+  def pexpireat(key, ms_unix_time)
+    synchronize do |client|
+      client.call [:pexpireat, key, ms_unix_time], &_boolify
+    end
+  end
   # Set the string value of a hash field.
   #
   # @param [String] key
@@ -1420,7 +1463,7 @@ class Redis
     end
   end
 
-  # Increment the integer value of a hash field by the given number.
+  # Increment the integer value of a hash field by the given integer number.
   #
   # @param [String] key
   # @param [String] field
@@ -1429,6 +1472,20 @@ class Redis
   def hincrby(key, field, increment)
     synchronize do |client|
       client.call [:hincrby, key, field, increment]
+    end
+  end
+
+  # Increment the numeric value of a hash field by the given float number.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [Float] increment
+  # @return [Float] value of the field after incrementing it
+  def hincrbyfloat(key, field, increment)
+    synchronize do |client|
+      client.call [:hincrbyfloat, key, field, increment] do |reply|
+        Float(reply) if reply
+      end
     end
   end
 
@@ -1499,7 +1556,7 @@ class Redis
     end
   end
 
-  # Set the value and expiration of a key.
+  # Set the time to live in seconds of a key.
   #
   # @param [String] key
   # @param [Fixnum] ttl
@@ -1508,6 +1565,18 @@ class Redis
   def setex(key, ttl, value)
     synchronize do |client|
       client.call [:setex, key, ttl, value]
+    end
+  end
+
+  # Set the time to live in milliseconds of a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] ttl
+  # @param [String] value
+  # @return `"OK"`
+  def psetex(key, ttl, value)
+    synchronize do |client|
+      client.call [:psetex, key, ttl, value]
     end
   end
 
@@ -1677,7 +1746,7 @@ class Redis
     end
   end
 
-  # Increment the integer value of a key by the given number.
+  # Increment the integer value of a key by the given integer number.
   #
   # @example
   #   redis.incrby("value", 5)
@@ -1689,6 +1758,23 @@ class Redis
   def incrby(key, increment)
     synchronize do |client|
       client.call [:incrby, key, increment]
+    end
+  end
+
+  # Increment the numeric value of a key by the given float number.
+  #
+  # @example
+  #   redis.incrbyfloat("value", 1.23)
+  #     # => 1.23
+  #
+  # @param [String] key
+  # @param [Float] increment
+  # @return [Float] value after incrementing it
+  def incrbyfloat(key, increment)
+    synchronize do |client|
+      client.call [:incrbyfloat, key, increment] do |reply|
+        Float(reply) if reply
+      end
     end
   end
 
