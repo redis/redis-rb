@@ -1931,6 +1931,16 @@ class Redis
     @client.call [:script, :load, script]
   end
 
+  # Check the existence of a script.
+  #
+  # @param [String] SHA1 Script reference.
+  # @return [Boolean]
+  def script_exists(script)
+    @client.call [:script, :exists, script] do |reply|
+      _boolify.call(reply.first) if reply
+    end
+  end
+
   def id
     synchronize do |client|
       client.id

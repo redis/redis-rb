@@ -666,6 +666,10 @@ class Redis
       raise CannotDistribute, :script_load
     end
 
+    def script_exists(script)
+      raise CannotDistribute, :script_exists
+    end
+
     def inspect
       node_info = nodes.map do |node|
         "#{node.id} (Redis v#{node.info['redis_version']})"
