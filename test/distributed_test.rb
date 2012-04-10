@@ -52,6 +52,14 @@ test "Pipelining commands cannot be distributed" do |r|
   end
 end
 
+test "Script load cannot be distributed" do |r|
+  next if version(r) < 205040
+
+  assert_raise Redis::Distributed::CannotDistribute do
+    r.script_load("return 23")
+  end
+end
+
 test "Unknown commands does not work by default" do |r|
   assert_raise NoMethodError do
     r.not_yet_implemented_command
