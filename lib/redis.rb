@@ -1545,7 +1545,7 @@ class Redis
     end
   end
 
-  # Set the value and expiration of a key.
+  # Set the time to live in seconds of a key.
   #
   # @param [String] key
   # @param [Fixnum] ttl
@@ -1554,6 +1554,18 @@ class Redis
   def setex(key, ttl, value)
     synchronize do |client|
       client.call [:setex, key, ttl, value]
+    end
+  end
+
+  # Set the time to live in milliseconds of a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] ttl
+  # @param [String] value
+  # @return `"OK"`
+  def psetex(key, ttl, value)
+    synchronize do |client|
+      client.call [:psetex, key, ttl, value]
     end
   end
 

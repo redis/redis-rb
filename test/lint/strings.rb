@@ -45,6 +45,16 @@ test "SETEX" do
   end
 end
 
+test "PSETEX" do |r|
+  next if version(r) < 205040
+
+  assert r.psetex("foo", 1000, "bar")
+  assert "bar" == r.get("foo")
+  sleep 1
+
+  assert ! r.exists("foo")
+end
+
 test "GETSET" do |r|
   r.set("foo", "bar")
 
