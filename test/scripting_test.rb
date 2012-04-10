@@ -24,3 +24,11 @@ test "SCRIPT EXISTS with unexisting script" do |r|
 
   assert ! r.script_exists("unknown")
 end
+
+test "SCRIPT FLUSH" do |r|
+  next if version(r) < 205040
+
+  r.script_load("return 23")
+  assert 'OK' == r.script_flush
+  assert ! r.script_exists("c2164f952111fa72ceade53d02f21b514b899fac")
+end

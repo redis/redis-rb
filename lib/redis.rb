@@ -1941,6 +1941,13 @@ class Redis
     end
   end
 
+  # Flush the script cache.
+  #
+  # @return [String] `OK`
+  def script_flush
+    @client.call [:script, :flush]
+  end
+
   def id
     synchronize do |client|
       client.id
