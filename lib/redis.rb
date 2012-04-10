@@ -1709,7 +1709,7 @@ class Redis
     end
   end
 
-  # Increment the integer value of a key by the given number.
+  # Increment the integer value of a key by the given integer number.
   #
   # @example
   #   redis.incrby("value", 5)
@@ -1721,6 +1721,23 @@ class Redis
   def incrby(key, increment)
     synchronize do |client|
       client.call [:incrby, key, increment]
+    end
+  end
+
+  # Increment the numeric value of a key by the given float number.
+  #
+  # @example
+  #   redis.incrbyfloat("value", 1.23)
+  #     # => 1.23
+  #
+  # @param [String] key
+  # @param [Float] increment
+  # @return [Float] value after incrementing it
+  def incrbyfloat(key, increment)
+    synchronize do |client|
+      client.call [:incrbyfloat, key, increment] do |reply|
+        Float(reply) if reply
+      end
     end
   end
 

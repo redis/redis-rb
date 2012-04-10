@@ -236,9 +236,14 @@ class Redis
       node_for(key).incr(key)
     end
 
-    # Increment the integer value of a key by the given number.
+    # Increment the integer value of a key by the given integer number.
     def incrby(key, increment)
       node_for(key).incrby(key, increment)
+    end
+
+    # Increment the numeric value of a key by the given float number.
+    def incrbyfloat(key, increment)
+      node_for(key).incrbyfloat(key, increment)
     end
 
     # Decrement the integer value of a key by one.
