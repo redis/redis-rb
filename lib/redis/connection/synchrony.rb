@@ -24,6 +24,10 @@ class Redis
         @connected
       end
 
+      def timeout=(secs)
+        @timeout = secs
+      end
+
       def receive_data(data)
         @reader.feed(data)
 
@@ -39,7 +43,9 @@ class Redis
 
       def read
         @req = EventMachine::DefaultDeferrable.new
-        EventMachine::Synchrony.sync @req
+        @req.timeout @timeout if @timeout
+        data = EventMachine::Synchrony.sync @req
+        data.nil? ? [:error, 'Read timeout occurred'] : data
       end
 
       def send(data)
@@ -89,6 +95,7 @@ class Redis
       end
 
       def timeout=(timeout)
+        @connection.timeout = timeout
         @timeout = timeout
       end
 
