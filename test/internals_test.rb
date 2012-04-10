@@ -45,6 +45,12 @@ test "Timeout" do
   end
 end
 
+test "Time" do |r,_|
+  next if version(r) < 205040
+
+  assert Time.now.to_i.to_s == r.time.first
+end
+
 test "Connection timeout" do
   next if driver == :synchrony
 

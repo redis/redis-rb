@@ -688,6 +688,11 @@ class Redis
       on_each_node :echo, value
     end
 
+    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
+    def time
+      on_each_node :time
+    end
+
     def pipelined
       raise CannotDistribute, :pipelined
     end
