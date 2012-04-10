@@ -570,9 +570,14 @@ class Redis
       Hash[*fields.zip(hmget(key, *fields)).flatten]
     end
 
-    # Increment the integer value of a hash field by the given number.
+    # Increment the integer value of a hash field by the given integer number.
     def hincrby(key, field, increment)
       node_for(key).hincrby(key, field, increment)
+    end
+
+    # Increment the numeric value of a hash field by the given float number.
+    def hincrbyfloat(key, field, increment)
+      node_for(key).hincrbyfloat(key, field, increment)
     end
 
     # Sort the elements in a list, set or sorted set.
