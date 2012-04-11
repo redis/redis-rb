@@ -138,3 +138,19 @@ test "HINCRBY" do |r|
 
   assert "2" == r.hget("foo", "f1")
 end
+
+test "HINCRBYFLOAT" do |r|
+  next if version(r) < 205040
+
+  r.hincrbyfloat("foo", "f1", 1.23)
+
+  assert "1.23" == r.hget("foo", "f1")
+
+  r.hincrbyfloat("foo", "f1", 0.77)
+
+  assert "2" == r.hget("foo", "f1")
+
+  r.hincrbyfloat("foo", "f1", -0.1)
+
+  assert "1.9" == r.hget("foo", "f1")
+end
