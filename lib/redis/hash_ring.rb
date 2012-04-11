@@ -24,7 +24,7 @@ class Redis
     def add_node(node)
       @nodes << node
       @replicas.times do |i|
-        key = Zlib.crc32("#{node.id}:#{i}")
+        key = Zlib.crc32("#{!node.name ? node.id : node.name}:#{i}")
         @ring[key] = node
         @sorted_keys << key
       end
@@ -34,7 +34,7 @@ class Redis
     def remove_node(node)
       @nodes.reject!{|n| n.id == node.id}
       @replicas.times do |i|
-        key = Zlib.crc32("#{node.id}:#{i}")
+        key = Zlib.crc32("#{!node.name ? node.id : node.name}:#{i}")
         @ring.delete(key)
         @sorted_keys.reject! {|k| k == key}
       end

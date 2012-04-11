@@ -15,10 +15,16 @@ class Redis
 
     attr_reader :ring
 
-    def initialize(urls, options = {})
+    def initialize(nodes, options = {})
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
-      @ring = HashRing.new urls.map { |url| Redis.connect(options.merge(:url => url)) }
+      @ring = HashRing.new(nodes.map do |node| 
+        if node.kind_of?(Hash)
+          Redis.connect(options.merge(:url => node[:url], :name => node[:name]))
+        else
+          Redis.connect(options.merge(:url => node))
+        end
+      end)
       @subscribed_node = nil
     end
 
@@ -30,8 +36,12 @@ class Redis
       @ring.nodes
     end
 
-    def add_node(url)
-      @ring.add_node Redis.connect(@default_options.merge(:url => url))
+    def add_node(node)
+      if node.kind_of?(Hash)
+        @ring.add_node Redis.connect(@default_options.merge(:url => node[:url], :name => node[:name]))
+      else
+        @ring.add_node Redis.connect(@default_options.merge(:url => node))
+      end
     end
 
     # Close the connection.
