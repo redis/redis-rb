@@ -3,6 +3,9 @@
 * The repository now lives at [https://github.com/redis/redis-rb](https://github.com/redis/redis-rb).
   Thanks, Ezra!
 
+* Added support for `PEXPIRE`, `PTTL`, `PEXPIREAT`, `PSETEX`,
+  `INCRYBYFLOAT`, `HINCRYBYFLOAT` and `TIME` (Redis 2.6).
+
 * `Redis.current` is now thread unsafe, because the client itself is thread safe.
 
     In the future you'll be able to do something like:
