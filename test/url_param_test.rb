@@ -57,3 +57,61 @@ test "uses REDIS_URL over default if available" do
 
   ENV.delete("REDIS_URL")
 end
+
+test "allows specifying a unixsocket with url option" do
+  redis = Redis.connect(:url => "unixsocket:///path/to/redis.socket")
+  assert "/path/to/redis.socket" == redis.client.path
+  assert nil == redis.client.port
+  assert 0 == redis.client.db
+  assert nil == redis.client.password
+
+  ENV.delete("REDIS_URL")
+end
+
+test "allows specifying a unixsocket with database id with url option" do
+  redis = Redis.connect(:url => "unixsocket:///path/to/redis.socket:4")
+  assert "/path/to/redis.socket" == redis.client.path
+  assert nil == redis.client.port
+  assert 4 == redis.client.db
+  assert nil == redis.client.password
+
+  ENV.delete("REDIS_URL")
+end
+
+test "allows specifying a unixsocket in REDIS_URL" do
+  ENV["REDIS_URL"] = "unixsocket:///path/to/redis.socket"
+  redis = Redis.connect
+  assert "/path/to/redis.socket" == redis.client.path
+  assert nil == redis.client.port
+  assert 0 == redis.client.db
+  assert nil == redis.client.password
+
+  ENV.delete("REDIS_URL")
+end
+
+test "allows specifying a unixsocket with database id in REDIS_URL" do
+  ENV["REDIS_URL"] = "unixsocket:///path/to/redis.socket:3"
+  redis = Redis.connect
+  assert "/path/to/redis.socket" == redis.client.path
+  assert nil == redis.client.port
+  assert 3 == redis.client.db
+  assert nil == redis.client.password
+
+  ENV.delete("REDIS_URL")
+end
+
+test "does not overwrite path from options with url" do
+  redis = Redis.connect(:url => "unixsocket:///path/to/redis.socket:3", :path => "/path/to/socket/from/path.socket", :db => 7)
+  assert "/path/to/socket/from/path.socket" == redis.client.path
+  assert nil == redis.client.port
+  assert 7 == redis.client.db
+  assert nil == redis.client.password
+end
+
+test "does not overwrite path from options with url without db" do
+  redis = Redis.connect(:url => "unixsocket:///path/to/redis.socket", :path => "/path/to/socket/from/path.socket", :db => 6)
+  assert "/path/to/socket/from/path.socket" == redis.client.path
+  assert nil == redis.client.port
+  assert 6 == redis.client.db
+  assert nil == redis.client.password
+end
