@@ -24,27 +24,8 @@ class Redis
 
   include MonitorMixin
 
-  def parse_options(options)
-    options = options.dup
-
-    if options.include?(:path)
-      uri = URI.parse("unix://#{options.delete(:path)}")
-    else
-      uri = URI.parse(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
-
-      uri.host     = options.delete(:host)           if options.include?(:host)
-      uri.port     = options.delete(:port)           if options.include?(:port)
-      uri.userinfo = ":#{options.delete(:password)}" if options.include?(:password)
-      uri.path     = "/#{options.delete(:db)}"       if options.include?(:db)
-    end
-
-    options[:uri] = uri
-
-    options
-  end
-
   def initialize(options = {})
-    @client = Client.new(parse_options(options))
+    @client = Client.new(_normalize_options(options))
 
     super() # Monitor#initialize
   end
@@ -2001,14 +1982,14 @@ class Redis
   # Listen for messages published to the given channels.
   def subscribe(*channels, &block)
     synchronize do |client|
-      subscription(:subscribe, channels, block)
+      _subscription(:subscribe, channels, block)
     end
   end
 
   # Listen for messages published to channels matching the given patterns.
   def psubscribe(*channels, &block)
     synchronize do |client|
-      subscription(:psubscribe, channels, block)
+      _subscription(:psubscribe, channels, block)
     end
   end
 
@@ -2051,7 +2032,7 @@ private
     }
   end
 
-  def subscription(method, channels, block)
+  def _subscription(method, channels, block)
     return @client.call [method, *channels] if subscribed?
 
     begin
@@ -2060,6 +2041,25 @@ private
     ensure
       @client = original
     end
+  end
+
+  def _normalize_options(options)
+    options = options.dup
+
+    if options.include?(:path)
+      uri = URI.parse("unix://#{options.delete(:path)}")
+    else
+      uri = URI.parse(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
+
+      uri.host     = options.delete(:host)           if options.include?(:host)
+      uri.port     = options.delete(:port)           if options.include?(:port)
+      uri.userinfo = ":#{options.delete(:password)}" if options.include?(:password)
+      uri.path     = "/#{options.delete(:db)}"       if options.include?(:db)
+    end
+
+    options[:uri] = uri
+
+    options
   end
 
 end
