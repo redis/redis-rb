@@ -26,31 +26,25 @@ class Redis
 
   def parse_options(options)
     options = options.dup
-   
-    if options[:path]
-      uri = URI::Generic.new('unix', nil, nil, nil, nil, options[:path], nil, nil, nil)
+
+    if options.include?(:path)
+      uri = URI.parse("unix://#{options.delete(:path)}")
     else
-      url = options.delete(:url) || ENV["REDIS_URL"]
-      if url
-        uri = URI.parse(url)
-      else
-        uri = URI::Generic.new('redis', nil, '127.0.0.1', 6379, nil, '/0', nil, nil, nil)
-      end
-      
-      uri.host     = options.delete(:host)     if options[:host]
-      uri.port     = options.delete(:port)     if options[:port]
-      uri.user     = 'redis'
-      uri.password = options.delete(:password) if options[:password]
-      uri.path     = "/#{options.delete(:db)}" if options[:db]
+      uri = URI.parse(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
+
+      uri.host     = options.delete(:host)           if options.include?(:host)
+      uri.port     = options.delete(:port)           if options.include?(:port)
+      uri.userinfo = ":#{options.delete(:password)}" if options.include?(:password)
+      uri.path     = "/#{options.delete(:db)}"       if options.include?(:db)
     end
-    
+
     options[:uri] = uri
+
     options
   end
 
   def initialize(options = {})
-    options = parse_options(options)
-    @client = Client.new(options)
+    @client = Client.new(parse_options(options))
 
     super() # Monitor#initialize
   end
