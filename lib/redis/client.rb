@@ -2,21 +2,21 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :path, :password, :logger
+    attr_accessor :uri, :db, :logger
     attr :timeout
     attr :connection
     attr :command_map
 
     def initialize(options = {})
-      @path = options[:path]
-      if @path.nil?
-        @host = options[:host] || "127.0.0.1"
-        @port = (options[:port] || 6379).to_i
+      @uri = options[:uri]
+
+      if scheme == 'unix'
+        @db = 0
+      else
+        @db = uri.path[1..-1].to_i
       end
 
-      @db = (options[:db] || 0).to_i
       @timeout = (options[:timeout] || 5).to_f
-      @password = options[:password]
       @logger = options[:logger]
       @reconnect = true
       @connection = Connection.drivers.last.new
@@ -25,17 +25,40 @@ class Redis
 
     def connect
       establish_connection
-      call [:auth, @password] if @password
+      call [:auth, password] if password
       call [:select, @db] if @db != 0
       self
     end
 
     def id
-      "redis://#{location}/#{db}"
+      safe_uri
     end
 
-    def location
-      @path || "#{@host}:#{@port}"
+    def safe_uri
+      temp_uri = @uri
+      temp_uri.user = nil
+      temp_uri.password = nil
+      temp_uri
+    end
+
+    def host
+      @uri.host
+    end
+
+    def password
+      @uri.password
+    end
+
+    def path
+      @uri.path
+    end
+
+    def port
+      @uri.port
+    end
+
+    def scheme
+      @uri.scheme
     end
 
     def call(command, &block)
@@ -231,18 +254,18 @@ class Redis
     end
 
     def establish_connection
-      if @path
-        connection.connect_unix(@path, timeout)
+      if @uri.scheme == 'unix'
+        connection.connect_unix(@uri.path, timeout)
       else
-        connection.connect(@host, @port, timeout)
+        connection.connect(@uri, timeout)
       end
 
       connection.timeout = @timeout
 
     rescue TimeoutError
-      raise CannotConnectError, "Timed out connecting to Redis on #{location}"
+      raise CannotConnectError, "Timed out connecting to Redis on #{safe_uri}"
     rescue Errno::ECONNREFUSED
-      raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
+      raise CannotConnectError, "Error connecting to Redis on #{safe_uri} (ECONNREFUSED)"
     end
 
     def ensure_connected

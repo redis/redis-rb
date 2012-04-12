@@ -171,8 +171,8 @@ class Redis
         !! @sock
       end
 
-      def connect(host, port, timeout)
-        @sock = TCPSocket.connect(host, port, timeout)
+      def connect(uri, timeout)
+        @sock = TCPSocket.connect(uri.host, uri.port, timeout)
       end
 
       def connect_unix(path, timeout)

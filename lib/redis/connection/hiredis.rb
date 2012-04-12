@@ -19,8 +19,8 @@ class Redis
         @connection.timeout = Integer(timeout * 1_000_000)
       end
 
-      def connect(host, port, timeout)
-        @connection.connect(host, port, Integer(timeout * 1_000_000))
+      def connect(uri, timeout)
+        @connection.connect(uri.host, uri.port, Integer(timeout * 1_000_000))
       rescue Errno::ETIMEDOUT
         raise TimeoutError
       end

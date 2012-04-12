@@ -1,5 +1,6 @@
 require "monitor"
 require "redis/errors"
+require "uri"
 
 class Redis
 
@@ -10,23 +11,6 @@ class Redis
   attr :client
 
   def self.connect(options = {})
-    options = options.dup
-
-    url = options.delete(:url) || ENV["REDIS_URL"]
-    if url
-      require "uri"
-
-      uri = URI(url)
-
-      # Require the URL to have at least a host
-      raise ArgumentError, "invalid url" unless uri.host
-
-      options[:host]     ||= uri.host
-      options[:port]     ||= uri.port
-      options[:password] ||= uri.password
-      options[:db]       ||= uri.path[1..-1].to_i
-    end
-
     new(options)
   end
 
@@ -40,7 +24,32 @@ class Redis
 
   include MonitorMixin
 
+  def parse_options(options)
+    options = options.dup
+   
+    if options[:path]
+      uri = URI::Generic.new('unix', nil, nil, nil, nil, options[:path], nil, nil, nil)
+    else
+      url = options.delete(:url) || ENV["REDIS_URL"]
+      if url
+        uri = URI.parse(url)
+      else
+        uri = URI::Generic.new('redis', nil, '127.0.0.1', 6379, nil, '/0', nil, nil, nil)
+      end
+      
+      uri.host     = options.delete(:host)     if options[:host]
+      uri.port     = options.delete(:port)     if options[:port]
+      uri.user     = 'redis'
+      uri.password = options.delete(:password) if options[:password]
+      uri.path     = "/#{options.delete(:db)}" if options[:db]
+    end
+    
+    options[:uri] = uri
+    options
+  end
+
   def initialize(options = {})
+    options = parse_options(options)
     @client = Client.new(options)
 
     super() # Monitor#initialize
