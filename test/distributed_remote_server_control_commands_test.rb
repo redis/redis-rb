@@ -44,5 +44,12 @@ end
 test "TIME" do |r|
   next if version(r) < 205040
 
-  assert Time.now.to_i.to_s == r.time.first.first
+  # Test that the difference between the time that Ruby reports and the time
+  # that Redis reports is minimal (prevents the test from being racy).
+  r.time.each do |rv|
+    redis_usec = rv[0] * 1_000_000 + rv[1]
+    ruby_usec = Integer(Time.now.to_f * 1_000_000)
+
+    assert 500_000 > (ruby_usec - redis_usec).abs
+  end
 end
