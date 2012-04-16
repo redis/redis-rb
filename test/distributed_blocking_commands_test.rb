@@ -42,12 +42,18 @@ test "BRPOP" do |r|
   wire.join
 end
 
-test "BRPOP should unset a configured socket timeout" do |r|
-  r = Redis::Distributed.new(NODES, :timeout => 1)
+test "Blocking pop should unset a configured socket timeout" do |r|
+  r = Redis::Distributed.new(NODES, :timeout => 0.5)
 
   assert_nothing_raised do
-    r.brpop("foo", :timeout => 2)
-  end # Errno::EAGAIN raised if socket times out before redis command times out
+    r.blpop("foo", :timeout => 1)
+  end # Errno::EAGAIN raised if socket times out before Redis command times out
 
-  assert r.nodes.all? { |node| node.client.timeout == 1 }
+  assert r.nodes.all? { |node| node.client.timeout == 0.5 }
+
+  assert_nothing_raised do
+    r.brpop("foo", :timeout => 1)
+  end # Errno::EAGAIN raised if socket times out before Redis command times out
+
+  assert r.nodes.all? { |node| node.client.timeout == 0.5 }
 end
