@@ -14,7 +14,7 @@ test "BLPOP" do |r|
 
   wire = Wire.new do
     redis = Redis::Distributed.new(NODES)
-    Wire.sleep 0.3
+    Wire.sleep 0.1
     redis.lpush("foo", "s3")
   end
 
@@ -31,7 +31,7 @@ test "BRPOP" do |r|
 
   wire = Wire.new do
     redis = Redis::Distributed.new(NODES)
-    Wire.sleep 0.3
+    Wire.sleep 0.1
     redis.rpush("foo", "s3")
   end
 
