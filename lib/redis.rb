@@ -311,15 +311,19 @@ class Redis
     end
   end
 
-  # Returns the current server time as a two items lists: an UNIX timestamp
-  # and the amount of microseconds already elapsed in the current second.
+  # Return the server time.
   #
-  # Example:
-  #   r.time # => [ "1333093196", "606806" ]
+  # @example
+  #   r.time # => [ 1333093196, 606806 ]
   #
-  # Returns [Array] UNIX timestamp and elapsed microseconds in the current second.
+  # @return [Array<Fixnum>] tuple of seconds since UNIX epoch and
+  #   microseconds in the current second
   def time
-    @client.call [:time]
+    synchronize do |client|
+      client.call [:time] do |reply|
+        reply.map(&:to_i) if reply
+      end
+    end
   end
 
   # Ping the server.
