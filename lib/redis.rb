@@ -10,23 +10,6 @@ class Redis
   attr :client
 
   def self.connect(options = {})
-    options = options.dup
-
-    url = options.delete(:url) || ENV["REDIS_URL"]
-    if url
-      require "uri"
-
-      uri = URI(url)
-
-      # Require the URL to have at least a host
-      raise ArgumentError, "invalid url" unless uri.host
-
-      options[:host]     ||= uri.host
-      options[:port]     ||= uri.port
-      options[:password] ||= uri.password
-      options[:db]       ||= uri.path[1..-1].to_i
-    end
-
     new(options)
   end
 
@@ -41,7 +24,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
-    @client = Client.new(options)
+    @client = Client.new(Redis::Config.new(options))
 
     super() # Monitor#initialize
   end
@@ -2066,6 +2049,7 @@ private
 end
 
 require "redis/version"
+require "redis/config"
 require "redis/connection"
 require "redis/client"
 require "redis/pipeline"

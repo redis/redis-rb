@@ -2,31 +2,52 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :path, :password, :logger
-    attr :timeout
-    attr :connection
-    attr :command_map
 
-    def initialize(options = {})
-      @path = options[:path]
-      if @path.nil?
-        @host = options[:host] || "127.0.0.1"
-        @port = (options[:port] || 6379).to_i
-      end
+    attr_accessor :logger
 
-      @db = (options[:db] || 0).to_i
-      @timeout = (options[:timeout] || 5).to_f
-      @password = options[:password]
-      @logger = options[:logger]
+    attr_reader :connection
+    attr_reader :command_map
+
+    def initialize(config)
+      @config = config
+      @logger = @config[:logger]
       @reconnect = true
       @connection = Connection.drivers.last.new
       @command_map = {}
     end
 
+    def host
+      @config[:host]
+    end
+
+    def port
+      @config[:port]
+    end
+
+    def path
+      @config[:path]
+    end
+
+    def timeout
+      @config[:timeout]
+    end
+
+    def password
+      @config[:password]
+    end
+
+    def db
+      @config[:db]
+    end
+
+    def db=(db)
+      @config[:db] = db
+    end
+
     def connect
       establish_connection
-      call [:auth, @password] if @password
-      call [:select, @db] if @db != 0
+      call [:auth, password] if password
+      call [:select, db] if db != 0
       self
     end
 
@@ -35,7 +56,7 @@ class Redis
     end
 
     def location
-      @path || "#{@host}:#{@port}"
+      path || "#{host}:#{port}"
     end
 
     def call(command, &block)
@@ -194,7 +215,7 @@ class Redis
         connection.timeout = 0
         yield
       ensure
-        connection.timeout = @timeout if connected?
+        connection.timeout = timeout if connected?
       end
     end
 
@@ -231,13 +252,13 @@ class Redis
     end
 
     def establish_connection
-      if @path
-        connection.connect_unix(@path, timeout)
+      if path
+        connection.connect_unix(path, timeout)
       else
-        connection.connect(@host, @port, timeout)
+        connection.connect(host, port, timeout)
       end
 
-      connection.timeout = @timeout
+      connection.timeout = timeout
 
     rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
