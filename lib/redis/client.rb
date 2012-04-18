@@ -54,11 +54,11 @@ class Redis
     end
 
     def id
-      "redis://#{location}/#{db}"
+      config.id
     end
 
     def location
-      path || "#{host}:#{port}"
+      config.location
     end
 
     def call(command, &block)

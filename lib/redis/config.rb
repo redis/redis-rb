@@ -18,6 +18,18 @@ class Redis
       _set input.dup
     end
 
+    def id
+      "redis://#{location}/#{_options[:db]}"
+    end
+
+    def location
+      if _options[:scheme] == "unix"
+        "%s" % [_options[:path]]
+      else
+        "%s:%d" % [_options[:host], _options[:port]]
+      end
+    end
+
     def [](attr)
       _options[attr]
     end
