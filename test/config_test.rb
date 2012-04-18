@@ -64,3 +64,10 @@ test "Unix configuration from URL" do
   assert Redis::Config::DEFAULTS[:password] == config[:password]
   assert Redis::Config::DEFAULTS[:db] == config[:db]
 end
+
+test "Allow #id to be overridden" do
+  config = Redis::Config.new \
+    :id => "foo"
+
+  assert "foo" == config.id
+end

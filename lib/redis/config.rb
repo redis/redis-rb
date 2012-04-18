@@ -19,7 +19,7 @@ class Redis
     end
 
     def id
-      "redis://#{location}/#{_options[:db]}"
+      _options[:id] || "redis://#{location}/#{_options[:db]}"
     end
 
     def location
