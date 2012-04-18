@@ -3,6 +3,8 @@ require "redis/errors"
 class Redis
   class Client
 
+    attr_reader :config
+
     attr_accessor :logger
 
     attr_reader :connection
@@ -252,12 +254,7 @@ class Redis
     end
 
     def establish_connection
-      if path
-        connection.connect_unix(path, timeout)
-      else
-        connection.connect(host, port, timeout)
-      end
-
+      connection.connect(config)
       connection.timeout = timeout
 
     rescue TimeoutError
