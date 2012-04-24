@@ -17,6 +17,12 @@ test "RPUSHX" do |r|
   assert ["s2", "s3"] == r.lrange("foo", 0, -1)
 end
 
+test "RPUSH MULTI" do |r|
+  r.rpush "foo", "s1", "s2", "s3"
+  assert 3 == r.llen("foo")
+  assert ["s1", "s2", "s3"] == r.lrange("foo", 0, -1)
+end
+
 test "LPUSHX" do |r|
   r.lpushx "foo", "s1"
   r.lpush "foo", "s2"
@@ -24,6 +30,12 @@ test "LPUSHX" do |r|
 
   assert 2 == r.llen("foo")
   assert ["s3", "s2"] == r.lrange("foo", 0, -1)
+end
+
+test "LPUSH MULTI" do |r|
+  r.lpush "foo", "s1", "s2", "s3"
+  assert 3 == r.llen("foo")
+  assert ["s3", "s2", "s1"] == r.lrange("foo", 0, -1)
 end
 
 test "LINSERT" do |r|
