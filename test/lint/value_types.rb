@@ -27,38 +27,31 @@ test "KEYS" do |r|
 end
 
 test "EXPIRE" do |r|
-  redis_mock(:expire => lambda { |*args| args == ["foo", "1"] ? ":1" : ":0" }) do
-    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
-    assert r.expire("foo", 1)
-  end
+  r.set("foo", "s1")
+  assert r.expire("foo", 1)
+  assert [0, 1].include? r.ttl("foo")
 end
 
 test "PEXPIRE" do |r|
   next if version(r) < 205040
 
-  r.set('foo', 'bar')
-  assert r.pexpire('foo', 1000)
-  sleep 1
-
-  assert ! r.exists('foo')
+  r.set("foo", "s1")
+  assert r.pexpire("foo", 1000)
+  assert [0, 1].include? r.ttl("foo")
 end
 
 test "EXPIREAT" do |r|
-  redis_mock(:expireat => lambda { |*args| args == ["foo", "1328236326"] ? ":1" : ":0" }) do
-    r = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
-    assert r.expireat("foo", 1328236326)
-  end
+  r.set("foo", "s1")
+  assert r.expireat("foo", (Time.now + 1).to_i)
+  assert [0, 1].include? r.ttl("foo")
 end
 
 test "PEXPIREAT" do |r|
   next if version(r) < 205040
 
-  r.set('foo', 'bar')
-  assert r.pexpireat('foo', 1328236326000)
-
-  assert ! r.exists('foo')
+  r.set("foo", "s1")
+  assert r.pexpireat("foo", (Time.now + 1).to_i * 1_000)
+  assert [0, 1].include? r.ttl("foo")
 end
 
 test "PERSIST" do |r|
@@ -72,8 +65,7 @@ end
 test "TTL" do |r|
   r.set("foo", "s1")
   r.expire("foo", 1)
-
-  assert 1 == r.ttl("foo")
+  assert [0, 1].include? r.ttl("foo")
 end
 
 test "PTTL" do |r|
@@ -81,11 +73,7 @@ test "PTTL" do |r|
 
   r.set("foo", "s1")
   r.expire("foo", 1)
-
-  assert( (1..1000).include?(r.pttl("foo")) )
-
-  sleep 1
-  assert(-1 == r.pttl("foo"))
+  assert 1000 >= r.pttl("foo")
 end
 
 test "MOVE" do |r|
