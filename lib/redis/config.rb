@@ -30,6 +30,29 @@ class Redis
       end
     end
 
+    def driver
+      driver = _options[:driver] || Connection.drivers.last
+      driver = driver.to_s if driver.is_a?(Symbol)
+
+      if driver.kind_of?(String)
+        case driver
+        when "ruby"
+          require "redis/connection/ruby"
+          driver = Connection::Ruby
+        when "hiredis"
+          require "redis/connection/hiredis"
+          driver = Connection::Hiredis
+        when "synchrony"
+          require "redis/connection/synchrony"
+          driver = Connection::Synchrony
+        else
+          raise "Unknown driver: #{driver}"
+        end
+      end
+
+      driver
+    end
+
     def [](attr)
       _options[attr]
     end

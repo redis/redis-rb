@@ -14,7 +14,7 @@ class Redis
       @config = config
       @logger = @config[:logger]
       @reconnect = true
-      @connection = Connection.drivers.last.new
+      @connection = config.driver.new
       @command_map = {}
     end
 
