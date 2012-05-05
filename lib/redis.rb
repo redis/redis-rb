@@ -1999,6 +1999,31 @@ class Redis
     end
   end
 
+  # Load a LUA script that stays in the server forever, unless it is explicitly removed.
+  #
+  # @param [String] LUA script to be loaded.
+  # @return [String] The script SHA1 reference to use the it in the future.
+  def script_load(script)
+    @client.call [:script, :load, script]
+  end
+
+  # Check the existence of a script.
+  #
+  # @param [String] SHA1 Script reference.
+  # @return [Boolean]
+  def script_exists(script)
+    @client.call [:script, :exists, script] do |reply|
+      _boolify.call(reply.first) if reply
+    end
+  end
+
+  # Flush the script cache.
+  #
+  # @return [String] `OK`
+  def script_flush
+    @client.call [:script, :flush]
+  end
+
   def id
     synchronize do |client|
       client.id
