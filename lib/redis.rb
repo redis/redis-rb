@@ -11,22 +11,7 @@ class Redis
 
   def self.connect(options = {})
     options = options.dup
-
-    url = options.delete(:url) || ENV["REDIS_URL"]
-    if url
-      require "uri"
-
-      uri = URI(url)
-
-      # Require the URL to have at least a host
-      raise ArgumentError, "invalid url" unless uri.host
-
-      options[:host]     ||= uri.host
-      options[:port]     ||= uri.port
-      options[:password] ||= uri.password
-      options[:db]       ||= uri.path[1..-1].to_i
-    end
-
+    options[:url] ||= ENV["REDIS_URL"]
     new(options)
   end
 

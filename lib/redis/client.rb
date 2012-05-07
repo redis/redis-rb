@@ -2,31 +2,65 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :db, :host, :port, :path, :password, :logger
-    attr :timeout
+
+    DEFAULTS = {
+      :scheme => "redis",
+      :host => "127.0.0.1",
+      :port => 6379,
+      :path => nil,
+      :timeout => 5.0,
+      :password => nil,
+      :db => 0,
+    }
+
+    def scheme
+      @options[:scheme]
+    end
+
+    def host
+      @options[:host]
+    end
+
+    def port
+      @options[:port]
+    end
+
+    def path
+      @options[:path]
+    end
+
+    def timeout
+      @options[:timeout]
+    end
+
+    def password
+      @options[:password]
+    end
+
+    def db
+      @options[:db]
+    end
+
+    def db=(db)
+      @options[:db] = db.to_i
+    end
+
+    attr :logger
     attr :connection
     attr :command_map
 
     def initialize(options = {})
-      @path = options[:path]
-      if @path.nil?
-        @host = options[:host] || "127.0.0.1"
-        @port = (options[:port] || 6379).to_i
-      end
-
-      @db = (options[:db] || 0).to_i
-      @timeout = (options[:timeout] || 5).to_f
-      @password = options[:password]
-      @logger = options[:logger]
+      @options = _parse_options(options)
       @reconnect = true
+      @logger = @options[:logger]
       @connection = Connection.drivers.last.new
       @command_map = {}
     end
 
     def connect
       establish_connection
-      call [:auth, @password] if @password
-      call [:select, @db] if @db != 0
+      call [:auth, password] if password
+      call [:select, db] if db != 0
       self
     end
 
@@ -35,7 +69,7 @@ class Redis
     end
 
     def location
-      @path || "#{@host}:#{@port}"
+      path || "#{host}:#{port}"
     end
 
     def call(command, &block)
@@ -194,7 +228,7 @@ class Redis
         connection.timeout = 0
         yield
       ensure
-        connection.timeout = @timeout if connected?
+        connection.timeout = timeout if connected?
       end
     end
 
@@ -231,13 +265,13 @@ class Redis
     end
 
     def establish_connection
-      if @path
-        connection.connect_unix(@path, timeout)
+      if path
+        connection.connect_unix(path, timeout)
       else
-        connection.connect(@host, @port, timeout)
+        connection.connect(host, port, timeout)
       end
 
-      connection.timeout = @timeout
+      connection.timeout = timeout
 
     rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
@@ -265,6 +299,46 @@ class Redis
         disconnect
         raise
       end
+    end
+
+    def _parse_options(options)
+      defaults = DEFAULTS.dup
+
+      # Override defaults from URL if given
+      if options[:url]
+        require "uri"
+
+        uri = URI(options[:url])
+
+        if uri.scheme == "unix"
+          defaults[:path]   = uri.path
+        else
+          # Require the URL to have at least a host
+          raise ArgumentError, "invalid url" unless uri.host
+
+          defaults[:scheme]   = uri.scheme
+          defaults[:host]     = uri.host
+          defaults[:port]     = uri.port if uri.port
+          defaults[:password] = uri.password if uri.password
+          defaults[:db]       = uri.path[1..-1].to_i if uri.path
+        end
+      end
+
+      options = defaults.merge(options)
+
+      if options[:path]
+        options[:scheme] = "unix"
+        options.delete(:host)
+        options.delete(:port)
+      else
+        options[:host] = options[:host].to_s
+        options[:port] = options[:port].to_i
+      end
+
+      options[:timeout] = options[:timeout].to_f
+      options[:db] = options[:db].to_i
+
+      options
     end
   end
 end
