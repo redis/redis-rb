@@ -274,10 +274,9 @@ class Redis
       begin
         if connected?
           if Process.pid != @pid
-            raise InheritedError, <<-EOS.gsub(/(?:^|\n)\s*/, " ").strip
-              Tried to use a connection from a child process without reconnecting.
-              You need to reconnect to Redis after forking.
-            EOS
+            raise InheritedError,
+              "Tried to use a connection from a child process without reconnecting. " +
+              "You need to reconnect to Redis after forking."
           end
         else
           @pid = Process.pid
