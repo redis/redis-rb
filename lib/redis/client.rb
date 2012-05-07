@@ -265,12 +265,7 @@ class Redis
     end
 
     def establish_connection
-      if path
-        connection.connect_unix(path, timeout)
-      else
-        connection.connect(host, port, timeout)
-      end
-
+      connection.connect(@options.dup)
       connection.timeout = timeout
 
     rescue TimeoutError

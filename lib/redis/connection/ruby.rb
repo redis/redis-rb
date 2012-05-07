@@ -171,12 +171,12 @@ class Redis
         !! @sock
       end
 
-      def connect(host, port, timeout)
-        @sock = TCPSocket.connect(host, port, timeout)
-      end
-
-      def connect_unix(path, timeout)
-        @sock = UNIXSocket.connect(path, timeout)
+      def connect(config)
+        if config[:scheme] == "unix"
+          @sock = UNIXSocket.connect(config[:path], config[:timeout])
+        else
+          @sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
+        end
       end
 
       def disconnect

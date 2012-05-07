@@ -19,14 +19,13 @@ class Redis
         @connection.timeout = Integer(timeout * 1_000_000)
       end
 
-      def connect(host, port, timeout)
-        @connection.connect(host, port, Integer(timeout * 1_000_000))
-      rescue Errno::ETIMEDOUT
-        raise TimeoutError
-      end
+      def connect(config)
+        if config[:scheme] == "unix"
+          @connection.connect_unix(config[:path], Integer(config[:timeout] * 1_000_000))
+        else
+          @connection.connect(config[:host], config[:port], Integer(config[:timeout] * 1_000_000))
+        end
 
-      def connect_unix(path, timeout)
-        @connection.connect_unix(path, Integer(timeout * 1_000_000))
       rescue Errno::ETIMEDOUT
         raise TimeoutError
       end
