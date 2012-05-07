@@ -33,4 +33,8 @@ class Redis
   # Raised when performing I/O times out.
   class TimeoutError < BaseConnectionError
   end
+
+  # Raised when the connection was inherited by a child process.
+  class InheritedError < BaseConnectionError
+  end
 end
