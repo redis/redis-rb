@@ -272,7 +272,17 @@ class Redis
       tries = 0
 
       begin
-        connect unless connected?
+        if connected?
+          if Process.pid != @pid
+            raise InheritedError,
+              "Tried to use a connection from a child process without reconnecting. " +
+              "You need to reconnect to Redis after forking."
+          end
+        else
+          @pid = Process.pid
+          connect
+        end
+
         tries += 1
 
         yield
