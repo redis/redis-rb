@@ -1,4 +1,4 @@
- # encoding: UTF-8
+# encoding: UTF-8
 
 require File.expand_path("./helper", File.dirname(__FILE__))
 

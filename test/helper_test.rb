@@ -1,3 +1,5 @@
+# encoding: UTF-8
+
 require File.expand_path("./helper", File.dirname(__FILE__))
 
 test "version_str_to_i" do
