@@ -2,63 +2,63 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :uri, :db, :logger
-    attr :timeout
-    attr :connection
-    attr :command_map
 
-    def initialize(options = {})
-      @uri = options[:uri]
+    attr_reader :config
 
-      if scheme == 'unix'
-        @db = 0
-      else
-        @db = uri.path[1..-1].to_i
-      end
+    attr_accessor :logger
 
-      @timeout = (options[:timeout] || 5).to_f
-      @logger = options[:logger]
+    attr_reader :connection
+    attr_reader :command_map
+
+    def initialize(config)
+      @config = config
+      @logger = @config[:logger]
       @reconnect = true
-      @connection = Connection.drivers.last.new
+      @connection = config.driver.new
       @command_map = {}
+    end
+
+    def host
+      @config[:host]
+    end
+
+    def port
+      @config[:port]
+    end
+
+    def path
+      @config[:path]
+    end
+
+    def timeout
+      @config[:timeout]
+    end
+
+    def password
+      @config[:password]
+    end
+
+    def db
+      @config[:db]
+    end
+
+    def db=(db)
+      @config[:db] = db
     end
 
     def connect
       establish_connection
       call [:auth, password] if password
-      call [:select, @db] if @db != 0
+      call [:select, db] if db != 0
       self
     end
 
     def id
-      safe_uri
+      config.id
     end
 
-    def safe_uri
-      temp_uri = @uri
-      temp_uri.user = nil
-      temp_uri.password = nil
-      temp_uri
-    end
-
-    def host
-      @uri.host
-    end
-
-    def password
-      @uri.password
-    end
-
-    def path
-      @uri.path
-    end
-
-    def port
-      @uri.port
-    end
-
-    def scheme
-      @uri.scheme
+    def location
+      config.location
     end
 
     def call(command, &block)
@@ -217,7 +217,7 @@ class Redis
         connection.timeout = 0
         yield
       ensure
-        connection.timeout = @timeout if connected?
+        connection.timeout = timeout if connected?
       end
     end
 
@@ -254,18 +254,13 @@ class Redis
     end
 
     def establish_connection
-      if @uri.scheme == 'unix'
-        connection.connect_unix(@uri.path, timeout)
-      else
-        connection.connect(@uri, timeout)
-      end
-
-      connection.timeout = @timeout
+      connection.connect(config)
+      connection.timeout = timeout
 
     rescue TimeoutError
-      raise CannotConnectError, "Timed out connecting to Redis on #{safe_uri}"
+      raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
-      raise CannotConnectError, "Error connecting to Redis on #{safe_uri} (ECONNREFUSED)"
+      raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
     end
 
     def ensure_connected
