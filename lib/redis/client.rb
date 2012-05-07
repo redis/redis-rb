@@ -24,6 +24,7 @@ class Redis
     end
 
     def connect
+      @pid = Process.pid
       establish_connection
       call [:auth, password] if password
       call [:select, @db] if @db != 0
@@ -279,7 +280,6 @@ class Redis
               "You need to reconnect to Redis after forking."
           end
         else
-          @pid = Process.pid
           connect
         end
 
