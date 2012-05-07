@@ -53,7 +53,7 @@ class Redis
       @options = _parse_options(options)
       @reconnect = true
       @logger = @options[:logger]
-      @connection = Connection.drivers.last.new
+      @connection = @options[:driver].new
       @command_map = {}
     end
 
@@ -332,8 +332,31 @@ class Redis
 
       options[:timeout] = options[:timeout].to_f
       options[:db] = options[:db].to_i
+      options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
 
       options
+    end
+
+    def _parse_driver(driver)
+      driver = driver.to_s if driver.is_a?(Symbol)
+
+      if driver.kind_of?(String)
+        case driver
+        when "ruby"
+          require "redis/connection/ruby"
+          driver = Connection::Ruby
+        when "hiredis"
+          require "redis/connection/hiredis"
+          driver = Connection::Hiredis
+        when "synchrony"
+          require "redis/connection/synchrony"
+          driver = Connection::Synchrony
+        else
+          raise "Unknown driver: #{driver}"
+        end
+      end
+
+      driver
     end
   end
 end
