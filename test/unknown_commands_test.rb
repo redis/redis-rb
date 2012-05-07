@@ -1,13 +1,14 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
+require "helper"
 
-setup do
-  init Redis.new(OPTIONS)
-end
+class TestUnknownCommands < Test::Unit::TestCase
 
-test "should try to work" do |r|
-  assert_raise Redis::CommandError do
-    r.not_yet_implemented_command
+  include Helper
+
+  def test_should_try_to_work
+    assert_raise Redis::CommandError do
+      r.not_yet_implemented_command
+    end
   end
 end

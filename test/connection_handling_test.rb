@@ -1,204 +1,207 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require File.expand_path("./redis_mock", File.dirname(__FILE__))
+require "helper"
 
-include RedisMock::Helper
+class TestConnectionHandling < Test::Unit::TestCase
 
-setup do
-  init Redis.new(OPTIONS)
-end
+  include Helper
 
-test "AUTH" do
-  replies = {
-    :auth => lambda { |password| $auth = password; "+OK" },
-    :get  => lambda { |key| $auth == "secret" ? "$3\r\nbar" : "$-1" },
-  }
+  def test_auth
+    replies = {
+      :auth => lambda { |password| $auth = password; "+OK" },
+      :get  => lambda { |key| $auth == "secret" ? "$3\r\nbar" : "$-1" },
+    }
 
-  redis_mock(replies) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT, :password => "secret"))
+    redis_mock(replies) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT, :password => "secret"))
 
-    assert "bar" == redis.get("foo")
-  end
-end
-
-test "PING" do |r|
-  assert "PONG" == r.ping
-end
-
-test "SELECT" do |r|
-  r.set "foo", "bar"
-
-  r.select 14
-  assert nil == r.get("foo")
-
-  r.client.disconnect
-
-  assert nil == r.get("foo")
-end
-
-test "QUIT" do |r|
-  r.quit
-
-  assert !r.client.connected?
-end
-
-test "SHUTDOWN" do
-  commands = {
-    :shutdown => lambda { :exit }
-  }
-
-  redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
-    # SHUTDOWN does not reply: test that it does not raise here.
-    assert nil == redis.shutdown
-  end
-end
-
-test "SHUTDOWN with error" do
-  connections = 0
-  commands = {
-    :select => lambda { |*_| connections += 1; "+OK\r\n" },
-    :connections => lambda { ":#{connections}\r\n" },
-    :shutdown => lambda { "-ERR could not shutdown\r\n" }
-  }
-
-  redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
-    connections = redis.connections
-
-    # SHUTDOWN replies with an error: test that it gets raised
-    assert_raise Redis::CommandError do
-      redis.shutdown
+      assert "bar" == redis.get("foo")
     end
-
-    # The connection should remain in tact
-    assert connections == redis.connections
   end
-end
 
-test "SHUTDOWN from pipeline" do
-  commands = {
-    :shutdown => lambda { :exit }
-  }
+  def test_ping
+    assert "PONG" == r.ping
+  end
 
-  redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+  def test_select
+    r.set "foo", "bar"
 
-    result = redis.pipelined do
-      redis.shutdown
+    r.select 14
+    assert nil == r.get("foo")
+
+    r.client.disconnect
+
+    assert nil == r.get("foo")
+  end
+
+  def test_quit
+    r.quit
+
+    assert !r.client.connected?
+  end
+
+  def test_shutdown
+    commands = {
+      :shutdown => lambda { :exit }
+    }
+
+    redis_mock(commands) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+      # SHUTDOWN does not reply: test that it does not raise here.
+      assert nil == redis.shutdown
     end
-
-    assert nil == result
-    assert !redis.client.connected?
   end
-end
 
-test "SHUTDOWN with error from pipeline" do
-  connections = 0
-  commands = {
-    :select => lambda { |*_| connections += 1; "+OK\r\n" },
-    :connections => lambda { ":#{connections}\r\n" },
-    :shutdown => lambda { "-ERR could not shutdown\r\n" }
-  }
+  def test_shutdown_with_error
+    connections = 0
+    commands = {
+      :select => lambda { |*_| connections += 1; "+OK\r\n" },
+      :connections => lambda { ":#{connections}\r\n" },
+      :shutdown => lambda { "-ERR could not shutdown\r\n" }
+    }
 
-  redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+    redis_mock(commands) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-    connections = redis.connections
+      connections = redis.connections
 
-    # SHUTDOWN replies with an error: test that it gets raised
-    assert_raise Redis::CommandError do
-      redis.pipelined do
+      # SHUTDOWN replies with an error: test that it gets raised
+      assert_raise Redis::CommandError do
         redis.shutdown
       end
+
+      # The connection should remain in tact
+      assert connections == redis.connections
     end
-
-    # The connection should remain in tact
-    assert connections == redis.connections
   end
-end
 
-test "SHUTDOWN from MULTI/EXEC" do
-  commands = {
-    :multi => lambda { "+OK\r\n" },
-    :shutdown => lambda { "+QUEUED\r\n" },
-    :exec => lambda { :exit }
-  }
+  def test_shutdown_from_pipeline
+    commands = {
+      :shutdown => lambda { :exit }
+    }
 
-  redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+    redis_mock(commands) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-    result = redis.multi do
-      redis.shutdown
+      result = redis.pipelined do
+        redis.shutdown
+      end
+
+      assert nil == result
+      assert !redis.client.connected?
     end
-
-    assert nil == result
-    assert !redis.client.connected?
   end
-end
 
-test "SHUTDOWN with error from MULTI/EXEC" do
-  connections = 0
-  commands = {
-    :select => lambda { |*_| connections += 1; "+OK\r\n" },
-    :connections => lambda { ":#{connections}\r\n" },
-    :multi => lambda { "+OK\r\n" },
-    :shutdown => lambda { "+QUEUED\r\n" },
-    :exec => lambda { "*1\r\n-ERR could not shutdown\r\n" }
-  }
+  def test_shutdown_with_error_from_pipeline
+    connections = 0
+    commands = {
+      :select => lambda { |*_| connections += 1; "+OK\r\n" },
+      :connections => lambda { ":#{connections}\r\n" },
+      :shutdown => lambda { "-ERR could not shutdown\r\n" }
+    }
 
-  redis_mock(commands) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+    redis_mock(commands) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-    connections = redis.connections
+      connections = redis.connections
 
-    # SHUTDOWN replies with an error: test that it gets returned
-    # We should test for Redis::CommandError here, but hiredis doesn't yet do
-    # custom error classes.
-    assert_raise(StandardError) do
-      redis.multi { redis.shutdown }
+      # SHUTDOWN replies with an error: test that it gets raised
+      assert_raise Redis::CommandError do
+        redis.pipelined do
+          redis.shutdown
+        end
+      end
+
+      # The connection should remain in tact
+      assert connections == redis.connections
     end
-
-    # The connection should remain intact
-    assert connections == redis.connections
   end
-end
 
-test "SLAVEOF" do
-  redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+  def test_shutdown_from_multi_exec
+    commands = {
+      :multi => lambda { "+OK\r\n" },
+      :shutdown => lambda { "+QUEUED\r\n" },
+      :exec => lambda { :exit }
+    }
 
-    assert "SLAVEOF localhost 6381" == redis.slaveof("localhost", 6381)
+    redis_mock(commands) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+      result = redis.multi do
+        redis.shutdown
+      end
+
+      assert nil == result
+      assert !redis.client.connected?
+    end
   end
-end
 
-test "BGREWRITEAOF" do
-  redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+  def test_shutdown_with_error_from_multi_exec
+    connections = 0
+    commands = {
+      :select => lambda { |*_| connections += 1; "+OK\r\n" },
+      :connections => lambda { ":#{connections}\r\n" },
+      :multi => lambda { "+OK\r\n" },
+      :shutdown => lambda { "+QUEUED\r\n" },
+      :exec => lambda { "*1\r\n-ERR could not shutdown\r\n" }
+    }
 
-    assert "BGREWRITEAOF" == redis.bgrewriteaof
+    redis_mock(commands) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+      connections = redis.connections
+
+      # SHUTDOWN replies with an error: test that it gets returned
+      # We should test for Redis::CommandError here, but hiredis doesn't yet do
+      # custom error classes.
+      err = nil
+
+      begin
+        redis.multi { redis.shutdown }
+      rescue => err
+      end
+
+      assert err.kind_of?(StandardError)
+
+      # The connection should remain intact
+      assert connections == redis.connections
+    end
   end
-end
 
-test "CONFIG GET" do |r|
-  assert r.config(:get, "*")["timeout"] != nil
+  def test_slaveof
+    redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-  config = r.config(:get, "timeout")
-  assert ["timeout"] == config.keys
-  assert config.values.compact.size > 0
-end
+      assert "SLAVEOF localhost 6381" == redis.slaveof("localhost", 6381)
+    end
+  end
 
-test "CONFIG SET" do |r|
-  begin
-    assert "OK" == r.config(:set, "timeout", 200)
-    assert "200" == r.config(:get, "*")["timeout"]
+  def test_bgrewriteaof
+    redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-    assert "OK" == r.config(:set, "timeout", 100)
-    assert "100" == r.config(:get, "*")["timeout"]
-  ensure
-    r.config :set, "timeout", 300
+      assert "BGREWRITEAOF" == redis.bgrewriteaof
+    end
+  end
+
+  def test_config_get
+    assert r.config(:get, "*")["timeout"] != nil
+
+    config = r.config(:get, "timeout")
+    assert ["timeout"] == config.keys
+    assert config.values.compact.size > 0
+  end
+
+  def test_config_set
+    begin
+      assert "OK" == r.config(:set, "timeout", 200)
+      assert "200" == r.config(:get, "*")["timeout"]
+
+      assert "OK" == r.config(:set, "timeout", 100)
+      assert "100" == r.config(:get, "*")["timeout"]
+    ensure
+      r.config :set, "timeout", 300
+    end
   end
 end

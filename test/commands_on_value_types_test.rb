@@ -1,103 +1,101 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require File.expand_path("./redis_mock", File.dirname(__FILE__))
+require "helper"
+require "lint/value_types"
 
-include RedisMock::Helper
+class TestCommandsOnValueTypes < Test::Unit::TestCase
 
-setup do
-  init Redis.new(OPTIONS)
-end
+  include Helper
+  include Lint::ValueTypes
 
-load "./test/lint/value_types.rb"
+  def test_del
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+    r.set "baz", "s3"
 
-test "DEL" do |r|
-  r.set "foo", "s1"
-  r.set "bar", "s2"
-  r.set "baz", "s3"
+    assert ["bar", "baz", "foo"] == r.keys("*").sort
 
-  assert ["bar", "baz", "foo"] == r.keys("*").sort
+    assert 1 == r.del("foo")
 
-  assert 1 == r.del("foo")
+    assert ["bar", "baz"] == r.keys("*").sort
 
-  assert ["bar", "baz"] == r.keys("*").sort
+    assert 2 == r.del("bar", "baz")
 
-  assert 2 == r.del("bar", "baz")
-
-  assert [] == r.keys("*").sort
-end
-
-test "DEL with array argument" do |r|
-  r.set "foo", "s1"
-  r.set "bar", "s2"
-  r.set "baz", "s3"
-
-  assert ["bar", "baz", "foo"] == r.keys("*").sort
-
-  assert 1 == r.del(["foo"])
-
-  assert ["bar", "baz"] == r.keys("*").sort
-
-  assert 2 == r.del(["bar", "baz"])
-
-  assert [] == r.keys("*").sort
-end
-
-test "RANDOMKEY" do |r|
-  assert r.randomkey.to_s.empty?
-
-  r.set("foo", "s1")
-
-  assert "foo" == r.randomkey
-
-  r.set("bar", "s2")
-
-  4.times do
-    assert ["foo", "bar"].include?(r.randomkey)
+    assert [] == r.keys("*").sort
   end
-end
 
-test "RENAME" do |r|
-  r.set("foo", "s1")
-  r.rename "foo", "bar"
+  def test_del_with_array_argument
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+    r.set "baz", "s3"
 
-  assert "s1" == r.get("bar")
-  assert nil == r.get("foo")
-end
+    assert ["bar", "baz", "foo"] == r.keys("*").sort
 
-test "RENAMENX" do |r|
-  r.set("foo", "s1")
-  r.set("bar", "s2")
+    assert 1 == r.del(["foo"])
 
-  assert false == r.renamenx("foo", "bar")
+    assert ["bar", "baz"] == r.keys("*").sort
 
-  assert "s1" == r.get("foo")
-  assert "s2" == r.get("bar")
-end
+    assert 2 == r.del(["bar", "baz"])
 
-test "DBSIZE" do |r|
-  assert 0 == r.dbsize
+    assert [] == r.keys("*").sort
+  end
 
-  r.set("foo", "s1")
+  def test_randomkey
+    assert r.randomkey.to_s.empty?
 
-  assert 1 == r.dbsize
-end
+    r.set("foo", "s1")
 
-test "FLUSHDB" do |r|
-  r.set("foo", "s1")
-  r.set("bar", "s2")
+    assert "foo" == r.randomkey
 
-  assert 2 == r.dbsize
+    r.set("bar", "s2")
 
-  r.flushdb
+    4.times do
+      assert ["foo", "bar"].include?(r.randomkey)
+    end
+  end
 
-  assert 0 == r.dbsize
-end
+  def test_rename
+    r.set("foo", "s1")
+    r.rename "foo", "bar"
 
-test "FLUSHALL" do
-  redis_mock(:flushall => lambda { "+FLUSHALL" }) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+    assert "s1" == r.get("bar")
+    assert nil == r.get("foo")
+  end
 
-    assert "FLUSHALL" == redis.flushall
+  def test_renamenx
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    assert false == r.renamenx("foo", "bar")
+
+    assert "s1" == r.get("foo")
+    assert "s2" == r.get("bar")
+  end
+
+  def test_dbsize
+    assert 0 == r.dbsize
+
+    r.set("foo", "s1")
+
+    assert 1 == r.dbsize
+  end
+
+  def test_flushdb
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    assert 2 == r.dbsize
+
+    r.flushdb
+
+    assert 0 == r.dbsize
+  end
+
+  def test_flushall
+    redis_mock(:flushall => lambda { "+FLUSHALL" }) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+      assert "FLUSHALL" == redis.flushall
+    end
   end
 end

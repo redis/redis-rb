@@ -1,143 +1,151 @@
-test "SET and GET" do |r|
-  r.set("foo", "s1")
+module Lint
 
-  assert "s1" == r.get("foo")
-end
+  module Strings
 
-test "SET and GET with brackets" do |r|
-  r["foo"] = "s1"
+    def test_set_and_get
+      r.set("foo", "s1")
 
-  assert "s1" == r["foo"]
-end
+      assert "s1" == r.get("foo")
+    end
 
-test "SET and GET with brackets and symbol" do |r|
-  r[:foo] = "s1"
+    def test_set_and_get_with_brackets
+      r["foo"] = "s1"
 
-  assert "s1" == r[:foo]
-end
+      assert "s1" == r["foo"]
+    end
 
-test "SET and GET with newline characters" do |r|
-  r.set("foo", "1\n")
+    def test_set_and_get_with_brackets_and_symbol
+      r[:foo] = "s1"
 
-  assert "1\n" == r.get("foo")
-end
+      assert "s1" == r[:foo]
+    end
 
-test "SET and GET with ASCII characters" do |r|
-  with_external_encoding("ASCII-8BIT") do
-    (0..255).each do |i|
-      str = "#{i.chr}---#{i.chr}"
-      r.set("foo", str)
+    def test_set_and_get_with_newline_characters
+      r.set("foo", "1\n")
 
-      assert str == r.get("foo")
+      assert "1\n" == r.get("foo")
+    end
+
+    if defined?(Encoding)
+      def test_set_and_get_with_ascii_characters
+        with_external_encoding("ASCII-8BIT") do
+          (0..255).each do |i|
+            str = "#{i.chr}---#{i.chr}"
+            r.set("foo", str)
+
+            assert str == r.get("foo")
+          end
+        end
+      end
+    end
+
+    def test_setex
+      assert r.setex("foo", 1, "bar")
+      assert "bar" == r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+    end
+
+    def test_psetex
+      return if version(r) < 205040
+
+      assert r.psetex("foo", 1000, "bar")
+      assert "bar" == r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+    end
+
+    def test_getset
+      r.set("foo", "bar")
+
+      assert "bar" == r.getset("foo", "baz")
+      assert "baz" == r.get("foo")
+    end
+
+    def test_setnx
+      r.set("foo", "s1")
+
+      assert "s1" == r.get("foo")
+
+      r.setnx("foo", "s2")
+
+      assert "s1" == r.get("foo")
+    end
+
+    def test_incr
+      assert 1 == r.incr("foo")
+      assert 2 == r.incr("foo")
+      assert 3 == r.incr("foo")
+    end
+
+    def test_incrby
+      assert 1 == r.incrby("foo", 1)
+      assert 3 == r.incrby("foo", 2)
+      assert 6 == r.incrby("foo", 3)
+    end
+
+    def test_incrbyfloat
+      return if version(r) < 205040
+
+      assert 1.23 == r.incrbyfloat("foo", 1.23)
+      assert 2    == r.incrbyfloat("foo", 0.77)
+      assert 1.9  == r.incrbyfloat("foo", -0.1)
+    end
+
+    def test_decr
+      r.set("foo", 3)
+
+      assert 2 == r.decr("foo")
+      assert 1 == r.decr("foo")
+      assert 0 == r.decr("foo")
+    end
+
+    def test_decrby
+      r.set("foo", 6)
+
+      assert 3 == r.decrby("foo", 3)
+      assert 1 == r.decrby("foo", 2)
+      assert 0 == r.decrby("foo", 1)
+    end
+
+    def test_append
+      r.set "foo", "s"
+      r.append "foo", "1"
+
+      assert "s1" == r.get("foo")
+    end
+
+    def test_getbit
+      r.set("foo", "a")
+
+      assert_equal 1, r.getbit("foo", 1)
+      assert_equal 1, r.getbit("foo", 2)
+      assert_equal 0, r.getbit("foo", 3)
+      assert_equal 0, r.getbit("foo", 4)
+      assert_equal 0, r.getbit("foo", 5)
+      assert_equal 0, r.getbit("foo", 6)
+      assert_equal 1, r.getbit("foo", 7)
+    end
+
+    def test_setbit
+      r.set("foo", "a")
+
+      r.setbit("foo", 6, 1)
+
+      assert_equal "c", r.get("foo")
+    end
+
+    def test_getrange
+      r.set("foo", "abcde")
+
+      assert_equal "bcd", r.getrange("foo", 1, 3)
+      assert_equal "abcde", r.getrange("foo", 0, -1)
+    end
+
+    def test_setrange
+      r.set("foo", "abcde")
+
+      r.setrange("foo", 1, "bar")
+
+      assert_equal "abare", r.get("foo")
     end
   end
-end if defined?(Encoding)
-
-test "SETEX" do |r|
-  assert r.setex("foo", 1, "bar")
-  assert "bar" == r.get("foo")
-  assert [0, 1].include? r.ttl("foo")
-end
-
-test "PSETEX" do |r|
-  next if version(r) < 205040
-
-  assert r.psetex("foo", 1000, "bar")
-  assert "bar" == r.get("foo")
-  assert [0, 1].include? r.ttl("foo")
-end
-
-test "GETSET" do |r|
-  r.set("foo", "bar")
-
-  assert "bar" == r.getset("foo", "baz")
-  assert "baz" == r.get("foo")
-end
-
-test "SETNX" do |r|
-  r.set("foo", "s1")
-
-  assert "s1" == r.get("foo")
-
-  r.setnx("foo", "s2")
-
-  assert "s1" == r.get("foo")
-end
-
-test "INCR" do |r|
-  assert 1 == r.incr("foo")
-  assert 2 == r.incr("foo")
-  assert 3 == r.incr("foo")
-end
-
-test "INCRBY" do |r|
-  assert 1 == r.incrby("foo", 1)
-  assert 3 == r.incrby("foo", 2)
-  assert 6 == r.incrby("foo", 3)
-end
-
-test "INCRBYFLOAT" do |r|
-  next if version(r) < 205040
-
-  assert 1.23 == r.incrbyfloat("foo", 1.23)
-  assert 2    == r.incrbyfloat("foo", 0.77)
-  assert 1.9  == r.incrbyfloat("foo", -0.1)
-end
-
-test "DECR" do |r|
-  r.set("foo", 3)
-
-  assert 2 == r.decr("foo")
-  assert 1 == r.decr("foo")
-  assert 0 == r.decr("foo")
-end
-
-test "DECRBY" do |r|
-  r.set("foo", 6)
-
-  assert 3 == r.decrby("foo", 3)
-  assert 1 == r.decrby("foo", 2)
-  assert 0 == r.decrby("foo", 1)
-end
-
-test "APPEND" do |r|
-  r.set "foo", "s"
-  r.append "foo", "1"
-
-  assert "s1" == r.get("foo")
-end
-
-test "GETBIT" do |r|
-  r.set("foo", "a")
-
-  assert_equal 1, r.getbit("foo", 1)
-  assert_equal 1, r.getbit("foo", 2)
-  assert_equal 0, r.getbit("foo", 3)
-  assert_equal 0, r.getbit("foo", 4)
-  assert_equal 0, r.getbit("foo", 5)
-  assert_equal 0, r.getbit("foo", 6)
-  assert_equal 1, r.getbit("foo", 7)
-end
-
-test "SETBIT" do |r|
-  r.set("foo", "a")
-
-  r.setbit("foo", 6, 1)
-
-  assert_equal "c", r.get("foo")
-end
-
-test "GETRANGE" do |r|
-  r.set("foo", "abcde")
-
-  assert_equal "bcd", r.getrange("foo", 1, 3)
-  assert_equal "abcde", r.getrange("foo", 0, -1)
-end
-
-test "SETRANGE" do |r|
-  r.set("foo", "abcde")
-
-  r.setrange("foo", 1, "bar")
-
-  assert_equal "abare", r.get("foo")
 end

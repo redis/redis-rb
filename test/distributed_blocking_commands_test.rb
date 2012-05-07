@@ -1,59 +1,60 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
+require "helper"
 require "redis/distributed"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedBlockingCommands < Test::Unit::TestCase
 
-test "BLPOP" do |r|
-  r.lpush("foo", "s1")
-  r.lpush("foo", "s2")
+  include Helper
+  include Helper::Distributed
 
-  wire = Wire.new do
-    redis = Redis::Distributed.new(NODES)
-    Wire.sleep 0.1
-    redis.lpush("foo", "s3")
+  def test_blpop
+    r.lpush("foo", "s1")
+    r.lpush("foo", "s2")
+
+    wire = Wire.new do
+      redis = Redis::Distributed.new(NODES)
+      Wire.sleep 0.1
+      redis.lpush("foo", "s3")
+    end
+
+    assert ["foo", "s2"] == r.blpop("foo", :timeout => 1)
+    assert ["foo", "s1"] == r.blpop("foo", :timeout => 1)
+    assert ["foo", "s3"] == r.blpop("foo", :timeout => 1)
+
+    wire.join
   end
 
-  assert ["foo", "s2"] == r.blpop("foo", :timeout => 1)
-  assert ["foo", "s1"] == r.blpop("foo", :timeout => 1)
-  assert ["foo", "s3"] == r.blpop("foo", :timeout => 1)
+  def test_brpop
+    r.rpush("foo", "s1")
+    r.rpush("foo", "s2")
 
-  wire.join
-end
+    wire = Wire.new do
+      redis = Redis::Distributed.new(NODES)
+      Wire.sleep 0.1
+      redis.rpush("foo", "s3")
+    end
 
-test "BRPOP" do |r|
-  r.rpush("foo", "s1")
-  r.rpush("foo", "s2")
+    assert ["foo", "s2"] == r.brpop("foo", :timeout => 1)
+    assert ["foo", "s1"] == r.brpop("foo", :timeout => 1)
+    assert ["foo", "s3"] == r.brpop("foo", :timeout => 1)
 
-  wire = Wire.new do
-    redis = Redis::Distributed.new(NODES)
-    Wire.sleep 0.1
-    redis.rpush("foo", "s3")
+    wire.join
   end
 
-  assert ["foo", "s2"] == r.brpop("foo", :timeout => 1)
-  assert ["foo", "s1"] == r.brpop("foo", :timeout => 1)
-  assert ["foo", "s3"] == r.brpop("foo", :timeout => 1)
+  def test_blocking_pop_should_unset_a_configured_socket_timeout
+    r = Redis::Distributed.new(NODES, :timeout => 0.5)
 
-  wire.join
-end
+    assert_nothing_raised do
+      r.blpop("foo", :timeout => 1)
+    end # Errno::EAGAIN raised if socket times out before Redis command times out
 
-test "Blocking pop should unset a configured socket timeout" do |r|
-  r = Redis::Distributed.new(NODES, :timeout => 0.5)
+    assert r.nodes.all? { |node| node.client.timeout == 0.5 }
 
-  assert_nothing_raised do
-    r.blpop("foo", :timeout => 1)
-  end # Errno::EAGAIN raised if socket times out before Redis command times out
+    assert_nothing_raised do
+      r.brpop("foo", :timeout => 1)
+    end # Errno::EAGAIN raised if socket times out before Redis command times out
 
-  assert r.nodes.all? { |node| node.client.timeout == 0.5 }
-
-  assert_nothing_raised do
-    r.brpop("foo", :timeout => 1)
-  end # Errno::EAGAIN raised if socket times out before Redis command times out
-
-  assert r.nodes.all? { |node| node.client.timeout == 0.5 }
+    assert r.nodes.all? { |node| node.client.timeout == 0.5 }
+  end
 end

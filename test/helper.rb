@@ -1,6 +1,6 @@
 $:.unshift File.expand_path('../lib', File.dirname(__FILE__))
 
-require "cutest"
+require "test/unit"
 require "logger"
 require "stringio"
 
@@ -42,10 +42,34 @@ def init(redis)
   end
 end
 
+require "redis_mock"
+
+module Helper
+
+  include RedisMock::Helper
+
+  attr_reader :r
+
+  def setup
+    @r = init Redis.new(OPTIONS)
+  end
+
+  module Distributed
+
+    attr_reader :log
+
+    def setup
+      @log = StringIO.new
+      @r = init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
+    end
+  end
+end
+
 $VERBOSE = true
 
 require "redis/connection/%s" % (ENV["conn"] || "ruby")
 require "redis"
+require "redis/distributed"
 
 def driver
   Redis::Connection.drivers.last.to_s.split("::").last.downcase.to_sym

@@ -1,84 +1,84 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
+require "lint/sets"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedCommandsOnSets < Test::Unit::TestCase
 
-load './test/lint/sets.rb'
+  include Helper
+  include Helper::Distributed
+  include Lint::Sets
 
-test "SMOVE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "bar", "s2"
+  def test_smove
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "bar", "s2"
 
-    r.smove("foo", "bar", "s1")
+      r.smove("foo", "bar", "s1")
+    end
   end
-end
 
-test "SINTER" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "foo", "s2"
-    r.sadd "bar", "s2"
+  def test_sinter
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
 
-    r.sinter("foo", "bar")
+      r.sinter("foo", "bar")
+    end
   end
-end
 
-test "SINTERSTORE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "foo", "s2"
-    r.sadd "bar", "s2"
+  def test_sinterstore
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
 
-    r.sinterstore("baz", "foo", "bar")
+      r.sinterstore("baz", "foo", "bar")
+    end
   end
-end
 
-test "SUNION" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "foo", "s2"
-    r.sadd "bar", "s2"
-    r.sadd "bar", "s3"
+  def test_sunion
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
+      r.sadd "bar", "s3"
 
-    r.sunion("foo", "bar")
+      r.sunion("foo", "bar")
+    end
   end
-end
 
-test "SUNIONSTORE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "foo", "s2"
-    r.sadd "bar", "s2"
-    r.sadd "bar", "s3"
+  def test_sunionstore
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
+      r.sadd "bar", "s3"
 
-    r.sunionstore("baz", "foo", "bar")
+      r.sunionstore("baz", "foo", "bar")
+    end
   end
-end
 
-test "SDIFF" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "foo", "s2"
-    r.sadd "bar", "s2"
-    r.sadd "bar", "s3"
+  def test_sdiff
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
+      r.sadd "bar", "s3"
 
-    r.sdiff("foo", "bar")
+      r.sdiff("foo", "bar")
+    end
   end
-end
 
-test "SDIFFSTORE" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.sadd "foo", "s1"
-    r.sadd "foo", "s2"
-    r.sadd "bar", "s2"
-    r.sadd "bar", "s3"
+  def test_sdiffstore
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
+      r.sadd "bar", "s3"
 
-    r.sdiffstore("baz", "foo", "bar")
+      r.sdiffstore("baz", "foo", "bar")
+    end
   end
 end

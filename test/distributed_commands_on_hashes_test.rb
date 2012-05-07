@@ -1,11 +1,11 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
+require "lint/hashes"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
+class TestDistributedCommandsOnHashes < Test::Unit::TestCase
+
+  include Helper
+  include Helper::Distributed
+  include Lint::Hashes
 end
-
-load './test/lint/hashes.rb'

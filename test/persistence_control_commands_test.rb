@@ -1,30 +1,32 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require File.expand_path("./redis_mock", File.dirname(__FILE__))
+require "helper"
 
-include RedisMock::Helper
+class TestPersistenceControlCommands < Test::Unit::TestCase
 
-test "SAVE" do
-  redis_mock(:save => lambda { "+SAVE" }) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+  include Helper
 
-    assert "SAVE" == redis.save
+  def test_save
+    redis_mock(:save => lambda { "+SAVE" }) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+
+      assert "SAVE" == redis.save
+    end
   end
-end
 
-test "BGSAVE" do
-  redis_mock(:bgsave => lambda { "+BGSAVE" }) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+  def test_bgsave
+    redis_mock(:bgsave => lambda { "+BGSAVE" }) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-    assert "BGSAVE" == redis.bgsave
+      assert "BGSAVE" == redis.bgsave
+    end
   end
-end
 
-test "LASTSAVE" do
-  redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
-    redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+  def test_lastsave
+    redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
+      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-    assert "LASTSAVE" == redis.lastsave
+      assert "LASTSAVE" == redis.lastsave
+    end
   end
 end
