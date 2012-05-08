@@ -9,6 +9,8 @@ begin
 rescue LoadError
 end
 
+require "support/redis_mock"
+
 PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15, :timeout => 0.1}
 NODES   = ["redis://127.0.0.1:#{PORT}/15"]
@@ -41,8 +43,6 @@ def init(redis)
     exit 1
   end
 end
-
-require "redis_mock"
 
 module Helper
 
