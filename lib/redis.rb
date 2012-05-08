@@ -1867,6 +1867,42 @@ class Redis
     end
   end
 
+  # Watch the given keys and issue a multi/exec in a threadsafe manner.
+  #
+  # Passing a block is required.
+  #
+  # @example
+  #   redis.watch_with_multi do |multi|
+  #     multi.set("key", "value")
+  #     multi.incr("counter")
+  #   end # => ["OK", 6]
+  #
+  # @param [String, Array<String>] keys one or more keys to watch
+  # @yield [multi] the commands that are called inside this block are cached
+  #   and written to the server upon returning from it
+  # @yieldparam [Redis] multi `self`
+  #
+  # @return [String, Array<...>]
+  #   - when a block is not given, `OK`
+  #   - when a block is given, an array with replies  #
+  #
+  # @see #watch
+  # @see #unwatch
+  # @see #multi
+  def watch_with_multi(*keys)
+    mon_synchronize do
+      begin
+        watch(*keys)
+
+        multi do |client|
+          yield client
+        end
+      ensure
+        unwatch
+      end
+    end
+  end
+
   # Forget about all watched keys.
   #
   # @return [String] `OK`
