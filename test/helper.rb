@@ -17,10 +17,10 @@ NODES   = ["redis://127.0.0.1:#{PORT}/15"]
 
 def init(redis)
   begin
-    redis.flushdb
     redis.select 14
     redis.flushdb
     redis.select 15
+    redis.flushdb
     redis
   rescue Redis::CannotConnectError
     puts <<-EOS
