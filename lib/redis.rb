@@ -70,7 +70,9 @@ class Redis
     synchronize do |client|
       client.call [:info, cmd].compact do |reply|
         if reply.kind_of?(String)
-          reply = Hash[*reply.split(/:|\r\n/).grep(/^[^#]/)]
+          reply = Hash[reply.split("\r\n").map do |line|
+            line.split(":", 2) unless line =~ /^(#|$)/
+          end]
 
           if cmd && cmd.to_s == "commandstats"
             # Extract nested hashes for INFO COMMANDSTATS

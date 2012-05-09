@@ -139,7 +139,7 @@ end
 
 test "SUBSCRIBE past a timeout" do |r|
   # For some reason, a thread here doesn't reproduce the issue.
-  sleep = %{sleep #{OPTIONS[:timeout] + 1}}
+  sleep = %{sleep #{OPTIONS[:timeout] * 2}}
   publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
   cmd = [sleep, publish].join("; ")
 
