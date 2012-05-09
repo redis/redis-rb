@@ -187,6 +187,50 @@ class TestTransactions < Test::Unit::TestCase
     assert_equal "s1", r.get("foo")
   end
 
+  def test_watch_with_a_block_and_an_unmodified_key
+    result = r.watch "foo" do
+      r.multi do |multi|
+        multi.set "foo", "s1"
+      end
+    end
+
+    assert_equal ["OK"], result
+    assert_equal "s1", r.get("foo")
+  end
+
+  def test_watch_with_a_block_and_a_modified_key
+    result = r.watch "foo" do
+      r.set "foo", "s1"
+      r.multi do |multi|
+        multi.set "foo", "s2"
+      end
+    end
+
+    assert_equal nil, result
+    assert_equal "s1", r.get("foo")
+  end
+
+  def test_watch_with_a_block_that_raises_an_exception
+    r.set("foo", "s1")
+
+    begin
+      r.watch "foo" do
+        raise "test"
+      end
+    rescue RuntimeError
+    end
+
+    r.set("foo", "s2")
+
+    # If the watch was still set from within the block above, this multi/exec
+    # would fail. This proves that raising an exception above unwatches.
+    r.multi do |multi|
+      multi.set "foo", "s3"
+    end
+
+    assert_equal "s3", r.get("foo")
+  end
+
   def test_unwatch_with_a_modified_key
     r.watch "foo"
     r.set "foo", "s1"

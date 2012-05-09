@@ -1,6 +1,5 @@
 require "monitor"
 require "redis/errors"
-require "uri"
 
 class Redis
 
@@ -25,7 +24,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
-    @client = Client.new(_normalize_options(options))
+    @client = Client.new(options)
 
     super() # Monitor#initialize
   end
@@ -1856,14 +1855,48 @@ class Redis
 
   # Watch the given keys to determine execution of the MULTI/EXEC block.
   #
+  # Using a block is optional, but is necessary for thread-safety.
+  #
+  # An `#unwatch` is automatically issued if an exception is raised within the
+  # block that is a subclass of StandardError and is not a ConnectionError.
+  #
+  # @example With a block
+  #   redis.watch("key") do
+  #     if redis.get("key") == "some value"
+  #       redis.multi do |multi|
+  #         multi.set("key", "other value")
+  #         multi.incr("counter")
+  #       end
+  #     else
+  #       redis.unwatch
+  #     end
+  #   end
+  #     # => ["OK", 6]
+  #
+  # @example Without a block
+  #   redis.watch("key")
+  #     # => "OK"
+  #
   # @param [String, Array<String>] keys one or more keys to watch
-  # @return [String] `OK`
+  # @return [Object] if using a block, returns the return value of the block
+  # @return [String] if not using a block, returns `OK`
   #
   # @see #unwatch
   # @see #multi
   def watch(*keys)
     synchronize do |client|
       client.call [:watch, *keys]
+
+      if block_given?
+        begin
+          yield
+        rescue ConnectionError
+          raise
+        rescue StandardError
+          unwatch
+          raise
+        end
+      end
     end
   end
 
@@ -2047,25 +2080,6 @@ private
     ensure
       @client = original
     end
-  end
-
-  def _normalize_options(options)
-    options = options.dup
-
-    if options.include?(:path)
-      uri = URI.parse("unix://#{options.delete(:path)}")
-    else
-      uri = URI.parse(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
-
-      uri.host     = options.delete(:host)           if options.include?(:host)
-      uri.port     = options.delete(:port)           if options.include?(:port)
-      uri.userinfo = ":#{options.delete(:password)}" if options.include?(:password)
-      uri.path     = "/#{options.delete(:db)}"       if options.include?(:db)
-    end
-
-    options[:uri] = uri
-
-    options
   end
 
 end

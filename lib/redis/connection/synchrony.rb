@@ -73,16 +73,15 @@ class Redis
         @timeout = timeout
       end
 
-      def connect(uri, timeout)
-        conn = EventMachine.connect(uri.host, uri.port, RedisClient) do |c|
-          c.pending_connect_timeout = [timeout, 0.1].max
+      def connect(config)
+        if config[:scheme] == "unix"
+          conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
+        else
+          conn = EventMachine.connect(config[:host], config[:port], RedisClient) do |c|
+            c.pending_connect_timeout = [config[:timeout], 0.1].max
+          end
         end
 
-        setup_connect_callbacks(conn, Fiber.current)
-      end
-
-      def connect_unix(path, timeout)
-        conn = EventMachine.connect_unix_domain(path, RedisClient)
         setup_connect_callbacks(conn, Fiber.current)
       end
 
