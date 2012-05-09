@@ -10,8 +10,6 @@ class Redis
   attr :client
 
   def self.connect(options = {})
-    options = options.dup
-    options[:url] ||= ENV["REDIS_URL"]
     new(options)
   end
 

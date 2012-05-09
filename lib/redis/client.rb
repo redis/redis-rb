@@ -299,11 +299,13 @@ class Redis
     def _parse_options(options)
       defaults = DEFAULTS.dup
 
+      url = options[:url] || ENV["REDIS_URL"]
+
       # Override defaults from URL if given
-      if options[:url]
+      if url
         require "uri"
 
-        uri = URI(options[:url])
+        uri = URI(url)
 
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
