@@ -58,7 +58,7 @@ class Redis
 
         if replies.last.size < futures.size - 2
           # Some command wasn't recognized by Redis.
-          raise replies.detect { |r| r.kind_of?(::Exception) }
+          raise replies.detect { |r| r.kind_of?(::RuntimeError) }
         end
 
         super(replies.last)
@@ -99,7 +99,7 @@ class Redis
     end
 
     def value
-      ::Kernel.raise(@object) if @object.kind_of?(::Exception)
+      ::Kernel.raise(@object) if @object.kind_of?(::RuntimeError)
       @object
     end
   end
