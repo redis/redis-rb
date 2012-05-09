@@ -94,8 +94,6 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_connection_timeout
-    return if driver == :synchrony
-
     assert_raise Redis::CannotConnectError do
       Redis.new(OPTIONS.merge(:host => "10.255.255.254", :timeout => 0.1)).ping
     end
