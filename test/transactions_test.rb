@@ -9,12 +9,12 @@ class TestTransactions < Test::Unit::TestCase
   def test_multi_discard
     r.multi
 
-    assert "QUEUED" == r.set("foo", "1")
-    assert "QUEUED" == r.get("foo")
+    assert_equal "QUEUED", r.set("foo", "1")
+    assert_equal "QUEUED", r.get("foo")
 
     r.discard
 
-    assert nil == r.get("foo")
+    assert_equal nil, r.get("foo")
   end
 
   def test_multi_exec_with_a_block
@@ -22,7 +22,7 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s1"
     end
 
-    assert "s1" == r.get("foo")
+    assert_equal "s1", r.get("foo")
   end
 
   def test_multi_exec_with_a_block_doesn_t_return_replies_for_multi_and_exec
@@ -86,8 +86,8 @@ class TestTransactions < Test::Unit::TestCase
       end
     end
 
-    assert nil == r.get("bar")
-    assert nil == r.get("baz")
+    assert_equal nil, r.get("bar")
+    assert_equal nil, r.get("baz")
   end
 
   def test_transformed_replies_as_return_values_for_multi_exec_block
@@ -115,7 +115,7 @@ class TestTransactions < Test::Unit::TestCase
       end
     end
 
-    assert "s1" == r.get("foo")
+    assert_equal "s1", r.get("foo")
   end
 
   def test_raise_command_errors_when_accessing_futures_after_multi_exec
@@ -144,7 +144,7 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s1"
     end
 
-    assert "s1" == r.get("foo")
+    assert_equal "s1", r.get("foo")
   end
 
   def test_watch_with_an_unmodified_key
@@ -153,7 +153,7 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s1"
     end
 
-    assert "s1" == r.get("foo")
+    assert_equal "s1", r.get("foo")
   end
 
   def test_watch_with_an_unmodified_key_passed_as_array
@@ -162,7 +162,7 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s1"
     end
 
-    assert "s1" == r.get("foo")
+    assert_equal "s1", r.get("foo")
   end
 
   def test_watch_with_a_modified_key
@@ -172,8 +172,8 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s2"
     end
 
-    assert nil == res
-    assert "s1" == r.get("foo")
+    assert_equal nil, res
+    assert_equal "s1", r.get("foo")
   end
 
   def test_watch_with_a_modified_key_passed_as_array
@@ -183,8 +183,8 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s2"
     end
 
-    assert nil == res
-    assert "s1" == r.get("foo")
+    assert_equal nil, res
+    assert_equal "s1", r.get("foo")
   end
 
   def test_unwatch_with_a_modified_key
@@ -195,6 +195,6 @@ class TestTransactions < Test::Unit::TestCase
       multi.set "foo", "s2"
     end
 
-    assert "s2" == r.get("foo")
+    assert_equal "s2", r.get("foo")
   end
 end

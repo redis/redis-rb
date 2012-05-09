@@ -21,7 +21,7 @@ class TestCommandsOnSets < Test::Unit::TestCase
     r.sadd "foo", "s2"
     r.sadd "bar", "s2"
 
-    assert ["s2"] == r.sinter("foo", "bar")
+    assert_equal ["s2"], r.sinter("foo", "bar")
   end
 
   def test_sinterstore
@@ -31,7 +31,7 @@ class TestCommandsOnSets < Test::Unit::TestCase
 
     r.sinterstore("baz", "foo", "bar")
 
-    assert ["s2"] == r.smembers("baz")
+    assert_equal ["s2"], r.smembers("baz")
   end
 
   def test_sunion
@@ -40,7 +40,7 @@ class TestCommandsOnSets < Test::Unit::TestCase
     r.sadd "bar", "s2"
     r.sadd "bar", "s3"
 
-    assert ["s1", "s2", "s3"] == r.sunion("foo", "bar").sort
+    assert_equal ["s1", "s2", "s3"], r.sunion("foo", "bar").sort
   end
 
   def test_sunionstore
@@ -51,7 +51,7 @@ class TestCommandsOnSets < Test::Unit::TestCase
 
     r.sunionstore("baz", "foo", "bar")
 
-    assert ["s1", "s2", "s3"] == r.smembers("baz").sort
+    assert_equal ["s1", "s2", "s3"], r.smembers("baz").sort
   end
 
   def test_sdiff
@@ -60,8 +60,8 @@ class TestCommandsOnSets < Test::Unit::TestCase
     r.sadd "bar", "s2"
     r.sadd "bar", "s3"
 
-    assert ["s1"] == r.sdiff("foo", "bar")
-    assert ["s3"] == r.sdiff("bar", "foo")
+    assert_equal ["s1"], r.sdiff("foo", "bar")
+    assert_equal ["s3"], r.sdiff("bar", "foo")
   end
 
   def test_sdiffstore
@@ -72,6 +72,6 @@ class TestCommandsOnSets < Test::Unit::TestCase
 
     r.sdiffstore("baz", "foo", "bar")
 
-    assert ["s1"] == r.smembers("baz")
+    assert_equal ["s1"], r.smembers("baz")
   end
 end

@@ -15,11 +15,11 @@ class TestDistributed < Test::Unit::TestCase
     end
 
     100.times do |idx|
-      assert "foo#{idx}" == @r.get(idx.to_s)
+      assert_equal "foo#{idx}", @r.get(idx.to_s)
     end
 
-    assert "0" == @r.keys("*").sort.first
-    assert "string" == @r.type("1")
+    assert_equal "0", @r.keys("*").sort.first
+    assert_equal "string", @r.type("1")
   end
 
   def test_add_nodes
@@ -27,19 +27,19 @@ class TestDistributed < Test::Unit::TestCase
 
     @r = Redis::Distributed.new NODES, :logger => logger, :timeout => 10
 
-    assert "127.0.0.1" == @r.nodes[0].client.host
-    assert PORT == @r.nodes[0].client.port
-    assert 15 == @r.nodes[0].client.db
-    assert 10 == @r.nodes[0].client.timeout
-    assert logger == @r.nodes[0].client.logger
+    assert_equal "127.0.0.1", @r.nodes[0].client.host
+    assert_equal PORT, @r.nodes[0].client.port
+    assert_equal 15, @r.nodes[0].client.db
+    assert_equal 10, @r.nodes[0].client.timeout
+    assert_equal logger, @r.nodes[0].client.logger
 
     @r.add_node("redis://localhost:6380/14")
 
-    assert "localhost" == @r.nodes[1].client.host
-    assert 6380 == @r.nodes[1].client.port
-    assert 14 == @r.nodes[1].client.db
-    assert 10 == @r.nodes[1].client.timeout
-    assert logger == @r.nodes[1].client.logger
+    assert_equal "localhost", @r.nodes[1].client.host
+    assert_equal 6380, @r.nodes[1].client.port
+    assert_equal 14, @r.nodes[1].client.db
+    assert_equal 10, @r.nodes[1].client.timeout
+    assert_equal logger, @r.nodes[1].client.logger
   end
 
   def test_pipelining_commands_cannot_be_distributed

@@ -13,8 +13,8 @@ class TestSorting < Test::Unit::TestCase
     r.rpush("bar", "1")
     r.rpush("bar", "2")
 
-    assert ["s1"] == r.sort("bar", :get => "foo:*", :limit => [0, 1])
-    assert ["s2"] == r.sort("bar", :get => "foo:*", :limit => [0, 1], :order => "desc alpha")
+    assert_equal ["s1"], r.sort("bar", :get => "foo:*", :limit => [0, 1])
+    assert_equal ["s2"], r.sort("bar", :get => "foo:*", :limit => [0, 1], :order => "desc alpha")
   end
 
   def test_sort_with_an_array_of_gets
@@ -27,9 +27,9 @@ class TestSorting < Test::Unit::TestCase
     r.rpush("bar", "1")
     r.rpush("bar", "2")
 
-    assert [["s1a", "s1b"]] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
-    assert [["s2a", "s2b"]] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
-    assert [["s1a", "s1b"], ["s2a", "s2b"]] == r.sort("bar", :get => ["foo:*:a", "foo:*:b"])
+    assert_equal [["s1a", "s1b"]], r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
+    assert_equal [["s2a", "s2b"]], r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
+    assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort("bar", :get => ["foo:*:a", "foo:*:b"])
   end
 
   def test_sort_with_store
@@ -40,6 +40,6 @@ class TestSorting < Test::Unit::TestCase
     r.rpush("bar", "2")
 
     r.sort("bar", :get => "foo:*", :store => "baz")
-    assert ["s1", "s2"] == r.lrange("baz", 0, -1)
+    assert_equal ["s1", "s2"], r.lrange("baz", 0, -1)
   end
 end

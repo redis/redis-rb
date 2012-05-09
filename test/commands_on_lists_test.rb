@@ -13,8 +13,8 @@ class TestCommandsOnLists < Test::Unit::TestCase
     r.rpush "foo", "s2"
     r.rpushx "foo", "s3"
 
-    assert 2 == r.llen("foo")
-    assert ["s2", "s3"] == r.lrange("foo", 0, -1)
+    assert_equal 2, r.llen("foo")
+    assert_equal ["s2", "s3"], r.lrange("foo", 0, -1)
   end
 
   def test_lpushx
@@ -22,8 +22,8 @@ class TestCommandsOnLists < Test::Unit::TestCase
     r.lpush "foo", "s2"
     r.lpushx "foo", "s3"
 
-    assert 2 == r.llen("foo")
-    assert ["s3", "s2"] == r.lrange("foo", 0, -1)
+    assert_equal 2, r.llen("foo")
+    assert_equal ["s3", "s2"], r.lrange("foo", 0, -1)
   end
 
   def test_linsert
@@ -31,7 +31,7 @@ class TestCommandsOnLists < Test::Unit::TestCase
     r.rpush "foo", "s3"
     r.linsert "foo", :before, "s3", "s2"
 
-    assert ["s1", "s2", "s3"] == r.lrange("foo", 0, -1)
+    assert_equal ["s1", "s2", "s3"], r.lrange("foo", 0, -1)
 
     assert_raise(Redis::CommandError) do
       r.linsert "foo", :anywhere, "s3", "s2"
@@ -42,10 +42,10 @@ class TestCommandsOnLists < Test::Unit::TestCase
     r.rpush "foo", "s1"
     r.rpush "foo", "s2"
 
-    assert "s2" == r.rpoplpush("foo", "bar")
-    assert ["s2"] == r.lrange("bar", 0, -1)
-    assert "s1" == r.rpoplpush("foo", "bar")
-    assert ["s1", "s2"] == r.lrange("bar", 0, -1)
+    assert_equal "s2", r.rpoplpush("foo", "bar")
+    assert_equal ["s2"], r.lrange("bar", 0, -1)
+    assert_equal "s1", r.rpoplpush("foo", "bar")
+    assert_equal ["s1", "s2"], r.lrange("bar", 0, -1)
   end
 
   def test_brpoplpush

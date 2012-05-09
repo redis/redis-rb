@@ -13,7 +13,7 @@ class TestDistributedPersistenceControlCommands < Test::Unit::TestCase
     redis_mock(:save => lambda { "+SAVE" }) do
       redis = Redis::Distributed.new(MOCK_NODES)
 
-      assert ["SAVE"] == redis.save
+      assert_equal ["SAVE"], redis.save
     end
   end
 
@@ -21,7 +21,7 @@ class TestDistributedPersistenceControlCommands < Test::Unit::TestCase
     redis_mock(:bgsave => lambda { "+BGSAVE" }) do
       redis = Redis::Distributed.new(MOCK_NODES)
 
-      assert ["BGSAVE"] == redis.bgsave
+      assert_equal ["BGSAVE"], redis.bgsave
     end
   end
 
@@ -29,7 +29,7 @@ class TestDistributedPersistenceControlCommands < Test::Unit::TestCase
     redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
       redis = Redis::Distributed.new(MOCK_NODES)
 
-      assert ["LASTSAVE"] == redis.lastsave
+      assert_equal ["LASTSAVE"], redis.lastsave
     end
   end
 end

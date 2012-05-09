@@ -10,7 +10,7 @@ class TestPersistenceControlCommands < Test::Unit::TestCase
     redis_mock(:save => lambda { "+SAVE" }) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-      assert "SAVE" == redis.save
+      assert_equal "SAVE", redis.save
     end
   end
 
@@ -18,7 +18,7 @@ class TestPersistenceControlCommands < Test::Unit::TestCase
     redis_mock(:bgsave => lambda { "+BGSAVE" }) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-      assert "BGSAVE" == redis.bgsave
+      assert_equal "BGSAVE", redis.bgsave
     end
   end
 
@@ -26,7 +26,7 @@ class TestPersistenceControlCommands < Test::Unit::TestCase
     redis_mock(:lastsave => lambda { "+LASTSAVE" }) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-      assert "LASTSAVE" == redis.lastsave
+      assert_equal "LASTSAVE", redis.lastsave
     end
   end
 end

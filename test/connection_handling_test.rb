@@ -15,23 +15,23 @@ class TestConnectionHandling < Test::Unit::TestCase
     redis_mock(replies) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT, :password => "secret"))
 
-      assert "bar" == redis.get("foo")
+      assert_equal "bar", redis.get("foo")
     end
   end
 
   def test_ping
-    assert "PONG" == r.ping
+    assert_equal "PONG", r.ping
   end
 
   def test_select
     r.set "foo", "bar"
 
     r.select 14
-    assert nil == r.get("foo")
+    assert_equal nil, r.get("foo")
 
     r.client.disconnect
 
-    assert nil == r.get("foo")
+    assert_equal nil, r.get("foo")
   end
 
   def test_quit
@@ -49,7 +49,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
       # SHUTDOWN does not reply: test that it does not raise here.
-      assert nil == redis.shutdown
+      assert_equal nil, redis.shutdown
     end
   end
 
@@ -72,7 +72,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       end
 
       # The connection should remain in tact
-      assert connections == redis.connections
+      assert_equal connections, redis.connections
     end
   end
 
@@ -88,7 +88,7 @@ class TestConnectionHandling < Test::Unit::TestCase
         redis.shutdown
       end
 
-      assert nil == result
+      assert_equal nil, result
       assert !redis.client.connected?
     end
   end
@@ -114,7 +114,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       end
 
       # The connection should remain in tact
-      assert connections == redis.connections
+      assert_equal connections, redis.connections
     end
   end
 
@@ -132,7 +132,7 @@ class TestConnectionHandling < Test::Unit::TestCase
         redis.shutdown
       end
 
-      assert nil == result
+      assert_equal nil, result
       assert !redis.client.connected?
     end
   end
@@ -165,7 +165,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       assert err.kind_of?(StandardError)
 
       # The connection should remain intact
-      assert connections == redis.connections
+      assert_equal connections, redis.connections
     end
   end
 
@@ -173,7 +173,7 @@ class TestConnectionHandling < Test::Unit::TestCase
     redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-      assert "SLAVEOF localhost 6381" == redis.slaveof("localhost", 6381)
+      assert_equal "SLAVEOF localhost 6381", redis.slaveof("localhost", 6381)
     end
   end
 
@@ -181,7 +181,7 @@ class TestConnectionHandling < Test::Unit::TestCase
     redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-      assert "BGREWRITEAOF" == redis.bgrewriteaof
+      assert_equal "BGREWRITEAOF", redis.bgrewriteaof
     end
   end
 
@@ -189,17 +189,17 @@ class TestConnectionHandling < Test::Unit::TestCase
     assert r.config(:get, "*")["timeout"] != nil
 
     config = r.config(:get, "timeout")
-    assert ["timeout"] == config.keys
+    assert_equal ["timeout"], config.keys
     assert config.values.compact.size > 0
   end
 
   def test_config_set
     begin
-      assert "OK" == r.config(:set, "timeout", 200)
-      assert "200" == r.config(:get, "*")["timeout"]
+      assert_equal "OK", r.config(:set, "timeout", 200)
+      assert_equal "200", r.config(:get, "*")["timeout"]
 
-      assert "OK" == r.config(:set, "timeout", 100)
-      assert "100" == r.config(:get, "*")["timeout"]
+      assert_equal "OK", r.config(:set, "timeout", 100)
+      assert_equal "100", r.config(:get, "*")["timeout"]
     ensure
       r.config :set, "timeout", 300
     end

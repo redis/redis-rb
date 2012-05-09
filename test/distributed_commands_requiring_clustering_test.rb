@@ -11,18 +11,18 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.set("{qux}foo", "s1")
     r.rename "{qux}foo", "{qux}bar"
 
-    assert "s1" == r.get("{qux}bar")
-    assert nil == r.get("{qux}foo")
+    assert_equal "s1", r.get("{qux}bar")
+    assert_equal nil, r.get("{qux}foo")
   end
 
   def test_renamenx
     r.set("{qux}foo", "s1")
     r.set("{qux}bar", "s2")
 
-    assert false == r.renamenx("{qux}foo", "{qux}bar")
+    assert_equal false, r.renamenx("{qux}foo", "{qux}bar")
 
-    assert "s1" == r.get("{qux}foo")
-    assert "s2" == r.get("{qux}bar")
+    assert_equal "s1", r.get("{qux}foo")
+    assert_equal "s2", r.get("{qux}bar")
   end
 
   def test_brpoplpush
@@ -37,10 +37,10 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.rpush "{qux}foo", "s1"
     r.rpush "{qux}foo", "s2"
 
-    assert "s2" == r.rpoplpush("{qux}foo", "{qux}bar")
-    assert ["s2"] == r.lrange("{qux}bar", 0, -1)
-    assert "s1" == r.rpoplpush("{qux}foo", "{qux}bar")
-    assert ["s1", "s2"] == r.lrange("{qux}bar", 0, -1)
+    assert_equal "s2", r.rpoplpush("{qux}foo", "{qux}bar")
+    assert_equal ["s2"], r.lrange("{qux}bar", 0, -1)
+    assert_equal "s1", r.rpoplpush("{qux}foo", "{qux}bar")
+    assert_equal ["s1", "s2"], r.lrange("{qux}bar", 0, -1)
   end
 
   def test_smove
@@ -56,7 +56,7 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.sadd "{qux}foo", "s2"
     r.sadd "{qux}bar", "s2"
 
-    assert ["s2"] == r.sinter("{qux}foo", "{qux}bar")
+    assert_equal ["s2"], r.sinter("{qux}foo", "{qux}bar")
   end
 
   def test_sinterstore
@@ -66,7 +66,7 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
 
     r.sinterstore("{qux}baz", "{qux}foo", "{qux}bar")
 
-    assert ["s2"] == r.smembers("{qux}baz")
+    assert_equal ["s2"], r.smembers("{qux}baz")
   end
 
   def test_sunion
@@ -75,7 +75,7 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.sadd "{qux}bar", "s2"
     r.sadd "{qux}bar", "s3"
 
-    assert ["s1", "s2", "s3"] == r.sunion("{qux}foo", "{qux}bar").sort
+    assert_equal ["s1", "s2", "s3"], r.sunion("{qux}foo", "{qux}bar").sort
   end
 
   def test_sunionstore
@@ -86,7 +86,7 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
 
     r.sunionstore("{qux}baz", "{qux}foo", "{qux}bar")
 
-    assert ["s1", "s2", "s3"] == r.smembers("{qux}baz").sort
+    assert_equal ["s1", "s2", "s3"], r.smembers("{qux}baz").sort
   end
 
   def test_sdiff
@@ -95,8 +95,8 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.sadd "{qux}bar", "s2"
     r.sadd "{qux}bar", "s3"
 
-    assert ["s1"] == r.sdiff("{qux}foo", "{qux}bar")
-    assert ["s3"] == r.sdiff("{qux}bar", "{qux}foo")
+    assert_equal ["s1"], r.sdiff("{qux}foo", "{qux}bar")
+    assert_equal ["s3"], r.sdiff("{qux}bar", "{qux}foo")
   end
 
   def test_sdiffstore
@@ -107,7 +107,7 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
 
     r.sdiffstore("{qux}baz", "{qux}foo", "{qux}bar")
 
-    assert ["s1"] == r.smembers("{qux}baz")
+    assert_equal ["s1"], r.smembers("{qux}baz")
   end
 
   def test_sort
@@ -117,8 +117,8 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.rpush("{qux}bar", "1")
     r.rpush("{qux}bar", "2")
 
-    assert ["s1"] == r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1])
-    assert ["s2"] == r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1], :order => "desc alpha")
+    assert_equal ["s1"], r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1])
+    assert_equal ["s2"], r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1], :order => "desc alpha")
   end
 
   def test_sort_with_an_array_of_gets
@@ -131,9 +131,9 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.rpush("{qux}bar", "1")
     r.rpush("{qux}bar", "2")
 
-    assert [["s1a", "s1b"]] == r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1])
-    assert [["s2a", "s2b"]] == r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1], :order => "desc alpha")
-    assert [["s1a", "s1b"], ["s2a", "s2b"]] == r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"])
+    assert_equal [["s1a", "s1b"]], r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1])
+    assert_equal [["s2a", "s2b"]], r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1], :order => "desc alpha")
+    assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"])
   end
 
   def test_sort_with_store
@@ -144,6 +144,6 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.rpush("{qux}bar", "2")
 
     r.sort("{qux}bar", :get => "{qux}foo:*", :store => "{qux}baz")
-    assert ["s1", "s2"] == r.lrange("{qux}baz", 0, -1)
+    assert_equal ["s1", "s2"], r.lrange("{qux}baz", 0, -1)
   end
 end

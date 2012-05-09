@@ -11,6 +11,6 @@ class TestDistributedInternals < Test::Unit::TestCase
     nodes = ["redis://localhost:#{PORT}/15", *NODES]
     redis = Redis::Distributed.new nodes
 
-    assert "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>" == redis.inspect
+    assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
   end
 end

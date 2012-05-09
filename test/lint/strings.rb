@@ -5,25 +5,25 @@ module Lint
     def test_set_and_get
       r.set("foo", "s1")
 
-      assert "s1" == r.get("foo")
+      assert_equal "s1", r.get("foo")
     end
 
     def test_set_and_get_with_brackets
       r["foo"] = "s1"
 
-      assert "s1" == r["foo"]
+      assert_equal "s1", r["foo"]
     end
 
     def test_set_and_get_with_brackets_and_symbol
       r[:foo] = "s1"
 
-      assert "s1" == r[:foo]
+      assert_equal "s1", r[:foo]
     end
 
     def test_set_and_get_with_newline_characters
       r.set("foo", "1\n")
 
-      assert "1\n" == r.get("foo")
+      assert_equal "1\n", r.get("foo")
     end
 
     def test_set_and_get_with_ascii_characters
@@ -33,7 +33,7 @@ module Lint
             str = "#{i.chr}---#{i.chr}"
             r.set("foo", str)
 
-            assert str == r.get("foo")
+            assert_equal str, r.get("foo")
           end
         end
       end
@@ -41,7 +41,7 @@ module Lint
 
     def test_setex
       assert r.setex("foo", 1, "bar")
-      assert "bar" == r.get("foo")
+      assert_equal "bar", r.get("foo")
       assert [0, 1].include? r.ttl("foo")
     end
 
@@ -49,68 +49,68 @@ module Lint
       return if version < 205040
 
       assert r.psetex("foo", 1000, "bar")
-      assert "bar" == r.get("foo")
+      assert_equal "bar", r.get("foo")
       assert [0, 1].include? r.ttl("foo")
     end
 
     def test_getset
       r.set("foo", "bar")
 
-      assert "bar" == r.getset("foo", "baz")
-      assert "baz" == r.get("foo")
+      assert_equal "bar", r.getset("foo", "baz")
+      assert_equal "baz", r.get("foo")
     end
 
     def test_setnx
       r.set("foo", "s1")
 
-      assert "s1" == r.get("foo")
+      assert_equal "s1", r.get("foo")
 
       r.setnx("foo", "s2")
 
-      assert "s1" == r.get("foo")
+      assert_equal "s1", r.get("foo")
     end
 
     def test_incr
-      assert 1 == r.incr("foo")
-      assert 2 == r.incr("foo")
-      assert 3 == r.incr("foo")
+      assert_equal 1, r.incr("foo")
+      assert_equal 2, r.incr("foo")
+      assert_equal 3, r.incr("foo")
     end
 
     def test_incrby
-      assert 1 == r.incrby("foo", 1)
-      assert 3 == r.incrby("foo", 2)
-      assert 6 == r.incrby("foo", 3)
+      assert_equal 1, r.incrby("foo", 1)
+      assert_equal 3, r.incrby("foo", 2)
+      assert_equal 6, r.incrby("foo", 3)
     end
 
     def test_incrbyfloat
       return if version < 205040
 
-      assert 1.23 == r.incrbyfloat("foo", 1.23)
-      assert 2    == r.incrbyfloat("foo", 0.77)
-      assert 1.9  == r.incrbyfloat("foo", -0.1)
+      assert_equal 1.23, r.incrbyfloat("foo", 1.23)
+      assert_equal 2   , r.incrbyfloat("foo", 0.77)
+      assert_equal 1.9 , r.incrbyfloat("foo", -0.1)
     end
 
     def test_decr
       r.set("foo", 3)
 
-      assert 2 == r.decr("foo")
-      assert 1 == r.decr("foo")
-      assert 0 == r.decr("foo")
+      assert_equal 2, r.decr("foo")
+      assert_equal 1, r.decr("foo")
+      assert_equal 0, r.decr("foo")
     end
 
     def test_decrby
       r.set("foo", 6)
 
-      assert 3 == r.decrby("foo", 3)
-      assert 1 == r.decrby("foo", 2)
-      assert 0 == r.decrby("foo", 1)
+      assert_equal 3, r.decrby("foo", 3)
+      assert_equal 1, r.decrby("foo", 2)
+      assert_equal 0, r.decrby("foo", 1)
     end
 
     def test_append
       r.set "foo", "s"
       r.append "foo", "1"
 
-      assert "s1" == r.get("foo")
+      assert_equal "s1", r.get("foo")
     end
 
     def test_getbit

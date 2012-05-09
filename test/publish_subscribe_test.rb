@@ -39,10 +39,10 @@ class TestPublishSubscribe < Test::Unit::TestCase
     wire.join
 
     assert @subscribed
-    assert 1 == @t1
+    assert_equal 1, @t1
     assert @unsubscribed
-    assert 0 == @t2
-    assert "s1" == @message
+    assert_equal 0, @t2
+    assert_equal "s1", @message
   end
 
   def test_psubscribe_and_punsubscribe
@@ -78,10 +78,10 @@ class TestPublishSubscribe < Test::Unit::TestCase
     wire.join
 
     assert @subscribed
-    assert 1 == @t1
+    assert_equal 1, @t1
     assert @unsubscribed
-    assert 0 == @t2
-    assert "s1" == @message
+    assert_equal 0, @t2
+    assert_equal "s1", @message
   end
 
   def test_subscribe_within_subscribe
@@ -108,7 +108,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
 
     wire.join
 
-    assert ["foo", "bar"] == @channels
+    assert_equal ["foo", "bar"], @channels
   end
 
   def test_other_commands_within_a_subscribe

@@ -3,19 +3,19 @@ module Lint
   module ValueTypes
 
     def test_exists
-      assert false == r.exists("foo")
+      assert_equal false, r.exists("foo")
 
       r.set("foo", "s1")
 
-      assert true ==  r.exists("foo")
+      assert_equal true,  r.exists("foo")
     end
 
     def test_type
-      assert "none" == r.type("foo")
+      assert_equal "none", r.type("foo")
 
       r.set("foo", "s1")
 
-      assert "string" == r.type("foo")
+      assert_equal "string", r.type("foo")
     end
 
     def test_keys
@@ -23,7 +23,7 @@ module Lint
       r.set("fo", "s2")
       r.set("foo", "s3")
 
-      assert ["f","fo", "foo"] == r.keys("f*").sort
+      assert_equal ["f","fo", "foo"], r.keys("f*").sort
     end
 
     def test_expire
@@ -88,15 +88,15 @@ module Lint
       r.set "bar", "s2"
 
       assert r.move("foo", 14)
-      assert nil == r.get("foo")
+      assert_equal nil, r.get("foo")
 
       assert !r.move("bar", 14)
-      assert "s2" == r.get("bar")
+      assert_equal "s2", r.get("bar")
 
       r.select 14
 
-      assert "s1" == r.get("foo")
-      assert "s3" == r.get("bar")
+      assert_equal "s1", r.get("foo")
+      assert_equal "s3", r.get("bar")
     end
   end
 end

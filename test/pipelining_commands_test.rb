@@ -12,9 +12,9 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.lpush "foo", "s2"
     end
 
-    assert 2 == r.llen("foo")
-    assert "s2" == r.lpop("foo")
-    assert "s1" == r.lpop("foo")
+    assert_equal 2, r.llen("foo")
+    assert_equal "s2", r.lpop("foo")
+    assert_equal "s1", r.lpop("foo")
   end
 
   def test_multi_bulk_commands
@@ -23,10 +23,10 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.mset("baz", "s3", "qux", "s4")
     end
 
-    assert "s1" == r.get("foo")
-    assert "s2" == r.get("bar")
-    assert "s3" == r.get("baz")
-    assert "s4" == r.get("qux")
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
+    assert_equal "s3", r.get("baz")
+    assert_equal "s4", r.get("qux")
   end
 
   def test_bulk_and_multi_bulk_commands_mixed
@@ -36,11 +36,11 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.mset("baz", "s3", "qux", "s4")
     end
 
-    assert 2 == r.llen("foo")
-    assert "s2" == r.lpop("foo")
-    assert "s1" == r.lpop("foo")
-    assert "s3" == r.get("baz")
-    assert "s4" == r.get("qux")
+    assert_equal 2, r.llen("foo")
+    assert_equal "s2", r.lpop("foo")
+    assert_equal "s1", r.lpop("foo")
+    assert_equal "s3", r.get("baz")
+    assert_equal "s4", r.get("qux")
   end
 
   def test_multi_bulk_and_bulk_commands_mixed
@@ -50,11 +50,11 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.lpush "foo", "s2"
     end
 
-    assert 2 == r.llen("foo")
-    assert "s2" == r.lpop("foo")
-    assert "s1" == r.lpop("foo")
-    assert "s3" == r.get("baz")
-    assert "s4" == r.get("qux")
+    assert_equal 2, r.llen("foo")
+    assert_equal "s2", r.lpop("foo")
+    assert_equal "s1", r.lpop("foo")
+    assert_equal "s3", r.get("baz")
+    assert_equal "s4", r.get("qux")
   end
 
   def test_pipelined_with_an_empty_block
@@ -63,7 +63,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       end
     end
 
-    assert 0 == r.dbsize
+    assert_equal 0, r.dbsize
   end
 
   def test_returning_the_result_of_a_pipeline
@@ -73,7 +73,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.get "bar"
     end
 
-    assert ["OK", "bar", nil] == result
+    assert_equal ["OK", "bar", nil], result
   end
 
   def test_assignment_of_results_inside_the_block
@@ -136,7 +136,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
     result = r.pipelined do
     end
 
-    assert [] == result
+    assert_equal [], result
   end
 
   def test_nesting_pipeline_blocks
@@ -147,8 +147,8 @@ class TestPipeliningCommands < Test::Unit::TestCase
       end
     end
 
-    assert "s1" == r.get("foo")
-    assert "s2" == r.get("bar")
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
   end
 
   def test_info_in_a_pipeline_returns_hash
@@ -173,7 +173,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.hgetall("hash")
     end
 
-    assert result.first == { "field" => "value" }
+    assert_equal result.first, { "field" => "value" }
   end
 
   def test_keys_in_a_pipeline
@@ -182,7 +182,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.keys("*")
     end
 
-    assert ["key"] == result.first
+    assert_equal ["key"], result.first
   end
 
   def test_pipeline_yields_a_connection

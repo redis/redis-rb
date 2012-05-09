@@ -14,7 +14,7 @@ class TestDistributedTransactions < Test::Unit::TestCase
       r.multi { @foo = 1 }
     end
 
-    assert nil == @foo
+    assert_equal nil, @foo
 
     assert_raise Redis::Distributed::CannotDistribute do
       r.discard

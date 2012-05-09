@@ -18,9 +18,9 @@ class TestDistributedBlockingCommands < Test::Unit::TestCase
       redis.lpush("foo", "s3")
     end
 
-    assert ["foo", "s2"] == r.blpop("foo", :timeout => 1)
-    assert ["foo", "s1"] == r.blpop("foo", :timeout => 1)
-    assert ["foo", "s3"] == r.blpop("foo", :timeout => 1)
+    assert_equal ["foo", "s2"], r.blpop("foo", :timeout => 1)
+    assert_equal ["foo", "s1"], r.blpop("foo", :timeout => 1)
+    assert_equal ["foo", "s3"], r.blpop("foo", :timeout => 1)
 
     wire.join
   end
@@ -35,9 +35,9 @@ class TestDistributedBlockingCommands < Test::Unit::TestCase
       redis.rpush("foo", "s3")
     end
 
-    assert ["foo", "s2"] == r.brpop("foo", :timeout => 1)
-    assert ["foo", "s1"] == r.brpop("foo", :timeout => 1)
-    assert ["foo", "s3"] == r.brpop("foo", :timeout => 1)
+    assert_equal ["foo", "s2"], r.brpop("foo", :timeout => 1)
+    assert_equal ["foo", "s1"], r.brpop("foo", :timeout => 1)
+    assert_equal ["foo", "s3"], r.brpop("foo", :timeout => 1)
 
     wire.join
   end

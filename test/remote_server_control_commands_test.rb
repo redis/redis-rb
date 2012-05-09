@@ -20,7 +20,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
     r.ping
 
     result = r.info(:commandstats)
-    assert "1" == result["ping"]["calls"]
+    assert_equal "1", result["ping"]["calls"]
   end
 
   def test_monitor__redis_________
@@ -70,11 +70,11 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
       break line
     end
 
-    assert result == "OK"
+    assert_equal result, "OK"
   end
 
   def test_echo
-    assert "foo bar baz\n" == r.echo("foo bar baz\n")
+    assert_equal "foo bar baz\n", r.echo("foo bar baz\n")
   end
 
   def test_debug
@@ -86,8 +86,8 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   def test_object
     r.lpush "list", "value"
 
-    assert r.object(:refcount, "list") == 1
-    assert r.object(:encoding, "list") == "ziplist"
+    assert_equal r.object(:refcount, "list"), 1
+    assert_equal r.object(:encoding, "list"), "ziplist"
     assert r.object(:idletime, "list").kind_of?(Fixnum)
   end
 
@@ -97,13 +97,13 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
     redis_mock(replies) do
       redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
 
-      assert "OK" == redis.sync
+      assert_equal "OK", redis.sync
     end
   end
 
   def test_slowlog
     r.slowlog(:reset)
     result = r.slowlog(:len)
-    assert result == 0
+    assert_equal result, 0
   end
 end

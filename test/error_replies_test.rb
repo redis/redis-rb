@@ -15,7 +15,7 @@ class TestErrorReplies < Test::Unit::TestCase
     yield(r)
     after = r.info["total_connections_received"]
   ensure
-    assert before == after
+    assert_equal before, after
   end
 
   def test_error_reply_for_single_command

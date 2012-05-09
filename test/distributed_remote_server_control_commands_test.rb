@@ -24,7 +24,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
     r.ping # Executed on every node
 
     r.info(:commandstats).each do |info|
-      assert "1" == info["ping"]["calls"]
+      assert_equal "1", info["ping"]["calls"]
     end
   end
 
@@ -38,7 +38,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_echo
-    assert ["foo bar baz\n"] == r.echo("foo bar baz\n")
+    assert_equal ["foo bar baz\n"], r.echo("foo bar baz\n")
   end
 
   def test_time

@@ -12,8 +12,8 @@ class TestDistributedKeyTags < Test::Unit::TestCase
     r2 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
     r3 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
 
-    assert r1.node_for("foo").id == r2.node_for("foo").id
-    assert r1.node_for("foo").id == r3.node_for("foo").id
+    assert_equal r1.node_for("foo").id, r2.node_for("foo").id
+    assert_equal r1.node_for("foo").id, r3.node_for("foo").id
   end
 
   def test_allows_clustering_of_keys
@@ -25,7 +25,7 @@ class TestDistributedKeyTags < Test::Unit::TestCase
       r.set "{foo}users:#{i}", i
     end
 
-    assert [0, 100] == r.nodes.map { |node| node.keys.size }
+    assert_equal [0, 100], r.nodes.map { |node| node.keys.size }
   end
 
   def test_distributes_keys_if_no_clustering_is_used
@@ -35,7 +35,7 @@ class TestDistributedKeyTags < Test::Unit::TestCase
     r.set "users:1", 1
     r.set "users:4", 4
 
-    assert [1, 1] == r.nodes.map { |node| node.keys.size }
+    assert_equal [1, 1], r.nodes.map { |node| node.keys.size }
   end
 
   def test_allows_passing_a_custom_tag_extractor
@@ -47,6 +47,6 @@ class TestDistributedKeyTags < Test::Unit::TestCase
       r.set "foo:users:#{i}", i
     end
 
-    assert [0, 100] == r.nodes.map { |node| node.keys.size }
+    assert_equal [0, 100], r.nodes.map { |node| node.keys.size }
   end
 end

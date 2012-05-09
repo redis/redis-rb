@@ -44,27 +44,27 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_provides_a_meaningful_inspect
-    assert "#<Redis client v#{Redis::VERSION} for redis://127.0.0.1:#{PORT}/15>" == r.inspect
+    assert_equal "#<Redis client v#{Redis::VERSION} for redis://127.0.0.1:#{PORT}/15>", r.inspect
   end
 
   def test_redis_current
-    assert "127.0.0.1" == Redis.current.client.host
-    assert 6379 == Redis.current.client.port
-    assert 0 == Redis.current.client.db
+    assert_equal "127.0.0.1", Redis.current.client.host
+    assert_equal 6379, Redis.current.client.port
+    assert_equal 0, Redis.current.client.db
 
     Redis.current = Redis.new(OPTIONS.merge(:port => 6380, :db => 1))
 
     t = Thread.new do
-      assert "127.0.0.1" == Redis.current.client.host
-      assert 6380 == Redis.current.client.port
-      assert 1 == Redis.current.client.db
+      assert_equal "127.0.0.1", Redis.current.client.host
+      assert_equal 6380, Redis.current.client.port
+      assert_equal 1, Redis.current.client.db
     end
 
     t.join
 
-    assert "127.0.0.1" == Redis.current.client.host
-    assert 6380 == Redis.current.client.port
-    assert 1 == Redis.current.client.db
+    assert_equal "127.0.0.1", Redis.current.client.host
+    assert_equal 6380, Redis.current.client.port
+    assert_equal 1, Redis.current.client.db
   end
 
   def test_timeout
@@ -104,7 +104,7 @@ class TestInternals < Test::Unit::TestCase
 
     redis_mock(:ping => command) do
       redis = Redis.connect(:port => MOCK_PORT, :timeout => 0.1)
-      assert "2" == redis.ping
+      assert_equal "2", redis.ping
     end
   end
 
