@@ -48,6 +48,10 @@ module Helper
 
   include RedisMock::Helper
 
+  def self.included(base)
+    base.extend(ClassMethods)
+  end
+
   attr_reader :r
 
   def setup
@@ -59,6 +63,15 @@ module Helper
       around { super(runner) }
     else
       super
+    end
+  end
+
+  module ClassMethods
+
+    def driver(*drivers, &blk)
+      if drivers.map(&:to_s).include?(ENV["conn"])
+        class_eval(&blk)
+      end
     end
   end
 
@@ -82,10 +95,6 @@ require "redis"
 require "redis/distributed"
 
 require "support/connection/#{ENV["conn"]}"
-
-def driver
-  Redis::Connection.drivers.last.to_s.split("::").last.downcase.to_sym
-end
 
 def silent
   verbose, $VERBOSE = $VERBOSE, false

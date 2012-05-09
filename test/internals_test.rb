@@ -185,7 +185,7 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
-  if driver == :ruby || driver == :hiredis
+  driver(:ruby, :hiredis) do
     # Using a mock server in a thread doesn't work here (possibly because blocking
     # socket ops, raw socket timeouts and Ruby's thread scheduling don't mix).
     def test_bubble_eagain_without_retrying
