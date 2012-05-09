@@ -9,7 +9,16 @@ begin
 rescue LoadError
 end
 
+$VERBOSE = true
+
+ENV["conn"] ||= "ruby"
+
+require "redis"
+require "redis/distributed"
+require "redis/connection/#{ENV["conn"]}"
+
 require "support/redis_mock"
+require "support/connection/#{ENV["conn"]}"
 
 PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15, :timeout => 0.1}
@@ -117,13 +126,3 @@ module Helper
     end
   end
 end
-
-$VERBOSE = true
-
-ENV["conn"] ||= "ruby"
-
-require "redis/connection/#{ENV["conn"]}"
-require "redis"
-require "redis/distributed"
-
-require "support/connection/#{ENV["conn"]}"
