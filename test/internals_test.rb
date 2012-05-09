@@ -51,7 +51,7 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_provides_a_meaningful_inspect
-    assert "#<Redis client v#{Redis::VERSION} connected to redis://127.0.0.1:#{PORT}/15 (Redis v#{r.info["redis_version"]})>" == r.inspect
+    assert "#<Redis client v#{Redis::VERSION} for redis://127.0.0.1:#{PORT}/15>" == r.inspect
   end
 
   def test_redis_current

@@ -11,10 +11,6 @@ class TestDistributedInternals < Test::Unit::TestCase
     nodes = ["redis://localhost:#{PORT}/15", *NODES]
     redis = Redis::Distributed.new nodes
 
-    node_info = nodes.map do |node|
-      "#{node} (Redis v#{redis.info.first["redis_version"]})"
-    end
-
-    assert "#<Redis client v#{Redis::VERSION} connected to #{node_info.join(', ')}>" == redis.inspect
+    assert "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>" == redis.inspect
   end
 end
