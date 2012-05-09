@@ -87,15 +87,6 @@ def driver
   Redis::Connection.drivers.last.to_s.split("::").last.downcase.to_sym
 end
 
-def capture_stderr
-  stderr = $stderr
-  $stderr = StringIO.new
-
-  yield
-
-  $stderr = stderr
-end
-
 def silent
   verbose, $VERBOSE = $VERBOSE, false
 
@@ -124,13 +115,5 @@ def with_external_encoding(encoding)
     yield
   ensure
     silent { Encoding.default_external = original_encoding }
-  end
-end
-
-def assert_nothing_raised(*exceptions)
-  begin
-    yield
-  rescue *exceptions
-    flunk(caller[1])
   end
 end
