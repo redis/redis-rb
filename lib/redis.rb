@@ -1880,18 +1880,18 @@ class Redis
   # @see #unwatch
   # @see #multi
   def watch(*keys)
-    if block_given?
-      mon_synchronize do
+    synchronize do |client|
+      client.call [:watch, *keys]
+
+      if block_given?
         begin
-          watch(*keys)
           yield
-        ensure
-          unwatch if $!
+        rescue ConnectionError
+          raise
+        rescue StandardError
+          unwatch
+          raise
         end
-      end
-    else
-      synchronize do |client|
-        client.call [:watch, *keys]
       end
     end
   end
