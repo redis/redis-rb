@@ -1856,14 +1856,43 @@ class Redis
 
   # Watch the given keys to determine execution of the MULTI/EXEC block.
   #
+  # Using a block is optional, but is necessary for thread-safety.
+  #
+  # @example With a block
+  #   redis.watch("key") do
+  #     if redis.get("key") == "some value"
+  #       redis.multi do |multi|
+  #         multi.set("key", "other value")
+  #         multi.incr("counter")
+  #       end
+  #     end
+  #   end
+  #     # => ["OK", 6]
+  #
+  # @example Without a block
+  #   redis.watch("key")
+  #     # => "OK"
+  #
   # @param [String, Array<String>] keys one or more keys to watch
-  # @return [String] `OK`
+  # @return [Object] if using a block, returns the return value of the block
+  # @return [String] if not using a block, returns `OK`
   #
   # @see #unwatch
   # @see #multi
   def watch(*keys)
-    synchronize do |client|
-      client.call [:watch, *keys]
+    if block_given?
+      mon_synchronize do
+        begin
+          watch(*keys)
+          yield
+        ensure
+          unwatch if $!
+        end
+      end
+    else
+      synchronize do |client|
+        client.call [:watch, *keys]
+      end
     end
   end
 

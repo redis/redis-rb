@@ -181,6 +181,70 @@ test "WATCH with a modified key passed as array" do |r|
   assert "s1" == r.get("foo")
 end
 
+test "WATCH with a block and an unmodified key" do |r|
+  result = r.watch "foo" do
+    r.multi do |multi|
+      multi.set "foo", "s1"
+    end
+  end
+
+  assert ["OK"] == result
+  assert "s1" == r.get("foo")
+end
+
+test "WATCH with a block and a modified key" do |r|
+  result   = nil
+  other    = Redis.connect(OPTIONS)
+  mutex    = Mutex.new
+  cvar     = ConditionVariable.new
+  watching = false
+
+  t = Thread.new do
+    result = r.watch "foo" do
+      mutex.synchronize do
+        watching = true
+        cvar.signal
+        cvar.wait(mutex)
+      end
+
+      r.multi do |multi|
+        multi.set "foo", "s1"
+      end
+    end
+  end
+
+  mutex.synchronize do
+    cvar.wait(mutex) until watching
+    other.set("foo", "s2")
+    cvar.signal
+  end
+  t.join
+
+  assert nil == result
+  assert "s2" == r.get("foo")
+end
+
+test "WATCH with a block that raises an exception" do |r|
+  r.set("foo", "s1")
+
+  begin
+    r.watch "foo" do
+      raise "test"
+    end
+  rescue RuntimeError
+  end
+
+  r.set("foo", "s2")
+
+  # If the watch was still set from within the block above, this multi/exec
+  # would fail. This proves that raising an exception above unwatches.
+  r.multi do |multi|
+    multi.set "foo", "s3"
+  end
+
+  assert "s3" == r.get("foo")
+end
+
 test "UNWATCH with a modified key" do |r|
   r.watch "foo"
   r.set "foo", "s1"
