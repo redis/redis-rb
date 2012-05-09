@@ -52,10 +52,12 @@ module Helper
     base.extend(ClassMethods)
   end
 
+  attr_reader :log
   attr_reader :r
 
   def setup
-    @r = init Redis.new(OPTIONS)
+    @log = StringIO.new
+    @r = init Redis.new(OPTIONS.merge(:logger => ::Logger.new(log)))
   end
 
   def run(runner)
@@ -108,10 +110,9 @@ module Helper
 
   module Distributed
 
-    attr_reader :log
-
     def setup
-      @log = StringIO.new
+      super
+
       @r = init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
     end
   end

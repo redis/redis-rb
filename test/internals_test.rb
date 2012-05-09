@@ -6,13 +6,6 @@ class TestInternals < Test::Unit::TestCase
 
   include Helper
 
-  attr_reader :log
-
-  def setup
-    @log = StringIO.new
-    @r = init Redis.new(OPTIONS.merge(:logger => ::Logger.new(log)))
-  end
-
   def test_logger
     r.ping
 
