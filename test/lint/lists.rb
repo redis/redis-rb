@@ -11,7 +11,7 @@ module Lint
     end
 
     def test_variadic_rpush
-      return if version(r) < 203090 # 2.4-rc6
+      return if version < 203090 # 2.4-rc6
 
       assert 3 == r.rpush("foo", ["s1", "s2", "s3"])
       assert 3 == r.llen("foo")
@@ -27,7 +27,7 @@ module Lint
     end
 
     def test_variadic_lpush
-      return if version(r) < 203090 # 2.4-rc6
+      return if version < 203090 # 2.4-rc6
 
       assert 3 == r.lpush("foo", ["s1", "s2", "s3"])
       assert 3 == r.llen("foo")

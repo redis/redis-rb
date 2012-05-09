@@ -11,7 +11,7 @@ module Lint
     end
 
     def test_variadic_sadd
-      return if version(r) < 203090 # 2.4-rc6
+      return if version < 203090 # 2.4-rc6
 
       assert 2 == r.sadd("foo", ["s1", "s2"])
       assert 1 == r.sadd("foo", ["s1", "s2", "s3"])
@@ -30,7 +30,7 @@ module Lint
     end
 
     def test_variadic_srem
-      return if version(r) < 203090 # 2.4-rc6
+      return if version < 203090 # 2.4-rc6
 
       r.sadd("foo", "s1")
       r.sadd("foo", "s2")

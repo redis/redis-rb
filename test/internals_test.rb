@@ -81,7 +81,7 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_time
-    return if version(r) < 205040
+    return if version < 205040
 
     # Test that the difference between the time that Ruby reports and the time
     # that Redis reports is minimal (prevents the test from being racy).

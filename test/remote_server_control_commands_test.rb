@@ -14,7 +14,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
 
   def test_info_commandstats
     # Only available on Redis >= 2.9.0
-    return if version(r) < 209000
+    return if version < 209000
 
     r.config(:resetstat)
     r.ping
@@ -24,7 +24,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_monitor__redis_________
-    return unless version(r) < 205000
+    return unless version < 205000
 
     log = []
 
@@ -45,7 +45,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_monitor__redis__________
-    return unless version(r) >= 205000
+    return unless version >= 205000
 
     log = []
 

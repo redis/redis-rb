@@ -66,6 +66,16 @@ module Helper
     end
   end
 
+  def version
+    info = r.info
+    info = info.first if info.kind_of?(Array)
+    version_str_to_i info["redis_version"]
+  end
+
+  def version_str_to_i(str)
+    str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
+  end
+
   module ClassMethods
 
     def driver(*drivers, &blk)
@@ -104,16 +114,6 @@ def silent
   ensure
     $VERBOSE = verbose
   end
-end
-
-def version(r)
-  info = r.info
-  info = info.first unless info.is_a?(Hash)
-  version_str_to_i info["redis_version"]
-end
-
-def version_str_to_i(version_str)
-  version_str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
 end
 
 def with_external_encoding(encoding)
