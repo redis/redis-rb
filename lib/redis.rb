@@ -1858,6 +1858,9 @@ class Redis
   #
   # Using a block is optional, but is necessary for thread-safety.
   #
+  # An `#unwatch` is automatically issued if an exception is raised within the
+  # block that is a subclass of StandardError and is not a ConnectionError.
+  #
   # @example With a block
   #   redis.watch("key") do
   #     if redis.get("key") == "some value"
@@ -1865,6 +1868,8 @@ class Redis
   #         multi.set("key", "other value")
   #         multi.incr("counter")
   #       end
+  #     else
+  #       redis.unwatch
   #     end
   #   end
   #     # => ["OK", 6]
