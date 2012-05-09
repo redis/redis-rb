@@ -74,7 +74,7 @@ class Redis
       end
 
       def connect(config)
-        if config.scheme == "unix"
+        if config[:scheme] == "unix"
           conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
         else
           conn = EventMachine.connect(config[:host], config[:port], RedisClient) do |c|
