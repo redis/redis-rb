@@ -1,6 +1,5 @@
 require "monitor"
 require "redis/errors"
-require "uri"
 
 class Redis
 
@@ -25,7 +24,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
-    @client = Client.new(_normalize_options(options))
+    @client = Client.new(options)
 
     super() # Monitor#initialize
   end
@@ -2081,25 +2080,6 @@ private
     ensure
       @client = original
     end
-  end
-
-  def _normalize_options(options)
-    options = options.dup
-
-    if options.include?(:path)
-      uri = URI.parse("unix://#{options.delete(:path)}")
-    else
-      uri = URI.parse(options.delete(:url) || ENV["REDIS_URL"] || "redis://127.0.0.1:6379/0")
-
-      uri.host     = options.delete(:host)           if options.include?(:host)
-      uri.port     = options.delete(:port)           if options.include?(:port)
-      uri.userinfo = ":#{options.delete(:password)}" if options.include?(:password)
-      uri.path     = "/#{options.delete(:db)}"       if options.include?(:db)
-    end
-
-    options[:uri] = uri
-
-    options
   end
 
 end

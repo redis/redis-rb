@@ -2,64 +2,76 @@ require "redis/errors"
 
 class Redis
   class Client
-    attr_accessor :uri, :db, :logger
-    attr :timeout
+
+    DEFAULTS = {
+      :scheme => "redis",
+      :host => "127.0.0.1",
+      :port => 6379,
+      :path => nil,
+      :timeout => 5.0,
+      :password => nil,
+      :db => 0,
+    }
+
+    def scheme
+      @options[:scheme]
+    end
+
+    def host
+      @options[:host]
+    end
+
+    def port
+      @options[:port]
+    end
+
+    def path
+      @options[:path]
+    end
+
+    def timeout
+      @options[:timeout]
+    end
+
+    def password
+      @options[:password]
+    end
+
+    def db
+      @options[:db]
+    end
+
+    def db=(db)
+      @options[:db] = db.to_i
+    end
+
+    attr :logger
     attr :connection
     attr :command_map
 
     def initialize(options = {})
-      @uri = options[:uri]
-
-      if scheme == 'unix'
-        @db = 0
-      else
-        @db = uri.path[1..-1].to_i
-      end
-
-      @timeout = (options[:timeout] || 5).to_f
-      @logger = options[:logger]
+      @options = _parse_options(options)
       @reconnect = true
-      @connection = Connection.drivers.last.new
+      @logger = @options[:logger]
+      @connection = @options[:driver].new
       @command_map = {}
     end
 
     def connect
       @pid = Process.pid
+
       establish_connection
       call [:auth, password] if password
-      call [:select, @db] if @db != 0
+      call [:select, db] if db != 0
       self
     end
 
     def id
-      safe_uri
+      @options[:id] || "redis://#{location}/#{db}"
     end
 
-    def safe_uri
-      temp_uri = @uri
-      temp_uri.user = nil
-      temp_uri.password = nil
-      temp_uri
-    end
-
-    def host
-      @uri.host
-    end
-
-    def password
-      @uri.password
-    end
-
-    def path
-      @uri.path
-    end
-
-    def port
-      @uri.port
-    end
-
-    def scheme
-      @uri.scheme
+    def location
+      path || "#{host}:#{port}"
     end
 
     def call(command, &block)
@@ -218,7 +230,7 @@ class Redis
         connection.timeout = 0
         yield
       ensure
-        connection.timeout = @timeout if connected?
+        connection.timeout = timeout if connected?
       end
     end
 
@@ -255,18 +267,13 @@ class Redis
     end
 
     def establish_connection
-      if @uri.scheme == 'unix'
-        connection.connect_unix(@uri.path, timeout)
-      else
-        connection.connect(@uri, timeout)
-      end
-
-      connection.timeout = @timeout
+      connection.connect(@options.dup)
+      connection.timeout = timeout
 
     rescue TimeoutError
-      raise CannotConnectError, "Timed out connecting to Redis on #{safe_uri}"
+      raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
-      raise CannotConnectError, "Error connecting to Redis on #{safe_uri} (ECONNREFUSED)"
+      raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
     end
 
     def ensure_connected
@@ -298,6 +305,71 @@ class Redis
         disconnect
         raise
       end
+    end
+
+    def _parse_options(options)
+      defaults = DEFAULTS.dup
+
+      url = options[:url] || ENV["REDIS_URL"]
+
+      # Override defaults from URL if given
+      if url
+        require "uri"
+
+        uri = URI(url)
+
+        if uri.scheme == "unix"
+          defaults[:path]   = uri.path
+        else
+          # Require the URL to have at least a host
+          raise ArgumentError, "invalid url" unless uri.host
+
+          defaults[:scheme]   = uri.scheme
+          defaults[:host]     = uri.host
+          defaults[:port]     = uri.port if uri.port
+          defaults[:password] = uri.password if uri.password
+          defaults[:db]       = uri.path[1..-1].to_i if uri.path
+        end
+      end
+
+      options = defaults.merge(options)
+
+      if options[:path]
+        options[:scheme] = "unix"
+        options.delete(:host)
+        options.delete(:port)
+      else
+        options[:host] = options[:host].to_s
+        options[:port] = options[:port].to_i
+      end
+
+      options[:timeout] = options[:timeout].to_f
+      options[:db] = options[:db].to_i
+      options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
+
+      options
+    end
+
+    def _parse_driver(driver)
+      driver = driver.to_s if driver.is_a?(Symbol)
+
+      if driver.kind_of?(String)
+        case driver
+        when "ruby"
+          require "redis/connection/ruby"
+          driver = Connection::Ruby
+        when "hiredis"
+          require "redis/connection/hiredis"
+          driver = Connection::Hiredis
+        when "synchrony"
+          require "redis/connection/synchrony"
+          driver = Connection::Synchrony
+        else
+          raise "Unknown driver: #{driver}"
+        end
+      end
+
+      driver
     end
   end
 end
