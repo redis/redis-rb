@@ -6,8 +6,8 @@ class TestEncoding < Test::Unit::TestCase
 
   include Helper
 
-  if defined?(Encoding)
-    def test_returns_properly_encoded_strings
+  def test_returns_properly_encoded_strings
+    if defined?(Encoding)
       with_external_encoding("UTF-8") do
         r.set "foo", "שלום"
 

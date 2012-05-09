@@ -26,8 +26,8 @@ module Lint
       assert "1\n" == r.get("foo")
     end
 
-    if defined?(Encoding)
-      def test_set_and_get_with_ascii_characters
+    def test_set_and_get_with_ascii_characters
+      if defined?(Encoding)
         with_external_encoding("ASCII-8BIT") do
           (0..255).each do |i|
             str = "#{i.chr}---#{i.chr}"
