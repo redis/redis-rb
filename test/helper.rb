@@ -54,6 +54,14 @@ module Helper
     @r = init Redis.new(OPTIONS)
   end
 
+  def run(runner)
+    if respond_to?(:around)
+      around { super(runner) }
+    else
+      super
+    end
+  end
+
   module Distributed
 
     attr_reader :log
@@ -76,25 +84,19 @@ def driver
 end
 
 if driver == :synchrony
-  # Make cutest fiber + eventmachine aware if the synchrony driver is used.
-  undef test if defined? test
-  def test(name = nil, &block)
-    cutest[:test] = name
+  module Helper
+    def around
+      rv = nil
 
-    blk = Proc.new do
-      prepare.each { |blk| blk.call }
-      block.call(setup && setup.call)
-    end
-
-    t = Thread.current[:cutest]
-    if defined? EventMachine
       EM.synchrony do
-        Thread.current[:cutest] = t
-        blk.call
-        EM.stop
+        begin
+          rv = yield
+        ensure
+          EM.stop
+        end
       end
-    else
-      blk.call
+
+      rv
     end
   end
 
