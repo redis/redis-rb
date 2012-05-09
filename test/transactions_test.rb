@@ -193,32 +193,12 @@ test "WATCH with a block and an unmodified key" do |r|
 end
 
 test "WATCH with a block and a modified key" do |r|
-  result   = nil
-  other    = Redis.connect(OPTIONS)
-  mutex    = Mutex.new
-  cvar     = ConditionVariable.new
-  watching = false
-
-  t = Thread.new do
-    result = r.watch "foo" do
-      mutex.synchronize do
-        watching = true
-        cvar.signal
-        cvar.wait(mutex)
-      end
-
-      r.multi do |multi|
-        multi.set "foo", "s1"
-      end
+  result = r.watch "foo" do
+    r.set "foo", "s2"
+    r.multi do |multi|
+      multi.set "foo", "s1"
     end
   end
-
-  mutex.synchronize do
-    cvar.wait(mutex) until watching
-    other.set("foo", "s2")
-    cvar.signal
-  end
-  t.join
 
   assert nil == result
   assert "s2" == r.get("foo")
