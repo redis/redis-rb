@@ -3,6 +3,7 @@ language: ruby
 branches:
   only:
     - master
+    - test-unit
 
 rvm:
   - 1.8.7
