@@ -76,6 +76,27 @@ module Helper
     str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
   end
 
+  def silent
+    verbose, $VERBOSE = $VERBOSE, false
+
+    begin
+      yield
+    ensure
+      $VERBOSE = verbose
+    end
+  end
+
+  def with_external_encoding(encoding)
+    original_encoding = Encoding.default_external
+
+    begin
+      silent { Encoding.default_external = Encoding.find(encoding) }
+      yield
+    ensure
+      silent { Encoding.default_external = original_encoding }
+    end
+  end
+
   module ClassMethods
 
     def driver(*drivers, &blk)
@@ -105,24 +126,3 @@ require "redis"
 require "redis/distributed"
 
 require "support/connection/#{ENV["conn"]}"
-
-def silent
-  verbose, $VERBOSE = $VERBOSE, false
-
-  begin
-    yield
-  ensure
-    $VERBOSE = verbose
-  end
-end
-
-def with_external_encoding(encoding)
-  original_encoding = Encoding.default_external
-
-  begin
-    silent { Encoding.default_external = Encoding.find(encoding) }
-    yield
-  ensure
-    silent { Encoding.default_external = original_encoding }
-  end
-end
