@@ -1,88 +1,89 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
+require "helper"
+require "lint/strings"
 
-setup do
-  init Redis.new(OPTIONS)
-end
+class TestCommandsOnStrings < Test::Unit::TestCase
 
-load './test/lint/strings.rb'
+  include Helper
+  include Lint::Strings
 
-test "MGET" do |r|
-  r.set("foo", "s1")
-  r.set("bar", "s2")
+  def test_mget
+    r.set("foo", "s1")
+    r.set("bar", "s2")
 
-  assert ["s1", "s2"]      == r.mget("foo", "bar")
-  assert ["s1", "s2", nil] == r.mget("foo", "bar", "baz")
-end
-
-test "MGET mapped" do |r|
-  r.set("foo", "s1")
-  r.set("bar", "s2")
-
-  response = r.mapped_mget("foo", "bar")
-
-  assert "s1" == response["foo"]
-  assert "s2" == response["bar"]
-
-  response = r.mapped_mget("foo", "bar", "baz")
-
-  assert "s1" == response["foo"]
-  assert "s2" == response["bar"]
-  assert nil  == response["baz"]
-end
-
-test "Mapped MGET in a pipeline returns hash" do |r|
-  r.set("foo", "s1")
-  r.set("bar", "s2")
-
-  result = r.pipelined do
-    r.mapped_mget("foo", "bar")
+    assert_equal ["s1", "s2"]     , r.mget("foo", "bar")
+    assert_equal ["s1", "s2", nil], r.mget("foo", "bar", "baz")
   end
 
-  assert result[0] == { "foo" => "s1", "bar" => "s2" }
-end
+  def test_mget_mapped
+    r.set("foo", "s1")
+    r.set("bar", "s2")
 
-test "MSET" do |r|
-  r.mset(:foo, "s1", :bar, "s2")
+    response = r.mapped_mget("foo", "bar")
 
-  assert "s1" == r.get("foo")
-  assert "s2" == r.get("bar")
-end
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
 
-test "MSET mapped" do |r|
-  r.mapped_mset(:foo => "s1", :bar => "s2")
+    response = r.mapped_mget("foo", "bar", "baz")
 
-  assert "s1" == r.get("foo")
-  assert "s2" == r.get("bar")
-end
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
+    assert_equal nil , response["baz"]
+  end
 
-test "MSETNX" do |r|
-  r.set("foo", "s1")
-  assert false == r.msetnx(:foo, "s2", :bar, "s3")
-  assert "s1" == r.get("foo")
-  assert nil == r.get("bar")
+  def test_mapped_mget_in_a_pipeline_returns_hash
+    r.set("foo", "s1")
+    r.set("bar", "s2")
 
-  r.del("foo")
-  assert true == r.msetnx(:foo, "s2", :bar, "s3")
-  assert "s2" == r.get("foo")
-  assert "s3" == r.get("bar")
-end
+    result = r.pipelined do
+      r.mapped_mget("foo", "bar")
+    end
 
-test "MSETNX mapped" do |r|
-  r.set("foo", "s1")
-  assert false == r.mapped_msetnx(:foo => "s2", :bar => "s3")
-  assert "s1" == r.get("foo")
-  assert nil == r.get("bar")
+    assert_equal result[0], { "foo" => "s1", "bar" => "s2" }
+  end
 
-  r.del("foo")
-  assert true == r.mapped_msetnx(:foo => "s2", :bar => "s3")
-  assert "s2" == r.get("foo")
-  assert "s3" == r.get("bar")
-end
+  def test_mset
+    r.mset(:foo, "s1", :bar, "s2")
 
-test "STRLEN" do |r|
-  r.set "foo", "lorem"
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
+  end
 
-  assert 5 == r.strlen("foo")
+  def test_mset_mapped
+    r.mapped_mset(:foo => "s1", :bar => "s2")
+
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
+  end
+
+  def test_msetnx
+    r.set("foo", "s1")
+    assert_equal false, r.msetnx(:foo, "s2", :bar, "s3")
+    assert_equal "s1", r.get("foo")
+    assert_equal nil, r.get("bar")
+
+    r.del("foo")
+    assert_equal true, r.msetnx(:foo, "s2", :bar, "s3")
+    assert_equal "s2", r.get("foo")
+    assert_equal "s3", r.get("bar")
+  end
+
+  def test_msetnx_mapped
+    r.set("foo", "s1")
+    assert_equal false, r.mapped_msetnx(:foo => "s2", :bar => "s3")
+    assert_equal "s1", r.get("foo")
+    assert_equal nil, r.get("bar")
+
+    r.del("foo")
+    assert_equal true, r.mapped_msetnx(:foo => "s2", :bar => "s3")
+    assert_equal "s2", r.get("foo")
+    assert_equal "s3", r.get("bar")
+  end
+
+  def test_strlen
+    r.set "foo", "lorem"
+
+    assert_equal 5, r.strlen("foo")
+  end
 end

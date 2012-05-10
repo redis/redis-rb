@@ -1,23 +1,23 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
+require "lint/lists"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedCommandsOnLists < Test::Unit::TestCase
 
-load './test/lint/lists.rb'
+  include Helper
+  include Helper::Distributed
+  include Lint::Lists
 
-test "RPOPLPUSH" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.rpoplpush("foo", "bar")
+  def test_rpoplpush
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.rpoplpush("foo", "bar")
+    end
   end
-end
 
-test "BRPOPLPUSH" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.brpoplpush("foo", "bar", :timeout => 1)
+  def test_brpoplpush
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.brpoplpush("foo", "bar", :timeout => 1)
+    end
   end
 end

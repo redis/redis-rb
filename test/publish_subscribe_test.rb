@@ -1,158 +1,159 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
+require "helper"
 
-setup do
-  init Redis.new(OPTIONS)
-end
+class TestPublishSubscribe < Test::Unit::TestCase
 
-test "SUBSCRIBE and UNSUBSCRIBE" do |r|
-  listening = false
+  include Helper
 
-  wire = Wire.new do
-    r.subscribe("foo") do |on|
-      on.subscribe do |channel, total|
-        @subscribed = true
-        @t1 = total
+  def test_subscribe_and_unsubscribe
+    listening = false
+
+    wire = Wire.new do
+      r.subscribe("foo") do |on|
+        on.subscribe do |channel, total|
+          @subscribed = true
+          @t1 = total
+        end
+
+        on.message do |channel, message|
+          if message == "s1"
+            r.unsubscribe
+            @message = message
+          end
+        end
+
+        on.unsubscribe do |channel, total|
+          @unsubscribed = true
+          @t2 = total
+        end
+
+        listening = true
       end
+    end
 
-      on.message do |channel, message|
-        if message == "s1"
+    Wire.pass while !listening
+
+    Redis.new(OPTIONS).publish("foo", "s1")
+
+    wire.join
+
+    assert @subscribed
+    assert_equal 1, @t1
+    assert @unsubscribed
+    assert_equal 0, @t2
+    assert_equal "s1", @message
+  end
+
+  def test_psubscribe_and_punsubscribe
+    listening = false
+
+    wire = Wire.new do
+      r.psubscribe("f*") do |on|
+        on.psubscribe do |pattern, total|
+          @subscribed = true
+          @t1 = total
+        end
+
+        on.pmessage do |pattern, channel, message|
+          if message == "s1"
+            r.punsubscribe
+            @message = message
+          end
+        end
+
+        on.punsubscribe do |pattern, total|
+          @unsubscribed = true
+          @t2 = total
+        end
+
+        listening = true
+      end
+    end
+
+    Wire.pass while !listening
+
+    Redis.new(OPTIONS).publish("foo", "s1")
+
+    wire.join
+
+    assert @subscribed
+    assert_equal 1, @t1
+    assert @unsubscribed
+    assert_equal 0, @t2
+    assert_equal "s1", @message
+  end
+
+  def test_subscribe_within_subscribe
+    listening = false
+
+    @channels = []
+
+    wire = Wire.new do
+      r.subscribe("foo") do |on|
+        on.subscribe do |channel, total|
+          @channels << channel
+
+          r.subscribe("bar") if channel == "foo"
+          r.unsubscribe if channel == "bar"
+        end
+
+        listening = true
+      end
+    end
+
+    Wire.pass while !listening
+
+    Redis.new(OPTIONS).publish("foo", "s1")
+
+    wire.join
+
+    assert_equal ["foo", "bar"], @channels
+  end
+
+  def test_other_commands_within_a_subscribe
+    assert_raise Redis::CommandError do
+      r.subscribe("foo") do |on|
+        on.subscribe do |channel, total|
+          r.set("bar", "s2")
+        end
+      end
+    end
+  end
+
+  def test_subscribe_without_a_block
+    assert_raise LocalJumpError do
+      r.subscribe("foo")
+    end
+  end
+
+  def test_unsubscribe_without_a_subscribe
+    assert_raise RuntimeError do
+      r.unsubscribe
+    end
+
+    assert_raise RuntimeError do
+      r.punsubscribe
+    end
+  end
+
+  def test_subscribe_past_a_timeout
+    # For some reason, a thread here doesn't reproduce the issue.
+    sleep = %{sleep #{OPTIONS[:timeout] * 2}}
+    publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
+    cmd = [sleep, publish].join("; ")
+
+    IO.popen(cmd, "r+") do |pipe|
+      received = false
+
+      r.subscribe "foo" do |on|
+        on.message do |channel, message|
+          received = true
           r.unsubscribe
-          @message = message
         end
       end
 
-      on.unsubscribe do |channel, total|
-        @unsubscribed = true
-        @t2 = total
-      end
-
-      listening = true
+      assert received
     end
-  end
-
-  Wire.pass while !listening
-
-  Redis.new(OPTIONS).publish("foo", "s1")
-
-  wire.join
-
-  assert @subscribed
-  assert 1 == @t1
-  assert @unsubscribed
-  assert 0 == @t2
-  assert "s1" == @message
-end
-
-test "PSUBSCRIBE and PUNSUBSCRIBE" do |r|
-  listening = false
-
-  wire = Wire.new do
-    r.psubscribe("f*") do |on|
-      on.psubscribe do |pattern, total|
-        @subscribed = true
-        @t1 = total
-      end
-
-      on.pmessage do |pattern, channel, message|
-        if message == "s1"
-          r.punsubscribe
-          @message = message
-        end
-      end
-
-      on.punsubscribe do |pattern, total|
-        @unsubscribed = true
-        @t2 = total
-      end
-
-      listening = true
-    end
-  end
-
-  Wire.pass while !listening
-
-  Redis.new(OPTIONS).publish("foo", "s1")
-
-  wire.join
-
-  assert @subscribed
-  assert 1 == @t1
-  assert @unsubscribed
-  assert 0 == @t2
-  assert "s1" == @message
-end
-
-test "SUBSCRIBE within SUBSCRIBE" do |r|
-  listening = false
-
-  @channels = []
-
-  wire = Wire.new do
-    r.subscribe("foo") do |on|
-      on.subscribe do |channel, total|
-        @channels << channel
-
-        r.subscribe("bar") if channel == "foo"
-        r.unsubscribe if channel == "bar"
-      end
-
-      listening = true
-    end
-  end
-
-  Wire.pass while !listening
-
-  Redis.new(OPTIONS).publish("foo", "s1")
-
-  wire.join
-
-  assert ["foo", "bar"] == @channels
-end
-
-test "other commands within a SUBSCRIBE" do |r|
-  assert_raise Redis::CommandError do
-    r.subscribe("foo") do |on|
-      on.subscribe do |channel, total|
-        r.set("bar", "s2")
-      end
-    end
-  end
-end
-
-test "SUBSCRIBE without a block" do |r|
-  assert_raise LocalJumpError do
-    r.subscribe("foo")
-  end
-end
-
-test "UNSUBSCRIBE without a SUBSCRIBE" do |r|
-  assert_raise RuntimeError do
-    r.unsubscribe
-  end
-
-  assert_raise RuntimeError do
-    r.punsubscribe
-  end
-end
-
-test "SUBSCRIBE past a timeout" do |r|
-  # For some reason, a thread here doesn't reproduce the issue.
-  sleep = %{sleep #{OPTIONS[:timeout] * 2}}
-  publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
-  cmd = [sleep, publish].join("; ")
-
-  IO.popen(cmd, "r+") do |pipe|
-    received = false
-
-    r.subscribe "foo" do |on|
-      on.message do |channel, message|
-        received = true
-        r.unsubscribe
-      end
-    end
-
-    assert received
   end
 end

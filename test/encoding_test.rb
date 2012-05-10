@@ -1,15 +1,18 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
+require "helper"
 
-setup do
-  init Redis.new(OPTIONS)
-end
+class TestEncoding < Test::Unit::TestCase
 
-test "returns properly encoded strings" do |r|
-  with_external_encoding("UTF-8") do
-    r.set "foo", "שלום"
+  include Helper
 
-    assert "Shalom שלום" == "Shalom " + r.get("foo")
+  def test_returns_properly_encoded_strings
+    if defined?(Encoding)
+      with_external_encoding("UTF-8") do
+        r.set "foo", "שלום"
+
+        assert_equal "Shalom שלום", "Shalom " + r.get("foo")
+      end
+    end
   end
-end if defined?(Encoding)
+end

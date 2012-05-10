@@ -45,13 +45,9 @@ task :stop do
   end
 end
 
-task :test do
-  require "cutest"
-
-  files = Dir["./test/**/*_test.rb"]
-  files.each do |file|
-    Cutest.run_file(file)
-  end
+Rake::TestTask.new do |t|
+  t.libs << "test"
+  t.test_files = FileList["test/*_test.rb"]
 end
 
 task :doc => ["doc:generate", "doc:prepare"]

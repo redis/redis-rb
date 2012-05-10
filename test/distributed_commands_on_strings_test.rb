@@ -1,49 +1,49 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
+require "lint/strings"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
-load './test/lint/strings.rb'
+  include Helper
+  include Helper::Distributed
+  include Lint::Strings
 
-test "MGET" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.mget("foo", "bar")
+  def test_mget
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.mget("foo", "bar")
+    end
   end
-end
 
-test "MGET mapped" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.mapped_mget("foo", "bar")
+  def test_mget_mapped
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.mapped_mget("foo", "bar")
+    end
   end
-end
 
-test "MSET" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.mset(:foo, "s1", :bar, "s2")
+  def test_mset
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.mset(:foo, "s1", :bar, "s2")
+    end
   end
-end
 
-test "MSET mapped" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.mapped_mset(:foo => "s1", :bar => "s2")
+  def test_mset_mapped
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.mapped_mset(:foo => "s1", :bar => "s2")
+    end
   end
-end
 
-test "MSETNX" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.set("foo", "s1")
-    r.msetnx(:foo, "s2", :bar, "s3")
+  def test_msetnx
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.set("foo", "s1")
+      r.msetnx(:foo, "s2", :bar, "s3")
+    end
   end
-end
 
-test "MSETNX mapped" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.set("foo", "s1")
-    r.mapped_msetnx(:foo => "s2", :bar => "s3")
+  def test_msetnx_mapped
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.set("foo", "s1")
+      r.mapped_msetnx(:foo => "s2", :bar => "s3")
+    end
   end
 end

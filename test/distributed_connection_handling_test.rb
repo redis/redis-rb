@@ -1,24 +1,24 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedConnectionHandling < Test::Unit::TestCase
 
-test "PING" do |r|
-  assert ["PONG"] == r.ping
-end
+  include Helper
+  include Helper::Distributed
 
-test "SELECT" do |r|
-  r.set "foo", "bar"
+  def test_ping
+    assert_equal ["PONG"], r.ping
+  end
 
-  r.select 14
-  assert nil == r.get("foo")
+  def test_select
+    r.set "foo", "bar"
 
-  r.select 15
+    r.select 14
+    assert_equal nil, r.get("foo")
 
-  assert "bar" == r.get("foo")
+    r.select 15
+
+    assert_equal "bar", r.get("foo")
+  end
 end

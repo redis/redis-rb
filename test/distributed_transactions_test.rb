@@ -1,33 +1,33 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedTransactions < Test::Unit::TestCase
 
-test "MULTI/DISCARD" do |r|
-  @foo = nil
+  include Helper
+  include Helper::Distributed
 
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.multi { @foo = 1 }
+  def test_multi_discard
+    @foo = nil
+
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.multi { @foo = 1 }
+    end
+
+    assert_equal nil, @foo
+
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.discard
+    end
   end
 
-  assert nil == @foo
+  def test_watch_unwatch
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.watch("foo")
+    end
 
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.discard
-  end
-end
-
-test "WATCH/UNWATCH" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.watch("foo")
-  end
-
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.unwatch
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.unwatch
+    end
   end
 end
