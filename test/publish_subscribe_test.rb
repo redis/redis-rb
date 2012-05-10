@@ -7,7 +7,8 @@ class TestPublishSubscribe < Test::Unit::TestCase
   include Helper
 
   def test_subscribe_and_unsubscribe
-    listening = false
+    @subscribed = false
+    @unsubscribed = false
 
     wire = Wire.new do
       r.subscribe("foo") do |on|
@@ -27,12 +28,11 @@ class TestPublishSubscribe < Test::Unit::TestCase
           @unsubscribed = true
           @t2 = total
         end
-
-        listening = true
       end
     end
 
-    Wire.pass while !listening
+    # Wait until the subscription is active before publishing
+    Wire.pass while !@subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -46,7 +46,8 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_psubscribe_and_punsubscribe
-    listening = false
+    @subscribed = false
+    @unsubscribed = false
 
     wire = Wire.new do
       r.psubscribe("f*") do |on|
@@ -71,7 +72,8 @@ class TestPublishSubscribe < Test::Unit::TestCase
       end
     end
 
-    Wire.pass while !listening
+    # Wait until the subscription is active before publishing
+    Wire.pass while !@subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -85,8 +87,6 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_within_subscribe
-    listening = false
-
     @channels = []
 
     wire = Wire.new do
@@ -97,14 +97,8 @@ class TestPublishSubscribe < Test::Unit::TestCase
           r.subscribe("bar") if channel == "foo"
           r.unsubscribe if channel == "bar"
         end
-
-        listening = true
       end
     end
-
-    Wire.pass while !listening
-
-    Redis.new(OPTIONS).publish("foo", "s1")
 
     wire.join
 
