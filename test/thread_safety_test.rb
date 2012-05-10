@@ -1,32 +1,32 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
+require "helper"
 
-setup do
-  init Redis.new(OPTIONS)
-end
+class TestThreadSafety < Test::Unit::TestCase
 
-test "thread safety" do
-  next unless driver == :ruby || driver == :hiredis
+  include Helper
 
-  redis = Redis.connect(OPTIONS)
+  driver(:ruby, :hiredis) do
+    def test_thread_safety
+      redis = Redis.connect(OPTIONS)
+      redis.set "foo", 1
+      redis.set "bar", 2
 
-  redis.set "foo", 1
-  redis.set "bar", 2
+      sample = 100
 
-  sample = 100
+      t1 = Thread.new do
+        $foos = Array.new(sample) { redis.get "foo" }
+      end
 
-  t1 = Thread.new do
-    $foos = Array.new(sample) { redis.get "foo" }
+      t2 = Thread.new do
+        $bars = Array.new(sample) { redis.get "bar" }
+      end
+
+      t1.join
+      t2.join
+
+      assert_equal ["1"], $foos.uniq
+      assert_equal ["2"], $bars.uniq
+    end
   end
-
-  t2 = Thread.new do
-    $bars = Array.new(sample) { redis.get "bar" }
-  end
-
-  t1.join
-  t2.join
-
-  assert_equal ["1"], $foos.uniq
-  assert_equal ["2"], $bars.uniq
 end

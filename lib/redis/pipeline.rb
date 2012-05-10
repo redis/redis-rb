@@ -46,9 +46,15 @@ class Redis
       yield
     end
 
-    def finish(replies)
-      futures.each_with_index.map do |future, i|
-        future._set(replies[i])
+    def finish(replies, &blk)
+      if blk
+        futures.each_with_index.map do |future, i|
+          future._set(blk.call(replies[i]))
+        end
+      else
+        futures.each_with_index.map do |future, i|
+          future._set(replies[i])
+        end
       end
     end
 
@@ -58,10 +64,15 @@ class Redis
 
         if replies.last.size < futures.size - 2
           # Some command wasn't recognized by Redis.
-          raise replies.detect { |r| r.kind_of?(::Exception) }
+          raise replies.detect { |r| r.kind_of?(::RuntimeError) }
         end
 
-        super(replies.last)
+        super(replies.last) do |reply|
+          # Because an EXEC returns nested replies, hiredis won't be able to
+          # convert an error reply to a CommandError instance itself. This is
+          # specific to MULTI/EXEC, so we solve this here.
+          reply.is_a?(::RuntimeError) ? CommandError.new(reply.message) : reply
+        end
       end
 
       def commands
@@ -99,7 +110,7 @@ class Redis
     end
 
     def value
-      ::Kernel.raise(@object) if @object.kind_of?(::Exception)
+      ::Kernel.raise(@object) if @object.kind_of?(::RuntimeError)
       @object
     end
   end

@@ -20,13 +20,13 @@ EM.synchrony do
   r.rpush "foo", "s1"
   r.rpush "foo", "s2"
 
-  assert 2 == r.llen("foo")
-  assert "s2" == r.rpop("foo")
+  assert_equal 2, r.llen("foo")
+  assert_equal "s2", r.rpop("foo")
 
   r.set("foo", "bar")
 
-  assert "bar" == r.getset("foo", "baz")
-  assert "baz" == r.get("foo")
+  assert_equal "bar", r.getset("foo", "baz")
+  assert_equal "baz", r.get("foo")
 
   r.set("foo", "a")
 
@@ -46,12 +46,12 @@ EM.synchrony do
     r.lpush "foo", "s2"
   end
 
-  assert 2 == r.llen("foo")
-  assert "s2" == r.lpop("foo")
-  assert "s1" == r.lpop("foo")
+  assert_equal 2, r.llen("foo")
+  assert_equal "s2", r.lpop("foo")
+  assert_equal "s1", r.lpop("foo")
 
-  assert "OK" == r.client.call(:quit)
-  assert "PONG" == r.ping
+  assert_equal "OK", r.client.call(:quit)
+  assert_equal "PONG", r.ping
 
   EM.stop
 end

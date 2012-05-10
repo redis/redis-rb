@@ -1,52 +1,52 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedKeyTags < Test::Unit::TestCase
 
-test "hashes consistently" do
-  r1 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
-  r2 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
-  r3 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+  include Helper
+  include Helper::Distributed
 
-  assert r1.node_for("foo").id == r2.node_for("foo").id
-  assert r1.node_for("foo").id == r3.node_for("foo").id
-end
+  def test_hashes_consistently
+    r1 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+    r2 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+    r3 = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
 
-test "allows clustering of keys" do |r|
-  r = Redis::Distributed.new(NODES)
-  r.add_node("redis://localhost:#{PORT}/14")
-  r.flushdb
-
-  100.times do |i|
-    r.set "{foo}users:#{i}", i
+    assert_equal r1.node_for("foo").id, r2.node_for("foo").id
+    assert_equal r1.node_for("foo").id, r3.node_for("foo").id
   end
 
-  assert [0, 100] == r.nodes.map { |node| node.keys.size }
-end
+  def test_allows_clustering_of_keys
+    r = Redis::Distributed.new(NODES)
+    r.add_node("redis://localhost:#{PORT}/14")
+    r.flushdb
 
-test "distributes keys if no clustering is used" do |r|
-  r.add_node("redis://localhost:#{PORT}/14")
-  r.flushdb
+    100.times do |i|
+      r.set "{foo}users:#{i}", i
+    end
 
-  r.set "users:1", 1
-  r.set "users:4", 4
-
-  assert [1, 1] == r.nodes.map { |node| node.keys.size }
-end
-
-test "allows passing a custom tag extractor" do |r|
-  r = Redis::Distributed.new(NODES, :tag => /^(.+?):/)
-  r.add_node("redis://localhost:#{PORT}/14")
-  r.flushdb
-
-  100.times do |i|
-    r.set "foo:users:#{i}", i
+    assert_equal [0, 100], r.nodes.map { |node| node.keys.size }
   end
 
-  assert [0, 100] == r.nodes.map { |node| node.keys.size }
+  def test_distributes_keys_if_no_clustering_is_used
+    r.add_node("redis://localhost:#{PORT}/14")
+    r.flushdb
+
+    r.set "users:1", 1
+    r.set "users:4", 4
+
+    assert_equal [1, 1], r.nodes.map { |node| node.keys.size }
+  end
+
+  def test_allows_passing_a_custom_tag_extractor
+    r = Redis::Distributed.new(NODES, :tag => /^(.+?):/)
+    r.add_node("redis://localhost:#{PORT}/14")
+    r.flushdb
+
+    100.times do |i|
+      r.set "foo:users:#{i}", i
+    end
+
+    assert_equal [0, 100], r.nodes.map { |node| node.keys.size }
+  end
 end

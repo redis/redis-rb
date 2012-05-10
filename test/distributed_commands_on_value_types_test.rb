@@ -1,88 +1,88 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
+require "lint/value_types"
 
-setup do
-  log = StringIO.new
-  init(Redis::Distributed.new(NODES, :logger => ::Logger.new(log)))
-end
+class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
 
-load "./test/lint/value_types.rb"
+  include Helper
+  include Helper::Distributed
+  include Lint::ValueTypes
 
-test "DEL" do |r|
-  r.set "foo", "s1"
-  r.set "bar", "s2"
-  r.set "baz", "s3"
+  def test_del
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+    r.set "baz", "s3"
 
-  assert ["bar", "baz", "foo"] == r.keys("*").sort
+    assert_equal ["bar", "baz", "foo"], r.keys("*").sort
 
-  assert 1 == r.del("foo")
+    assert_equal 1, r.del("foo")
 
-  assert ["bar", "baz"] == r.keys("*").sort
+    assert_equal ["bar", "baz"], r.keys("*").sort
 
-  assert 2 == r.del("bar", "baz")
+    assert_equal 2, r.del("bar", "baz")
 
-  assert [] == r.keys("*").sort
-end
-
-test "DEL with array argument" do |r|
-  r.set "foo", "s1"
-  r.set "bar", "s2"
-  r.set "baz", "s3"
-
-  assert ["bar", "baz", "foo"] == r.keys("*").sort
-
-  assert 1 == r.del(["foo"])
-
-  assert ["bar", "baz"] == r.keys("*").sort
-
-  assert 2 == r.del(["bar", "baz"])
-
-  assert [] == r.keys("*").sort
-end
-
-test "RANDOMKEY" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
-    r.randomkey
+    assert_equal [], r.keys("*").sort
   end
-end
 
-test "RENAME" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  def test_del_with_array_argument
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+    r.set "baz", "s3"
+
+    assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+
+    assert_equal 1, r.del(["foo"])
+
+    assert_equal ["bar", "baz"], r.keys("*").sort
+
+    assert_equal 2, r.del(["bar", "baz"])
+
+    assert_equal [], r.keys("*").sort
+  end
+
+  def test_randomkey
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.randomkey
+    end
+  end
+
+  def test_rename
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.set("foo", "s1")
+      r.rename "foo", "bar"
+    end
+
+    assert_equal "s1", r.get("foo")
+    assert_equal nil, r.get("bar")
+  end
+
+  def test_renamenx
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.set("foo", "s1")
+      r.rename "foo", "bar"
+    end
+
+    assert_equal "s1", r.get("foo")
+    assert_equal nil , r.get("bar")
+  end
+
+  def test_dbsize
+    assert_equal [0], r.dbsize
+
     r.set("foo", "s1")
-    r.rename "foo", "bar"
+
+    assert_equal [1], r.dbsize
   end
 
-  assert "s1" == r.get("foo")
-  assert nil == r.get("bar")
-end
-
-test "RENAMENX" do |r|
-  assert_raise Redis::Distributed::CannotDistribute do
+  def test_flushdb
     r.set("foo", "s1")
-    r.rename "foo", "bar"
+    r.set("bar", "s2")
+
+    assert_equal [2], r.dbsize
+
+    r.flushdb
+
+    assert_equal [0], r.dbsize
   end
-
-  assert "s1" == r.get("foo")
-  assert nil  == r.get("bar")
-end
-
-test "DBSIZE" do |r|
-  assert [0] == r.dbsize
-
-  r.set("foo", "s1")
-
-  assert [1] == r.dbsize
-end
-
-test "FLUSHDB" do |r|
-  r.set("foo", "s1")
-  r.set("bar", "s2")
-
-  assert [2] == r.dbsize
-
-  r.flushdb
-
-  assert [0] == r.dbsize
 end

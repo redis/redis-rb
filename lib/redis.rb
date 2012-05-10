@@ -2040,7 +2040,7 @@ class Redis
 
   def inspect
     synchronize do |client|
-      "#<Redis client v#{Redis::VERSION} connected to #{id} (Redis v#{info["redis_version"]})>"
+      "#<Redis client v#{Redis::VERSION} for #{client.id}>"
     end
   end
 

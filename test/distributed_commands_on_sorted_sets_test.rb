@@ -1,19 +1,19 @@
 # encoding: UTF-8
 
-require File.expand_path("./helper", File.dirname(__FILE__))
-require "redis/distributed"
+require "helper"
+require "lint/sorted_sets"
 
-setup do
-  log = StringIO.new
-  init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
-end
+class TestDistributedCommandsOnSortedSets < Test::Unit::TestCase
 
-load './test/lint/sorted_sets.rb'
+  include Helper
+  include Helper::Distributed
+  include Lint::SortedSets
 
-test "ZCOUNT" do |r|
-  r.zadd "foo", 1, "s1"
-  r.zadd "foo", 2, "s2"
-  r.zadd "foo", 3, "s3"
+  def test_zcount
+    r.zadd "foo", 1, "s1"
+    r.zadd "foo", 2, "s2"
+    r.zadd "foo", 3, "s3"
 
-  assert 2 == r.zcount("foo", 2, 3)
+    assert_equal 2, r.zcount("foo", 2, 3)
+  end
 end
