@@ -71,6 +71,10 @@ module Helper
     @redis = init Redis.new(OPTIONS.merge(:logger => ::Logger.new(log)))
   end
 
+  def teardown
+    @redis.quit if @redis
+  end
+
   def run(runner)
     if respond_to?(:around)
       around { super(runner) }
