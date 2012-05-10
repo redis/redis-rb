@@ -62,11 +62,13 @@ module Helper
   end
 
   attr_reader :log
-  attr_reader :r
+  attr_reader :redis
+
+  alias :r :redis
 
   def setup
     @log = StringIO.new
-    @r = init Redis.new(OPTIONS.merge(:logger => ::Logger.new(log)))
+    @redis = init Redis.new(OPTIONS.merge(:logger => ::Logger.new(log)))
   end
 
   def run(runner)
@@ -122,7 +124,7 @@ module Helper
     def setup
       super
 
-      @r = init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
+      @redis = init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
     end
   end
 end
