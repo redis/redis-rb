@@ -18,7 +18,7 @@ class Redis
     def initialize(urls, options = {})
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
-      @ring = HashRing.new urls.map { |url| Redis.connect(options.merge(:url => url)) }
+      @ring = HashRing.new urls.map { |url| Redis.new(options.merge(:url => url)) }
       @subscribed_node = nil
     end
 
@@ -31,7 +31,7 @@ class Redis
     end
 
     def add_node(url)
-      @ring.add_node Redis.connect(@default_options.merge(:url => url))
+      @ring.add_node Redis.new(@default_options.merge(:url => url))
     end
 
     # Close the connection.
