@@ -18,7 +18,8 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_and_unsubscribe_with_tags
-    listening = false
+    @subscribed = false
+    @unsubscribed = false
 
     wire = Wire.new do
       r.subscribe("foo") do |on|
@@ -38,12 +39,11 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
           @unsubscribed = true
           @t2 = total
         end
-
-        listening = true
       end
     end
 
-    Wire.pass while !listening
+    # Wait until the subscription is active before publishing
+    Wire.pass while !@subscribed
 
     Redis::Distributed.new(NODES).publish("foo", "s1")
 
@@ -57,7 +57,6 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_within_subscribe
-    listening = false
     @channels = []
 
     wire = Wire.new do
@@ -68,14 +67,8 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
           r.subscribe("bar") if channel == "foo"
           r.unsubscribe if channel == "bar"
         end
-
-        listening = true
       end
     end
-
-    Wire.pass while !listening
-
-    Redis::Distributed.new(NODES).publish("foo", "s1")
 
     wire.join
 
