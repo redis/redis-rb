@@ -1074,9 +1074,9 @@ class Redis
   #   - inclusive maximum score is specified verbatim
   #   - exclusive maximum score is specified by prefixing `(`
   # @return [Fixnum] number of members in within the specified range
-  def zcount(key, start, stop)
+  def zcount(key, min, max)
     synchronize do |client|
-      client.call [:zcount, key, start, stop]
+      client.call [:zcount, key, min, max]
     end
   end
 
