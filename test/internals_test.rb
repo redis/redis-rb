@@ -179,21 +179,17 @@ class TestInternals < Test::Unit::TestCase
   end
 
   driver(:ruby, :hiredis) do
-    # Using a mock server in a thread doesn't work here (possibly because blocking
-    # socket ops, raw socket timeouts and Ruby's thread scheduling don't mix).
-    def test_bubble_eagain_without_retrying
-      cmd = %{(sleep 0.3; echo "+PONG\r\n") | nc -l 6380}
-      IO.popen(cmd) do |_|
-        sleep 0.1 # Give nc a little time to start listening
-        redis = Redis.new(:port => 6380, :timeout => 0.1)
+    def test_bubble_timeout_without_retrying
+      serv = TCPServer.new(6380)
 
-        begin
-          assert_raise(Redis::TimeoutError) { redis.ping }
-        ensure
-          # Explicitly close connection so nc can quit
-          redis.client.disconnect
-        end
+      redis = Redis.new(:port => 6380, :timeout => 0.1)
+
+      assert_raise(Redis::TimeoutError) do
+        redis.ping
       end
+
+    ensure
+      serv.close if serv
     end
   end
 end
