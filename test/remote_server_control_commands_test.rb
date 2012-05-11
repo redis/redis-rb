@@ -22,7 +22,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
     assert_equal "1", result["ping"]["calls"]
   end
 
-  def test_monitor__redis_________
+  def test_monitor_redis_lt_2_5_0
     return unless version < "2.5.0"
 
     log = []
@@ -43,7 +43,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
     assert log[-1][%q{(db 15) "set" "foo" "s1"}]
   end
 
-  def test_monitor__redis__________
+  def test_monitor_redis_gte_2_5_0
     return unless version >= "2.5.0"
 
     log = []
