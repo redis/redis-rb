@@ -60,20 +60,7 @@ class Redis
     class Synchrony
       include Redis::Connection::CommandHelper
 
-      def initialize
-        @timeout = 5.0
-        @connection = nil
-      end
-
-      def connected?
-        @connection && @connection.connected?
-      end
-
-      def timeout=(timeout)
-        @timeout = timeout
-      end
-
-      def connect(config)
+      def self.connect(config)
         if config[:scheme] == "unix"
           conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
         else
@@ -82,7 +69,27 @@ class Redis
           end
         end
 
-        setup_connect_callbacks(conn, Fiber.current)
+        fiber = Fiber.current
+        conn.callback { fiber.resume }
+        conn.errback { fiber.resume :refused }
+
+        raise Errno::ECONNREFUSED if Fiber.yield == :refused
+
+        instance = new(conn)
+        instance.timeout = config[:timeout]
+        instance
+      end
+
+      def initialize(connection)
+        @connection = connection
+      end
+
+      def connected?
+        @connection && @connection.connected?
+      end
+
+      def timeout=(timeout)
+        @timeout = timeout
       end
 
       def disconnect
@@ -104,24 +111,6 @@ class Redis
         else
           raise "Unknown type #{type.inspect}"
         end
-      end
-
-    private
-
-      def setup_connect_callbacks(conn, f)
-        conn.callback do
-          @connection = conn
-          f.resume conn
-        end
-
-        conn.errback do
-          @connection = conn
-          f.resume :refused
-        end
-
-        r = Fiber.yield
-        raise Errno::ECONNREFUSED if r == :refused
-        r
       end
     end
   end

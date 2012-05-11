@@ -163,20 +163,24 @@ class Redis
       DOLLAR   = "$".freeze
       ASTERISK = "*".freeze
 
-      def initialize
-        @sock = nil
+      def self.connect(config)
+        if config[:scheme] == "unix"
+          sock = UNIXSocket.connect(config[:path], config[:timeout])
+        else
+          sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
+        end
+
+        instance = new(sock)
+        instance.timeout = config[:timeout]
+        instance
+      end
+
+      def initialize(sock)
+        @sock = sock
       end
 
       def connected?
         !! @sock
-      end
-
-      def connect(config)
-        if config[:scheme] == "unix"
-          @sock = UNIXSocket.connect(config[:path], config[:timeout])
-        else
-          @sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
-        end
       end
 
       def disconnect

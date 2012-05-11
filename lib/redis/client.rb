@@ -53,7 +53,7 @@ class Redis
       @options = _parse_options(options)
       @reconnect = true
       @logger = @options[:logger]
-      @connection = @options[:driver].new
+      @connection = nil
       @command_map = {}
     end
 
@@ -191,11 +191,11 @@ class Redis
     end
 
     def connected?
-      connection.connected?
+      connection && connection.connected?
     end
 
     def disconnect
-      connection.disconnect if connection.connected?
+      connection.disconnect if connected?
     end
 
     def reconnect
@@ -267,8 +267,7 @@ class Redis
     end
 
     def establish_connection
-      connection.connect(@options.dup)
-      connection.timeout = timeout
+      @connection = @options[:driver].connect(@options.dup)
 
     rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
