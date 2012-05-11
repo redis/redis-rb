@@ -46,7 +46,7 @@ module Lint
     end
 
     def test_psetex
-      return if version < 205040
+      return if version < "2.5.4"
 
       assert r.psetex("foo", 1000, "bar")
       assert_equal "bar", r.get("foo")
@@ -83,7 +83,7 @@ module Lint
     end
 
     def test_incrbyfloat
-      return if version < 205040
+      return if version < "2.5.4"
 
       assert_equal 1.23, r.incrbyfloat("foo", 1.23)
       assert_equal 2   , r.incrbyfloat("foo", 0.77)

@@ -86,11 +86,7 @@ module Helper
   def version
     info = r.info
     info = info.first if info.kind_of?(Array)
-    version_str_to_i info["redis_version"]
-  end
-
-  def version_str_to_i(str)
-    str.split(".").map{ |v| v.ljust(2, '0') }.join.to_i
+    Version.new(info["redis_version"])
   end
 
   def silent
@@ -111,6 +107,36 @@ module Helper
       yield
     ensure
       silent { Encoding.default_external = original_encoding }
+    end
+  end
+
+  class Version
+
+    include Comparable
+
+    attr :parts
+
+    def initialize(v)
+      case v
+      when Version
+        @parts = v.parts
+      else
+        @parts = v.to_s.split(".")
+      end
+    end
+
+    def <=>(other)
+      other = Version.new(other)
+      length = [self.parts.length, other.parts.length].max
+      length.times do |i|
+        a, b = self.parts[i], other.parts[i]
+
+        return -1 if a.nil?
+        return +1 if b.nil?
+        return a <=> b if a != b
+      end
+
+      0
     end
   end
 

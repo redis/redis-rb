@@ -17,8 +17,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_info_commandstats
-    # Only available on Redis >= 2.9.0
-    return if version < 209000
+    return if version < "2.9.0"
 
     r.nodes.each { |n| n.config(:resetstat) }
     r.ping # Executed on every node
@@ -42,7 +41,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_time
-    return if version < 205040
+    return if version < "2.5.4"
 
     # Test that the difference between the time that Ruby reports and the time
     # that Redis reports is minimal (prevents the test from being racy).
