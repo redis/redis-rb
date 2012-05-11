@@ -245,12 +245,6 @@ class Redis
 
   protected
 
-    def deprecated(old, new = nil, trace = caller[0])
-      message = "The method #{old} is deprecated and will be removed in 2.0"
-      message << " - use #{new} instead" if new
-      Redis.deprecate(message, trace)
-    end
-
     def logging(commands)
       return yield unless @logger && @logger.debug?
 
