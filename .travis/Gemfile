@@ -2,8 +2,6 @@ source "https://rubygems.org"
 
 gemspec :path => "../"
 
-gem "cutest"
-
 case ENV["conn"]
 when "hiredis"
   gem "hiredis"
