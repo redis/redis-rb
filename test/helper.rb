@@ -110,6 +110,15 @@ module Helper
     end
   end
 
+  def assert_finishes_in(expected)
+    t1 = Time.now
+    yield
+    t2 = Time.now
+
+    actual = t2 - t1
+    assert actual <= expected, "expected to finish in #{expected}s, but took #{actual}s"
+  end
+
   class Version
 
     include Comparable

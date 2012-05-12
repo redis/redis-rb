@@ -507,6 +507,29 @@ class Redis
     end
   end
 
+  def _bpop(cmd, args)
+    options = {}
+
+    case args.last
+    when Hash
+      options = args.pop
+    when Integer
+      # Issue deprecation notice in obnoxious mode...
+      options[:timeout] = args.pop
+    end
+
+    if args.size > 1
+      # Issue deprecation notice in obnoxious mode...
+    end
+
+    keys = args.flatten
+    timeout = options[:timeout] || 0
+
+    synchronize do |client|
+      client.call_without_timeout [cmd, keys, timeout]
+    end
+  end
+
   # Remove and get the first element in a list, or block until one is available.
   #
   # @example With timeout
@@ -528,12 +551,8 @@ class Redis
   # @return [nil, [String, String]]
   #   - `nil` when the operation timed out
   #   - tuple of the list that was popped from and element was popped otherwise
-  def blpop(keys, options = {})
-    timeout = options[:timeout] || 0
-
-    synchronize do |client|
-      client.call_without_timeout [:blpop, keys, timeout]
-    end
+  def blpop(*args)
+    _bpop(:blpop, args)
   end
 
   # Remove and get the last element in a list, or block until one is available.
@@ -548,12 +567,8 @@ class Redis
   #   - tuple of the list that was popped from and element was popped otherwise
   #
   # @see #blpop
-  def brpop(keys, options = {})
-    timeout = options[:timeout] || 0
-
-    synchronize do |client|
-      client.call_without_timeout [:brpop, keys, timeout]
-    end
+  def brpop(*args)
+    _bpop(:brpop, args)
   end
 
   # Pop a value from a list, push it to another list and return it; or block
@@ -568,6 +583,12 @@ class Redis
   #   - `nil` when the operation timed out
   #   - the element was popped and pushed otherwise
   def brpoplpush(source, destination, options = {})
+    case options
+    when Integer
+      # Issue deprecation notice in obnoxious mode...
+      options = { :timeout => options }
+    end
+
     timeout = options[:timeout] || 0
 
     synchronize do |client|
