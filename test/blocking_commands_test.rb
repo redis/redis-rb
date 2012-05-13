@@ -6,140 +6,121 @@ class TestBlockingCommands < Test::Unit::TestCase
 
   include Helper
 
-  # Time to give a timeout of 1 to expire
-  SLACK = 2.5
+  def setup
+    super
 
-  def create
-    r.lpush("foo", "s1")
-    r.lpush("foo", "s2")
+    r.rpush("foo", "s1")
+    r.rpush("foo", "s2")
+    r.rpush("bar", "s1")
+    r.rpush("bar", "s2")
   end
 
-  def push(options)
-    wire = Wire.new do
-      redis = Redis.new(OPTIONS)
-      Wire.sleep 0.1
-      redis.lpush(options[:to], "s3")
+  def to_protocol(obj)
+    case obj
+    when String
+      "$#{obj.length}\r\n#{obj}\r\n"
+    when Array
+      "*#{obj.length}\r\n" + obj.map { |e| to_protocol(e) }.join
+    else
+      fail
     end
+  end
 
-    yield
+  def mock
+    replies = {
+      :blpop => lambda do |*args|
+        to_protocol([args.first, args.last])
+      end,
+      :brpop => lambda do |*args|
+        to_protocol([args.first, args.last])
+      end,
+      :brpoplpush => lambda do |*args|
+        to_protocol(args.last)
+      end,
+    }
 
-  ensure
-    wire.join
+    redis_mock(replies) do
+      yield Redis.new(OPTIONS.merge(:port => MOCK_PORT))
+    end
   end
 
   def test_blpop
-    create
-
-    push(:to => "foo") do
-      assert_equal ["foo", "s2"], r.blpop("foo", :timeout => 1)
-      assert_equal ["foo", "s1"], r.blpop("foo", :timeout => 1)
-      assert_equal ["foo", "s3"], r.blpop("foo", :timeout => 1)
-    end
-  end
-
-  def test_blpop_with_multiple_keys
-    create
-
-    push(:to => "bar") do
-      assert_equal ["foo", "s2"], r.blpop(["bar", "foo"], :timeout => 1)
-      assert_equal ["foo", "s1"], r.blpop(["bar", "foo"], :timeout => 1)
-      assert_equal ["bar", "s3"], r.blpop(["bar", "foo"], :timeout => 1)
-    end
+    assert_equal ["foo", "s1"], r.blpop("foo")
+    assert_equal ["foo", "s2"], r.blpop(["foo"])
+    assert_equal ["bar", "s1"], r.blpop(["bar", "foo"])
+    assert_equal ["bar", "s2"], r.blpop(["foo", "bar"])
   end
 
   def test_blpop_timeout
-    assert_finishes_in(SLACK) do
-      assert_equal nil, r.blpop("foo", :timeout => 1)
+    mock do |r|
+      assert_equal ["foo", "0"], r.blpop("foo")
+      assert_equal ["foo", "1"], r.blpop("foo", :timeout => 1)
     end
   end
 
   def test_blpop_with_old_prototype
-    create
-
-    push(:to => "bar") do
-      assert_equal ["foo", "s2"], r.blpop("bar", "foo", 1)
-      assert_equal ["foo", "s1"], r.blpop("bar", "foo", 1)
-      assert_equal ["bar", "s3"], r.blpop("bar", "foo", 1)
-    end
+    assert_equal ["foo", "s1"], r.blpop("foo", 0)
+    assert_equal ["foo", "s2"], r.blpop("foo", 0)
+    assert_equal ["bar", "s1"], r.blpop("bar", "foo", 0)
+    assert_equal ["bar", "s2"], r.blpop("foo", "bar", 0)
   end
 
   def test_blpop_timeout_with_old_prototype
-    assert_finishes_in(SLACK) do
-      assert_equal nil, r.blpop("foo", 1)
+    mock do |r|
+      assert_equal ["foo", "0"], r.blpop("foo", 0)
+      assert_equal ["foo", "1"], r.blpop("foo", 1)
     end
   end
 
   def test_brpop
-    create
-
-    push(:to => "foo") do
-      assert_equal ["foo", "s1"], r.brpop("foo", :timeout => 1)
-      assert_equal ["foo", "s2"], r.brpop("foo", :timeout => 1)
-      assert_equal ["foo", "s3"], r.brpop("foo", :timeout => 1)
-    end
-  end
-
-  def test_brpop_with_multiple_keys
-    create
-
-    push(:to => "bar") do
-      assert_equal ["foo", "s1"], r.brpop(["bar", "foo"], :timeout => 1)
-      assert_equal ["foo", "s2"], r.brpop(["bar", "foo"], :timeout => 1)
-      assert_equal ["bar", "s3"], r.brpop(["bar", "foo"], :timeout => 1)
-    end
+    assert_equal ["foo", "s2"], r.brpop("foo")
+    assert_equal ["foo", "s1"], r.brpop(["foo"])
+    assert_equal ["bar", "s2"], r.brpop(["bar", "foo"])
+    assert_equal ["bar", "s1"], r.brpop(["foo", "bar"])
   end
 
   def test_brpop_timeout
-    assert_finishes_in(SLACK) do
-      assert_equal nil, r.brpop("foo", :timeout => 1)
+    mock do |r|
+      assert_equal ["foo", "0"], r.brpop("foo")
+      assert_equal ["foo", "1"], r.brpop("foo", :timeout => 1)
     end
   end
 
   def test_brpop_with_old_prototype
-    create
-
-    push(:to => "bar") do
-      assert_equal ["foo", "s1"], r.brpop("bar", "foo", 1)
-      assert_equal ["foo", "s2"], r.brpop("bar", "foo", 1)
-      assert_equal ["bar", "s3"], r.brpop("bar", "foo", 1)
-    end
+    assert_equal ["foo", "s2"], r.brpop("foo", 0)
+    assert_equal ["foo", "s1"], r.brpop("foo", 0)
+    assert_equal ["bar", "s2"], r.brpop("bar", "foo", 0)
+    assert_equal ["bar", "s1"], r.brpop("foo", "bar", 0)
   end
 
   def test_brpop_timeout_with_old_prototype
-    assert_finishes_in(SLACK) do
-      assert_equal nil, r.brpop("foo", 1)
+    mock do |r|
+      assert_equal ["foo", "0"], r.brpop("foo", 0)
+      assert_equal ["foo", "1"], r.brpop("foo", 1)
     end
   end
 
   def test_brpoplpush
-    create
-
-    assert_equal "s1", r.brpoplpush("foo", "bar", :timeout => 1)
-
-    assert_equal nil, r.brpoplpush("baz", "qux", :timeout => 1)
-
-    assert_equal ["s1"], r.lrange("bar", 0, -1)
+    assert_equal "s2", r.brpoplpush("foo", "zap")
+    assert_equal ["s2"], r.lrange("zap", 0, -1)
   end
 
   def test_brpoplpush_timeout
-    assert_finishes_in(SLACK) do
-      assert_equal nil, r.brpoplpush("foo", "bar", :timeout => 1)
+    mock do |r|
+      assert_equal "0", r.brpoplpush("foo", "bar")
+      assert_equal "1", r.brpoplpush("foo", "bar", :timeout => 1)
     end
   end
 
   def test_brpoplpush_with_old_prototype
-    create
-
-    assert_equal "s1", r.brpoplpush("foo", "bar", 1)
-
-    assert_equal nil, r.brpoplpush("baz", "qux", 1)
-
-    assert_equal ["s1"], r.lrange("bar", 0, -1)
+    assert_equal "s2", r.brpoplpush("foo", "zap", 0)
+    assert_equal ["s2"], r.lrange("zap", 0, -1)
   end
 
   def test_brpoplpush_timeout_with_old_prototype
-    assert_finishes_in(SLACK) do
-      assert_equal nil, r.brpoplpush("foo", "bar", 1)
+    mock do |r|
+      assert_equal "0", r.brpoplpush("foo", "bar", 0)
+      assert_equal "1", r.brpoplpush("foo", "bar", 1)
     end
   end
 end
