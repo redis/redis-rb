@@ -91,9 +91,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_sync
-    commands = {:sync => lambda { "+OK" }}
-
-    redis_mock(commands) do |redis|
+    redis_mock(:sync => lambda { "+OK" }) do |redis|
       assert_equal "OK", redis.sync
     end
   end
