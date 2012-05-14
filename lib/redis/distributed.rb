@@ -84,14 +84,14 @@ class Redis
 
     # Rename a key.
     def rename(old_name, new_name)
-      ensure_same_node(:rename, old_name, new_name) do |node|
+      ensure_same_node(:rename, [old_name, new_name]) do |node|
         node.rename(old_name, new_name)
       end
     end
 
     # Rename a key, only if the new key does not exist.
     def renamenx(old_name, new_name)
-      ensure_same_node(:renamenx, old_name, new_name) do |node|
+      ensure_same_node(:renamenx, [old_name, new_name]) do |node|
         node.renamenx(old_name, new_name)
       end
     end
@@ -314,7 +314,7 @@ class Redis
     # Remove the last element in a list, append it to another list and return
     # it.
     def rpoplpush(source, destination)
-      ensure_same_node(:rpoplpush, source, destination) do |node|
+      ensure_same_node(:rpoplpush, [source, destination]) do |node|
         node.rpoplpush(source, destination)
       end
     end
@@ -334,7 +334,7 @@ class Redis
     # Pop a value from a list, push it to another list and return it; or block
     # until one is available.
     def brpoplpush(source, destination, timeout)
-      ensure_same_node(:brpoplpush, source, destination) do |node|
+      ensure_same_node(:brpoplpush, [source, destination]) do |node|
         node.brpoplpush(source, destination, timeout)
       end
     end
@@ -356,7 +356,7 @@ class Redis
 
     # Move a member from one set to another.
     def smove(source, destination, member)
-      ensure_same_node(:smove, source, destination) do |node|
+      ensure_same_node(:smove, [source, destination]) do |node|
         node.smove(source, destination, member)
       end
     end
@@ -373,42 +373,42 @@ class Redis
 
     # Intersect multiple sets.
     def sinter(*keys)
-      ensure_same_node(:sinter, *keys) do |node|
+      ensure_same_node(:sinter, keys) do |node|
         node.sinter(*keys)
       end
     end
 
     # Intersect multiple sets and store the resulting set in a key.
     def sinterstore(destination, *keys)
-      ensure_same_node(:sinterstore, destination, *keys) do |node|
+      ensure_same_node(:sinterstore, [destination] + keys) do |node|
         node.sinterstore(destination, *keys)
       end
     end
 
     # Add multiple sets.
     def sunion(*keys)
-      ensure_same_node(:sunion, *keys) do |node|
+      ensure_same_node(:sunion, keys) do |node|
         node.sunion(*keys)
       end
     end
 
     # Add multiple sets and store the resulting set in a key.
     def sunionstore(destination, *keys)
-      ensure_same_node(:sunionstore, destination, *keys) do |node|
+      ensure_same_node(:sunionstore, [destination] + keys) do |node|
         node.sunionstore(destination, *keys)
       end
     end
 
     # Subtract multiple sets.
     def sdiff(*keys)
-      ensure_same_node(:sdiff, *keys) do |node|
+      ensure_same_node(:sdiff, keys) do |node|
         node.sdiff(*keys)
       end
     end
 
     # Subtract multiple sets and store the resulting set in a key.
     def sdiffstore(destination, *keys)
-      ensure_same_node(:sdiffstore, destination, *keys) do |node|
+      ensure_same_node(:sdiffstore, [destination] + keys) do |node|
         node.sdiffstore(destination, *keys)
       end
     end
@@ -500,14 +500,14 @@ class Redis
     # Intersect multiple sorted sets and store the resulting sorted set in a new
     # key.
     def zinterstore(destination, keys, options = {})
-      ensure_same_node(:zinterstore, destination, *keys) do |node|
+      ensure_same_node(:zinterstore, [destination] + keys) do |node|
         node.zinterstore(destination, keys, options)
       end
     end
 
     # Add multiple sorted sets and store the resulting sorted set in a new key.
     def zunionstore(destination, keys, options = {})
-      ensure_same_node(:zunionstore, destination, *keys) do |node|
+      ensure_same_node(:zunionstore, [destination] + keys) do |node|
         node.zunionstore(destination, keys, options)
       end
     end
@@ -589,7 +589,7 @@ class Redis
     def sort(key, options = {})
       keys = [key, options[:by], options[:store], *Array(options[:get])].compact
 
-      ensure_same_node(:sort, *keys) do |node|
+      ensure_same_node(:sort, keys) do |node|
         node.sort(key, options)
       end
     end
@@ -640,7 +640,7 @@ class Redis
         @subscribed_node = node_for(channel)
         @subscribed_node.subscribe(channel, &block)
       else
-        ensure_same_node(:subscribe, channel, *channels) do |node|
+        ensure_same_node(:subscribe, [channel] + channels) do |node|
           @subscribed_node = node
           node.subscribe(channel, *channels, &block)
         end
@@ -717,7 +717,7 @@ class Redis
       key.to_s[@tag, 1] if @tag
     end
 
-    def ensure_same_node(command, *keys)
+    def ensure_same_node(command, keys)
       tags = keys.map { |key| key_tag(key) }
 
       raise CannotDistribute, command if !tags.all? || tags.uniq.size != 1
