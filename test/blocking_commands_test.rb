@@ -26,20 +26,37 @@ class TestBlockingCommands < Test::Unit::TestCase
     end
   end
 
-  def mock(&blk)
+  def mock(options = {}, &blk)
     commands = {
       :blpop => lambda do |*args|
+        sleep options[:delay] if options.has_key?(:delay)
         to_protocol([args.first, args.last])
       end,
       :brpop => lambda do |*args|
+        sleep options[:delay] if options.has_key?(:delay)
         to_protocol([args.first, args.last])
       end,
       :brpoplpush => lambda do |*args|
+        sleep options[:delay] if options.has_key?(:delay)
         to_protocol(args.last)
       end,
     }
 
     redis_mock(commands, &blk)
+  end
+
+  def assert_takes_longer_than_client_timeout
+    timeout = OPTIONS[:timeout]
+    delay = timeout * 2
+
+    mock(:delay => delay) do |r|
+      t1 = Time.now
+      yield(r)
+      t2 = Time.now
+
+      assert timeout == r.client.timeout
+      assert delay <= (t2 - t1)
+    end
   end
 
   def test_blpop
@@ -53,6 +70,12 @@ class TestBlockingCommands < Test::Unit::TestCase
     mock do |r|
       assert_equal ["foo", "0"], r.blpop("foo")
       assert_equal ["foo", "1"], r.blpop("foo", :timeout => 1)
+    end
+  end
+
+  def test_blpop_disable_client_timeout
+    assert_takes_longer_than_client_timeout do |r|
+      assert_equal ["foo", "0"], r.blpop("foo")
     end
   end
 
@@ -84,6 +107,12 @@ class TestBlockingCommands < Test::Unit::TestCase
     end
   end
 
+  def test_brpop_disable_client_timeout
+    assert_takes_longer_than_client_timeout do |r|
+      assert_equal ["foo", "0"], r.brpop("foo")
+    end
+  end
+
   def test_brpop_with_old_prototype
     assert_equal ["foo", "s2"], r.brpop("foo", 0)
     assert_equal ["foo", "s1"], r.brpop("foo", 0)
@@ -107,6 +136,12 @@ class TestBlockingCommands < Test::Unit::TestCase
     mock do |r|
       assert_equal "0", r.brpoplpush("foo", "bar")
       assert_equal "1", r.brpoplpush("foo", "bar", :timeout => 1)
+    end
+  end
+
+  def test_brpoplpush_disable_client_timeout
+    assert_takes_longer_than_client_timeout do |r|
+      assert_equal "0", r.brpoplpush("foo", "bar")
     end
   end
 
