@@ -1,7 +1,6 @@
 # encoding: UTF-8
 
 require "helper"
-require "redis/distributed"
 
 class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
 
