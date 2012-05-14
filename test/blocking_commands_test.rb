@@ -26,7 +26,7 @@ class TestBlockingCommands < Test::Unit::TestCase
     end
   end
 
-  def mock
+  def mock(&blk)
     replies = {
       :blpop => lambda do |*args|
         to_protocol([args.first, args.last])
@@ -39,9 +39,7 @@ class TestBlockingCommands < Test::Unit::TestCase
       end,
     }
 
-    redis_mock(replies) do
-      yield Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-    end
+    redis_mock(replies, &blk)
   end
 
   def test_blpop

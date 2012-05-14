@@ -36,9 +36,9 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_raises_on_protocol_errors
-    redis_mock(:ping => lambda { |*_| "foo" }) do
+    redis_mock(:ping => lambda { |*_| "foo" }) do |redis|
       assert_raise(Redis::ProtocolError) do
-        Redis.new(:port => MOCK_PORT).ping
+        redis.ping
       end
     end
   end
@@ -127,8 +127,7 @@ class TestInternals < Test::Unit::TestCase
       end
     end
 
-    redis_mock(:ping => command) do
-      redis = Redis.new(:port => MOCK_PORT, :timeout => 0.1)
+    redis_mock(:ping => command, :timeout => 0.1) do |redis|
       assert_equal "2", redis.ping
     end
   end
@@ -143,8 +142,7 @@ class TestInternals < Test::Unit::TestCase
       end
     end
 
-    redis_mock(:ping => command) do
-      redis = Redis.new(:port => MOCK_PORT, :timeout => 0.1)
+    redis_mock(:ping => command, :timeout => 0.1) do |redis|
       assert_raise Redis::ConnectionError do
         redis.without_reconnect do
           redis.ping
@@ -166,8 +164,7 @@ class TestInternals < Test::Unit::TestCase
       end
     end
 
-    redis_mock(:ping => command) do
-      redis = Redis.new(:port => MOCK_PORT, :timeout => 0.1)
+    redis_mock(:ping => command, :timeout => 0.1) do |redis|
       assert_raise Redis::ConnectionError do
         redis.ping
       end
@@ -186,8 +183,7 @@ class TestInternals < Test::Unit::TestCase
       end
     end
 
-    redis_mock(:ping => command) do
-      redis = Redis.new(:port => MOCK_PORT, :timeout => 0.1)
+    redis_mock(:ping => command, :timeout => 0.1) do |redis|
       assert_raise Redis::ConnectionError do
         redis.pipelined do
           redis.ping

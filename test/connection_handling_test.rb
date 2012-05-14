@@ -12,9 +12,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :get  => lambda { |key| $auth == "secret" ? "$3\r\nbar" : "$-1" },
     }
 
-    redis_mock(replies) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT, :password => "secret"))
-
+    redis_mock(replies, :password => "secret") do |redis|
       assert_equal "bar", redis.get("foo")
     end
   end
@@ -45,9 +43,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :shutdown => lambda { :exit }
     }
 
-    redis_mock(commands) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(commands) do |redis|
       # SHUTDOWN does not reply: test that it does not raise here.
       assert_equal nil, redis.shutdown
     end
@@ -61,9 +57,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :shutdown => lambda { "-ERR could not shutdown\r\n" }
     }
 
-    redis_mock(commands) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(commands) do |redis|
       connections = redis.connections
 
       # SHUTDOWN replies with an error: test that it gets raised
@@ -81,9 +75,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :shutdown => lambda { :exit }
     }
 
-    redis_mock(commands) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(commands) do |redis|
       result = redis.pipelined do
         redis.shutdown
       end
@@ -101,9 +93,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :shutdown => lambda { "-ERR could not shutdown\r\n" }
     }
 
-    redis_mock(commands) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(commands) do |redis|
       connections = redis.connections
 
       # SHUTDOWN replies with an error: test that it gets raised
@@ -125,9 +115,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :exec => lambda { :exit }
     }
 
-    redis_mock(commands) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(commands) do |redis|
       result = redis.multi do
         redis.shutdown
       end
@@ -147,9 +135,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       :exec => lambda { "*1\r\n-ERR could not shutdown\r\n" }
     }
 
-    redis_mock(commands) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(commands) do |redis|
       connections = redis.connections
 
       # SHUTDOWN replies with an error: test that it gets returned
@@ -170,17 +156,13 @@ class TestConnectionHandling < Test::Unit::TestCase
   end
 
   def test_slaveof
-    redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do |redis|
       assert_equal "SLAVEOF localhost 6381", redis.slaveof("localhost", 6381)
     end
   end
 
   def test_bgrewriteaof
-    redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do |redis|
       assert_equal "BGREWRITEAOF", redis.bgrewriteaof
     end
   end

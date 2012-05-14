@@ -55,8 +55,6 @@ end
 
 module Helper
 
-  include RedisMock::Helper
-
   def self.included(base)
     base.extend(ClassMethods)
   end
@@ -110,6 +108,12 @@ module Helper
     end
   end
 
+  def redis_mock(commands, options = {}, &blk)
+    RedisMock.start(commands) do |port|
+      yield Redis.new(OPTIONS.merge(options).merge(:port => port))
+    end
+  end
+
   class Version
 
     include Comparable
@@ -151,10 +155,18 @@ module Helper
 
   module Distributed
 
+    MOCK_NODES = ["redis://127.0.0.1:%d/15"]
+
     def setup
       super
 
       @redis = init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
+    end
+
+    def redis_distributed_mock(commands, options = {}, &blk)
+      RedisMock.start(commands) do |port|
+        yield Redis::Distributed.new(MOCK_NODES.map { |e| e % [port] })
+      end
     end
   end
 end

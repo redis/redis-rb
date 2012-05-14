@@ -92,9 +92,7 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
   end
 
   def test_flushall
-    redis_mock(:flushall => lambda { "+FLUSHALL" }) do
-      redis = Redis.new(OPTIONS.merge(:port => MOCK_PORT))
-
+    redis_mock(:flushall => lambda { "+FLUSHALL" }) do |redis|
       assert_equal "FLUSHALL", redis.flushall
     end
   end

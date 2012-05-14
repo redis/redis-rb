@@ -64,32 +64,29 @@ module RedisMock
     end
   end
 
-  module Helper
+  MOCK_PORT = 6382
 
-    MOCK_PORT = 6382
+  # Starts a mock Redis server in a thread.
+  #
+  # The server will reply with a `+OK` to all commands, but you can
+  # customize it by providing a hash. For example:
+  #
+  #     RedisMock.start(:ping => lambda { "+PONG" }) do
+  #       assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
+  #     end
+  #
+  def self.start(commands = {})
+    server = Server.new(MOCK_PORT)
 
-    # Starts a mock Redis server in a thread.
-    #
-    # The server will reply with a `+OK` to all commands, but you can
-    # customize it by providing a hash. For example:
-    #
-    #     redis_mock(:ping => lambda { "+PONG" }) do
-    #       assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
-    #     end
-    #
-    def redis_mock(replies = {})
-      server = Server.new(MOCK_PORT)
-
-      begin
-        server.start do |command, *args|
-          (replies[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
-        end
-
-        yield
-
-      ensure
-        server.shutdown
+    begin
+      server.start do |command, *args|
+        (commands[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
       end
+
+      yield(MOCK_PORT)
+
+    ensure
+      server.shutdown
     end
   end
 end
