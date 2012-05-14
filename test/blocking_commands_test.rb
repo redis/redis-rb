@@ -27,7 +27,7 @@ class TestBlockingCommands < Test::Unit::TestCase
   end
 
   def mock(&blk)
-    replies = {
+    commands = {
       :blpop => lambda do |*args|
         to_protocol([args.first, args.last])
       end,
@@ -39,7 +39,7 @@ class TestBlockingCommands < Test::Unit::TestCase
       end,
     }
 
-    redis_mock(replies, &blk)
+    redis_mock(commands, &blk)
   end
 
   def test_blpop

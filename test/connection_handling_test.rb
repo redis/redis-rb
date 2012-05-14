@@ -7,12 +7,12 @@ class TestConnectionHandling < Test::Unit::TestCase
   include Helper
 
   def test_auth
-    replies = {
+    commands = {
       :auth => lambda { |password| $auth = password; "+OK" },
       :get  => lambda { |key| $auth == "secret" ? "$3\r\nbar" : "$-1" },
     }
 
-    redis_mock(replies, :password => "secret") do |redis|
+    redis_mock(commands, :password => "secret") do |redis|
       assert_equal "bar", redis.get("foo")
     end
   end
