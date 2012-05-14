@@ -85,13 +85,10 @@ module RedisMock
           (replies[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
         end
 
-        sleep 0.1 # Give time for the socket to start listening.
-
         yield
 
       ensure
         server.shutdown
-        sleep 0.1 # Allow some time for cleanup
       end
     end
   end
