@@ -1,9 +1,10 @@
 # redis-rb [![Build Status](https://secure.travis-ci.org/redis/redis-rb.png?branch=master)](http://travis-ci.org/redis/redis-rb)
 
-A Ruby client library for the [Redis](http://redis.io) key-value store.
+A Ruby client library for [Redis](http://redis.io).
 
-A simple Ruby client trying to match Redis' API one-to-one while still providing a Rubystic interface.
-It features thread safety, client-side sharding, and an obsession for performance.
+A Ruby client that tries to match Redis' API one-to-one, while still
+providing an idiomatic interface. It features thread-safety, client-side
+sharding, pipelining, and an obsession for performance.
 
 ## A note about versions
 

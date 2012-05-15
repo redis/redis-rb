@@ -14,8 +14,9 @@ Gem::Specification.new do |s|
   s.summary = "A Ruby client library for the Redis key-value store."
 
   s.description = <<-EOS
-    A simple Ruby client trying to match Redis' API one-to-one while still providing a Rubystic interface.
-    It features thread safety, client-side sharding, and an obsession for performance.
+    A Ruby client that tries to match Redis' API one-to-one, while still
+    providing an idiomatic interface. It features thread-safety,
+    client-side sharding, pipelining, and an obsession for performance.
   EOS
 
   s.authors = [
