@@ -156,7 +156,7 @@ It is best to use hiredis when you have large replies (for example:
 In your Gemfile, include hiredis:
 
 ```ruby
-gem "redis", "~> 3.0"
+gem "redis", "~> 3.0.0.rc2"
 gem "hiredis", "~> 0.4.5"
 ```
 
@@ -179,7 +179,7 @@ protocol.
 In your Gemfile, include em-synchrony and hiredis:
 
 ```ruby
-gem "redis", "~> 3.0"
+gem "redis", "~> 3.0.0.rc2"
 gem "hiredis", "~> 0.4.5"
 gem "em-synchrony"
 ```
