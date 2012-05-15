@@ -5,7 +5,7 @@ require "lint/lists"
 
 class TestCommandsOnLists < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::Lists
 
   def test_rpushx

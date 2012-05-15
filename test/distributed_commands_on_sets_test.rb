@@ -5,7 +5,6 @@ require "lint/sets"
 
 class TestDistributedCommandsOnSets < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
   include Lint::Sets
 

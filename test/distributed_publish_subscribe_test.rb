@@ -4,7 +4,6 @@ require "helper"
 
 class TestDistributedPublishSubscribe < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
 
   def test_subscribe_and_unsubscribe

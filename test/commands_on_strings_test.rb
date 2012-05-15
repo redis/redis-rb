@@ -5,7 +5,7 @@ require "lint/strings"
 
 class TestCommandsOnStrings < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::Strings
 
   def test_mget

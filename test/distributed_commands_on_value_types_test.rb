@@ -5,7 +5,6 @@ require "lint/value_types"
 
 class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
   include Lint::ValueTypes
 

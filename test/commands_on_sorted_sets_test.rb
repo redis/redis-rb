@@ -5,7 +5,7 @@ require "lint/sorted_sets"
 
 class TestCommandsOnSortedSets < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::SortedSets
 
   def test_zcount

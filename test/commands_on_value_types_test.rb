@@ -5,7 +5,7 @@ require "lint/value_types"
 
 class TestCommandsOnValueTypes < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::ValueTypes
 
   def test_del

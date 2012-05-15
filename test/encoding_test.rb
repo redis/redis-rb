@@ -4,7 +4,7 @@ require "helper"
 
 class TestEncoding < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_returns_properly_encoded_strings
     if defined?(Encoding)

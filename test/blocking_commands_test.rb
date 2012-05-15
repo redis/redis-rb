@@ -5,7 +5,7 @@ require "lint/blocking_commands"
 
 class TestBlockingCommands < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::BlockingCommands
 
   def assert_takes_longer_than_client_timeout

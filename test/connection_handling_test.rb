@@ -4,7 +4,7 @@ require "helper"
 
 class TestConnectionHandling < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_auth
     commands = {

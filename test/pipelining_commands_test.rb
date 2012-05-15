@@ -4,7 +4,7 @@ require "helper"
 
 class TestPipeliningCommands < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_bulk_commands
     r.pipelined do

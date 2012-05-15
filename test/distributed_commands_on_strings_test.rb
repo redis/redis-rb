@@ -5,7 +5,6 @@ require "lint/strings"
 
 class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
   include Lint::Strings
 

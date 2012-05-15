@@ -4,7 +4,6 @@ require "helper"
 
 class TestDistributed < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
 
   def test_handle_multiple_servers

@@ -5,7 +5,7 @@ require "lint/sets"
 
 class TestCommandsOnSets < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::Sets
 
   def test_smove

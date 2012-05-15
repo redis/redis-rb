@@ -5,7 +5,6 @@ require "lint/hashes"
 
 class TestDistributedCommandsOnHashes < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
   include Lint::Hashes
 end

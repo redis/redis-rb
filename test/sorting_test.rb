@@ -4,7 +4,7 @@ require "helper"
 
 class TestSorting < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_sort
     r.set("foo:1", "s1")

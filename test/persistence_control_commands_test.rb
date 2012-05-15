@@ -4,7 +4,7 @@ require "helper"
 
 class TestPersistenceControlCommands < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_save
     redis_mock(:save => lambda { "+SAVE" }) do |redis|

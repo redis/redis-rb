@@ -4,7 +4,7 @@ require "helper"
 
 class TestErrorReplies < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   # Every test shouldn't disconnect from the server. Also, when error replies are
   # in play, the protocol should never get into an invalid state where there are

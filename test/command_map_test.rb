@@ -4,7 +4,7 @@ require "helper"
 
 class TestCommandMap < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_override_existing_commands
     r.set("counter", 1)

@@ -4,7 +4,6 @@ require "helper"
 
 class TestDistributedInternals < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
 
   def test_provides_a_meaningful_inspect

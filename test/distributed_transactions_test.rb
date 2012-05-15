@@ -4,7 +4,6 @@ require "helper"
 
 class TestDistributedTransactions < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
 
   def test_multi_discard

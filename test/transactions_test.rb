@@ -4,7 +4,7 @@ require "helper"
 
 class TestTransactions < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_multi_discard
     r.multi

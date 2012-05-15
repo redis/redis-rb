@@ -5,7 +5,6 @@ require "lint/sorted_sets"
 
 class TestDistributedCommandsOnSortedSets < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
   include Lint::SortedSets
 

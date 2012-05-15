@@ -53,25 +53,13 @@ def init(redis)
   end
 end
 
+def driver(*drivers, &blk)
+  if drivers.map(&:to_s).include?(ENV["conn"])
+    class_eval(&blk)
+  end
+end
+
 module Helper
-
-  def self.included(base)
-    base.extend(ClassMethods)
-  end
-
-  attr_reader :log
-  attr_reader :redis
-
-  alias :r :redis
-
-  def setup
-    @log = StringIO.new
-    @redis = init Redis.new(OPTIONS.merge(:logger => ::Logger.new(log)))
-  end
-
-  def teardown
-    @redis.quit if @redis
-  end
 
   def run(runner)
     if respond_to?(:around)
@@ -79,12 +67,6 @@ module Helper
     else
       super
     end
-  end
-
-  def version
-    info = r.info
-    info = info.first if info.kind_of?(Array)
-    Version.new(info["redis_version"])
   end
 
   def silent
@@ -105,12 +87,6 @@ module Helper
       yield
     ensure
       silent { Encoding.default_external = original_encoding }
-    end
-  end
-
-  def redis_mock(commands, options = {}, &blk)
-    RedisMock.start(commands) do |port|
-      yield Redis.new(OPTIONS.merge(options).merge(:port => port))
     end
   end
 
@@ -144,29 +120,69 @@ module Helper
     end
   end
 
-  module ClassMethods
+  module Generic
 
-    def driver(*drivers, &blk)
-      if drivers.map(&:to_s).include?(ENV["conn"])
-        class_eval(&blk)
+    include Helper
+
+    attr_reader :log
+    attr_reader :redis
+
+    alias :r :redis
+
+    def setup
+      @log = StringIO.new
+      @redis = init _new_client
+    end
+
+    def teardown
+      @redis.quit if @redis
+    end
+
+    def redis_mock(commands, options = {}, &blk)
+      RedisMock.start(commands) do |port|
+        yield _new_client(options.merge(:port => port))
       end
+    end
+  end
+
+  module Client
+
+    include Generic
+
+    def version
+      Version.new(redis.info["redis_version"])
+    end
+
+    private
+
+    def _format_options(options)
+      OPTIONS.merge(:logger => ::Logger.new(@log)).merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis.new(_format_options(options))
     end
   end
 
   module Distributed
 
-    MOCK_NODES = ["redis://127.0.0.1:%d/15"]
+    include Generic
 
-    def setup
-      super
-
-      @redis = init Redis::Distributed.new(NODES, :logger => ::Logger.new(log))
+    def version
+      Version.new(redis.info.first["redis_version"])
     end
 
-    def redis_distributed_mock(commands, options = {}, &blk)
-      RedisMock.start(commands) do |port|
-        yield Redis::Distributed.new(MOCK_NODES.map { |e| e % [port] })
-      end
+    private
+
+    def _format_options(options)
+      {
+        :timeout => OPTIONS[:timeout],
+        :logger => ::Logger.new(@log),
+      }.merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis::Distributed.new(NODES, _format_options(options))
     end
   end
 end

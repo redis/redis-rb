@@ -5,7 +5,7 @@ require "lint/hashes"
 
 class TestCommandsOnHashes < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
   include Lint::Hashes
 
   def test_mapped_hmget_in_a_pipeline_returns_hash

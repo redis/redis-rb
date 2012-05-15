@@ -4,7 +4,7 @@ require "helper"
 
 class TestUrlParam < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_url_defaults_to_______________
     redis = Redis.new

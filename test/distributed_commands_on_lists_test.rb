@@ -5,7 +5,6 @@ require "lint/lists"
 
 class TestDistributedCommandsOnLists < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
   include Lint::Lists
 

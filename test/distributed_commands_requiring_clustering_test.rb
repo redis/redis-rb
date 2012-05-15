@@ -4,7 +4,6 @@ require "helper"
 
 class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
 
   def test_rename

@@ -4,7 +4,7 @@ require "helper"
 
 class TestThreadSafety < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   driver(:ruby, :hiredis) do
     def test_thread_safety

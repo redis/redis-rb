@@ -4,7 +4,7 @@ require "helper"
 
 class TestRemoteServerControlCommands < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_info
     %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|

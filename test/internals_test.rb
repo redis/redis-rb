@@ -4,7 +4,7 @@ require "helper"
 
 class TestInternals < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_logger
     r.ping

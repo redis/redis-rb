@@ -4,7 +4,6 @@ require "helper"
 
 class TestDistributedConnectionHandling < Test::Unit::TestCase
 
-  include Helper
   include Helper::Distributed
 
   def test_ping

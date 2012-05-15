@@ -4,7 +4,7 @@ require "helper"
 
 class TestUnknownCommands < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_should_try_to_work
     assert_raise Redis::CommandError do

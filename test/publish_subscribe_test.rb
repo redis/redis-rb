@@ -4,7 +4,7 @@ require "helper"
 
 class TestPublishSubscribe < Test::Unit::TestCase
 
-  include Helper
+  include Helper::Client
 
   def test_subscribe_and_unsubscribe
     @subscribed = false
