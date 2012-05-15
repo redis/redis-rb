@@ -137,7 +137,11 @@ end
 
 By default, redis-rb uses Ruby's socket library to talk with Redis.
 To use an alternative connection driver it should be specified as option
-when instantiating the client object.
+when instantiating the client object. These instructions are only valid
+for **redis-rb 3.0**. For instructions on how to use alternate drivers from
+**redis-rb 2.2**, please refer to an [older README][readme-2.2.2].
+
+[readme-2.2.2]: https://github.com/redis/redis-rb/blob/v2.2.2/README.md
 
 ### hiredis
 
