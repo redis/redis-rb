@@ -319,23 +319,51 @@ class Redis
       end
     end
 
+    def _bpop(cmd, args)
+      options = {}
+
+      case args.last
+      when Hash
+        options = args.pop
+      when Integer
+        # Issue deprecation notice in obnoxious mode...
+        options[:timeout] = args.pop
+      end
+
+      if args.size > 1
+        # Issue deprecation notice in obnoxious mode...
+      end
+
+      keys = args.flatten
+
+      ensure_same_node(cmd, keys) do |node|
+        node.__send__(cmd, keys, options)
+      end
+    end
+
     # Remove and get the first element in a list, or block until one is
     # available.
-    def blpop(key, timeout)
-      node_for(key).blpop(key, timeout)
+    def blpop(*args)
+      _bpop(:blpop, args)
     end
 
     # Remove and get the last element in a list, or block until one is
     # available.
-    def brpop(key, timeout)
-      node_for(key).brpop(key, timeout)
+    def brpop(*args)
+      _bpop(:brpop, args)
     end
 
     # Pop a value from a list, push it to another list and return it; or block
     # until one is available.
-    def brpoplpush(source, destination, timeout)
+    def brpoplpush(source, destination, options = {})
+      case options
+      when Integer
+        # Issue deprecation notice in obnoxious mode...
+        options = { :timeout => options }
+      end
+
       ensure_same_node(:brpoplpush, [source, destination]) do |node|
-        node.brpoplpush(source, destination, timeout)
+        node.brpoplpush(source, destination, options)
       end
     end
 
