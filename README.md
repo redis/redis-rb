@@ -190,7 +190,6 @@ When instantiating the client object, specify hiredis:
 redis = Redis.new(:driver => :synchrony)
 ```
 
-
 ## Testing
 
 This library is tested using [Travis][travis-home], where it is tested
