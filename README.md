@@ -1,192 +1,202 @@
-# redis-rb [![Build Status](https://secure.travis-ci.org/redis/redis-rb.png?branch=master)](http://travis-ci.org/redis/redis-rb)
+# redis-rb [![Build Status][travis-image]][travis-link]
 
-A Ruby client library for [Redis](http://redis.io).
+[travis-image]: https://secure.travis-ci.org/redis/redis-rb.png?branch=master
+[travis-link]: http://travis-ci.org/redis/redis-rb
+[travis-home]: http://travis-ci.org/
+
+A Ruby client library for [Redis][redis-home].
+
+[redis-home]: http://redis.io
 
 A Ruby client that tries to match Redis' API one-to-one, while still
 providing an idiomatic interface. It features thread-safety, client-side
 sharding, pipelining, and an obsession for performance.
 
-## A note about versions
-
-Versions *1.0.x* target all versions of Redis. You have to use this one if you are using Redis < 1.2.
-
-Version *2.0* is a big refactoring of the previous version and makes little effort to be
-backwards-compatible when it shouldn't. It does not support Redis' original protocol, favoring the
-new, binary-safe one. You should be using this version if you're running Redis 1.2+.
-
-## Information about Redis
-
-Redis is a key-value store with some interesting features:
-
-1. It's fast.
-2. Keys are strings but values are typed. Currently Redis supports strings, lists, sets, sorted sets and hashes. [Atomic operations](http://redis.io/commands) can be done on all of these types.
-
-See [the Redis homepage](http://redis.io) for more information.
-
 ## Getting started
+
+As of version 2.0 this client only targets Redis version 2.0 and higher.
+You can use an older version of this client if you need to interface
+with a Redis instance older than 2.0, but this is no longer supported.
 
 You can connect to Redis by instantiating the `Redis` class:
 
-    require "redis"
+```ruby
+require "redis"
 
-    redis = Redis.new
+redis = Redis.new
+```
 
-This assumes Redis was started with default values listening on `localhost`, port 6379. If you need to connect to a remote server or a different port, try:
+This assumes Redis was started with a default configuration, and it
+listening on `localhost`, port 6379. If you need to connect to a remote
+server or a different port, try:
 
-    redis = Redis.new(:host => "10.0.1.1", :port => 6380)
+```ruby
+redis = Redis.new(:host => "10.0.1.1", :port => 6380)
+```
 
-To connect to Redis listening on a unix socket, try:
+To connect to Redis listening on a Unix socket, try:
 
-    redis = Redis.new(:path => "/tmp/redis.sock")
+```ruby
+redis = Redis.new(:path => "/tmp/redis.sock")
+```
 
-Once connected, you can start running commands against Redis:
+The Redis class exports methods that are named identical to the commands
+they execute. The arguments these methods accept are often identical to
+the arguments specified on the [Redis website][redis-commands]. For
+instance, the `SET` and `GET` commands can be called like this:
 
-    >> redis.set "foo", "bar"
-    => "OK"
+[redis-commands]: http://redis.io/commands
 
-    >> redis.get "foo"
-    => "bar"
+```ruby
+redis.set("mykey", "hello world")
+# => "OK"
 
-    >> redis.sadd "users", "albert"
-    => true
+redis.get("mykey")
+# => "hello world"
+```
 
-    >> redis.sadd "users", "bernard"
-    => true
+All commands, their arguments and return values are documented, and
+available on [rdoc.info][rdoc].
 
-    >> redis.sadd "users", "charles"
-    => true
-
-How many users?
-
-    >> redis.scard "users"
-    => 3
-
-Is `albert` a user?
-
-    >> redis.sismember "users", "albert"
-    => true
-
-Is `isabel` a user?
-
-    >> redis.sismember "users", "isabel"
-    => false
-
-Handle groups:
-
-    >> redis.sadd "admins", "albert"
-    => true
-
-    >> redis.sadd "admins", "isabel"
-    => true
-
-Users who are also admins:
-
-    >> redis.sinter "users", "admins"
-    => ["albert"]
-
-Users who are not admins:
-
-    >> redis.sdiff "users", "admins"
-    => ["bernard", "charles"]
-
-Admins who are not users:
-
-    >> redis.sdiff "admins", "users"
-    => ["isabel"]
-
-All users and admins:
-
-    >> redis.sunion "admins", "users"
-    => ["albert", "bernard", "charles", "isabel"]
-
+[rdoc]: http://rdoc.info/github/redis/redis-rb/
 
 ## Storing objects
 
-Redis only stores strings as values. If you want to store an object inside a key, you can use a serialization/deseralization mechanism like JSON:
+Redis only stores strings as values. If you want to store an object, you
+can use a serialization mechanism such as JSON:
 
-    >> require 'json'
-    => true
+```ruby
+require "json"
 
-    >> redis.set "foo", [1, 2, 3].to_json
-    => OK
+redis.set "foo", [1, 2, 3].to_json
+# => OK
 
-    >> JSON.parse(redis.get("foo"))
-    => [1, 2, 3]
+JSON.parse(redis.get("foo"))
+# => [1, 2, 3]
+```
 
-## Executing multiple commands atomically
+## Pipelining
 
-You can use `MULTI/EXEC` to run arbitrary commands in an atomic fashion:
+When multiple commands are executed sequentially, but are not dependent,
+the calls can be *pipelined*. This means that the client doesn't wait
+for reply of the first command before sending the next command. The
+advantage is that multiple commands are sent at once, resulting in
+faster overall execution.
 
-    redis.multi do
-      redis.set "foo", "bar"
-      redis.incr "baz"
-    end
+The client can be instructed to pipeline commands by using the
+`#pipelined` method. After the block is executed, the client sends all
+commands to Redis and gathers their replies. These replies are returned
+by the `#pipelined` method.
 
-## Multi-threading
+```ruby
+redis.pipelined do
+  redis.set "foo", "bar"
+  redis.incr "baz"
+end
+# => ["OK", 1]
+```
 
-Starting with version 2.2.0, the client is thread-safe by default. To use
-earlier versions safely in a multi-threaded environment, be sure to initialize
-the client with `:thread_safe => true`.
+### Executing commands atomically
+
+You can use `MULTI/EXEC` to run a number of commands in an atomic
+fashion. This is similar to executing a pipeline, but the commands are
+preceded by a call to `MULTI`, and followed by a call to `EXEC`. Like
+the regular pipeline, the replies to the commands are returned by the
+`#multi` method.
+
+```ruby
+redis.multi do
+  redis.set "foo", "bar"
+  redis.incr "baz"
+end
+# => ["OK", 1]
+```
+
+### Futures
+
+Replies to commands in a pipeline can be accessed via the *futures* they
+emit (since redis-rb 3.0). All calls inside a pipeline block return a
+`Future` object, which responds to the `#value` method. When the
+pipeline has succesfully executed, all futures are assigned their
+respective replies and can be used.
+
+```ruby
+redis.pipelined do
+  @set = redis.set "foo", "bar"
+  @incr = redis.incr "baz"
+end
+
+@set.value
+# => "OK"
+
+@incr.value
+# => 1
+```
 
 ## Alternate drivers
 
-Non-default connection drivers are only used when they are explicitly required.
 By default, redis-rb uses Ruby's socket library to talk with Redis.
+To use an alternative connection driver it should be specified as option
+when instantiating the client object.
 
 ### hiredis
 
-Using redis-rb with hiredis-rb (v0.3 or higher) as backend is done by requiring
-`redis/connection/hiredis` before requiring `redis`. This will make redis-rb
-pick up hiredis as default driver automatically. This driver optimizes for
-speed, at the cost of portability. Since hiredis is a C extension, JRuby is not
-supported (by default). Use hiredis when you have large array replies (think
-`LRANGE`, `SMEMBERS`, `ZRANGE`, etc.) and/or large pipelines of commands.
+The hiredis driver uses the connection facility of hiredis-rb. In turn,
+hiredis-rb is a binding to the official hiredis client library. It
+optimizes for speed, at the cost of portability. Because it is a C
+extension, JRuby is not supported (by default).
 
-Using redis-rb with hiredis from a Gemfile:
+It is best to use hiredis when you have large replies (for example:
+`LRANGE`, `SMEMBERS`, `ZRANGE`, etc.) and/or use big pipelines.
 
-    gem "hiredis", "~> 0.3.1"
-    gem "redis", "~> 2.2.0", :require => ["redis/connection/hiredis", "redis"]
+In your Gemfile, include hiredis:
+
+```ruby
+gem "redis", "~> 3.0"
+gem "hiredis", "~> 0.4.5"
+```
+
+When instantiating the client object, specify hiredis:
+
+```ruby
+redis = Redis.new(:driver => :hiredis)
+```
 
 ### synchrony
 
-This driver adds support for
-[em-synchrony](https://github.com/igrigorik/em-synchrony). Using the synchrony
-backend from redis-rb is done by requiring `redis/connection/synchrony` before
-requiring `redis`. This driver makes redis-rb work with EventMachine's
-asynchronous I/O, while not changing the exposed API. The hiredis gem needs to
-be available as well, because the synchrony driver uses hiredis for parsing the
-Redis protocol.
+The synchrony driver adds support for [em-synchrony][em-synchrony].
+This makes redis-rb work with EventMachine's asynchronous I/O, while not
+changing the exposed API. The hiredis gem needs to be available as
+well, because the synchrony driver uses hiredis for parsing the Redis
+protocol.
 
-Using redis-rb with synchrony from a Gemfile:
+[em-synchrony]: https://github.com/igrigorik/em-synchrony
 
-    gem "hiredis", "~> 0.3.1"
-    gem "em-synchrony"
-    gem "redis", "~> 2.2.0", :require => ["redis/connection/synchrony", "redis"]
+In your Gemfile, include em-synchrony and hiredis:
+
+```ruby
+gem "redis", "~> 3.0"
+gem "hiredis", "~> 0.4.5"
+gem "em-synchrony"
+```
+
+When instantiating the client object, specify hiredis:
+
+```ruby
+redis = Redis.new(:driver => :synchrony)
+```
+
 
 ## Testing
 
-This library (v2.2) is tested against the following interpreters:
+This library is tested using [Travis][travis-home], where it is tested
+against the following interpreters and drivers:
 
-* MRI 1.8.7 (drivers: Ruby, hiredis)
-* MRI 1.9.2 (drivers: Ruby, hiredis, em-synchrony)
-* JRuby 1.6 (drivers: Ruby)
-* Rubinius 1.2 (drivers: Ruby, hiredis)
-
-## Known issues
-
-* Ruby 1.9 doesn't raise on socket timeouts in `IO#read` but rather retries the
-  read operation. This means socket timeouts don't work on 1.9 when using the
-  pure Ruby I/O code. Use hiredis when you want use socket timeouts on 1.9.
-
-* Ruby 1.8 *does* raise on socket timeouts in `IO#read`, but prints a warning
-  that using `IO#read` for non blocking reads is obsolete. This is wrong, since
-  the read is in fact blocking, but `EAGAIN` (which is returned on socket
-  timeouts) is interpreted as if the read was non blocking. Use hiredis to
-  prevent seeing this warning.
-
-## More info
-
-Check the [Redis Command Reference](http://redis.io/commands) or check the tests to find out how to use this client.
+* MRI 1.8.7 (drivers: ruby, hiredis)
+* MRI 1.9.2 (drivers: ruby, hiredis, synchrony)
+* MRI 1.9.3 (drivers: ruby, hiredis, synchrony)
+* JRuby 1.6 (1.8 mode) (drivers: ruby)
+* JRuby 1.6 (1.9 mode) (drivers: ruby)
 
 ## Contributors
 
@@ -208,4 +218,5 @@ all contributors)
 
 ## Contributing
 
-[Fork the project](https://github.com/redis/redis-rb) and send pull requests. You can also ask for help at `#redis-rb` on Freenode.
+[Fork the project](https://github.com/redis/redis-rb) and send pull
+requests. You can also ask for help at `#redis-rb` on Freenode.
