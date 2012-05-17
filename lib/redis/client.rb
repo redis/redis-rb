@@ -110,7 +110,7 @@ class Redis
     end
 
     def call_pipeline(pipeline)
-      without_reconnect pipeline.without_reconnect? do
+      with_reconnect pipeline.with_reconnect? do
         if pipeline.shutdown?
           begin
             pipeline.finish(call_pipelined(pipeline.commands))
@@ -226,13 +226,17 @@ class Redis
       end
     end
 
-    def without_reconnect(val=true)
+    def with_reconnect(val=true)
       begin
-        original, @reconnect = @reconnect, !val
+        original, @reconnect = @reconnect, val
         yield
       ensure
         @reconnect = original
       end
+    end
+
+    def without_reconnect(val=true, &blk)
+      with_reconnect(!val, &blk)
     end
 
   protected
