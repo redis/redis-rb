@@ -9,13 +9,17 @@ class Redis
     attr :futures
 
     def initialize
-      @without_reconnect = false
+      @with_reconnect = true
       @shutdown = false
       @futures = []
     end
 
+    def with_reconnect?
+      @with_reconnect
+    end
+
     def without_reconnect?
-      @without_reconnect
+      !@with_reconnect
     end
 
     def shutdown?
@@ -41,9 +45,13 @@ class Redis
       @futures.map { |f| f._command }
     end
 
-    def without_reconnect(&block)
-      @without_reconnect = true
+    def with_reconnect(val=true)
+      @with_reconnect = false unless val
       yield
+    end
+
+    def without_reconnect(&blk)
+      with_reconnect(false, &blk)
     end
 
     def finish(replies, &blk)
