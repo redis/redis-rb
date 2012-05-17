@@ -117,54 +117,59 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
-  def test_retry_when_first_read_raises_econnreset
+  def close_on_ping(seq)
     $request = 0
 
     command = lambda do
-      case ($request += 1)
-      when 1; nil # Close on first command
-      else "+%d" % $request
-      end
+      idx = $request
+      $request += 1
+
+      rv = "+%d" % idx
+      rv = nil if seq.include?(idx)
+      rv
     end
 
     redis_mock(:ping => command, :timeout => 0.1) do |redis|
-      assert_equal "2", redis.ping
+      yield(redis)
     end
   end
 
-  def test_don_t_retry_when_wrapped_inside__without_reconnect
-    $request = 0
+  def test_retry_by_default
+    close_on_ping([0]) do |redis|
+      assert_equal "1", redis.ping
+    end
+  end
 
-    command = lambda do
-      case ($request += 1)
-      when 1; nil # Close on first command
-      else "+%d" % $request
+  def test_retry_when_wrapped_in_with_reconnect_true
+    close_on_ping([0]) do |redis|
+      redis.with_reconnect(true) do
+        assert_equal "1", redis.ping
       end
     end
+  end
 
-    redis_mock(:ping => command, :timeout => 0.1) do |redis|
+  def test_dont_retry_when_wrapped_in_with_reconnect_false
+    close_on_ping([0]) do |redis|
+      assert_raise Redis::ConnectionError do
+        redis.with_reconnect(false) do
+          redis.ping
+        end
+      end
+    end
+  end
+
+  def test_dont_retry_when_wrapped_in_without_reconnect
+    close_on_ping([0]) do |redis|
       assert_raise Redis::ConnectionError do
         redis.without_reconnect do
           redis.ping
         end
       end
-
-      assert !redis.client.connected?
     end
   end
 
   def test_retry_only_once_when_read_raises_econnreset
-    $request = 0
-
-    command = lambda do
-      case ($request += 1)
-      when 1; nil # Close on first command
-      when 2; nil # Close on second command
-      else "+%d" % $request
-      end
-    end
-
-    redis_mock(:ping => command, :timeout => 0.1) do |redis|
+    close_on_ping([0, 1]) do |redis|
       assert_raise Redis::ConnectionError do
         redis.ping
       end
@@ -174,22 +179,15 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_don_t_retry_when_second_read_in_pipeline_raises_econnreset
-    $request = 0
-
-    command = lambda do
-      case ($request += 1)
-      when 2; nil # Close on second command
-      else "+%d" % $request
-      end
-    end
-
-    redis_mock(:ping => command, :timeout => 0.1) do |redis|
+    close_on_ping([1]) do |redis|
       assert_raise Redis::ConnectionError do
         redis.pipelined do
           redis.ping
           redis.ping # Second #read times out
         end
       end
+
+      assert !redis.client.connected?
     end
   end
 

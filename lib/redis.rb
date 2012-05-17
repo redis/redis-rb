@@ -36,11 +36,16 @@ class Redis
     mon_synchronize { yield(@client) }
   end
 
-  # Run code without the client reconnecting
-  def without_reconnect(&block)
+  # Run code with the client reconnecting
+  def with_reconnect(val=true, &blk)
     synchronize do |client|
-      client.without_reconnect(&block)
+      client.with_reconnect(val, &blk)
     end
+  end
+
+  # Run code without the client reconnecting
+  def without_reconnect(&blk)
+    with_reconnect(false, &blk)
   end
 
   # Authenticate to the server.
@@ -1847,7 +1852,7 @@ class Redis
   # Synchronously save the dataset to disk and then shut down the server.
   def shutdown
     synchronize do |client|
-      client.without_reconnect do
+      client.with_reconnect(false) do
         begin
           client.call [:shutdown]
         rescue ConnectionError
