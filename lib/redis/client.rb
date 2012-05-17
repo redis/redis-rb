@@ -110,25 +110,17 @@ class Redis
     end
 
     def call_pipeline(pipeline)
-      without_reconnect_wrapper = lambda do |&blk| blk.call end
-      without_reconnect_wrapper = lambda do |&blk|
-        without_reconnect(&blk)
-      end if pipeline.without_reconnect?
-
-      shutdown_wrapper = lambda do |&blk| blk.call end
-      shutdown_wrapper = lambda do |&blk|
-        begin
-          blk.call
-        rescue ConnectionError
-          # Assume the pipeline was sent in one piece, but execution of
-          # SHUTDOWN caused none of the replies for commands that were executed
-          # prior to it from coming back around.
-          nil
-        end
-      end if pipeline.shutdown?
-
-      without_reconnect_wrapper.call do
-        shutdown_wrapper.call do
+      without_reconnect pipeline.without_reconnect? do
+        if pipeline.shutdown?
+          begin
+            pipeline.finish(call_pipelined(pipeline.commands))
+          rescue ConnectionError
+            # Assume the pipeline was sent in one piece, but execution of
+            # SHUTDOWN caused none of the replies for commands that were executed
+            # prior to it from coming back around.
+            nil
+          end
+        else
           pipeline.finish(call_pipelined(pipeline.commands))
         end
       end
@@ -234,9 +226,9 @@ class Redis
       end
     end
 
-    def without_reconnect
+    def without_reconnect(val=true)
       begin
-        original, @reconnect = @reconnect, false
+        original, @reconnect = @reconnect, !val
         yield
       ensure
         @reconnect = original
