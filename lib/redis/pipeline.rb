@@ -50,9 +50,8 @@ class Redis
       yield
     end
 
-    def without_reconnect
-      @with_reconnect = false
-      yield
+    def without_reconnect(&blk)
+      with_reconnect(false, &blk)
     end
 
     def finish(replies, &blk)
