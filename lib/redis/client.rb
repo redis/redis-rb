@@ -111,17 +111,14 @@ class Redis
 
     def call_pipeline(pipeline)
       with_reconnect pipeline.with_reconnect? do
-        if pipeline.shutdown?
-          begin
-            pipeline.finish(call_pipelined(pipeline.commands))
-          rescue ConnectionError
-            # Assume the pipeline was sent in one piece, but execution of
-            # SHUTDOWN caused none of the replies for commands that were executed
-            # prior to it from coming back around.
-            nil
-          end
-        else
+        begin
           pipeline.finish(call_pipelined(pipeline.commands))
+        rescue ConnectionError => e
+          return nil if pipeline.shutdown?
+          # Assume the pipeline was sent in one piece, but execution of
+          # SHUTDOWN caused none of the replies for commands that were executed
+          # prior to it from coming back around.
+          raise e
         end
       end
     end
