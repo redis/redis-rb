@@ -46,7 +46,7 @@ class Redis
     end
 
     def with_reconnect(val=true)
-      @with_reconnect = val
+      @with_reconnect = false unless val
       yield
     end
 
