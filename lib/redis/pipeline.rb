@@ -45,12 +45,12 @@ class Redis
       @futures.map { |f| f._command }
     end
 
-    def with_reconnect(&block)
-      @with_reconnect = true
+    def with_reconnect(val=true)
+      @with_reconnect = val
       yield
     end
 
-    def without_reconnect(&block)
+    def without_reconnect
       @with_reconnect = false
       yield
     end

@@ -235,8 +235,8 @@ class Redis
       end
     end
 
-    def without_reconnect(val=true, &blk)
-      with_reconnect(!val, &blk)
+    def without_reconnect(&blk)
+      with_reconnect(false, &blk)
     end
 
   protected
