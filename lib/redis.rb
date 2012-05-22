@@ -282,6 +282,257 @@ class Redis
     end
   end
 
+  # Remove the expiration from a key.
+  #
+  # @param [String] key
+  # @return [Boolean] whether the timeout was removed or not
+  def persist(key)
+    synchronize do |client|
+      client.call [:persist, key], &_boolify
+    end
+  end
+
+  # Set a key's time to live in seconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] seconds time to live
+  # @return [Boolean] whether the timeout was set or not
+  def expire(key, seconds)
+    synchronize do |client|
+      client.call [:expire, key, seconds], &_boolify
+    end
+  end
+
+  # Set the expiration for a key as a UNIX timestamp.
+  #
+  # @param [String] key
+  # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
+  # @return [Boolean] whether the timeout was set or not
+  def expireat(key, unix_time)
+    synchronize do |client|
+      client.call [:expireat, key, unix_time], &_boolify
+    end
+  end
+
+  # Get the time to live (in seconds) for a key.
+  #
+  # @param [String] key
+  # @return [Fixnum] remaining time to live in seconds, or -1 if the
+  #   key does not exist or does not have a timeout
+  def ttl(key)
+    synchronize do |client|
+      client.call [:ttl, key]
+    end
+  end
+
+  # Set a key's time to live in milliseconds.
+  #
+  # @param [String] key
+  # @param [Fixnum] milliseconds time to live
+  # @return [Boolean] whether the timeout was set or not
+  def pexpire(key, milliseconds)
+    synchronize do |client|
+      client.call [:pexpire, key, milliseconds], &_boolify
+    end
+  end
+
+  # Set the expiration for a key as number of milliseconds from UNIX Epoch.
+  #
+  # @param [String] key
+  # @param [Fixnum] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
+  # @return [Boolean] whether the timeout was set or not
+  def pexpireat(key, ms_unix_time)
+    synchronize do |client|
+      client.call [:pexpireat, key, ms_unix_time], &_boolify
+    end
+  end
+  # Set the string value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [String] value
+  # @return [Boolean] whether or not the field was **added** to the hash
+  def hset(key, field, value)
+    synchronize do |client|
+      client.call [:hset, key, field, value], &_boolify
+    end
+  end
+
+  # Get the time to live (in milliseconds) for a key.
+  #
+  # @param [String] key
+  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
+  #   key does not exist or does not have a timeout
+  def pttl(key)
+    synchronize do |client|
+      client.call [:pttl, key]
+    end
+  end
+
+  # Delete one or more keys.
+  #
+  # @param [String, Array<String>] keys
+  # @return [Fixnum] number of keys that were deleted
+  def del(*keys)
+    synchronize do |client|
+      client.call [:del, *keys]
+    end
+  end
+
+  # Determine if a key exists.
+  #
+  # @param [String] key
+  # @return [Boolean]
+  def exists(key)
+    synchronize do |client|
+      client.call [:exists, key], &_boolify
+    end
+  end
+
+  # Find all keys matching the given pattern.
+  #
+  # @param [String] pattern
+  # @return [Array<String>]
+  def keys(pattern = "*")
+    synchronize do |client|
+      client.call [:keys, pattern] do |reply|
+        if reply.kind_of?(String)
+          reply.split(" ")
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Move a key to another database.
+  #
+  # @example Move a key to another database
+  #   redis.set "foo", "bar"
+  #     # => "OK"
+  #   redis.move "foo", 2
+  #     # => true
+  #   redis.exists "foo"
+  #     # => false
+  #   redis.select 2
+  #     # => "OK"
+  #   redis.exists "foo"
+  #     # => true
+  #   resis.get "foo"
+  #     # => "bar"
+  #
+  # @param [String] key
+  # @param [Fixnum] db
+  # @return [Boolean] whether the key was moved or not
+  def move(key, db)
+    synchronize do |client|
+      client.call [:move, key, db], &_boolify
+    end
+  end
+
+  def object(*args)
+    synchronize do |client|
+      client.call [:object, *args]
+    end
+  end
+
+  # Return a random key from the keyspace.
+  #
+  # @return [String]
+  def randomkey
+    synchronize do |client|
+      client.call [:randomkey]
+    end
+  end
+
+  # Rename a key. If the new key already exists it is overwritten.
+  #
+  # @param [String] old_name
+  # @param [String] new_name
+  # @return [String] `OK`
+  def rename(old_name, new_name)
+    synchronize do |client|
+      client.call [:rename, old_name, new_name]
+    end
+  end
+
+  # Rename a key, only if the new key does not exist.
+  #
+  # @param [String] old_name
+  # @param [String] new_name
+  # @return [Boolean] whether the key was renamed or not
+  def renamenx(old_name, new_name)
+    synchronize do |client|
+      client.call [:renamenx, old_name, new_name], &_boolify
+    end
+  end
+
+  # Sort the elements in a list, set or sorted set.
+  #
+  # @example Retrieve the first 2 elements from an alphabetically sorted "list"
+  #   redis.sort("list", :order => "alpha", :limit => [0, 2])
+  #     # => ["a", "b"]
+  # @example Store an alphabetically descending list in "target"
+  #   redis.sort("list", :order => "desc alpha", :store => "target")
+  #     # => 26
+  #
+  # @param [String] key
+  # @param [Hash] options
+  #   - `:by => String`: use external key to sort elements by
+  #   - `:limit => [offset, count]`: skip `offset` elements, return a maximum
+  #   of `count` elements
+  #   - `:get => [String, Array<String>]`: single key or array of keys to
+  #   retrieve per element in the result
+  #   - `:order => String`: combination of `ASC`, `DESC` and optionally `ALPHA`
+  #   - `:store => String`: key to store the result at
+  #
+  # @return [Array<String>, Array<Array<String>>, Fixnum]
+  #   - when `:get` is not specified, or holds a single element, an array of elements
+  #   - when `:get` is specified, and holds more than one element, an array of
+  #   elements where every element is an array with the result for every
+  #   element specified in `:get`
+  #   - when `:store` is specified, the number of elements in the stored result
+  def sort(key, options = {})
+    args = []
+
+    by = options[:by]
+    args.concat ["BY", by] if by
+
+    limit = options[:limit]
+    args.concat ["LIMIT", *limit] if limit
+
+    get = Array(options[:get])
+    args.concat ["GET"].product(get).flatten unless get.empty?
+
+    order = options[:order]
+    args.concat order.split(" ") if order
+
+    store = options[:store]
+    args.concat ["STORE", store] if store
+
+    synchronize do |client|
+      client.call [:sort, key, *args] do |reply|
+        if get.size > 1
+          if reply
+            reply.each_slice(get.size).to_a
+          end
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Determine the type stored at key.
+  #
+  # @param [String] key
+  # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
+  def type(key)
+    synchronize do |client|
+      client.call [:type, key]
+    end
+  end
+
   # Get the value of a key.
   #
   # @param [String] key
@@ -407,41 +658,6 @@ class Redis
   def hkeys(key)
     synchronize do |client|
       client.call [:hkeys, key]
-    end
-  end
-
-  # Find all keys matching the given pattern.
-  #
-  # @param [String] pattern
-  # @return [Array<String>]
-  def keys(pattern = "*")
-    synchronize do |client|
-      client.call [:keys, pattern] do |reply|
-        if reply.kind_of?(String)
-          reply.split(" ")
-        else
-          reply
-        end
-      end
-    end
-  end
-
-  # Return a random key from the keyspace.
-  #
-  # @return [String]
-  def randomkey
-    synchronize do |client|
-      client.call [:randomkey]
-    end
-  end
-
-  # Determine if a key exists.
-  #
-  # @param [String] key
-  # @return [Boolean]
-  def exists(key)
-    synchronize do |client|
-      client.call [:exists, key], &_boolify
     end
   end
 
@@ -1280,31 +1496,6 @@ class Redis
     end
   end
 
-  # Move a key to another database.
-  #
-  # @example Move a key to another database
-  #   redis.set "foo", "bar"
-  #     # => "OK"
-  #   redis.move "foo", 2
-  #     # => true
-  #   redis.exists "foo"
-  #     # => false
-  #   redis.select 2
-  #     # => "OK"
-  #   redis.exists "foo"
-  #     # => true
-  #   resis.get "foo"
-  #     # => "bar"
-  #
-  # @param [String] key
-  # @param [Fixnum] db
-  # @return [Boolean] whether the key was moved or not
-  def move(key, db)
-    synchronize do |client|
-      client.call [:move, key, db], &_boolify
-    end
-  end
-
   # Set the value of a key, only if the key does not exist.
   #
   # @param [String] key
@@ -1313,125 +1504,6 @@ class Redis
   def setnx(key, value)
     synchronize do |client|
       client.call [:setnx, key, value], &_boolify
-    end
-  end
-
-  # Delete one or more keys.
-  #
-  # @param [String, Array<String>] keys
-  # @return [Fixnum] number of keys that were deleted
-  def del(*keys)
-    synchronize do |client|
-      client.call [:del, *keys]
-    end
-  end
-
-  # Rename a key. If the new key already exists it is overwritten.
-  #
-  # @param [String] old_name
-  # @param [String] new_name
-  # @return [String] `OK`
-  def rename(old_name, new_name)
-    synchronize do |client|
-      client.call [:rename, old_name, new_name]
-    end
-  end
-
-  # Rename a key, only if the new key does not exist.
-  #
-  # @param [String] old_name
-  # @param [String] new_name
-  # @return [Boolean] whether the key was renamed or not
-  def renamenx(old_name, new_name)
-    synchronize do |client|
-      client.call [:renamenx, old_name, new_name], &_boolify
-    end
-  end
-
-  # Set a key's time to live in seconds.
-  #
-  # @param [String] key
-  # @param [Fixnum] seconds time to live
-  # @return [Boolean] whether the timeout was set or not
-  def expire(key, seconds)
-    synchronize do |client|
-      client.call [:expire, key, seconds], &_boolify
-    end
-  end
-
-  # Set a key's time to live in milliseconds.
-  #
-  # @param [String] key
-  # @param [Fixnum] milliseconds time to live
-  # @return [Boolean] whether the timeout was set or not
-  def pexpire(key, milliseconds)
-    synchronize do |client|
-      client.call [:pexpire, key, milliseconds], &_boolify
-    end
-  end
-
-  # Remove the expiration from a key.
-  #
-  # @param [String] key
-  # @return [Boolean] whether the timeout was removed or not
-  def persist(key)
-    synchronize do |client|
-      client.call [:persist, key], &_boolify
-    end
-  end
-
-  # Get the time to live (in seconds) for a key.
-  #
-  # @param [String] key
-  # @return [Fixnum] remaining time to live in seconds, or -1 if the
-  #   key does not exist or does not have a timeout
-  def ttl(key)
-    synchronize do |client|
-      client.call [:ttl, key]
-    end
-  end
-
-  # Get the time to live (in milliseconds) for a key.
-  #
-  # @param [String] key
-  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
-  #   key does not exist or does not have a timeout
-  def pttl(key)
-    synchronize do |client|
-      client.call [:pttl, key]
-    end
-  end
-
-  # Set the expiration for a key as a UNIX timestamp.
-  #
-  # @param [String] key
-  # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
-  # @return [Boolean] whether the timeout was set or not
-  def expireat(key, unix_time)
-    synchronize do |client|
-      client.call [:expireat, key, unix_time], &_boolify
-    end
-  end
-
-  # Set the expiration for a key as number of milliseconds from UNIX Epoch.
-  #
-  # @param [String] key
-  # @param [Fixnum] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
-  # @return [Boolean] whether the timeout was set or not
-  def pexpireat(key, ms_unix_time)
-    synchronize do |client|
-      client.call [:pexpireat, key, ms_unix_time], &_boolify
-    end
-  end
-  # Set the string value of a hash field.
-  #
-  # @param [String] key
-  # @param [String] field
-  # @param [String] value
-  # @return [Boolean] whether or not the field was **added** to the hash
-  def hset(key, field, value)
-    synchronize do |client|
-      client.call [:hset, key, field, value], &_boolify
     end
   end
 
@@ -1689,12 +1761,6 @@ class Redis
     _eval(:evalsha, args)
   end
 
-  def object(*args)
-    synchronize do |client|
-      client.call [:object, *args]
-    end
-  end
-
   # Set the string value of a key.
   #
   # @param [String] key
@@ -1840,62 +1906,6 @@ class Redis
     end
   end
 
-  # Sort the elements in a list, set or sorted set.
-  #
-  # @example Retrieve the first 2 elements from an alphabetically sorted "list"
-  #   redis.sort("list", :order => "alpha", :limit => [0, 2])
-  #     # => ["a", "b"]
-  # @example Store an alphabetically descending list in "target"
-  #   redis.sort("list", :order => "desc alpha", :store => "target")
-  #     # => 26
-  #
-  # @param [String] key
-  # @param [Hash] options
-  #   - `:by => String`: use external key to sort elements by
-  #   - `:limit => [offset, count]`: skip `offset` elements, return a maximum
-  #   of `count` elements
-  #   - `:get => [String, Array<String>]`: single key or array of keys to
-  #   retrieve per element in the result
-  #   - `:order => String`: combination of `ASC`, `DESC` and optionally `ALPHA`
-  #   - `:store => String`: key to store the result at
-  #
-  # @return [Array<String>, Array<Array<String>>, Fixnum]
-  #   - when `:get` is not specified, or holds a single element, an array of elements
-  #   - when `:get` is specified, and holds more than one element, an array of
-  #   elements where every element is an array with the result for every
-  #   element specified in `:get`
-  #   - when `:store` is specified, the number of elements in the stored result
-  def sort(key, options = {})
-    args = []
-
-    by = options[:by]
-    args.concat ["BY", by] if by
-
-    limit = options[:limit]
-    args.concat ["LIMIT", *limit] if limit
-
-    get = Array(options[:get])
-    args.concat ["GET"].product(get).flatten unless get.empty?
-
-    order = options[:order]
-    args.concat order.split(" ") if order
-
-    store = options[:store]
-    args.concat ["STORE", store] if store
-
-    synchronize do |client|
-      client.call [:sort, key, *args] do |reply|
-        if get.size > 1
-          if reply
-            reply.each_slice(get.size).to_a
-          end
-        else
-          reply
-        end
-      end
-    end
-  end
-
   # Increment the integer value of a key by one.
   #
   # @example
@@ -1968,16 +1978,6 @@ class Redis
   def decrby(key, decrement)
     synchronize do |client|
       client.call [:decrby, key, decrement]
-    end
-  end
-
-  # Determine the type stored at key.
-  #
-  # @param [String] key
-  # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
-  def type(key)
-    synchronize do |client|
-      client.call [:type, key]
     end
   end
 

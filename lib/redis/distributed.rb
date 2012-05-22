@@ -99,9 +99,39 @@ class Redis
       on_each_node :time
     end
 
-    # Determine if a key exists.
-    def exists(key)
-      node_for(key).exists(key)
+    # Remove the expiration from a key.
+    def persist(key)
+      node_for(key).persist(key)
+    end
+
+    # Set a key's time to live in seconds.
+    def expire(key, seconds)
+      node_for(key).expire(key, seconds)
+    end
+
+    # Set the expiration for a key as a UNIX timestamp.
+    def expireat(key, unix_time)
+      node_for(key).expireat(key, unix_time)
+    end
+
+    # Get the time to live (in seconds) for a key.
+    def ttl(key)
+      node_for(key).ttl(key)
+    end
+
+    # Set a key's time to live in milliseconds.
+    def pexpire(key, milliseconds)
+      node_for(key).pexpire(key, milliseconds)
+    end
+
+    # Set the expiration for a key as number of milliseconds from UNIX Epoch.
+    def pexpireat(key, ms_unix_time)
+      node_for(key).pexpireat(key, ms_unix_time)
+    end
+
+    # Get the time to live (in milliseconds) for a key.
+    def pttl(key)
+      node_for(key).pttl(key)
     end
 
     # Delete a key.
@@ -112,14 +142,19 @@ class Redis
       end
     end
 
-    # Determine the type stored at key.
-    def type(key)
-      node_for(key).type(key)
+    # Determine if a key exists.
+    def exists(key)
+      node_for(key).exists(key)
     end
 
     # Find all keys matching the given pattern.
     def keys(glob = "*")
       on_each_node(:keys, glob).flatten
+    end
+
+    # Move a key to another database.
+    def move(key, db)
+      node_for(key).move(key, db)
     end
 
     # Return a random key from the keyspace.
@@ -141,44 +176,18 @@ class Redis
       end
     end
 
-    # Set a key's time to live in seconds.
-    def expire(key, seconds)
-      node_for(key).expire(key, seconds)
+    # Sort the elements in a list, set or sorted set.
+    def sort(key, options = {})
+      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
+
+      ensure_same_node(:sort, keys) do |node|
+        node.sort(key, options)
+      end
     end
 
-    # Set a key's time to live in milliseconds.
-    def pexpire(key, milliseconds)
-      node_for(key).pexpire(key, milliseconds)
-    end
-
-    # Set the expiration for a key as a UNIX timestamp.
-    def expireat(key, unix_time)
-      node_for(key).expireat(key, unix_time)
-    end
-
-    # Set the expiration for a key as number of milliseconds from UNIX Epoch.
-    def pexpireat(key, ms_unix_time)
-      node_for(key).pexpireat(key, ms_unix_time)
-    end
-
-    # Remove the expiration from a key.
-    def persist(key)
-      node_for(key).persist(key)
-    end
-
-    # Get the time to live (in seconds) for a key.
-    def ttl(key)
-      node_for(key).ttl(key)
-    end
-
-    # Get the time to live (in milliseconds) for a key.
-    def pttl(key)
-      node_for(key).pttl(key)
-    end
-
-    # Move a key to another database.
-    def move(key, db)
-      node_for(key).move(key, db)
+    # Determine the type stored at key.
+    def type(key)
+      node_for(key).type(key)
     end
 
     # Set the string value of a key.
@@ -646,15 +655,6 @@ class Redis
     # Increment the numeric value of a hash field by the given float number.
     def hincrbyfloat(key, field, increment)
       node_for(key).hincrbyfloat(key, field, increment)
-    end
-
-    # Sort the elements in a list, set or sorted set.
-    def sort(key, options = {})
-      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
-
-      ensure_same_node(:sort, keys) do |node|
-        node.sort(key, options)
-      end
     end
 
     # Mark the start of a transaction block.
