@@ -81,6 +81,7 @@
     "lpop",
     "rpop",
     "rpoplpush",
+    "_bpop",
     "blpop",
     "brpop",
     "brpoplpush",
@@ -145,6 +146,7 @@
   ],
   "pubsub": [
     "publish",
+    "subscribed?",
     "subscribe",
     "unsubscribe",
     "psubscribe",
@@ -153,12 +155,14 @@
   "transactions": [
     "watch",
     "unwatch",
+    "pipelined",
     "multi",
     "exec",
     "discard"
   ],
   "scripting": [
     "script",
+    "_eval",
     "eval",
     "evalsha"
   ]
