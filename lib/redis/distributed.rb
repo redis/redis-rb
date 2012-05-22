@@ -54,9 +54,49 @@ class Redis
       on_each_node :quit
     end
 
+    # Asynchronously save the dataset to disk.
+    def bgsave
+      on_each_node :bgsave
+    end
+
+    # Return the number of keys in the selected database.
+    def dbsize
+      on_each_node :dbsize
+    end
+
     # Remove all keys from all databases.
     def flushall
       on_each_node :flushall
+    end
+
+    # Remove all keys from the current database.
+    def flushdb
+      on_each_node :flushdb
+    end
+
+    # Get information and statistics about the server.
+    def info(cmd = nil)
+      on_each_node :info, cmd
+    end
+
+    # Get the UNIX time stamp of the last successful save to disk.
+    def lastsave
+      on_each_node :lastsave
+    end
+
+    # Listen for all requests received by the server in real time.
+    def monitor
+      raise NotImplementedError
+    end
+
+    # Synchronously save the dataset to disk.
+    def save
+      on_each_node :save
+    end
+
+    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
+    def time
+      on_each_node :time
     end
 
     # Determine if a key exists.
@@ -101,11 +141,6 @@ class Redis
       end
     end
 
-    # Return the number of keys in the selected database.
-    def dbsize
-      on_each_node :dbsize
-    end
-
     # Set a key's time to live in seconds.
     def expire(key, seconds)
       node_for(key).expire(key, seconds)
@@ -144,11 +179,6 @@ class Redis
     # Move a key to another database.
     def move(key, db)
       node_for(key).move(key, db)
-    end
-
-    # Remove all keys from the current database.
-    def flushdb
-      on_each_node :flushdb
     end
 
     # Set the string value of a key.
@@ -689,36 +719,6 @@ class Redis
     # Listen for messages published to channels matching the given patterns.
     def psubscribe(*channels, &block)
       raise NotImplementedError
-    end
-
-    # Synchronously save the dataset to disk.
-    def save
-      on_each_node :save
-    end
-
-    # Asynchronously save the dataset to disk.
-    def bgsave
-      on_each_node :bgsave
-    end
-
-    # Get the UNIX time stamp of the last successful save to disk.
-    def lastsave
-      on_each_node :lastsave
-    end
-
-    # Get information and statistics about the server.
-    def info(cmd = nil)
-      on_each_node :info, cmd
-    end
-
-    # Listen for all requests received by the server in real time.
-    def monitor
-      raise NotImplementedError
-    end
-
-    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
-    def time
-      on_each_node :time
     end
 
     def pipelined

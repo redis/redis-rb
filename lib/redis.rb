@@ -103,6 +103,74 @@ class Redis
     end
   end
 
+  # Asynchronously rewrite the append-only file.
+  #
+  # @return [String] `OK`
+  def bgrewriteaof
+    synchronize do |client|
+      client.call [:bgrewriteaof]
+    end
+  end
+
+  # Asynchronously save the dataset to disk.
+  #
+  # @return [String] `OK`
+  def bgsave
+    synchronize do |client|
+      client.call [:bgsave]
+    end
+  end
+
+  # Get or set server configuration parameters.
+  #
+  # @param [String] action e.g. `get`, `set`, `resetstat`
+  # @return [String, Hash] string reply, or hash when retrieving more than one
+  #   property with `CONFIG GET`
+  def config(action, *args)
+    synchronize do |client|
+      client.call [:config, action, *args] do |reply|
+        if reply.kind_of?(Array) && action == :get
+          Hash[*reply]
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Return the number of keys in the selected database.
+  #
+  # @return [Fixnum]
+  def dbsize
+    synchronize do |client|
+      client.call [:dbsize]
+    end
+  end
+
+  def debug(*args)
+    synchronize do |client|
+      client.call [:debug, *args]
+    end
+  end
+
+  # Remove all keys from all databases.
+  #
+  # @return [String] `OK`
+  def flushall
+    synchronize do |client|
+      client.call [:flushall]
+    end
+  end
+
+  # Remove all keys from the current database.
+  #
+  # @return [String] `OK`
+  def flushdb
+    synchronize do |client|
+      client.call [:flushdb]
+    end
+  end
+
   # Get information and statistics about the server.
   #
   # @param [String, Symbol] cmd e.g. "commandstats"
@@ -128,38 +196,24 @@ class Redis
     end
   end
 
-  # Get or set server configuration parameters.
+  # Get the UNIX time stamp of the last successful save to disk.
   #
-  # @param [String] action e.g. `get`, `set`, `resetstat`
-  # @return [String, Hash] string reply, or hash when retrieving more than one
-  #   property with `CONFIG GET`
-  def config(action, *args)
+  # @return [Fixnum]
+  def lastsave
     synchronize do |client|
-      client.call [:config, action, *args] do |reply|
-        if reply.kind_of?(Array) && action == :get
-          Hash[*reply]
-        else
-          reply
-        end
-      end
+      client.call [:lastsave]
     end
   end
 
-  # Remove all keys from the current database.
+  # Listen for all requests received by the server in real time.
   #
-  # @return [String] `OK`
-  def flushdb
-    synchronize do |client|
-      client.call [:flushdb]
-    end
-  end
-
-  # Remove all keys from all databases.
+  # There is no way to interrupt this command.
   #
-  # @return [String] `OK`
-  def flushall
+  # @yield a block to be called for every line of output
+  # @yieldparam [String] line timestamp and command that was executed
+  def monitor(&block)
     synchronize do |client|
-      client.call [:flushall]
+      client.call_loop([:monitor], &block)
     end
   end
 
@@ -172,21 +226,59 @@ class Redis
     end
   end
 
-  # Asynchronously save the dataset to disk.
-  #
-  # @return [String] `OK`
-  def bgsave
+  # Synchronously save the dataset to disk and then shut down the server.
+  def shutdown
     synchronize do |client|
-      client.call [:bgsave]
+      client.with_reconnect(false) do
+        begin
+          client.call [:shutdown]
+        rescue ConnectionError
+          # This means Redis has probably exited.
+          nil
+        end
+      end
     end
   end
 
-  # Asynchronously rewrite the append-only file.
-  #
-  # @return [String] `OK`
-  def bgrewriteaof
+  # Make the server a slave of another instance, or promote it as master.
+  def slaveof(host, port)
     synchronize do |client|
-      client.call [:bgrewriteaof]
+      client.call [:slaveof, host, port]
+    end
+  end
+
+  # Interact with the slowlog (get, len, reset)
+  #
+  # @param [String] subcommand e.g. `get`, `len`, `reset`
+  # @param [Fixnum] length maximum number of entries to return
+  # @return [Array<String>, Fixnum, String] depends on subcommand
+  def slowlog(subcommand, length=nil)
+    synchronize do |client|
+      args = [:slowlog, subcommand]
+      args << length if length
+      client.call args
+    end
+  end
+
+  # Internal command used for replication.
+  def sync
+    synchronize do |client|
+      client.call [:sync]
+    end
+  end
+
+  # Return the server time.
+  #
+  # @example
+  #   r.time # => [ 1333093196, 606806 ]
+  #
+  # @return [Array<Fixnum>] tuple of seconds since UNIX epoch and
+  #   microseconds in the current second
+  def time
+    synchronize do |client|
+      client.call [:time] do |reply|
+        reply.map(&:to_i) if reply
+      end
     end
   end
 
@@ -340,39 +432,6 @@ class Redis
   def randomkey
     synchronize do |client|
       client.call [:randomkey]
-    end
-  end
-
-  # Return the server time.
-  #
-  # @example
-  #   r.time # => [ 1333093196, 606806 ]
-  #
-  # @return [Array<Fixnum>] tuple of seconds since UNIX epoch and
-  #   microseconds in the current second
-  def time
-    synchronize do |client|
-      client.call [:time] do |reply|
-        reply.map(&:to_i) if reply
-      end
-    end
-  end
-
-  # Get the UNIX time stamp of the last successful save to disk.
-  #
-  # @return [Fixnum]
-  def lastsave
-    synchronize do |client|
-      client.call [:lastsave]
-    end
-  end
-
-  # Return the number of keys in the selected database.
-  #
-  # @return [Fixnum]
-  def dbsize
-    synchronize do |client|
-      client.call [:dbsize]
     end
   end
 
@@ -633,19 +692,6 @@ class Redis
   def lpop(key)
     synchronize do |client|
       client.call [:lpop, key]
-    end
-  end
-
-  # Interact with the slowlog (get, len, reset)
-  #
-  # @param [String] subcommand e.g. `get`, `len`, `reset`
-  # @param [Fixnum] length maximum number of entries to return
-  # @return [Array<String>, Fixnum, String] depends on subcommand
-  def slowlog(subcommand, length=nil)
-    synchronize do |client|
-      args = [:slowlog, subcommand]
-      args << length if length
-      client.call args
     end
   end
 
@@ -1643,34 +1689,9 @@ class Redis
     _eval(:evalsha, args)
   end
 
-  # Listen for all requests received by the server in real time.
-  #
-  # There is no way to interrupt this command.
-  #
-  # @yield a block to be called for every line of output
-  # @yieldparam [String] line timestamp and command that was executed
-  def monitor(&block)
-    synchronize do |client|
-      client.call_loop([:monitor], &block)
-    end
-  end
-
-  def debug(*args)
-    synchronize do |client|
-      client.call [:debug, *args]
-    end
-  end
-
   def object(*args)
     synchronize do |client|
       client.call [:object, *args]
-    end
-  end
-
-  # Internal command used for replication.
-  def sync
-    synchronize do |client|
-      client.call [:sync]
     end
   end
 
@@ -1957,27 +1978,6 @@ class Redis
   def type(key)
     synchronize do |client|
       client.call [:type, key]
-    end
-  end
-
-  # Synchronously save the dataset to disk and then shut down the server.
-  def shutdown
-    synchronize do |client|
-      client.with_reconnect(false) do
-        begin
-          client.call [:shutdown]
-        rescue ConnectionError
-          # This means Redis has probably exited.
-          nil
-        end
-      end
-    end
-  end
-
-  # Make the server a slave of another instance, or promote it as master.
-  def slaveof(host, port)
-    synchronize do |client|
-      client.call [:slaveof, host, port]
     end
   end
 
