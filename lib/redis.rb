@@ -1913,6 +1913,154 @@ class Redis
     end
   end
 
+  # Watch the given keys to determine execution of the MULTI/EXEC block.
+  #
+  # Using a block is optional, but is necessary for thread-safety.
+  #
+  # An `#unwatch` is automatically issued if an exception is raised within the
+  # block that is a subclass of StandardError and is not a ConnectionError.
+  #
+  # @example With a block
+  #   redis.watch("key") do
+  #     if redis.get("key") == "some value"
+  #       redis.multi do |multi|
+  #         multi.set("key", "other value")
+  #         multi.incr("counter")
+  #       end
+  #     else
+  #       redis.unwatch
+  #     end
+  #   end
+  #     # => ["OK", 6]
+  #
+  # @example Without a block
+  #   redis.watch("key")
+  #     # => "OK"
+  #
+  # @param [String, Array<String>] keys one or more keys to watch
+  # @return [Object] if using a block, returns the return value of the block
+  # @return [String] if not using a block, returns `OK`
+  #
+  # @see #unwatch
+  # @see #multi
+  def watch(*keys)
+    synchronize do |client|
+      client.call [:watch, *keys]
+
+      if block_given?
+        begin
+          yield
+        rescue ConnectionError
+          raise
+        rescue StandardError
+          unwatch
+          raise
+        end
+      end
+    end
+  end
+
+  # Forget about all watched keys.
+  #
+  # @return [String] `OK`
+  #
+  # @see #watch
+  # @see #multi
+  def unwatch
+    synchronize do |client|
+      client.call [:unwatch]
+    end
+  end
+
+  def pipelined
+    synchronize do |client|
+      begin
+        original, @client = @client, Pipeline.new
+        yield(self)
+        original.call_pipeline(@client)
+      ensure
+        @client = original
+      end
+    end
+  end
+
+  # Mark the start of a transaction block.
+  #
+  # Passing a block is optional.
+  #
+  # @example With a block
+  #   redis.multi do |multi|
+  #     multi.set("key", "value")
+  #     multi.incr("counter")
+  #   end # => ["OK", 6]
+  #
+  # @example Without a block
+  #   redis.multi
+  #     # => "OK"
+  #   redis.set("key", "value")
+  #     # => "QUEUED"
+  #   redis.incr("counter")
+  #     # => "QUEUED"
+  #   redis.exec
+  #     # => ["OK", 6]
+  #
+  # @yield [multi] the commands that are called inside this block are cached
+  #   and written to the server upon returning from it
+  # @yieldparam [Redis] multi `self`
+  #
+  # @return [String, Array<...>]
+  #   - when a block is not given, `OK`
+  #   - when a block is given, an array with replies
+  #
+  # @see #watch
+  # @see #unwatch
+  def multi
+    synchronize do |client|
+      if !block_given?
+        client.call [:multi]
+      else
+        begin
+          pipeline = Pipeline::Multi.new
+          original, @client = @client, pipeline
+          yield(self)
+          original.call_pipeline(pipeline)
+        ensure
+          @client = original
+        end
+      end
+    end
+  end
+
+  # Execute all commands issued after MULTI.
+  #
+  # Only call this method when `#multi` was called **without** a block.
+  #
+  # @return [nil, Array<...>]
+  #   - when commands were not executed, `nil`
+  #   - when commands were executed, an array with their replies
+  #
+  # @see #multi
+  # @see #discard
+  def exec
+    synchronize do |client|
+      client.call [:exec]
+    end
+  end
+
+  # Discard all commands issued after MULTI.
+  #
+  # Only call this method when `#multi` was called **without** a block.
+  #
+  # @return `"OK"`
+  #
+  # @see #multi
+  # @see #exec
+  def discard
+    synchronize do |client|
+      client.call [:discard]
+    end
+  end
+
   # Control remote script registry.
   #
   # @example Load a script
@@ -2022,154 +2170,6 @@ class Redis
   # @see #eval
   def evalsha(*args)
     _eval(:evalsha, args)
-  end
-
-  def pipelined
-    synchronize do |client|
-      begin
-        original, @client = @client, Pipeline.new
-        yield(self)
-        original.call_pipeline(@client)
-      ensure
-        @client = original
-      end
-    end
-  end
-
-  # Watch the given keys to determine execution of the MULTI/EXEC block.
-  #
-  # Using a block is optional, but is necessary for thread-safety.
-  #
-  # An `#unwatch` is automatically issued if an exception is raised within the
-  # block that is a subclass of StandardError and is not a ConnectionError.
-  #
-  # @example With a block
-  #   redis.watch("key") do
-  #     if redis.get("key") == "some value"
-  #       redis.multi do |multi|
-  #         multi.set("key", "other value")
-  #         multi.incr("counter")
-  #       end
-  #     else
-  #       redis.unwatch
-  #     end
-  #   end
-  #     # => ["OK", 6]
-  #
-  # @example Without a block
-  #   redis.watch("key")
-  #     # => "OK"
-  #
-  # @param [String, Array<String>] keys one or more keys to watch
-  # @return [Object] if using a block, returns the return value of the block
-  # @return [String] if not using a block, returns `OK`
-  #
-  # @see #unwatch
-  # @see #multi
-  def watch(*keys)
-    synchronize do |client|
-      client.call [:watch, *keys]
-
-      if block_given?
-        begin
-          yield
-        rescue ConnectionError
-          raise
-        rescue StandardError
-          unwatch
-          raise
-        end
-      end
-    end
-  end
-
-  # Forget about all watched keys.
-  #
-  # @return [String] `OK`
-  #
-  # @see #watch
-  # @see #multi
-  def unwatch
-    synchronize do |client|
-      client.call [:unwatch]
-    end
-  end
-
-  # Mark the start of a transaction block.
-  #
-  # Passing a block is optional.
-  #
-  # @example With a block
-  #   redis.multi do |multi|
-  #     multi.set("key", "value")
-  #     multi.incr("counter")
-  #   end # => ["OK", 6]
-  #
-  # @example Without a block
-  #   redis.multi
-  #     # => "OK"
-  #   redis.set("key", "value")
-  #     # => "QUEUED"
-  #   redis.incr("counter")
-  #     # => "QUEUED"
-  #   redis.exec
-  #     # => ["OK", 6]
-  #
-  # @yield [multi] the commands that are called inside this block are cached
-  #   and written to the server upon returning from it
-  # @yieldparam [Redis] multi `self`
-  #
-  # @return [String, Array<...>]
-  #   - when a block is not given, `OK`
-  #   - when a block is given, an array with replies
-  #
-  # @see #watch
-  # @see #unwatch
-  def multi
-    synchronize do |client|
-      if !block_given?
-        client.call [:multi]
-      else
-        begin
-          pipeline = Pipeline::Multi.new
-          original, @client = @client, pipeline
-          yield(self)
-          original.call_pipeline(pipeline)
-        ensure
-          @client = original
-        end
-      end
-    end
-  end
-
-  # Execute all commands issued after MULTI.
-  #
-  # Only call this method when `#multi` was called **without** a block.
-  #
-  # @return [nil, Array<...>]
-  #   - when commands were not executed, `nil`
-  #   - when commands were executed, an array with their replies
-  #
-  # @see #multi
-  # @see #discard
-  def exec
-    synchronize do |client|
-      client.call [:exec]
-    end
-  end
-
-  # Discard all commands issued after MULTI.
-  #
-  # Only call this method when `#multi` was called **without** a block.
-  #
-  # @return `"OK"`
-  #
-  # @see #multi
-  # @see #exec
-  def discard
-    synchronize do |client|
-      client.call [:discard]
-    end
   end
 
   def id

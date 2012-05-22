@@ -696,11 +696,6 @@ class Redis
       raise NotImplementedError
     end
 
-    # Mark the start of a transaction block.
-    def multi
-      raise CannotDistribute, :multi
-    end
-
     # Watch the given keys to determine execution of the MULTI/EXEC block.
     def watch(*keys)
       raise CannotDistribute, :watch
@@ -711,6 +706,15 @@ class Redis
       raise CannotDistribute, :unwatch
     end
 
+    def pipelined
+      raise CannotDistribute, :pipelined
+    end
+
+    # Mark the start of a transaction block.
+    def multi
+      raise CannotDistribute, :multi
+    end
+
     # Execute all commands issued after MULTI.
     def exec
       raise CannotDistribute, :exec
@@ -719,10 +723,6 @@ class Redis
     # Discard all commands issued after MULTI.
     def discard
       raise CannotDistribute, :discard
-    end
-
-    def pipelined
-      raise CannotDistribute, :pipelined
     end
 
     def inspect
