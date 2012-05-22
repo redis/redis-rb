@@ -1270,45 +1270,17 @@ class Redis
     end
   end
 
-  # Get all the fields and values in a hash.
+  # Get the number of members in a sorted set.
+  #
+  # @example
+  #   redis.zcard("zset")
+  #     # => 4
   #
   # @param [String] key
-  # @return [Hash<String, String>]
-  def hgetall(key)
+  # @return [Fixnum]
+  def zcard(key)
     synchronize do |client|
-      client.call [:hgetall, key], &_hashify
-    end
-  end
-
-  # Get the value of a hash field.
-  #
-  # @param [String] key
-  # @param [String] field
-  # @return [String]
-  def hget(key, field)
-    synchronize do |client|
-      client.call [:hget, key, field]
-    end
-  end
-
-  # Delete one or more hash fields.
-  #
-  # @param [String] key
-  # @param [String, Array<String>] field
-  # @return [Fixnum] the number of fields that were removed from the hash
-  def hdel(key, field)
-    synchronize do |client|
-      client.call [:hdel, key, field]
-    end
-  end
-
-  # Get all the fields in a hash.
-  #
-  # @param [String] key
-  # @return [Array<String>]
-  def hkeys(key)
-    synchronize do |client|
-      client.call [:hkeys, key]
+      client.call [:zcard, key]
     end
   end
 
@@ -1344,6 +1316,24 @@ class Redis
     end
   end
 
+  # Increment the score of a member in a sorted set.
+  #
+  # @example
+  #   redis.zincrby("zset", 32.0, "a")
+  #     # => 64.0
+  #
+  # @param [String] key
+  # @param [Float] increment
+  # @param [String] member
+  # @return [Float] score of the member after incrementing it
+  def zincrby(key, increment, member)
+    synchronize do |client|
+      client.call [:zincrby, key, increment, member] do |reply|
+        Float(reply) if reply
+      end
+    end
+  end
+
   # Remove one or more members from a sorted set.
   #
   # @example Remove a single member from a sorted set
@@ -1375,58 +1365,20 @@ class Redis
     end
   end
 
-  # Determine the index of a member in a sorted set.
+  # Get the score associated with the given member in a sorted set.
+  #
+  # @example Get the score for member "a"
+  #   redis.zscore("zset", "a")
+  #     # => 32.0
   #
   # @param [String] key
   # @param [String] member
-  # @return [Fixnum]
-  def zrank(key, member)
+  # @return [Float] score of the member
+  def zscore(key, member)
     synchronize do |client|
-      client.call [:zrank, key, member]
-    end
-  end
-
-  # Determine the index of a member in a sorted set, with scores ordered from
-  # high to low.
-  #
-  # @param [String] key
-  # @param [String] member
-  # @return [Fixnum]
-  def zrevrank(key, member)
-    synchronize do |client|
-      client.call [:zrevrank, key, member]
-    end
-  end
-
-  # Increment the score of a member in a sorted set.
-  #
-  # @example
-  #   redis.zincrby("zset", 32.0, "a")
-  #     # => 64.0
-  #
-  # @param [String] key
-  # @param [Float] increment
-  # @param [String] member
-  # @return [Float] score of the member after incrementing it
-  def zincrby(key, increment, member)
-    synchronize do |client|
-      client.call [:zincrby, key, increment, member] do |reply|
+      client.call [:zscore, key, member] do |reply|
         Float(reply) if reply
       end
-    end
-  end
-
-  # Get the number of members in a sorted set.
-  #
-  # @example
-  #   redis.zcard("zset")
-  #     # => 4
-  #
-  # @param [String] key
-  # @return [Fixnum]
-  def zcard(key)
-    synchronize do |client|
-      client.call [:zcard, key]
     end
   end
 
@@ -1498,6 +1450,48 @@ class Redis
           reply
         end
       end
+    end
+  end
+
+  # Determine the index of a member in a sorted set.
+  #
+  # @param [String] key
+  # @param [String] member
+  # @return [Fixnum]
+  def zrank(key, member)
+    synchronize do |client|
+      client.call [:zrank, key, member]
+    end
+  end
+
+  # Determine the index of a member in a sorted set, with scores ordered from
+  # high to low.
+  #
+  # @param [String] key
+  # @param [String] member
+  # @return [Fixnum]
+  def zrevrank(key, member)
+    synchronize do |client|
+      client.call [:zrevrank, key, member]
+    end
+  end
+
+  # Remove all members in a sorted set within the given indexes.
+  #
+  # @example Remove first 5 members
+  #   redis.zremrangebyrank("zset", 0, 4)
+  #     # => 5
+  # @example Remove last 5 members
+  #   redis.zremrangebyrank("zset", -5, -1)
+  #     # => 5
+  #
+  # @param [String] key
+  # @param [Fixnum] start start index
+  # @param [Fixnum] stop stop index
+  # @return [Fixnum] number of members that were removed
+  def zremrangebyrank(key, start, stop)
+    synchronize do |client|
+      client.call [:zremrangebyrank, key, start, stop]
     end
   end
 
@@ -1590,29 +1584,6 @@ class Redis
     end
   end
 
-  # Count the members in a sorted set with scores within the given values.
-  #
-  # @example Count members with score `>= 5` and `< 100`
-  #   redis.zcount("zset", "5", "(100")
-  #     # => 2
-  # @example Count members with scores `> 5`
-  #   redis.zcount("zset", "(5", "+inf")
-  #     # => 2
-  #
-  # @param [String] key
-  # @param [String] min
-  #   - inclusive minimum score is specified verbatim
-  #   - exclusive minimum score is specified by prefixing `(`
-  # @param [String] max
-  #   - inclusive maximum score is specified verbatim
-  #   - exclusive maximum score is specified by prefixing `(`
-  # @return [Fixnum] number of members in within the specified range
-  def zcount(key, min, max)
-    synchronize do |client|
-      client.call [:zcount, key, min, max]
-    end
-  end
-
   # Remove all members in a sorted set within the given scores.
   #
   # @example Remove members with score `>= 5` and `< 100`
@@ -1636,39 +1607,26 @@ class Redis
     end
   end
 
-  # Remove all members in a sorted set within the given indexes.
+  # Count the members in a sorted set with scores within the given values.
   #
-  # @example Remove first 5 members
-  #   redis.zremrangebyrank("zset", 0, 4)
-  #     # => 5
-  # @example Remove last 5 members
-  #   redis.zremrangebyrank("zset", -5, -1)
-  #     # => 5
-  #
-  # @param [String] key
-  # @param [Fixnum] start start index
-  # @param [Fixnum] stop stop index
-  # @return [Fixnum] number of members that were removed
-  def zremrangebyrank(key, start, stop)
-    synchronize do |client|
-      client.call [:zremrangebyrank, key, start, stop]
-    end
-  end
-
-  # Get the score associated with the given member in a sorted set.
-  #
-  # @example Get the score for member "a"
-  #   redis.zscore("zset", "a")
-  #     # => 32.0
+  # @example Count members with score `>= 5` and `< 100`
+  #   redis.zcount("zset", "5", "(100")
+  #     # => 2
+  # @example Count members with scores `> 5`
+  #   redis.zcount("zset", "(5", "+inf")
+  #     # => 2
   #
   # @param [String] key
-  # @param [String] member
-  # @return [Float] score of the member
-  def zscore(key, member)
+  # @param [String] min
+  #   - inclusive minimum score is specified verbatim
+  #   - exclusive minimum score is specified by prefixing `(`
+  # @param [String] max
+  #   - inclusive maximum score is specified verbatim
+  #   - exclusive maximum score is specified by prefixing `(`
+  # @return [Fixnum] number of members in within the specified range
+  def zcount(key, min, max)
     synchronize do |client|
-      client.call [:zscore, key, member] do |reply|
-        Float(reply) if reply
-      end
+      client.call [:zcount, key, min, max]
     end
   end
 
@@ -1724,6 +1682,48 @@ class Redis
 
     synchronize do |client|
       client.call [:zunionstore, destination, keys.size, *(keys + args)]
+    end
+  end
+
+  # Get all the fields and values in a hash.
+  #
+  # @param [String] key
+  # @return [Hash<String, String>]
+  def hgetall(key)
+    synchronize do |client|
+      client.call [:hgetall, key], &_hashify
+    end
+  end
+
+  # Get the value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @return [String]
+  def hget(key, field)
+    synchronize do |client|
+      client.call [:hget, key, field]
+    end
+  end
+
+  # Delete one or more hash fields.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] field
+  # @return [Fixnum] the number of fields that were removed from the hash
+  def hdel(key, field)
+    synchronize do |client|
+      client.call [:hdel, key, field]
+    end
+  end
+
+  # Get all the fields in a hash.
+  #
+  # @param [String] key
+  # @return [Array<String>]
+  def hkeys(key)
+    synchronize do |client|
+      client.call [:hkeys, key]
     end
   end
 

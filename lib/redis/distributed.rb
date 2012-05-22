@@ -495,15 +495,15 @@ class Redis
       end
     end
 
+    # Get the number of members in a sorted set.
+    def zcard(key)
+      node_for(key).zcard(key)
+    end
+
     # Add one or more members to a sorted set, or update the score for members
     # that already exist.
     def zadd(key, *args)
       node_for(key).zadd(key, *args)
-    end
-
-    # Remove one or more members from a sorted set.
-    def zrem(key, member)
-      node_for(key).zrem(key, member)
     end
 
     # Increment the score of a member in a sorted set.
@@ -511,9 +511,25 @@ class Redis
       node_for(key).zincrby(key, increment, member)
     end
 
+    # Remove one or more members from a sorted set.
+    def zrem(key, member)
+      node_for(key).zrem(key, member)
+    end
+
+    # Get the score associated with the given member in a sorted set.
+    def zscore(key, member)
+      node_for(key).zscore(key, member)
+    end
+
     # Return a range of members in a sorted set, by index.
     def zrange(key, start, stop, options = {})
       node_for(key).zrange(key, start, stop, options)
+    end
+
+    # Return a range of members in a sorted set, by index, with scores ordered
+    # from high to low.
+    def zrevrange(key, start, stop, options = {})
+      node_for(key).zrevrange(key, start, stop, options)
     end
 
     # Determine the index of a member in a sorted set.
@@ -525,17 +541,6 @@ class Redis
     # high to low.
     def zrevrank(key, member)
       node_for(key).zrevrank(key, member)
-    end
-
-    # Return a range of members in a sorted set, by index, with scores ordered
-    # from high to low.
-    def zrevrange(key, start, stop, options = {})
-      node_for(key).zrevrange(key, start, stop, options)
-    end
-
-    # Remove all members in a sorted set within the given scores.
-    def zremrangebyscore(key, min, max)
-      node_for(key).zremrangebyscore(key, min, max)
     end
 
     # Remove all members in a sorted set within the given indexes.
@@ -554,19 +559,14 @@ class Redis
       node_for(key).zrevrangebyscore(key, max, min, options)
     end
 
-    # Get the number of members in a sorted set.
-    def zcard(key)
-      node_for(key).zcard(key)
+    # Remove all members in a sorted set within the given scores.
+    def zremrangebyscore(key, min, max)
+      node_for(key).zremrangebyscore(key, min, max)
     end
 
     # Get the number of members in a particular score range.
     def zcount(key, min, max)
       node_for(key).zcount(key, min, max)
-    end
-
-    # Get the score associated with the given member in a sorted set.
-    def zscore(key, member)
-      node_for(key).zscore(key, member)
     end
 
     # Intersect multiple sorted sets and store the resulting sorted set in a new
