@@ -1685,45 +1685,13 @@ class Redis
     end
   end
 
-  # Get all the fields and values in a hash.
+  # Get the number of fields in a hash.
   #
   # @param [String] key
-  # @return [Hash<String, String>]
-  def hgetall(key)
+  # @return [Fixnum] number of fields in the hash
+  def hlen(key)
     synchronize do |client|
-      client.call [:hgetall, key], &_hashify
-    end
-  end
-
-  # Get the value of a hash field.
-  #
-  # @param [String] key
-  # @param [String] field
-  # @return [String]
-  def hget(key, field)
-    synchronize do |client|
-      client.call [:hget, key, field]
-    end
-  end
-
-  # Delete one or more hash fields.
-  #
-  # @param [String] key
-  # @param [String, Array<String>] field
-  # @return [Fixnum] the number of fields that were removed from the hash
-  def hdel(key, field)
-    synchronize do |client|
-      client.call [:hdel, key, field]
-    end
-  end
-
-  # Get all the fields in a hash.
-  #
-  # @param [String] key
-  # @return [Array<String>]
-  def hkeys(key)
-    synchronize do |client|
-      client.call [:hkeys, key]
+      client.call [:hlen, key]
     end
   end
 
@@ -1771,6 +1739,17 @@ class Redis
     hmset(key, *hash.to_a.flatten)
   end
 
+  # Get the value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @return [String]
+  def hget(key, field)
+    synchronize do |client|
+      client.call [:hget, key, field]
+    end
+  end
+
   # Get the values of all the given hash fields.
   #
   # @example
@@ -1813,23 +1792,25 @@ class Redis
     end
   end
 
-  # Get the number of fields in a hash.
+  # Delete one or more hash fields.
   #
   # @param [String] key
-  # @return [Fixnum] number of fields in the hash
-  def hlen(key)
+  # @param [String, Array<String>] field
+  # @return [Fixnum] the number of fields that were removed from the hash
+  def hdel(key, field)
     synchronize do |client|
-      client.call [:hlen, key]
+      client.call [:hdel, key, field]
     end
   end
 
-  # Get all the values in a hash.
+  # Determine if a hash field exists.
   #
   # @param [String] key
-  # @return [Array<String>]
-  def hvals(key)
+  # @param [String] field
+  # @return [Boolean] whether or not the field exists in the hash
+  def hexists(key, field)
     synchronize do |client|
-      client.call [:hvals, key]
+      client.call [:hexists, key, field], &_boolify
     end
   end
 
@@ -1859,14 +1840,33 @@ class Redis
     end
   end
 
-  # Determine if a hash field exists.
+  # Get all the fields in a hash.
   #
   # @param [String] key
-  # @param [String] field
-  # @return [Boolean] whether or not the field exists in the hash
-  def hexists(key, field)
+  # @return [Array<String>]
+  def hkeys(key)
     synchronize do |client|
-      client.call [:hexists, key, field], &_boolify
+      client.call [:hkeys, key]
+    end
+  end
+
+  # Get all the values in a hash.
+  #
+  # @param [String] key
+  # @return [Array<String>]
+  def hvals(key)
+    synchronize do |client|
+      client.call [:hvals, key]
+    end
+  end
+
+  # Get all the fields and values in a hash.
+  #
+  # @param [String] key
+  # @return [Hash<String, String>]
+  def hgetall(key)
+    synchronize do |client|
+      client.call [:hgetall, key], &_hashify
     end
   end
 

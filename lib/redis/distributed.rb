@@ -584,6 +584,11 @@ class Redis
       end
     end
 
+    # Get the number of fields in a hash.
+    def hlen(key)
+      node_for(key).hlen(key)
+    end
+
     # Set the string value of a hash field.
     def hset(key, field, value)
       node_for(key).hset(key, field, value)
@@ -594,9 +599,27 @@ class Redis
       node_for(key).hsetnx(key, field, value)
     end
 
+    # Set multiple hash fields to multiple values.
+    def hmset(key, *attrs)
+      node_for(key).hmset(key, *attrs)
+    end
+
+    def mapped_hmset(key, hash)
+      node_for(key).hmset(key, *hash.to_a.flatten)
+    end
+
     # Get the value of a hash field.
     def hget(key, field)
       node_for(key).hget(key, field)
+    end
+
+    # Get the values of all the given hash fields.
+    def hmget(key, *fields)
+      node_for(key).hmget(key, *fields)
+    end
+
+    def mapped_hmget(key, *fields)
+      Hash[*fields.zip(hmget(key, *fields)).flatten]
     end
 
     # Delete one or more hash fields.
@@ -609,9 +632,14 @@ class Redis
       node_for(key).hexists(key, field)
     end
 
-    # Get the number of fields in a hash.
-    def hlen(key)
-      node_for(key).hlen(key)
+    # Increment the integer value of a hash field by the given integer number.
+    def hincrby(key, field, increment)
+      node_for(key).hincrby(key, field, increment)
+    end
+
+    # Increment the numeric value of a hash field by the given float number.
+    def hincrbyfloat(key, field, increment)
+      node_for(key).hincrbyfloat(key, field, increment)
     end
 
     # Get all the fields in a hash.
@@ -627,34 +655,6 @@ class Redis
     # Get all the fields and values in a hash.
     def hgetall(key)
       node_for(key).hgetall(key)
-    end
-
-    # Set multiple hash fields to multiple values.
-    def hmset(key, *attrs)
-      node_for(key).hmset(key, *attrs)
-    end
-
-    def mapped_hmset(key, hash)
-      node_for(key).hmset(key, *hash.to_a.flatten)
-    end
-
-    # Get the values of all the given hash fields.
-    def hmget(key, *fields)
-      node_for(key).hmget(key, *fields)
-    end
-
-    def mapped_hmget(key, *fields)
-      Hash[*fields.zip(hmget(key, *fields)).flatten]
-    end
-
-    # Increment the integer value of a hash field by the given integer number.
-    def hincrby(key, field, increment)
-      node_for(key).hincrby(key, field, increment)
-    end
-
-    # Increment the numeric value of a hash field by the given float number.
-    def hincrbyfloat(key, field, increment)
-      node_for(key).hincrbyfloat(key, field, increment)
     end
 
     # Mark the start of a transaction block.
