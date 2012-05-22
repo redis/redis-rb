@@ -411,6 +411,11 @@ class Redis
       node_for(key).ltrim(key, start, stop)
     end
 
+    # Get the number of members in a set.
+    def scard(key)
+      node_for(key).scard(key)
+    end
+
     # Add one or more members to a set.
     def sadd(key, member)
       node_for(key).sadd(key, member)
@@ -426,6 +431,11 @@ class Redis
       node_for(key).spop(key)
     end
 
+    # Get a random member from a set.
+    def srandmember(key)
+      node_for(key).srandmember(key)
+    end
+
     # Move a member from one set to another.
     def smove(source, destination, member)
       ensure_same_node(:smove, [source, destination]) do |node|
@@ -433,14 +443,28 @@ class Redis
       end
     end
 
-    # Get the number of members in a set.
-    def scard(key)
-      node_for(key).scard(key)
-    end
-
     # Determine if a given value is a member of a set.
     def sismember(key, member)
       node_for(key).sismember(key, member)
+    end
+
+    # Get all the members in a set.
+    def smembers(key)
+      node_for(key).smembers(key)
+    end
+
+    # Subtract multiple sets.
+    def sdiff(*keys)
+      ensure_same_node(:sdiff, keys) do |node|
+        node.sdiff(*keys)
+      end
+    end
+
+    # Subtract multiple sets and store the resulting set in a key.
+    def sdiffstore(destination, *keys)
+      ensure_same_node(:sdiffstore, [destination] + keys) do |node|
+        node.sdiffstore(destination, *keys)
+      end
     end
 
     # Intersect multiple sets.
@@ -469,30 +493,6 @@ class Redis
       ensure_same_node(:sunionstore, [destination] + keys) do |node|
         node.sunionstore(destination, *keys)
       end
-    end
-
-    # Subtract multiple sets.
-    def sdiff(*keys)
-      ensure_same_node(:sdiff, keys) do |node|
-        node.sdiff(*keys)
-      end
-    end
-
-    # Subtract multiple sets and store the resulting set in a key.
-    def sdiffstore(destination, *keys)
-      ensure_same_node(:sdiffstore, [destination] + keys) do |node|
-        node.sdiffstore(destination, *keys)
-      end
-    end
-
-    # Get all the members in a set.
-    def smembers(key)
-      node_for(key).smembers(key)
-    end
-
-    # Get a random member from a set.
-    def srandmember(key)
-      node_for(key).srandmember(key)
     end
 
     # Add one or more members to a sorted set, or update the score for members

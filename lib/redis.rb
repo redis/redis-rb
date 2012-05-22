@@ -1100,66 +1100,13 @@ class Redis
     end
   end
 
-  # Get all the fields and values in a hash.
+  # Get the number of members in a set.
   #
   # @param [String] key
-  # @return [Hash<String, String>]
-  def hgetall(key)
+  # @return [Fixnum]
+  def scard(key)
     synchronize do |client|
-      client.call [:hgetall, key], &_hashify
-    end
-  end
-
-  # Get the value of a hash field.
-  #
-  # @param [String] key
-  # @param [String] field
-  # @return [String]
-  def hget(key, field)
-    synchronize do |client|
-      client.call [:hget, key, field]
-    end
-  end
-
-  # Delete one or more hash fields.
-  #
-  # @param [String] key
-  # @param [String, Array<String>] field
-  # @return [Fixnum] the number of fields that were removed from the hash
-  def hdel(key, field)
-    synchronize do |client|
-      client.call [:hdel, key, field]
-    end
-  end
-
-  # Get all the fields in a hash.
-  #
-  # @param [String] key
-  # @return [Array<String>]
-  def hkeys(key)
-    synchronize do |client|
-      client.call [:hkeys, key]
-    end
-  end
-
-  # Get all the members in a set.
-  #
-  # @param [String] key
-  # @return [Array<String>]
-  def smembers(key)
-    synchronize do |client|
-      client.call [:smembers, key]
-    end
-  end
-
-  # Determine if a given value is a member of a set.
-  #
-  # @param [String] key
-  # @param [String] member
-  # @return [Boolean]
-  def sismember(key, member)
-    synchronize do |client|
-      client.call [:sismember, key, member], &_boolify
+      client.call [:scard, key]
     end
   end
 
@@ -1207,6 +1154,26 @@ class Redis
     end
   end
 
+  # Remove and return a random member from a set.
+  #
+  # @param [String] key
+  # @return [String]
+  def spop(key)
+    synchronize do |client|
+      client.call [:spop, key]
+    end
+  end
+
+  # Get a random member from a set.
+  #
+  # @param [String] key
+  # @return [String]
+  def srandmember(key)
+    synchronize do |client|
+      client.call [:srandmember, key]
+    end
+  end
+
   # Move a member from one set to another.
   #
   # @param [String] source source key
@@ -1219,23 +1186,45 @@ class Redis
     end
   end
 
-  # Remove and return a random member from a set.
+  # Determine if a given value is a member of a set.
   #
   # @param [String] key
-  # @return [String]
-  def spop(key)
+  # @param [String] member
+  # @return [Boolean]
+  def sismember(key, member)
     synchronize do |client|
-      client.call [:spop, key]
+      client.call [:sismember, key, member], &_boolify
     end
   end
 
-  # Get the number of members in a set.
+  # Get all the members in a set.
   #
   # @param [String] key
-  # @return [Fixnum]
-  def scard(key)
+  # @return [Array<String>]
+  def smembers(key)
     synchronize do |client|
-      client.call [:scard, key]
+      client.call [:smembers, key]
+    end
+  end
+
+  # Subtract multiple sets.
+  #
+  # @param [String, Array<String>] keys keys pointing to sets to subtract
+  # @return [Array<String>] members in the difference
+  def sdiff(*keys)
+    synchronize do |client|
+      client.call [:sdiff, *keys]
+    end
+  end
+
+  # Subtract multiple sets and store the resulting set in a key.
+  #
+  # @param [String] destination destination key
+  # @param [String, Array<String>] keys keys pointing to sets to subtract
+  # @return [Fixnum] number of elements in the resulting set
+  def sdiffstore(destination, *keys)
+    synchronize do |client|
+      client.call [:sdiffstore, destination, *keys]
     end
   end
 
@@ -1281,34 +1270,45 @@ class Redis
     end
   end
 
-  # Subtract multiple sets.
-  #
-  # @param [String, Array<String>] keys keys pointing to sets to subtract
-  # @return [Array<String>] members in the difference
-  def sdiff(*keys)
-    synchronize do |client|
-      client.call [:sdiff, *keys]
-    end
-  end
-
-  # Subtract multiple sets and store the resulting set in a key.
-  #
-  # @param [String] destination destination key
-  # @param [String, Array<String>] keys keys pointing to sets to subtract
-  # @return [Fixnum] number of elements in the resulting set
-  def sdiffstore(destination, *keys)
-    synchronize do |client|
-      client.call [:sdiffstore, destination, *keys]
-    end
-  end
-
-  # Get a random member from a set.
+  # Get all the fields and values in a hash.
   #
   # @param [String] key
-  # @return [String]
-  def srandmember(key)
+  # @return [Hash<String, String>]
+  def hgetall(key)
     synchronize do |client|
-      client.call [:srandmember, key]
+      client.call [:hgetall, key], &_hashify
+    end
+  end
+
+  # Get the value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @return [String]
+  def hget(key, field)
+    synchronize do |client|
+      client.call [:hget, key, field]
+    end
+  end
+
+  # Delete one or more hash fields.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] field
+  # @return [Fixnum] the number of fields that were removed from the hash
+  def hdel(key, field)
+    synchronize do |client|
+      client.call [:hdel, key, field]
+    end
+  end
+
+  # Get all the fields in a hash.
+  #
+  # @param [String] key
+  # @return [Array<String>]
+  def hkeys(key)
+    synchronize do |client|
+      client.call [:hkeys, key]
     end
   end
 
