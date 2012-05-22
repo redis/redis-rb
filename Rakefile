@@ -164,6 +164,31 @@ namespace :commands do
     end
   end
 
+  task :order do
+    require "json"
+
+    reference = if File.exist?(".order")
+                  JSON.parse(File.read(".order"))
+                else
+                  {}
+                end
+
+    buckets = {}
+    doc.each do |k, v|
+      buckets[v["group"]] ||= []
+      buckets[v["group"]] << k.split.first.downcase
+      buckets[v["group"]].uniq!
+    end
+
+    result = (reference.keys + (buckets.keys - reference.keys)).map do |g|
+      [g, reference[g] + (buckets[g] - reference[g])]
+    end
+
+    File.open(".order", "w") do |f|
+      f.write(JSON.pretty_generate(Hash[result]))
+    end
+  end
+
   def document(file)
     source = File.read(file)
 
