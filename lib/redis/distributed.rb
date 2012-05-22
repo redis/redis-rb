@@ -305,9 +305,9 @@ class Redis
       set(key, value)
     end
 
-    # Append one or more values to a list.
-    def rpush(key, value)
-      node_for(key).rpush(key, value)
+    # Get the length of a list.
+    def llen(key)
+      node_for(key).llen(key)
     end
 
     # Prepend one or more values to a list.
@@ -315,34 +315,9 @@ class Redis
       node_for(key).lpush(key, value)
     end
 
-    # Get the length of a list.
-    def llen(key)
-      node_for(key).llen(key)
-    end
-
-    # Get a range of elements from a list.
-    def lrange(key, start, stop)
-      node_for(key).lrange(key, start, stop)
-    end
-
-    # Trim a list to the specified range.
-    def ltrim(key, start, stop)
-      node_for(key).ltrim(key, start, stop)
-    end
-
-    # Get an element from a list by its index.
-    def lindex(key, index)
-      node_for(key).lindex(key, index)
-    end
-
-    # Set the value of an element in a list by its index.
-    def lset(key, index, value)
-      node_for(key).lset(key, index, value)
-    end
-
-    # Remove elements from a list.
-    def lrem(key, count, value)
-      node_for(key).lrem(key, count, value)
+    # Append one or more values to a list.
+    def rpush(key, value)
+      node_for(key).rpush(key, value)
     end
 
     # Remove and get the first element in a list.
@@ -409,6 +384,31 @@ class Redis
       ensure_same_node(:brpoplpush, [source, destination]) do |node|
         node.brpoplpush(source, destination, options)
       end
+    end
+
+    # Get an element from a list by its index.
+    def lindex(key, index)
+      node_for(key).lindex(key, index)
+    end
+
+    # Get a range of elements from a list.
+    def lrange(key, start, stop)
+      node_for(key).lrange(key, start, stop)
+    end
+
+    # Remove elements from a list.
+    def lrem(key, count, value)
+      node_for(key).lrem(key, count, value)
+    end
+
+    # Set the value of an element in a list by its index.
+    def lset(key, index, value)
+      node_for(key).lset(key, index, value)
+    end
+
+    # Trim a list to the specified range.
+    def ltrim(key, start, stop)
+      node_for(key).ltrim(key, start, stop)
     end
 
     # Add one or more members to a set.

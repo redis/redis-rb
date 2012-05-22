@@ -850,48 +850,6 @@ class Redis
     end
   end
 
-  # Get all the fields and values in a hash.
-  #
-  # @param [String] key
-  # @return [Hash<String, String>]
-  def hgetall(key)
-    synchronize do |client|
-      client.call [:hgetall, key], &_hashify
-    end
-  end
-
-  # Get the value of a hash field.
-  #
-  # @param [String] key
-  # @param [String] field
-  # @return [String]
-  def hget(key, field)
-    synchronize do |client|
-      client.call [:hget, key, field]
-    end
-  end
-
-  # Delete one or more hash fields.
-  #
-  # @param [String] key
-  # @param [String, Array<String>] field
-  # @return [Fixnum] the number of fields that were removed from the hash
-  def hdel(key, field)
-    synchronize do |client|
-      client.call [:hdel, key, field]
-    end
-  end
-
-  # Get all the fields in a hash.
-  #
-  # @param [String] key
-  # @return [Array<String>]
-  def hkeys(key)
-    synchronize do |client|
-      client.call [:hkeys, key]
-    end
-  end
-
   # Get the length of a list.
   #
   # @param [String] key
@@ -899,104 +857,6 @@ class Redis
   def llen(key)
     synchronize do |client|
       client.call [:llen, key]
-    end
-  end
-
-  # Get a range of elements from a list.
-  #
-  # @param [String] key
-  # @param [Fixnum] start start index
-  # @param [Fixnum] stop stop index
-  # @return [Array<String>]
-  def lrange(key, start, stop)
-    synchronize do |client|
-      client.call [:lrange, key, start, stop]
-    end
-  end
-
-  # Trim a list to the specified range.
-  #
-  # @param [String] key
-  # @param [Fixnum] start start index
-  # @param [Fixnum] stop stop index
-  # @return [String] `OK`
-  def ltrim(key, start, stop)
-    synchronize do |client|
-      client.call [:ltrim, key, start, stop]
-    end
-  end
-
-  # Get an element from a list by its index.
-  #
-  # @param [String] key
-  # @param [Fixnum] index
-  # @return [String]
-  def lindex(key, index)
-    synchronize do |client|
-      client.call [:lindex, key, index]
-    end
-  end
-
-  # Insert an element before or after another element in a list.
-  #
-  # @param [String] key
-  # @param [String, Symbol] where `BEFORE` or `AFTER`
-  # @param [String] pivot reference element
-  # @param [String] value
-  # @return [Fixnum] length of the list after the insert operation, or `-1`
-  #   when the element `pivot` was not found
-  def linsert(key, where, pivot, value)
-    synchronize do |client|
-      client.call [:linsert, key, where, pivot, value]
-    end
-  end
-
-  # Set the value of an element in a list by its index.
-  #
-  # @param [String] key
-  # @param [Fixnum] index
-  # @param [String] value
-  # @return [String] `OK`
-  def lset(key, index, value)
-    synchronize do |client|
-      client.call [:lset, key, index, value]
-    end
-  end
-
-  # Remove elements from a list.
-  #
-  # @param [String] key
-  # @param [Fixnum] count number of elements to remove. Use a positive
-  #   value to remove the first `count` occurrences of `value`. A negative
-  #   value to remove the last `count` occurrences of `value`. Or zero, to
-  #   remove all occurrences of `value` from the list.
-  # @param [String] value
-  # @return [Fixnum] the number of removed elements
-  def lrem(key, count, value)
-    synchronize do |client|
-      client.call [:lrem, key, count, value]
-    end
-  end
-
-  # Append one or more values to a list, creating the list if it doesn't exist
-  #
-  # @param [String] key
-  # @param [String] value
-  # @return [Fixnum] the length of the list after the push operation
-  def rpush(key, value)
-    synchronize do |client|
-      client.call [:rpush, key, value]
-    end
-  end
-
-  # Append a value to a list, only if the list exists.
-  #
-  # @param [String] key
-  # @param [String] value
-  # @return [Fixnum] the length of the list after the push operation
-  def rpushx(key, value)
-    synchronize do |client|
-      client.call [:rpushx, key, value]
     end
   end
 
@@ -1022,6 +882,38 @@ class Redis
     end
   end
 
+  # Append one or more values to a list, creating the list if it doesn't exist
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return [Fixnum] the length of the list after the push operation
+  def rpush(key, value)
+    synchronize do |client|
+      client.call [:rpush, key, value]
+    end
+  end
+
+  # Append a value to a list, only if the list exists.
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return [Fixnum] the length of the list after the push operation
+  def rpushx(key, value)
+    synchronize do |client|
+      client.call [:rpushx, key, value]
+    end
+  end
+
+  # Remove and get the first element in a list.
+  #
+  # @param [String] key
+  # @return [String]
+  def lpop(key)
+    synchronize do |client|
+      client.call [:lpop, key]
+    end
+  end
+
   # Remove and get the last element in a list.
   #
   # @param [String] key
@@ -1029,6 +921,17 @@ class Redis
   def rpop(key)
     synchronize do |client|
       client.call [:rpop, key]
+    end
+  end
+
+  # Remove the last element in a list, append it to another list and return it.
+  #
+  # @param [String] source source key
+  # @param [String] destination destination key
+  # @return [nil, String] the element, or nil when the source key does not exist
+  def rpoplpush(source, destination)
+    synchronize do |client|
+      client.call [:rpoplpush, source, destination]
     end
   end
 
@@ -1121,24 +1024,121 @@ class Redis
     end
   end
 
-  # Remove the last element in a list, append it to another list and return it.
+  # Get an element from a list by its index.
   #
-  # @param [String] source source key
-  # @param [String] destination destination key
-  # @return [nil, String] the element, or nil when the source key does not exist
-  def rpoplpush(source, destination)
+  # @param [String] key
+  # @param [Fixnum] index
+  # @return [String]
+  def lindex(key, index)
     synchronize do |client|
-      client.call [:rpoplpush, source, destination]
+      client.call [:lindex, key, index]
     end
   end
 
-  # Remove and get the first element in a list.
+  # Insert an element before or after another element in a list.
   #
   # @param [String] key
-  # @return [String]
-  def lpop(key)
+  # @param [String, Symbol] where `BEFORE` or `AFTER`
+  # @param [String] pivot reference element
+  # @param [String] value
+  # @return [Fixnum] length of the list after the insert operation, or `-1`
+  #   when the element `pivot` was not found
+  def linsert(key, where, pivot, value)
     synchronize do |client|
-      client.call [:lpop, key]
+      client.call [:linsert, key, where, pivot, value]
+    end
+  end
+
+  # Get a range of elements from a list.
+  #
+  # @param [String] key
+  # @param [Fixnum] start start index
+  # @param [Fixnum] stop stop index
+  # @return [Array<String>]
+  def lrange(key, start, stop)
+    synchronize do |client|
+      client.call [:lrange, key, start, stop]
+    end
+  end
+
+  # Remove elements from a list.
+  #
+  # @param [String] key
+  # @param [Fixnum] count number of elements to remove. Use a positive
+  #   value to remove the first `count` occurrences of `value`. A negative
+  #   value to remove the last `count` occurrences of `value`. Or zero, to
+  #   remove all occurrences of `value` from the list.
+  # @param [String] value
+  # @return [Fixnum] the number of removed elements
+  def lrem(key, count, value)
+    synchronize do |client|
+      client.call [:lrem, key, count, value]
+    end
+  end
+
+  # Set the value of an element in a list by its index.
+  #
+  # @param [String] key
+  # @param [Fixnum] index
+  # @param [String] value
+  # @return [String] `OK`
+  def lset(key, index, value)
+    synchronize do |client|
+      client.call [:lset, key, index, value]
+    end
+  end
+
+  # Trim a list to the specified range.
+  #
+  # @param [String] key
+  # @param [Fixnum] start start index
+  # @param [Fixnum] stop stop index
+  # @return [String] `OK`
+  def ltrim(key, start, stop)
+    synchronize do |client|
+      client.call [:ltrim, key, start, stop]
+    end
+  end
+
+  # Get all the fields and values in a hash.
+  #
+  # @param [String] key
+  # @return [Hash<String, String>]
+  def hgetall(key)
+    synchronize do |client|
+      client.call [:hgetall, key], &_hashify
+    end
+  end
+
+  # Get the value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @return [String]
+  def hget(key, field)
+    synchronize do |client|
+      client.call [:hget, key, field]
+    end
+  end
+
+  # Delete one or more hash fields.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] field
+  # @return [Fixnum] the number of fields that were removed from the hash
+  def hdel(key, field)
+    synchronize do |client|
+      client.call [:hdel, key, field]
+    end
+  end
+
+  # Get all the fields in a hash.
+  #
+  # @param [String] key
+  # @return [Array<String>]
+  def hkeys(key)
+    synchronize do |client|
+      client.call [:hkeys, key]
     end
   end
 
