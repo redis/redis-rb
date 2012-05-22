@@ -70,6 +70,39 @@ class Redis
     end
   end
 
+  # Ping the server.
+  #
+  # @return [String] `PONG`
+  def ping
+    synchronize do |client|
+      client.call [:ping]
+    end
+  end
+
+  # Echo the given string.
+  #
+  # @param [String] value
+  # @return [String]
+  def echo(value)
+    synchronize do |client|
+      client.call [:echo, value]
+    end
+  end
+
+  # Close the connection.
+  #
+  # @return [String] `OK`
+  def quit
+    synchronize do |client|
+      begin
+        client.call [:quit]
+      rescue ConnectionError
+      ensure
+        client.disconnect
+      end
+    end
+  end
+
   # Get information and statistics about the server.
   #
   # @param [String, Symbol] cmd e.g. "commandstats"
@@ -310,16 +343,6 @@ class Redis
     end
   end
 
-  # Echo the given string.
-  #
-  # @param [String] value
-  # @return [String]
-  def echo(value)
-    synchronize do |client|
-      client.call [:echo, value]
-    end
-  end
-
   # Return the server time.
   #
   # @example
@@ -332,15 +355,6 @@ class Redis
       client.call [:time] do |reply|
         reply.map(&:to_i) if reply
       end
-    end
-  end
-
-  # Ping the server.
-  #
-  # @return [String] `PONG`
-  def ping
-    synchronize do |client|
-      client.call [:ping]
     end
   end
 
@@ -1943,20 +1957,6 @@ class Redis
   def type(key)
     synchronize do |client|
       client.call [:type, key]
-    end
-  end
-
-  # Close the connection.
-  #
-  # @return [String] `OK`
-  def quit
-    synchronize do |client|
-      begin
-        client.call [:quit]
-      rescue ConnectionError
-      ensure
-        client.disconnect
-      end
     end
   end
 

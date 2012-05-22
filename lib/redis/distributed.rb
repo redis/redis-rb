@@ -34,11 +34,6 @@ class Redis
       @ring.add_node Redis.new(@default_options.merge(:url => url))
     end
 
-    # Close the connection.
-    def quit
-      on_each_node :quit
-    end
-
     # Change the selected database for the current connection.
     def select(db)
       on_each_node :select, db
@@ -47,6 +42,16 @@ class Redis
     # Ping the server.
     def ping
       on_each_node :ping
+    end
+
+    # Echo the given string.
+    def echo(value)
+      on_each_node :echo, value
+    end
+
+    # Close the connection.
+    def quit
+      on_each_node :quit
     end
 
     # Remove all keys from all databases.
@@ -709,11 +714,6 @@ class Redis
     # Listen for all requests received by the server in real time.
     def monitor
       raise NotImplementedError
-    end
-
-    # Echo the given string.
-    def echo(value)
-      on_each_node :echo, value
     end
 
     # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
