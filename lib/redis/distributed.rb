@@ -190,19 +190,34 @@ class Redis
       node_for(key).type(key)
     end
 
+    # Decrement the integer value of a key by one.
+    def decr(key)
+      node_for(key).decr(key)
+    end
+
+    # Decrement the integer value of a key by the given number.
+    def decrby(key, decrement)
+      node_for(key).decrby(key, decrement)
+    end
+
+    # Increment the integer value of a key by one.
+    def incr(key)
+      node_for(key).incr(key)
+    end
+
+    # Increment the integer value of a key by the given integer number.
+    def incrby(key, increment)
+      node_for(key).incrby(key, increment)
+    end
+
+    # Increment the numeric value of a key by the given float number.
+    def incrbyfloat(key, increment)
+      node_for(key).incrbyfloat(key, increment)
+    end
+
     # Set the string value of a key.
     def set(key, value)
       node_for(key).set(key, value)
-    end
-
-    # Sets or clears the bit at offset in the string value stored at key.
-    def setbit(key, offset, value)
-      node_for(key).setbit(key, offset, value)
-    end
-
-    # Overwrite part of a string at key starting at the specified offset.
-    def setrange(key, offset, value)
-      node_for(key).setrange(key, offset, value)
     end
 
     # Set the time to live in seconds of a key.
@@ -213,48 +228,6 @@ class Redis
     # Set the time to live in milliseconds of a key.
     def psetex(key, ttl, value)
       node_for(key).psetex(key, ttl, value)
-    end
-
-    # Get the value of a key.
-    def get(key)
-      node_for(key).get(key)
-    end
-
-    # Returns the bit value at offset in the string value stored at key.
-    def getbit(key, offset)
-      node_for(key).getbit(key, offset)
-    end
-
-    # Get a substring of the string stored at a key.
-    def getrange(key, start, stop)
-      node_for(key).getrange(key, start, stop)
-    end
-
-    # Set the string value of a key and return its old value.
-    def getset(key, value)
-      node_for(key).getset(key, value)
-    end
-
-    def [](key)
-      get(key)
-    end
-
-    # Append a value to a key.
-    def append(key, value)
-      node_for(key).append(key, value)
-    end
-
-    def []=(key,value)
-      set(key, value)
-    end
-
-    # Get the values of all the given keys.
-    def mget(*keys)
-      raise CannotDistribute, :mget
-    end
-
-    def mapped_mget(*keys)
-      raise CannotDistribute, :mapped_mget
     end
 
     # Set the value of a key, only if the key does not exist.
@@ -280,29 +253,56 @@ class Redis
       raise CannotDistribute, :mapped_msetnx
     end
 
-    # Increment the integer value of a key by one.
-    def incr(key)
-      node_for(key).incr(key)
+    # Get the value of a key.
+    def get(key)
+      node_for(key).get(key)
     end
 
-    # Increment the integer value of a key by the given integer number.
-    def incrby(key, increment)
-      node_for(key).incrby(key, increment)
+    # Get the values of all the given keys.
+    def mget(*keys)
+      raise CannotDistribute, :mget
     end
 
-    # Increment the numeric value of a key by the given float number.
-    def incrbyfloat(key, increment)
-      node_for(key).incrbyfloat(key, increment)
+    def mapped_mget(*keys)
+      raise CannotDistribute, :mapped_mget
     end
 
-    # Decrement the integer value of a key by one.
-    def decr(key)
-      node_for(key).decr(key)
+    # Overwrite part of a string at key starting at the specified offset.
+    def setrange(key, offset, value)
+      node_for(key).setrange(key, offset, value)
     end
 
-    # Decrement the integer value of a key by the given number.
-    def decrby(key, decrement)
-      node_for(key).decrby(key, decrement)
+    # Get a substring of the string stored at a key.
+    def getrange(key, start, stop)
+      node_for(key).getrange(key, start, stop)
+    end
+
+    # Sets or clears the bit at offset in the string value stored at key.
+    def setbit(key, offset, value)
+      node_for(key).setbit(key, offset, value)
+    end
+
+    # Returns the bit value at offset in the string value stored at key.
+    def getbit(key, offset)
+      node_for(key).getbit(key, offset)
+    end
+
+    # Append a value to a key.
+    def append(key, value)
+      node_for(key).append(key, value)
+    end
+
+    # Set the string value of a key and return its old value.
+    def getset(key, value)
+      node_for(key).getset(key, value)
+    end
+
+    def [](key)
+      get(key)
+    end
+
+    def []=(key,value)
+      set(key, value)
     end
 
     # Append one or more values to a list.

@@ -533,6 +533,189 @@ class Redis
     end
   end
 
+  # Decrement the integer value of a key by one.
+  #
+  # @example
+  #   redis.decr("value")
+  #     # => 4
+  #
+  # @param [String] key
+  # @return [Fixnum] value after decrementing it
+  def decr(key)
+    synchronize do |client|
+      client.call [:decr, key]
+    end
+  end
+
+  # Decrement the integer value of a key by the given number.
+  #
+  # @example
+  #   redis.decrby("value", 5)
+  #     # => 0
+  #
+  # @param [String] key
+  # @param [Fixnum] decrement
+  # @return [Fixnum] value after decrementing it
+  def decrby(key, decrement)
+    synchronize do |client|
+      client.call [:decrby, key, decrement]
+    end
+  end
+
+  # Increment the integer value of a key by one.
+  #
+  # @example
+  #   redis.incr("value")
+  #     # => 6
+  #
+  # @param [String] key
+  # @return [Fixnum] value after incrementing it
+  def incr(key)
+    synchronize do |client|
+      client.call [:incr, key]
+    end
+  end
+
+  # Increment the integer value of a key by the given integer number.
+  #
+  # @example
+  #   redis.incrby("value", 5)
+  #     # => 10
+  #
+  # @param [String] key
+  # @param [Fixnum] increment
+  # @return [Fixnum] value after incrementing it
+  def incrby(key, increment)
+    synchronize do |client|
+      client.call [:incrby, key, increment]
+    end
+  end
+
+  # Increment the numeric value of a key by the given float number.
+  #
+  # @example
+  #   redis.incrbyfloat("value", 1.23)
+  #     # => 1.23
+  #
+  # @param [String] key
+  # @param [Float] increment
+  # @return [Float] value after incrementing it
+  def incrbyfloat(key, increment)
+    synchronize do |client|
+      client.call [:incrbyfloat, key, increment] do |reply|
+        Float(reply) if reply
+      end
+    end
+  end
+
+  # Set the string value of a key.
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return `"OK"`
+  def set(key, value)
+    synchronize do |client|
+      client.call [:set, key, value]
+    end
+  end
+
+  alias :[]= :set
+
+  # Set the time to live in seconds of a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] ttl
+  # @param [String] value
+  # @return `"OK"`
+  def setex(key, ttl, value)
+    synchronize do |client|
+      client.call [:setex, key, ttl, value]
+    end
+  end
+
+  # Set the time to live in milliseconds of a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] ttl
+  # @param [String] value
+  # @return `"OK"`
+  def psetex(key, ttl, value)
+    synchronize do |client|
+      client.call [:psetex, key, ttl, value]
+    end
+  end
+
+  # Set the value of a key, only if the key does not exist.
+  #
+  # @param [String] key
+  # @param [String] value
+  # @return [Boolean] whether the key was set or not
+  def setnx(key, value)
+    synchronize do |client|
+      client.call [:setnx, key, value], &_boolify
+    end
+  end
+
+  # Set one or more values.
+  #
+  # @example
+  #   redis.mset("key1", "v1", "key2", "v2")
+  #     # => "OK"
+  #
+  # @param [Array<String>] args array of keys and values
+  # @return `"OK"`
+  #
+  # @see #mapped_mset
+  def mset(*args)
+    synchronize do |client|
+      client.call [:mset, *args]
+    end
+  end
+
+  # Set one or more values.
+  #
+  # @example
+  #   redis.mapped_mset({ "f1" => "v1", "f2" => "v2" })
+  #     # => "OK"
+  #
+  # @param [Hash] hash keys mapping to values
+  # @return `"OK"`
+  #
+  # @see #mset
+  def mapped_mset(hash)
+    mset(*hash.to_a.flatten)
+  end
+
+  # Set one or more values, only if none of the keys exist.
+  #
+  # @example
+  #   redis.msetnx("key1", "v1", "key2", "v2")
+  #     # => true
+  #
+  # @param [Array<String>] args array of keys and values
+  # @return [Boolean] whether or not all values were set
+  #
+  # @see #mapped_msetnx
+  def msetnx(*args)
+    synchronize do |client|
+      client.call [:msetnx, *args], &_boolify
+    end
+  end
+
+  # Set one or more values, only if none of the keys exist.
+  #
+  # @example
+  #   redis.msetnx({ "key1" => "v1", "key2" => "v2" })
+  #     # => true
+  #
+  # @param [Hash] hash keys mapping to values
+  # @return [Boolean] whether or not all values were set
+  #
+  # @see #msetnx
+  def mapped_msetnx(hash)
+    msetnx(*hash.to_a.flatten)
+  end
+
   # Get the value of a key.
   #
   # @param [String] key
@@ -544,42 +727,6 @@ class Redis
   end
 
   alias :[] :get
-
-  # Returns the bit value at offset in the string value stored at key.
-  #
-  # @param [String] key
-  # @param [Fixnum] offset bit offset
-  # @return [Fixnum] `0` or `1`
-  def getbit(key, offset)
-    synchronize do |client|
-      client.call [:getbit, key, offset]
-    end
-  end
-
-  # Get a substring of the string stored at a key.
-  #
-  # @param [String] key
-  # @param [Fixnum] start zero-based start offset
-  # @param [Fixnum] stop zero-based end offset. Use -1 for representing
-  #   the end of the string
-  # @return [Fixnum] `0` or `1`
-  def getrange(key, start, stop)
-    synchronize do |client|
-      client.call [:getrange, key, start, stop]
-    end
-  end
-
-  # Set the string value of a key and return its old value.
-  #
-  # @param [String] key
-  # @param [String] value value to replace the current value with
-  # @return [String] the old value stored in the key, or `nil` if the key
-  #   did not exist
-  def getset(key, value)
-    synchronize do |client|
-      client.call [:getset, key, value]
-    end
-  end
 
   # Get the values of all the given keys.
   #
@@ -597,6 +744,78 @@ class Redis
     end
   end
 
+  # Get the values of all the given keys.
+  #
+  # @example
+  #   redis.mapped_mget("key1", "key1")
+  #     # => { "key1" => "v1", "key2" => "v2" }
+  #
+  # @param [Array<String>] keys array of keys
+  # @return [Hash] a hash mapping the specified keys to their values
+  #
+  # @see #mget
+  def mapped_mget(*keys)
+    mget(*keys) do |reply|
+      if reply.kind_of?(Array)
+        hash = Hash.new
+        keys.zip(reply).each do |field, value|
+          hash[field] = value
+        end
+        hash
+      else
+        reply
+      end
+    end
+  end
+
+  # Overwrite part of a string at key starting at the specified offset.
+  #
+  # @param [String] key
+  # @param [Fixnum] offset byte offset
+  # @param [String] value
+  # @return [Fixnum] length of the string after it was modified
+  def setrange(key, offset, value)
+    synchronize do |client|
+      client.call [:setrange, key, offset, value]
+    end
+  end
+
+  # Get a substring of the string stored at a key.
+  #
+  # @param [String] key
+  # @param [Fixnum] start zero-based start offset
+  # @param [Fixnum] stop zero-based end offset. Use -1 for representing
+  #   the end of the string
+  # @return [Fixnum] `0` or `1`
+  def getrange(key, start, stop)
+    synchronize do |client|
+      client.call [:getrange, key, start, stop]
+    end
+  end
+
+  # Sets or clears the bit at offset in the string value stored at key.
+  #
+  # @param [String] key
+  # @param [Fixnum] offset bit offset
+  # @param [Fixnum] value bit value `0` or `1`
+  # @return [Fixnum] the original bit value stored at `offset`
+  def setbit(key, offset, value)
+    synchronize do |client|
+      client.call [:setbit, key, offset, value]
+    end
+  end
+
+  # Returns the bit value at offset in the string value stored at key.
+  #
+  # @param [String] key
+  # @param [Fixnum] offset bit offset
+  # @return [Fixnum] `0` or `1`
+  def getbit(key, offset)
+    synchronize do |client|
+      client.call [:getbit, key, offset]
+    end
+  end
+
   # Append a value to a key.
   #
   # @param [String] key
@@ -605,6 +824,18 @@ class Redis
   def append(key, value)
     synchronize do |client|
       client.call [:append, key, value]
+    end
+  end
+
+  # Set the string value of a key and return its old value.
+  #
+  # @param [String] key
+  # @param [String] value value to replace the current value with
+  # @return [String] the old value stored in the key, or `nil` if the key
+  #   did not exist
+  def getset(key, value)
+    synchronize do |client|
+      client.call [:getset, key, value]
     end
   end
 
@@ -1496,17 +1727,6 @@ class Redis
     end
   end
 
-  # Set the value of a key, only if the key does not exist.
-  #
-  # @param [String] key
-  # @param [String] value
-  # @return [Boolean] whether the key was set or not
-  def setnx(key, value)
-    synchronize do |client|
-      client.call [:setnx, key, value], &_boolify
-    end
-  end
-
   # Set the value of a hash field, only if the field does not exist.
   #
   # @param [String] key
@@ -1759,226 +1979,6 @@ class Redis
   # @see #eval
   def evalsha(*args)
     _eval(:evalsha, args)
-  end
-
-  # Set the string value of a key.
-  #
-  # @param [String] key
-  # @param [String] value
-  # @return `"OK"`
-  def set(key, value)
-    synchronize do |client|
-      client.call [:set, key, value]
-    end
-  end
-
-  alias :[]= :set
-
-  # Sets or clears the bit at offset in the string value stored at key.
-  #
-  # @param [String] key
-  # @param [Fixnum] offset bit offset
-  # @param [Fixnum] value bit value `0` or `1`
-  # @return [Fixnum] the original bit value stored at `offset`
-  def setbit(key, offset, value)
-    synchronize do |client|
-      client.call [:setbit, key, offset, value]
-    end
-  end
-
-  # Set the time to live in seconds of a key.
-  #
-  # @param [String] key
-  # @param [Fixnum] ttl
-  # @param [String] value
-  # @return `"OK"`
-  def setex(key, ttl, value)
-    synchronize do |client|
-      client.call [:setex, key, ttl, value]
-    end
-  end
-
-  # Set the time to live in milliseconds of a key.
-  #
-  # @param [String] key
-  # @param [Fixnum] ttl
-  # @param [String] value
-  # @return `"OK"`
-  def psetex(key, ttl, value)
-    synchronize do |client|
-      client.call [:psetex, key, ttl, value]
-    end
-  end
-
-  # Overwrite part of a string at key starting at the specified offset.
-  #
-  # @param [String] key
-  # @param [Fixnum] offset byte offset
-  # @param [String] value
-  # @return [Fixnum] length of the string after it was modified
-  def setrange(key, offset, value)
-    synchronize do |client|
-      client.call [:setrange, key, offset, value]
-    end
-  end
-
-  # Set one or more values.
-  #
-  # @example
-  #   redis.mset("key1", "v1", "key2", "v2")
-  #     # => "OK"
-  #
-  # @param [Array<String>] args array of keys and values
-  # @return `"OK"`
-  #
-  # @see #mapped_mset
-  def mset(*args)
-    synchronize do |client|
-      client.call [:mset, *args]
-    end
-  end
-
-  # Set one or more values.
-  #
-  # @example
-  #   redis.mapped_mset({ "f1" => "v1", "f2" => "v2" })
-  #     # => "OK"
-  #
-  # @param [Hash] hash keys mapping to values
-  # @return `"OK"`
-  #
-  # @see #mset
-  def mapped_mset(hash)
-    mset(*hash.to_a.flatten)
-  end
-
-  # Set one or more values, only if none of the keys exist.
-  #
-  # @example
-  #   redis.msetnx("key1", "v1", "key2", "v2")
-  #     # => true
-  #
-  # @param [Array<String>] args array of keys and values
-  # @return [Boolean] whether or not all values were set
-  #
-  # @see #mapped_msetnx
-  def msetnx(*args)
-    synchronize do |client|
-      client.call [:msetnx, *args], &_boolify
-    end
-  end
-
-  # Set one or more values, only if none of the keys exist.
-  #
-  # @example
-  #   redis.msetnx({ "key1" => "v1", "key2" => "v2" })
-  #     # => true
-  #
-  # @param [Hash] hash keys mapping to values
-  # @return [Boolean] whether or not all values were set
-  #
-  # @see #msetnx
-  def mapped_msetnx(hash)
-    msetnx(*hash.to_a.flatten)
-  end
-
-  # Get the values of all the given keys.
-  #
-  # @example
-  #   redis.mapped_mget("key1", "key1")
-  #     # => { "key1" => "v1", "key2" => "v2" }
-  #
-  # @param [Array<String>] keys array of keys
-  # @return [Hash] a hash mapping the specified keys to their values
-  #
-  # @see #mget
-  def mapped_mget(*keys)
-    mget(*keys) do |reply|
-      if reply.kind_of?(Array)
-        hash = Hash.new
-        keys.zip(reply).each do |field, value|
-          hash[field] = value
-        end
-        hash
-      else
-        reply
-      end
-    end
-  end
-
-  # Increment the integer value of a key by one.
-  #
-  # @example
-  #   redis.incr("value")
-  #     # => 6
-  #
-  # @param [String] key
-  # @return [Fixnum] value after incrementing it
-  def incr(key)
-    synchronize do |client|
-      client.call [:incr, key]
-    end
-  end
-
-  # Increment the integer value of a key by the given integer number.
-  #
-  # @example
-  #   redis.incrby("value", 5)
-  #     # => 10
-  #
-  # @param [String] key
-  # @param [Fixnum] increment
-  # @return [Fixnum] value after incrementing it
-  def incrby(key, increment)
-    synchronize do |client|
-      client.call [:incrby, key, increment]
-    end
-  end
-
-  # Increment the numeric value of a key by the given float number.
-  #
-  # @example
-  #   redis.incrbyfloat("value", 1.23)
-  #     # => 1.23
-  #
-  # @param [String] key
-  # @param [Float] increment
-  # @return [Float] value after incrementing it
-  def incrbyfloat(key, increment)
-    synchronize do |client|
-      client.call [:incrbyfloat, key, increment] do |reply|
-        Float(reply) if reply
-      end
-    end
-  end
-
-  # Decrement the integer value of a key by one.
-  #
-  # @example
-  #   redis.decr("value")
-  #     # => 4
-  #
-  # @param [String] key
-  # @return [Fixnum] value after decrementing it
-  def decr(key)
-    synchronize do |client|
-      client.call [:decr, key]
-    end
-  end
-
-  # Decrement the integer value of a key by the given number.
-  #
-  # @example
-  #   redis.decrby("value", 5)
-  #     # => 0
-  #
-  # @param [String] key
-  # @param [Fixnum] decrement
-  # @return [Fixnum] value after decrementing it
-  def decrby(key, decrement)
-    synchronize do |client|
-      client.call [:decrby, key, decrement]
-    end
   end
 
   def pipelined
