@@ -1870,6 +1870,49 @@ class Redis
     end
   end
 
+  # Post a message to a channel.
+  def publish(channel, message)
+    synchronize do |client|
+      client.call [:publish, channel, message]
+    end
+  end
+
+  def subscribed?
+    synchronize do |client|
+      client.kind_of? SubscribedClient
+    end
+  end
+
+  # Listen for messages published to the given channels.
+  def subscribe(*channels, &block)
+    synchronize do |client|
+      _subscription(:subscribe, channels, block)
+    end
+  end
+
+  # Stop listening for messages posted to the given channels.
+  def unsubscribe(*channels)
+    synchronize do |client|
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      client.unsubscribe(*channels)
+    end
+  end
+
+  # Listen for messages published to channels matching the given patterns.
+  def psubscribe(*channels, &block)
+    synchronize do |client|
+      _subscription(:psubscribe, channels, block)
+    end
+  end
+
+  # Stop listening for messages posted to channels matching the given patterns.
+  def punsubscribe(*channels)
+    synchronize do |client|
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      client.punsubscribe(*channels)
+    end
+  end
+
   # Control remote script registry.
   #
   # @example Load a script
@@ -2126,49 +2169,6 @@ class Redis
   def discard
     synchronize do |client|
       client.call [:discard]
-    end
-  end
-
-  # Post a message to a channel.
-  def publish(channel, message)
-    synchronize do |client|
-      client.call [:publish, channel, message]
-    end
-  end
-
-  def subscribed?
-    synchronize do |client|
-      client.kind_of? SubscribedClient
-    end
-  end
-
-  # Stop listening for messages posted to the given channels.
-  def unsubscribe(*channels)
-    synchronize do |client|
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
-      client.unsubscribe(*channels)
-    end
-  end
-
-  # Stop listening for messages posted to channels matching the given patterns.
-  def punsubscribe(*channels)
-    synchronize do |client|
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
-      client.punsubscribe(*channels)
-    end
-  end
-
-  # Listen for messages published to the given channels.
-  def subscribe(*channels, &block)
-    synchronize do |client|
-      _subscription(:subscribe, channels, block)
-    end
-  end
-
-  # Listen for messages published to channels matching the given patterns.
-  def psubscribe(*channels, &block)
-    synchronize do |client|
-      _subscription(:psubscribe, channels, block)
     end
   end
 

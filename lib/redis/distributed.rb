@@ -657,6 +657,45 @@ class Redis
       node_for(key).hgetall(key)
     end
 
+    # Post a message to a channel.
+    def publish(channel, message)
+      node_for(channel).publish(channel, message)
+    end
+
+    def subscribed?
+      !! @subscribed_node
+    end
+
+    # Listen for messages published to the given channels.
+    def subscribe(channel, *channels, &block)
+      if channels.empty?
+        @subscribed_node = node_for(channel)
+        @subscribed_node.subscribe(channel, &block)
+      else
+        ensure_same_node(:subscribe, [channel] + channels) do |node|
+          @subscribed_node = node
+          node.subscribe(channel, *channels, &block)
+        end
+      end
+    end
+
+    # Stop listening for messages posted to the given channels.
+    def unsubscribe(*channels)
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      @subscribed_node.unsubscribe(*channels)
+    end
+
+    # Listen for messages published to channels matching the given patterns.
+    def psubscribe(*channels, &block)
+      raise NotImplementedError
+    end
+
+    # Stop listening for messages posted to channels matching the given
+    # patterns.
+    def punsubscribe(*channels)
+      raise NotImplementedError
+    end
+
     # Mark the start of a transaction block.
     def multi
       raise CannotDistribute, :multi
@@ -680,45 +719,6 @@ class Redis
     # Discard all commands issued after MULTI.
     def discard
       raise CannotDistribute, :discard
-    end
-
-    # Post a message to a channel.
-    def publish(channel, message)
-      node_for(channel).publish(channel, message)
-    end
-
-    def subscribed?
-      !! @subscribed_node
-    end
-
-    # Stop listening for messages posted to the given channels.
-    def unsubscribe(*channels)
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
-      @subscribed_node.unsubscribe(*channels)
-    end
-
-    # Listen for messages published to the given channels.
-    def subscribe(channel, *channels, &block)
-      if channels.empty?
-        @subscribed_node = node_for(channel)
-        @subscribed_node.subscribe(channel, &block)
-      else
-        ensure_same_node(:subscribe, [channel] + channels) do |node|
-          @subscribed_node = node
-          node.subscribe(channel, *channels, &block)
-        end
-      end
-    end
-
-    # Stop listening for messages posted to channels matching the given
-    # patterns.
-    def punsubscribe(*channels)
-      raise NotImplementedError
-    end
-
-    # Listen for messages published to channels matching the given patterns.
-    def psubscribe(*channels, &block)
-      raise NotImplementedError
     end
 
     def pipelined
