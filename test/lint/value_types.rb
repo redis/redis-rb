@@ -2,6 +2,10 @@ module Lint
 
   module ValueTypes
 
+    def assert_in_range(range, value)
+      assert range.include?(value), "expected #{value} to be in #{range.inspect}"
+    end
+
     def test_exists
       assert_equal false, r.exists("foo")
 
@@ -29,7 +33,7 @@ module Lint
     def test_expire
       r.set("foo", "s1")
       assert r.expire("foo", 1)
-      assert [0, 1].include? r.ttl("foo")
+      assert_in_range 0..1, r.ttl("foo")
     end
 
     def test_pexpire
@@ -37,13 +41,13 @@ module Lint
 
       r.set("foo", "s1")
       assert r.pexpire("foo", 1000)
-      assert [0, 1].include? r.ttl("foo")
+      assert_in_range 0..1, r.ttl("foo")
     end
 
     def test_expireat
       r.set("foo", "s1")
       assert r.expireat("foo", (Time.now + 1).to_i)
-      assert [0, 1].include? r.ttl("foo")
+      assert_in_range 0..1, r.ttl("foo")
     end
 
     def test_pexpireat
@@ -51,7 +55,7 @@ module Lint
 
       r.set("foo", "s1")
       assert r.pexpireat("foo", (Time.now + 1).to_i * 1_000)
-      assert [0, 1].include? r.ttl("foo")
+      assert_in_range 0..1, r.ttl("foo")
     end
 
     def test_persist
@@ -65,7 +69,7 @@ module Lint
     def test_ttl
       r.set("foo", "s1")
       r.expire("foo", 1)
-      assert [0, 1].include? r.ttl("foo")
+      assert_in_range 0..1, r.ttl("foo")
     end
 
     def test_pttl
@@ -73,7 +77,7 @@ module Lint
 
       r.set("foo", "s1")
       r.expire("foo", 1)
-      assert 1000 >= r.pttl("foo")
+      assert_in_range 1..1000, r.pttl("foo")
     end
 
     def test_move
