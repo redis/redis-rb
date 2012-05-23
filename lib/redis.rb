@@ -346,17 +346,6 @@ class Redis
       client.call [:pexpireat, key, ms_unix_time], &_boolify
     end
   end
-  # Set the string value of a hash field.
-  #
-  # @param [String] key
-  # @param [String] field
-  # @param [String] value
-  # @return [Boolean] whether or not the field was **added** to the hash
-  def hset(key, field, value)
-    synchronize do |client|
-      client.call [:hset, key, field, value], &_boolify
-    end
-  end
 
   # Get the time to live (in milliseconds) for a key.
   #
@@ -1692,6 +1681,18 @@ class Redis
   def hlen(key)
     synchronize do |client|
       client.call [:hlen, key]
+    end
+  end
+
+  # Set the string value of a hash field.
+  #
+  # @param [String] key
+  # @param [String] field
+  # @param [String] value
+  # @return [Boolean] whether or not the field was **added** to the hash
+  def hset(key, field, value)
+    synchronize do |client|
+      client.call [:hset, key, field, value], &_boolify
     end
   end
 
