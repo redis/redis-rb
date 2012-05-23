@@ -72,6 +72,13 @@
   now return an array containing `[String, Float]` pairs when
   `:with_scores => true` is passed.
 
+    For example:
+
+    ```ruby
+    redis.zrange("zset", 0, -1, :with_scores => true)
+      # => [["foo", 1.0], ["bar", 2.0]]
+    ```
+
 * The `ZINCRBY` and `ZSCORE` commands now return a `Float` score instead
   of a string holding a representation of the score.
 
