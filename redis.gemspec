@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
 
   s.homepage = "https://github.com/redis/redis-rb"
 
-  s.summary = "A Ruby client library for the Redis key-value store."
+  s.summary = "A Ruby client library for Redis"
 
   s.description = <<-EOS
     A Ruby client that tries to match Redis' API one-to-one, while still
