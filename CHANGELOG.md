@@ -1,14 +1,14 @@
 # 3.0.0
 
-### Upgrading from 2.x
+### Upgrading from 2.x to 3.0
 
 The following items are the most important changes to review when
-upgrading from redis-rb 2.x.
+upgrading from redis-rb 2.x. A full list of changes can be found below.
 
 * The methods for the following commands have changed the arguments they
   take, their return value, or both.
 
-    * `BLPOP`, `BRPOP`, and `BRPOPLPUSH`
+    * `BLPOP`, `BRPOP`, `BRPOPLPUSH`
     * `SORT`
     * `MSETNX`
     * `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE`, `ZREVRANGEBYSCORE`
