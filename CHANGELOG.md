@@ -29,24 +29,38 @@
 * The repository now lives at [https://github.com/redis/redis-rb](https://github.com/redis/redis-rb).
   Thanks, Ezra!
 
-* Added support for `PEXPIRE`, `PTTL`, `PEXPIREAT`, `PSETEX`,
+* Added support for `PEXPIRE`, `PEXPIREAT`, `PTTL`, `PSETEX`,
   `INCRYBYFLOAT`, `HINCRYBYFLOAT` and `TIME` (Redis 2.6).
 
 * `Redis.current` is now thread unsafe, because the client itself is thread safe.
 
     In the future you'll be able to do something like:
 
-        Redis.current = Redis::Pool.connect
+    ```ruby
+    Redis.current = Redis::Pool.connect
+    ```
 
     This makes `Redis.current` actually usable in multi-threaded environments,
     while not affecting those running a single thread.
 
-* Change API for `BLPOP`, `BRPOP` and `BRPOPLPUSH`. Both `BLPOP` and
-  `BRPOP` now take a single argument equal to a string key, or an array
-  with string keys, followed by an optional hash with a `:timeout` key.
-  `BRPOPLPUSH` also takes an optional hash with a `:timeout` key as last
-  argument for consistency. By default, these commands use a timeout of
-  `0` to not time out.
+* Change API for `BLPOP`, `BRPOP` and `BRPOPLPUSH`.
+
+    Both `BLPOP` and `BRPOP` now take a single argument equal to a
+    string key, or an array with string keys, followed by an optional
+    hash with a `:timeout` key. When not specified, the timeout defaults
+    to `0` to not time out.
+
+    ```ruby
+    redis.blpop(["list1, "list2"], :timeout => 1.0)
+    ```
+
+    `BRPOPLPUSH` also takes an optional hash with a `:timeout` key as
+    last argument for consistency. When not specified, the timeout
+    defaults to `0` to not time out.
+
+    ```ruby
+    redis.brpoplpush("some_list", "another_list", :timeout => 1.0)
+    ```
 
 * When `SORT` is passed multiple key patterns to get via the `:get`
   option, it now returns an array per result element, holding all `GET`
