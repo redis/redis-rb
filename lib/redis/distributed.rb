@@ -746,9 +746,18 @@ class Redis
     end
 
     def ensure_same_node(command, keys)
-      tags = keys.map { |key| key_tag(key) }
+      all = true
 
-      raise CannotDistribute, command if !tags.all? || tags.uniq.size != 1
+      tags = keys.map do |key|
+        tag = key_tag(key)
+        all = false unless tag
+        tag
+      end
+
+      if (all && tags.uniq.size != 1) || (!all && keys.uniq.size != 1)
+        # Not 1 unique tag or not 1 unique key
+        raise CannotDistribute, command
+      end
 
       yield(node_for(keys.first))
     end
