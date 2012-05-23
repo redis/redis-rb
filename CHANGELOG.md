@@ -1,5 +1,31 @@
 # 3.0 (unreleased)
 
+* Added support for scripting commands (Redis 2.6).
+
+    Scripts can be executed using `#eval` and `#evalsha`. Both can
+    commands can either take two arrays to specify `KEYS` and `ARGV`, or
+    take a hash containing `:keys` and `:argv` to specify `KEYS` and
+    `ARGV`.
+
+    ```ruby
+    redis.eval("return ARGV[1] * ARGV[2]", :argv => [2, 3])
+      # => 6
+    ```
+
+    Subcommands of the `SCRIPT` command can be executed via the
+    `#script` method.
+
+    For example:
+
+    ```ruby
+    redis.script(:load, "return ARGV[1] * ARGV[2]")
+      # => "58db5d365a1922f32e7aa717722141ea9c2b0cf3"
+    redis.script(:exists, "58db5d365a1922f32e7aa717722141ea9c2b0cf3")
+      # => true
+    redis.script(:flush)
+      # => "OK"
+    ```
+
 * The repository now lives at [https://github.com/redis/redis-rb](https://github.com/redis/redis-rb).
   Thanks, Ezra!
 
