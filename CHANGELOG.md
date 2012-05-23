@@ -1,4 +1,27 @@
-# 3.0 (unreleased)
+# 3.0.0
+
+### Upgrading from 2.x
+
+The following items are the most important changes to review when
+upgrading from redis-rb 2.x.
+
+* The methods for the following commands have changed the arguments they
+  take, their return value, or both.
+
+    * `BLPOP`, `BRPOP`, and `BRPOPLPUSH`
+    * `SORT`
+    * `MSETNX`
+    * `ZRANGE`, `ZREVRANGE`, `ZRANGEBYSCORE`, `ZREVRANGEBYSCORE`
+    * `ZINCRBY`, `ZSCORE`
+
+* The return value from `#pipelined` and `#multi` no longer contains
+  unprocessed replies, but the same replies that would be returned if
+  the command had not been executed in these blocks.
+
+* The client raises custom errors on connection errors, instead of
+  `RuntimeError` and errors in the `Errno` family.
+
+### Changes
 
 * Added support for scripting commands (Redis 2.6).
 
