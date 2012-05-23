@@ -725,6 +725,34 @@ class Redis
       raise CannotDistribute, :discard
     end
 
+    # Control remote script registry.
+    def script(subcommand, *args)
+      on_each_node(:script, subcommand, *args)
+    end
+
+    def _eval(cmd, args)
+      script = args.shift
+      options = args.pop if args.last.is_a?(Hash)
+      options ||= {}
+
+      keys = args.shift || options[:keys] || []
+      argv = args.shift || options[:argv] || []
+
+      ensure_same_node(cmd, keys) do |node|
+        node.send(cmd, script, keys, argv)
+      end
+    end
+
+    # Evaluate Lua script.
+    def eval(*args)
+      _eval(:eval, args)
+    end
+
+    # Evaluate Lua script by its SHA.
+    def evalsha(*args)
+      _eval(:evalsha, args)
+    end
+
     def inspect
       "#<Redis client v#{Redis::VERSION} for #{nodes.map(&:id).join(', ')}>"
     end
