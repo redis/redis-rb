@@ -80,10 +80,4 @@ class TestCommandsOnStrings < Test::Unit::TestCase
     assert_equal "s2", r.get("foo")
     assert_equal "s3", r.get("bar")
   end
-
-  def test_strlen
-    r.set "foo", "lorem"
-
-    assert_equal 5, r.strlen("foo")
-  end
 end

@@ -147,5 +147,11 @@ module Lint
 
       assert_equal "abare", r.get("foo")
     end
+
+    def test_strlen
+      r.set "foo", "lorem"
+
+      assert_equal 5, r.strlen("foo")
+    end
   end
 end

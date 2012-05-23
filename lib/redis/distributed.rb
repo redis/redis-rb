@@ -297,6 +297,11 @@ class Redis
       node_for(key).getset(key, value)
     end
 
+    # Get the length of the value stored in a key.
+    def strlen(key)
+      node_for(key).strlen(key)
+    end
+
     def [](key)
       get(key)
     end
