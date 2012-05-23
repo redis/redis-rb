@@ -2,6 +2,31 @@ module Lint
 
   module Lists
 
+    def test_lpush
+      r.lpush "foo", "s1"
+      r.lpush "foo", "s2"
+
+      assert_equal 2, r.llen("foo")
+      assert_equal "s2", r.lpop("foo")
+    end
+
+    def test_variadic_lpush
+      return if version < "2.3.9" # 2.4-rc6
+
+      assert_equal 3, r.lpush("foo", ["s1", "s2", "s3"])
+      assert_equal 3, r.llen("foo")
+      assert_equal "s3", r.lpop("foo")
+    end
+
+    def test_lpushx
+      r.lpushx "foo", "s1"
+      r.lpush "foo", "s2"
+      r.lpushx "foo", "s3"
+
+      assert_equal 2, r.llen("foo")
+      assert_equal ["s3", "s2"], r.lrange("foo", 0, -1)
+    end
+
     def test_rpush
       r.rpush "foo", "s1"
       r.rpush "foo", "s2"
@@ -18,20 +43,13 @@ module Lint
       assert_equal "s3", r.rpop("foo")
     end
 
-    def test_lpush
-      r.lpush "foo", "s1"
-      r.lpush "foo", "s2"
+    def test_rpushx
+      r.rpushx "foo", "s1"
+      r.rpush "foo", "s2"
+      r.rpushx "foo", "s3"
 
       assert_equal 2, r.llen("foo")
-      assert_equal "s2", r.lpop("foo")
-    end
-
-    def test_variadic_lpush
-      return if version < "2.3.9" # 2.4-rc6
-
-      assert_equal 3, r.lpush("foo", ["s1", "s2", "s3"])
-      assert_equal 3, r.llen("foo")
-      assert_equal "s3", r.lpop("foo")
+      assert_equal ["s2", "s3"], r.lrange("foo", 0, -1)
     end
 
     def test_llen

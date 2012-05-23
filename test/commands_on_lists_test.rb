@@ -8,24 +8,6 @@ class TestCommandsOnLists < Test::Unit::TestCase
   include Helper::Client
   include Lint::Lists
 
-  def test_rpushx
-    r.rpushx "foo", "s1"
-    r.rpush "foo", "s2"
-    r.rpushx "foo", "s3"
-
-    assert_equal 2, r.llen("foo")
-    assert_equal ["s2", "s3"], r.lrange("foo", 0, -1)
-  end
-
-  def test_lpushx
-    r.lpushx "foo", "s1"
-    r.lpush "foo", "s2"
-    r.lpushx "foo", "s3"
-
-    assert_equal 2, r.llen("foo")
-    assert_equal ["s3", "s2"], r.lrange("foo", 0, -1)
-  end
-
   def test_linsert
     r.rpush "foo", "s1"
     r.rpush "foo", "s3"

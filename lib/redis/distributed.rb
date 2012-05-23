@@ -315,9 +315,19 @@ class Redis
       node_for(key).lpush(key, value)
     end
 
+    # Prepend a value to a list, only if the list exists.
+    def lpushx(key, value)
+      node_for(key).lpushx(key, value)
+    end
+
     # Append one or more values to a list.
     def rpush(key, value)
       node_for(key).rpush(key, value)
+    end
+
+    # Append a value to a list, only if the list exists.
+    def rpushx(key, value)
+      node_for(key).rpushx(key, value)
     end
 
     # Remove and get the first element in a list.
