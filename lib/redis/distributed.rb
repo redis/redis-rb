@@ -401,6 +401,11 @@ class Redis
       node_for(key).lindex(key, index)
     end
 
+    # Insert an element before or after another element in a list.
+    def linsert(key, where, pivot, value)
+      node_for(key).linsert(key, where, pivot, value)
+    end
+
     # Get a range of elements from a list.
     def lrange(key, start, stop)
       node_for(key).lrange(key, start, stop)
