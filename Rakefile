@@ -316,6 +316,21 @@ namespace :commands do
     reorder "lib/redis/distributed.rb", :indent => 4, &blk
   end
 
+  def missing(file, options = {})
+    src = Source.new(file, options)
+
+    defined_methods = src.methods.map(&:downcase)
+    required_methods = redis_commands.map(&:downcase)
+
+    STDOUT.puts "missing in #{file}:"
+    STDOUT.puts (required_methods - defined_methods).inspect
+  end
+
+  task :missing do
+    missing "lib/redis.rb", :indent => 2
+    missing "lib/redis/distributed.rb", :indent => 4
+  end
+
   def document(file)
     source = File.read(file)
 
