@@ -51,7 +51,7 @@
     to `0` to not time out.
 
     ```ruby
-    redis.blpop(["list1, "list2"], :timeout => 1.0)
+    redis.blpop(["list1", "list2"], :timeout => 1.0)
     ```
 
     `BRPOPLPUSH` also takes an optional hash with a `:timeout` key as
