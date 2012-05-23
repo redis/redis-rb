@@ -12,6 +12,13 @@ A Ruby client that tries to match Redis' API one-to-one, while still
 providing an idiomatic interface. It features thread-safety, client-side
 sharding, pipelining, and an obsession for performance.
 
+## Upgrading from 2.x to 3.0
+
+Please refer to the [CHANGELOG][changelog-3.0.0] for a summary of the
+most important changes, as well as a full list of changes.
+
+[changelog-3.0.0]: https://github.com/redis/redis-rb/blob/master/CHANGELOG.md#300
+
 ## Getting started
 
 As of version 2.0 this client only targets Redis version 2.0 and higher.
