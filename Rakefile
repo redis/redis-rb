@@ -148,6 +148,71 @@ namespace :doc do
   end
 end
 
+class Source
+
+  MATCHER = "(?:\\s{%d}#[^\\n]*\\n)*^\\s{%d}def ([a-z_?]+)(?:\(.*?\))?\\n.*?^\\s{%d}end\\n\\n"
+
+  def initialize(data, options = {})
+    @doc = parse(File.read(data), options)
+  end
+
+  def methods
+    @doc.select do |d|
+      d.is_a?(Method)
+    end.map do |d|
+      d.name
+    end
+  end
+
+  def move(a, b)
+    ao = @doc.find { |m| m.is_a?(Method) && m.name == a }
+    bo = @doc.find { |m| m.is_a?(Method) && m.name == b }
+    ai = @doc.index(ao)
+    bi = @doc.index(bo)
+
+    @doc.delete_at(ai)
+    @doc.insert(bi, ao)
+
+    nil
+  end
+
+  def to_s
+    @doc.join
+  end
+
+  protected
+
+  def parse(data, options = {})
+    re = Regexp.new(MATCHER % ([options[:indent]] * 3), Regexp::MULTILINE)
+    tail = data.dup
+    doc = []
+
+    while match = re.match(tail)
+      doc << match.pre_match
+      doc << Method.new(match)
+      tail = match.post_match
+    end
+
+    doc << tail if tail
+    doc
+  end
+
+  class Method
+
+    def initialize(match)
+      @match = match
+    end
+
+    def name
+      @match[1]
+    end
+
+    def to_s
+      @match[0]
+    end
+  end
+end
+
 namespace :commands do
   def redis_commands
     $redis_commands ||= doc.keys.map do |key|
@@ -162,6 +227,93 @@ namespace :commands do
 
       JSON.parse(open("https://github.com/antirez/redis-doc/raw/master/commands.json").read)
     end
+  end
+
+  task :order do
+    require "json"
+
+    reference = if File.exist?(".order")
+                  JSON.parse(File.read(".order"))
+                else
+                  {}
+                end
+
+    buckets = {}
+    doc.each do |k, v|
+      buckets[v["group"]] ||= []
+      buckets[v["group"]] << k.split.first.downcase
+      buckets[v["group"]].uniq!
+    end
+
+    result = (reference.keys + (buckets.keys - reference.keys)).map do |g|
+      [g, reference[g] + (buckets[g] - reference[g])]
+    end
+
+    File.open(".order", "w") do |f|
+      f.write(JSON.pretty_generate(Hash[result]))
+    end
+  end
+
+  def reorder(file, options = {})
+    require "json"
+    require "set"
+
+    STDERR.puts "reordering #{file}..."
+
+    reference = if File.exist?(".order")
+                  JSON.parse(File.read(".order"))
+                else
+                  {}
+                end
+
+    dst = Source.new(file, options)
+
+    src_methods = reference.map { |k, v| v }.flatten
+    dst_methods = dst.methods
+
+    src_set = Set.new(src_methods)
+    dst_set = Set.new(dst_methods)
+
+    intersection = src_set & dst_set
+    intersection.delete("initialize")
+
+    loop do
+      src_methods = reference.map { |k, v| v }.flatten
+      dst_methods = dst.methods
+
+      src_methods = src_methods.select do |m|
+        intersection.include?(m)
+      end
+
+      dst_methods = dst_methods.select do |m|
+        intersection.include?(m)
+      end
+
+      if src_methods == dst_methods
+        break
+      end
+
+      rv = yield(src_methods, dst_methods, dst)
+      break if rv == false
+    end
+
+    File.open(file, "w") do |f|
+      f.write(dst.to_s)
+    end
+  end
+
+  task :reorder do
+    blk = lambda do |src_methods, dst_methods, dst|
+      src_methods.zip(dst_methods).each do |a, b|
+        if a != b
+          dst.move(a, b)
+          break
+        end
+      end
+    end
+
+    reorder "lib/redis.rb", :indent => 2, &blk
+    reorder "lib/redis/distributed.rb", :indent => 4, &blk
   end
 
   def document(file)

@@ -34,11 +34,6 @@ class Redis
       @ring.add_node Redis.new(@default_options.merge(:url => url))
     end
 
-    # Close the connection.
-    def quit
-      on_each_node :quit
-    end
-
     # Change the selected database for the current connection.
     def select(db)
       on_each_node :select, db
@@ -49,14 +44,94 @@ class Redis
       on_each_node :ping
     end
 
+    # Echo the given string.
+    def echo(value)
+      on_each_node :echo, value
+    end
+
+    # Close the connection.
+    def quit
+      on_each_node :quit
+    end
+
+    # Asynchronously save the dataset to disk.
+    def bgsave
+      on_each_node :bgsave
+    end
+
+    # Return the number of keys in the selected database.
+    def dbsize
+      on_each_node :dbsize
+    end
+
     # Remove all keys from all databases.
     def flushall
       on_each_node :flushall
     end
 
-    # Determine if a key exists.
-    def exists(key)
-      node_for(key).exists(key)
+    # Remove all keys from the current database.
+    def flushdb
+      on_each_node :flushdb
+    end
+
+    # Get information and statistics about the server.
+    def info(cmd = nil)
+      on_each_node :info, cmd
+    end
+
+    # Get the UNIX time stamp of the last successful save to disk.
+    def lastsave
+      on_each_node :lastsave
+    end
+
+    # Listen for all requests received by the server in real time.
+    def monitor
+      raise NotImplementedError
+    end
+
+    # Synchronously save the dataset to disk.
+    def save
+      on_each_node :save
+    end
+
+    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
+    def time
+      on_each_node :time
+    end
+
+    # Remove the expiration from a key.
+    def persist(key)
+      node_for(key).persist(key)
+    end
+
+    # Set a key's time to live in seconds.
+    def expire(key, seconds)
+      node_for(key).expire(key, seconds)
+    end
+
+    # Set the expiration for a key as a UNIX timestamp.
+    def expireat(key, unix_time)
+      node_for(key).expireat(key, unix_time)
+    end
+
+    # Get the time to live (in seconds) for a key.
+    def ttl(key)
+      node_for(key).ttl(key)
+    end
+
+    # Set a key's time to live in milliseconds.
+    def pexpire(key, milliseconds)
+      node_for(key).pexpire(key, milliseconds)
+    end
+
+    # Set the expiration for a key as number of milliseconds from UNIX Epoch.
+    def pexpireat(key, ms_unix_time)
+      node_for(key).pexpireat(key, ms_unix_time)
+    end
+
+    # Get the time to live (in milliseconds) for a key.
+    def pttl(key)
+      node_for(key).pttl(key)
     end
 
     # Delete a key.
@@ -67,14 +142,19 @@ class Redis
       end
     end
 
-    # Determine the type stored at key.
-    def type(key)
-      node_for(key).type(key)
+    # Determine if a key exists.
+    def exists(key)
+      node_for(key).exists(key)
     end
 
     # Find all keys matching the given pattern.
     def keys(glob = "*")
       on_each_node(:keys, glob).flatten
+    end
+
+    # Move a key to another database.
+    def move(key, db)
+      node_for(key).move(key, db)
     end
 
     # Return a random key from the keyspace.
@@ -96,69 +176,48 @@ class Redis
       end
     end
 
-    # Return the number of keys in the selected database.
-    def dbsize
-      on_each_node :dbsize
+    # Sort the elements in a list, set or sorted set.
+    def sort(key, options = {})
+      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
+
+      ensure_same_node(:sort, keys) do |node|
+        node.sort(key, options)
+      end
     end
 
-    # Set a key's time to live in seconds.
-    def expire(key, seconds)
-      node_for(key).expire(key, seconds)
+    # Determine the type stored at key.
+    def type(key)
+      node_for(key).type(key)
     end
 
-    # Set a key's time to live in milliseconds.
-    def pexpire(key, milliseconds)
-      node_for(key).pexpire(key, milliseconds)
+    # Decrement the integer value of a key by one.
+    def decr(key)
+      node_for(key).decr(key)
     end
 
-    # Set the expiration for a key as a UNIX timestamp.
-    def expireat(key, unix_time)
-      node_for(key).expireat(key, unix_time)
+    # Decrement the integer value of a key by the given number.
+    def decrby(key, decrement)
+      node_for(key).decrby(key, decrement)
     end
 
-    # Set the expiration for a key as number of milliseconds from UNIX Epoch.
-    def pexpireat(key, ms_unix_time)
-      node_for(key).pexpireat(key, ms_unix_time)
+    # Increment the integer value of a key by one.
+    def incr(key)
+      node_for(key).incr(key)
     end
 
-    # Remove the expiration from a key.
-    def persist(key)
-      node_for(key).persist(key)
+    # Increment the integer value of a key by the given integer number.
+    def incrby(key, increment)
+      node_for(key).incrby(key, increment)
     end
 
-    # Get the time to live (in seconds) for a key.
-    def ttl(key)
-      node_for(key).ttl(key)
-    end
-
-    # Get the time to live (in milliseconds) for a key.
-    def pttl(key)
-      node_for(key).pttl(key)
-    end
-
-    # Move a key to another database.
-    def move(key, db)
-      node_for(key).move(key, db)
-    end
-
-    # Remove all keys from the current database.
-    def flushdb
-      on_each_node :flushdb
+    # Increment the numeric value of a key by the given float number.
+    def incrbyfloat(key, increment)
+      node_for(key).incrbyfloat(key, increment)
     end
 
     # Set the string value of a key.
     def set(key, value)
       node_for(key).set(key, value)
-    end
-
-    # Sets or clears the bit at offset in the string value stored at key.
-    def setbit(key, offset, value)
-      node_for(key).setbit(key, offset, value)
-    end
-
-    # Overwrite part of a string at key starting at the specified offset.
-    def setrange(key, offset, value)
-      node_for(key).setrange(key, offset, value)
     end
 
     # Set the time to live in seconds of a key.
@@ -169,48 +228,6 @@ class Redis
     # Set the time to live in milliseconds of a key.
     def psetex(key, ttl, value)
       node_for(key).psetex(key, ttl, value)
-    end
-
-    # Get the value of a key.
-    def get(key)
-      node_for(key).get(key)
-    end
-
-    # Returns the bit value at offset in the string value stored at key.
-    def getbit(key, offset)
-      node_for(key).getbit(key, offset)
-    end
-
-    # Get a substring of the string stored at a key.
-    def getrange(key, start, stop)
-      node_for(key).getrange(key, start, stop)
-    end
-
-    # Set the string value of a key and return its old value.
-    def getset(key, value)
-      node_for(key).getset(key, value)
-    end
-
-    def [](key)
-      get(key)
-    end
-
-    # Append a value to a key.
-    def append(key, value)
-      node_for(key).append(key, value)
-    end
-
-    def []=(key,value)
-      set(key, value)
-    end
-
-    # Get the values of all the given keys.
-    def mget(*keys)
-      raise CannotDistribute, :mget
-    end
-
-    def mapped_mget(*keys)
-      raise CannotDistribute, :mapped_mget
     end
 
     # Set the value of a key, only if the key does not exist.
@@ -236,39 +253,56 @@ class Redis
       raise CannotDistribute, :mapped_msetnx
     end
 
-    # Increment the integer value of a key by one.
-    def incr(key)
-      node_for(key).incr(key)
+    # Get the value of a key.
+    def get(key)
+      node_for(key).get(key)
     end
 
-    # Increment the integer value of a key by the given integer number.
-    def incrby(key, increment)
-      node_for(key).incrby(key, increment)
+    # Get the values of all the given keys.
+    def mget(*keys)
+      raise CannotDistribute, :mget
     end
 
-    # Increment the numeric value of a key by the given float number.
-    def incrbyfloat(key, increment)
-      node_for(key).incrbyfloat(key, increment)
+    def mapped_mget(*keys)
+      raise CannotDistribute, :mapped_mget
     end
 
-    # Decrement the integer value of a key by one.
-    def decr(key)
-      node_for(key).decr(key)
+    # Overwrite part of a string at key starting at the specified offset.
+    def setrange(key, offset, value)
+      node_for(key).setrange(key, offset, value)
     end
 
-    # Decrement the integer value of a key by the given number.
-    def decrby(key, decrement)
-      node_for(key).decrby(key, decrement)
+    # Get a substring of the string stored at a key.
+    def getrange(key, start, stop)
+      node_for(key).getrange(key, start, stop)
     end
 
-    # Append one or more values to a list.
-    def rpush(key, value)
-      node_for(key).rpush(key, value)
+    # Sets or clears the bit at offset in the string value stored at key.
+    def setbit(key, offset, value)
+      node_for(key).setbit(key, offset, value)
     end
 
-    # Prepend one or more values to a list.
-    def lpush(key, value)
-      node_for(key).lpush(key, value)
+    # Returns the bit value at offset in the string value stored at key.
+    def getbit(key, offset)
+      node_for(key).getbit(key, offset)
+    end
+
+    # Append a value to a key.
+    def append(key, value)
+      node_for(key).append(key, value)
+    end
+
+    # Set the string value of a key and return its old value.
+    def getset(key, value)
+      node_for(key).getset(key, value)
+    end
+
+    def [](key)
+      get(key)
+    end
+
+    def []=(key,value)
+      set(key, value)
     end
 
     # Get the length of a list.
@@ -276,29 +310,14 @@ class Redis
       node_for(key).llen(key)
     end
 
-    # Get a range of elements from a list.
-    def lrange(key, start, stop)
-      node_for(key).lrange(key, start, stop)
+    # Prepend one or more values to a list.
+    def lpush(key, value)
+      node_for(key).lpush(key, value)
     end
 
-    # Trim a list to the specified range.
-    def ltrim(key, start, stop)
-      node_for(key).ltrim(key, start, stop)
-    end
-
-    # Get an element from a list by its index.
-    def lindex(key, index)
-      node_for(key).lindex(key, index)
-    end
-
-    # Set the value of an element in a list by its index.
-    def lset(key, index, value)
-      node_for(key).lset(key, index, value)
-    end
-
-    # Remove elements from a list.
-    def lrem(key, count, value)
-      node_for(key).lrem(key, count, value)
+    # Append one or more values to a list.
+    def rpush(key, value)
+      node_for(key).rpush(key, value)
     end
 
     # Remove and get the first element in a list.
@@ -367,6 +386,36 @@ class Redis
       end
     end
 
+    # Get an element from a list by its index.
+    def lindex(key, index)
+      node_for(key).lindex(key, index)
+    end
+
+    # Get a range of elements from a list.
+    def lrange(key, start, stop)
+      node_for(key).lrange(key, start, stop)
+    end
+
+    # Remove elements from a list.
+    def lrem(key, count, value)
+      node_for(key).lrem(key, count, value)
+    end
+
+    # Set the value of an element in a list by its index.
+    def lset(key, index, value)
+      node_for(key).lset(key, index, value)
+    end
+
+    # Trim a list to the specified range.
+    def ltrim(key, start, stop)
+      node_for(key).ltrim(key, start, stop)
+    end
+
+    # Get the number of members in a set.
+    def scard(key)
+      node_for(key).scard(key)
+    end
+
     # Add one or more members to a set.
     def sadd(key, member)
       node_for(key).sadd(key, member)
@@ -382,6 +431,11 @@ class Redis
       node_for(key).spop(key)
     end
 
+    # Get a random member from a set.
+    def srandmember(key)
+      node_for(key).srandmember(key)
+    end
+
     # Move a member from one set to another.
     def smove(source, destination, member)
       ensure_same_node(:smove, [source, destination]) do |node|
@@ -389,14 +443,28 @@ class Redis
       end
     end
 
-    # Get the number of members in a set.
-    def scard(key)
-      node_for(key).scard(key)
-    end
-
     # Determine if a given value is a member of a set.
     def sismember(key, member)
       node_for(key).sismember(key, member)
+    end
+
+    # Get all the members in a set.
+    def smembers(key)
+      node_for(key).smembers(key)
+    end
+
+    # Subtract multiple sets.
+    def sdiff(*keys)
+      ensure_same_node(:sdiff, keys) do |node|
+        node.sdiff(*keys)
+      end
+    end
+
+    # Subtract multiple sets and store the resulting set in a key.
+    def sdiffstore(destination, *keys)
+      ensure_same_node(:sdiffstore, [destination] + keys) do |node|
+        node.sdiffstore(destination, *keys)
+      end
     end
 
     # Intersect multiple sets.
@@ -427,28 +495,9 @@ class Redis
       end
     end
 
-    # Subtract multiple sets.
-    def sdiff(*keys)
-      ensure_same_node(:sdiff, keys) do |node|
-        node.sdiff(*keys)
-      end
-    end
-
-    # Subtract multiple sets and store the resulting set in a key.
-    def sdiffstore(destination, *keys)
-      ensure_same_node(:sdiffstore, [destination] + keys) do |node|
-        node.sdiffstore(destination, *keys)
-      end
-    end
-
-    # Get all the members in a set.
-    def smembers(key)
-      node_for(key).smembers(key)
-    end
-
-    # Get a random member from a set.
-    def srandmember(key)
-      node_for(key).srandmember(key)
+    # Get the number of members in a sorted set.
+    def zcard(key)
+      node_for(key).zcard(key)
     end
 
     # Add one or more members to a sorted set, or update the score for members
@@ -457,19 +506,30 @@ class Redis
       node_for(key).zadd(key, *args)
     end
 
-    # Remove one or more members from a sorted set.
-    def zrem(key, member)
-      node_for(key).zrem(key, member)
-    end
-
     # Increment the score of a member in a sorted set.
     def zincrby(key, increment, member)
       node_for(key).zincrby(key, increment, member)
     end
 
+    # Remove one or more members from a sorted set.
+    def zrem(key, member)
+      node_for(key).zrem(key, member)
+    end
+
+    # Get the score associated with the given member in a sorted set.
+    def zscore(key, member)
+      node_for(key).zscore(key, member)
+    end
+
     # Return a range of members in a sorted set, by index.
     def zrange(key, start, stop, options = {})
       node_for(key).zrange(key, start, stop, options)
+    end
+
+    # Return a range of members in a sorted set, by index, with scores ordered
+    # from high to low.
+    def zrevrange(key, start, stop, options = {})
+      node_for(key).zrevrange(key, start, stop, options)
     end
 
     # Determine the index of a member in a sorted set.
@@ -481,17 +541,6 @@ class Redis
     # high to low.
     def zrevrank(key, member)
       node_for(key).zrevrank(key, member)
-    end
-
-    # Return a range of members in a sorted set, by index, with scores ordered
-    # from high to low.
-    def zrevrange(key, start, stop, options = {})
-      node_for(key).zrevrange(key, start, stop, options)
-    end
-
-    # Remove all members in a sorted set within the given scores.
-    def zremrangebyscore(key, min, max)
-      node_for(key).zremrangebyscore(key, min, max)
     end
 
     # Remove all members in a sorted set within the given indexes.
@@ -510,19 +559,14 @@ class Redis
       node_for(key).zrevrangebyscore(key, max, min, options)
     end
 
-    # Get the number of members in a sorted set.
-    def zcard(key)
-      node_for(key).zcard(key)
+    # Remove all members in a sorted set within the given scores.
+    def zremrangebyscore(key, min, max)
+      node_for(key).zremrangebyscore(key, min, max)
     end
 
     # Get the number of members in a particular score range.
     def zcount(key, min, max)
       node_for(key).zcount(key, min, max)
-    end
-
-    # Get the score associated with the given member in a sorted set.
-    def zscore(key, member)
-      node_for(key).zscore(key, member)
     end
 
     # Intersect multiple sorted sets and store the resulting sorted set in a new
@@ -540,6 +584,11 @@ class Redis
       end
     end
 
+    # Get the number of fields in a hash.
+    def hlen(key)
+      node_for(key).hlen(key)
+    end
+
     # Set the string value of a hash field.
     def hset(key, field, value)
       node_for(key).hset(key, field, value)
@@ -550,9 +599,27 @@ class Redis
       node_for(key).hsetnx(key, field, value)
     end
 
+    # Set multiple hash fields to multiple values.
+    def hmset(key, *attrs)
+      node_for(key).hmset(key, *attrs)
+    end
+
+    def mapped_hmset(key, hash)
+      node_for(key).hmset(key, *hash.to_a.flatten)
+    end
+
     # Get the value of a hash field.
     def hget(key, field)
       node_for(key).hget(key, field)
+    end
+
+    # Get the values of all the given hash fields.
+    def hmget(key, *fields)
+      node_for(key).hmget(key, *fields)
+    end
+
+    def mapped_hmget(key, *fields)
+      Hash[*fields.zip(hmget(key, *fields)).flatten]
     end
 
     # Delete one or more hash fields.
@@ -565,9 +632,14 @@ class Redis
       node_for(key).hexists(key, field)
     end
 
-    # Get the number of fields in a hash.
-    def hlen(key)
-      node_for(key).hlen(key)
+    # Increment the integer value of a hash field by the given integer number.
+    def hincrby(key, field, increment)
+      node_for(key).hincrby(key, field, increment)
+    end
+
+    # Increment the numeric value of a hash field by the given float number.
+    def hincrbyfloat(key, field, increment)
+      node_for(key).hincrbyfloat(key, field, increment)
     end
 
     # Get all the fields in a hash.
@@ -585,68 +657,6 @@ class Redis
       node_for(key).hgetall(key)
     end
 
-    # Set multiple hash fields to multiple values.
-    def hmset(key, *attrs)
-      node_for(key).hmset(key, *attrs)
-    end
-
-    def mapped_hmset(key, hash)
-      node_for(key).hmset(key, *hash.to_a.flatten)
-    end
-
-    # Get the values of all the given hash fields.
-    def hmget(key, *fields)
-      node_for(key).hmget(key, *fields)
-    end
-
-    def mapped_hmget(key, *fields)
-      Hash[*fields.zip(hmget(key, *fields)).flatten]
-    end
-
-    # Increment the integer value of a hash field by the given integer number.
-    def hincrby(key, field, increment)
-      node_for(key).hincrby(key, field, increment)
-    end
-
-    # Increment the numeric value of a hash field by the given float number.
-    def hincrbyfloat(key, field, increment)
-      node_for(key).hincrbyfloat(key, field, increment)
-    end
-
-    # Sort the elements in a list, set or sorted set.
-    def sort(key, options = {})
-      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
-
-      ensure_same_node(:sort, keys) do |node|
-        node.sort(key, options)
-      end
-    end
-
-    # Mark the start of a transaction block.
-    def multi
-      raise CannotDistribute, :multi
-    end
-
-    # Watch the given keys to determine execution of the MULTI/EXEC block.
-    def watch(*keys)
-      raise CannotDistribute, :watch
-    end
-
-    # Forget about all watched keys.
-    def unwatch
-      raise CannotDistribute, :unwatch
-    end
-
-    # Execute all commands issued after MULTI.
-    def exec
-      raise CannotDistribute, :exec
-    end
-
-    # Discard all commands issued after MULTI.
-    def discard
-      raise CannotDistribute, :discard
-    end
-
     # Post a message to a channel.
     def publish(channel, message)
       node_for(channel).publish(channel, message)
@@ -654,12 +664,6 @@ class Redis
 
     def subscribed?
       !! @subscribed_node
-    end
-
-    # Stop listening for messages posted to the given channels.
-    def unsubscribe(*channels)
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
-      @subscribed_node.unsubscribe(*channels)
     end
 
     # Listen for messages published to the given channels.
@@ -675,10 +679,10 @@ class Redis
       end
     end
 
-    # Stop listening for messages posted to channels matching the given
-    # patterns.
-    def punsubscribe(*channels)
-      raise NotImplementedError
+    # Stop listening for messages posted to the given channels.
+    def unsubscribe(*channels)
+      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      @subscribed_node.unsubscribe(*channels)
     end
 
     # Listen for messages published to channels matching the given patterns.
@@ -686,43 +690,39 @@ class Redis
       raise NotImplementedError
     end
 
-    # Synchronously save the dataset to disk.
-    def save
-      on_each_node :save
-    end
-
-    # Asynchronously save the dataset to disk.
-    def bgsave
-      on_each_node :bgsave
-    end
-
-    # Get the UNIX time stamp of the last successful save to disk.
-    def lastsave
-      on_each_node :lastsave
-    end
-
-    # Get information and statistics about the server.
-    def info(cmd = nil)
-      on_each_node :info, cmd
-    end
-
-    # Listen for all requests received by the server in real time.
-    def monitor
+    # Stop listening for messages posted to channels matching the given
+    # patterns.
+    def punsubscribe(*channels)
       raise NotImplementedError
     end
 
-    # Echo the given string.
-    def echo(value)
-      on_each_node :echo, value
+    # Watch the given keys to determine execution of the MULTI/EXEC block.
+    def watch(*keys)
+      raise CannotDistribute, :watch
     end
 
-    # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
-    def time
-      on_each_node :time
+    # Forget about all watched keys.
+    def unwatch
+      raise CannotDistribute, :unwatch
     end
 
     def pipelined
       raise CannotDistribute, :pipelined
+    end
+
+    # Mark the start of a transaction block.
+    def multi
+      raise CannotDistribute, :multi
+    end
+
+    # Execute all commands issued after MULTI.
+    def exec
+      raise CannotDistribute, :exec
+    end
+
+    # Discard all commands issued after MULTI.
+    def discard
+      raise CannotDistribute, :discard
     end
 
     def inspect
