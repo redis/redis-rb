@@ -1728,7 +1728,7 @@ class Redis
   # Set one or more hash values.
   #
   # @example
-  #   redis.hmset("hash", { "f1" => "v1", "f2" => "v2" })
+  #   redis.mapped_hmset("hash", { "f1" => "v1", "f2" => "v2" })
   #     # => "OK"
   #
   # @param [String] key
