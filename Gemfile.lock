@@ -1,0 +1,10 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    cutest (1.0.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  cutest
