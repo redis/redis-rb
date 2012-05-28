@@ -7,9 +7,22 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
   include Helper::Distributed
 
   def test_info
-    %w(last_save_time redis_version total_connections_received connected_clients total_commands_processed connected_slaves uptime_in_seconds used_memory uptime_in_days changes_since_last_save).each do |x|
-      r.info.each do |info|
-        assert info.keys.include?(x)
+    keys = [
+     "redis_version",
+     "uptime_in_seconds",
+     "uptime_in_days",
+     "connected_clients",
+     "used_memory",
+     "total_connections_received",
+     "total_commands_processed",
+    ]
+
+    info = r.info
+
+    info.each do |info|
+      keys.each do |k|
+        msg = "expected #info to include #{k}"
+        assert info.keys.include?(k), msg
       end
     end
   end
