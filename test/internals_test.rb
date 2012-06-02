@@ -191,6 +191,75 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
+  def close_on_connection(seq)
+    $n = 0
+
+    read_command = lambda do |session|
+      Array.new(session.gets[1..-3].to_i) do
+        bytes = session.gets[1..-3].to_i
+        arg = session.read(bytes)
+        session.read(2) # Discard \r\n
+        arg
+      end
+    end
+
+    handler = lambda do |session|
+      n = $n
+      $n += 1
+
+      select = read_command.call(session)
+      if select[0].downcase == "select"
+        session.write("+OK\r\n")
+      else
+        raise "Expected SELECT"
+      end
+
+      if !seq.include?(n)
+        while read_command.call(session)
+          session.write("+#{n}\r\n")
+        end
+      end
+    end
+
+    redis_mock_with_handler(handler) do |redis|
+      yield(redis)
+    end
+  end
+
+  def test_retry_on_write_error_by_default
+    close_on_connection([0]) do |redis|
+      assert_equal "1", redis.client.call(["x" * 128 * 1024])
+    end
+  end
+
+  def test_retry_on_write_error_when_wrapped_in_with_reconnect_true
+    close_on_connection([0]) do |redis|
+      redis.with_reconnect(true) do
+        assert_equal "1", redis.client.call(["x" * 128 * 1024])
+      end
+    end
+  end
+
+  def test_dont_retry_on_write_error_when_wrapped_in_with_reconnect_false
+    close_on_connection([0]) do |redis|
+      assert_raise Redis::ConnectionError do
+        redis.with_reconnect(false) do
+          redis.client.call(["x" * 128 * 1024])
+        end
+      end
+    end
+  end
+
+  def test_dont_retry_on_write_error_when_wrapped_in_without_reconnect
+    close_on_connection([0]) do |redis|
+      assert_raise Redis::ConnectionError do
+        redis.without_reconnect do
+          redis.client.call(["x" * 128 * 1024])
+        end
+      end
+    end
+  end
+
   def test_connecting_to_unix_domain_socket
     assert_nothing_raised do
       Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock")).ping

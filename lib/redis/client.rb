@@ -171,7 +171,7 @@ class Redis
               command[0] = command_map[command.first]
             end
 
-            connection.write(command)
+            write(command)
           end
 
           yield if block_given?
