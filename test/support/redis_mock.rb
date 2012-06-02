@@ -28,32 +28,9 @@ module RedisMock
         session = @server.accept
 
         begin
-          while line = session.gets
-            parts = Array.new(line[1..-3].to_i) do
-              bytes = session.gets[1..-3].to_i
-              argument = session.read(bytes)
-              session.read(2) # Discard \r\n
-              argument
-            end
-
-            response = yield(*parts)
-
-            # Convert a nil response to :close
-            response ||= :close
-
-            if response == :exit
-              session.shutdown(Socket::SHUT_RDWR)
-              return # exit server body
-            elsif response == :close
-              session.shutdown(Socket::SHUT_RDWR)
-              break # exit connection body
-            else
-              session.write(response)
-              session.write("\r\n") unless response.end_with?("\r\n")
-            end
-          end
-        rescue Errno::ECONNRESET
-          # Ignore client closing the connection
+          return if yield(session) == :exit
+        ensure
+          session.shutdown(Socket::SHUT_RDWR)
         end
       end
     rescue => ex
@@ -68,25 +45,66 @@ module RedisMock
 
   # Starts a mock Redis server in a thread.
   #
-  # The server will reply with a `+OK` to all commands, but you can
-  # customize it by providing a hash. For example:
+  # The server will use the lambda handler passed as argument to handle
+  # connections. For example:
   #
-  #     RedisMock.start(:ping => lambda { "+PONG" }) do
-  #       assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
-  #     end
+  #   handler = lambda { |session| session.close }
+  #   RedisMock.start_with_handler(handler) do
+  #     # Every connection will be closed immediately
+  #   end
   #
-  def self.start(commands = {})
+  def self.start_with_handler(blk)
     server = Server.new(MOCK_PORT)
 
     begin
-      server.start do |command, *args|
-        (commands[command.to_sym] || lambda { |*_| "+OK" }).call(*args)
-      end
+      server.start(&blk)
 
       yield(MOCK_PORT)
 
     ensure
       server.shutdown
     end
+  end
+
+  # Starts a mock Redis server in a thread.
+  #
+  # The server will reply with a `+OK` to all commands, but you can
+  # customize it by providing a hash. For example:
+  #
+  #   RedisMock.start(:ping => lambda { "+PONG" }) do
+  #     assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
+  #   end
+  #
+  def self.start(commands = {}, &blk)
+    handler = lambda do |session|
+      while line = session.gets
+        argv = Array.new(line[1..-3].to_i) do
+          bytes = session.gets[1..-3].to_i
+          arg = session.read(bytes)
+          session.read(2) # Discard \r\n
+          arg
+        end
+
+        command = argv.shift
+        blk = commands[command.to_sym]
+        blk ||= lambda { |*_| "+OK" }
+
+        response = blk.call(*argv)
+
+        # Convert a nil response to :close
+        response ||= :close
+
+        if response == :exit
+          break :exit
+        elsif response == :close
+          break :close
+        else
+          session.write(response)
+          session.write("\r\n") unless response.end_with?("\r\n")
+        end
+      end
+    end
+
+    start_with_handler(handler, &blk)
   end
 end
