@@ -1,3 +1,9 @@
+# 3.0.1
+
+* Fix reconnect logic not kicking in on a write error.
+
+    See 427dbd52928af452f35aa0a57b621bee56cdcb18 and #238.
+
 # 3.0.0
 
 ### Upgrading from 2.x to 3.0
