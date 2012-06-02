@@ -30,7 +30,7 @@ module RedisMock
         begin
           return if yield(session) == :exit
         ensure
-          session.shutdown(Socket::SHUT_RDWR)
+          session.close
         end
       end
     rescue => ex
