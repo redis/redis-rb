@@ -1950,7 +1950,7 @@ class Redis
 
       if block_given?
         begin
-          yield
+          yield(self)
         rescue ConnectionError
           raise
         rescue StandardError
