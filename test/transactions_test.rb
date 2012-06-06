@@ -188,8 +188,11 @@ class TestTransactions < Test::Unit::TestCase
   end
 
   def test_watch_with_a_block_and_an_unmodified_key
-    result = r.watch "foo" do
-      r.multi do |multi|
+    result = r.watch "foo" do |rd|
+
+      assert_same r, rd
+
+      rd.multi do |multi|
         multi.set "foo", "s1"
       end
     end
@@ -199,9 +202,12 @@ class TestTransactions < Test::Unit::TestCase
   end
 
   def test_watch_with_a_block_and_a_modified_key
-    result = r.watch "foo" do
-      r.set "foo", "s1"
-      r.multi do |multi|
+    result = r.watch "foo" do |rd|
+
+      assert_same r, rd
+
+      rd.set "foo", "s1"
+      rd.multi do |multi|
         multi.set "foo", "s2"
       end
     end
