@@ -28,12 +28,19 @@ class Redis
         @reader.feed(data)
 
         begin
-          until (reply = @reader.gets) == false
-            reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-            @req.succeed [:reply, reply]
-          end
+          reply = @reader.gets
+          return if reply == false # hi-redis returns false if the reply is incomplete
         rescue RuntimeError => err
+          # exception raised, fail with a protocol error
           @req.fail [:error, ProtocolError.new(err.message)]
+          return
+        end
+        
+        if reply.is_a?(RuntimeError)
+          # exception returned, fail with a command error
+          @req.fail [:error, CommandError.new(reply.message)]
+        else
+          @req.succeed [:reply, reply]
         end
       end
 
