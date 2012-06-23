@@ -27,13 +27,18 @@ class Redis
       def receive_data(data)
         @reader.feed(data)
 
-        begin
-          until (reply = @reader.gets) == false
-            reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-            @req.succeed [:reply, reply]
+        loop do
+          begin
+            reply = @reader.gets
+          rescue RuntimeError => err
+            @req.fail [:error, ProtocolError.new(err.message)]
+            break
           end
-        rescue RuntimeError => err
-          @req.fail [:error, ProtocolError.new(err.message)]
+
+          break if reply == false
+
+          reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
+          @req.succeed [:reply, reply]
         end
       end
 
