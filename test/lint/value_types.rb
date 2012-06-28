@@ -32,30 +32,30 @@ module Lint
 
     def test_expire
       r.set("foo", "s1")
-      assert r.expire("foo", 1)
-      assert_in_range 0..1, r.ttl("foo")
+      assert r.expire("foo", 2)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_pexpire
       return if version < "2.5.4"
 
       r.set("foo", "s1")
-      assert r.pexpire("foo", 1000)
-      assert_in_range 0..1, r.ttl("foo")
+      assert r.pexpire("foo", 2000)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_expireat
       r.set("foo", "s1")
-      assert r.expireat("foo", (Time.now + 1).to_i)
-      assert_in_range 0..1, r.ttl("foo")
+      assert r.expireat("foo", (Time.now + 2).to_i)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_pexpireat
       return if version < "2.5.4"
 
       r.set("foo", "s1")
-      assert r.pexpireat("foo", (Time.now + 1).to_i * 1_000)
-      assert_in_range 0..1, r.ttl("foo")
+      assert r.pexpireat("foo", (Time.now + 2).to_i * 1_000)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_persist
@@ -68,16 +68,16 @@ module Lint
 
     def test_ttl
       r.set("foo", "s1")
-      r.expire("foo", 1)
-      assert_in_range 0..1, r.ttl("foo")
+      r.expire("foo", 2)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_pttl
       return if version < "2.5.4"
 
       r.set("foo", "s1")
-      r.expire("foo", 1)
-      assert_in_range 1..1000, r.pttl("foo")
+      r.expire("foo", 2)
+      assert_in_range 1..2000, r.pttl("foo")
     end
 
     def test_move
