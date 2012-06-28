@@ -2,6 +2,7 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
+require "rbconfig"
 
 class Redis
   module Connection
@@ -79,22 +80,26 @@ class Redis
         end
       end
 
-      class UNIXSocket < ::UNIXSocket
+      if RbConfig::CONFIG["host_os"] !~ /mswin|windows/i
 
-        # This class doesn't include the mixin, because JRuby raises
-        # Errno::EAGAIN on #read_nonblock even when IO.select says it is
-        # readable. This behavior shows in 1.6.6 in both 1.8 and 1.9 mode.
-        # Therefore, fall back on the default Unix socket implementation,
-        # without timeouts.
+        class UNIXSocket < ::UNIXSocket
 
-        def self.connect(path, timeout)
-          Timeout.timeout(timeout) do
-            sock = new(path)
-            sock
+          # This class doesn't include the mixin, because JRuby raises
+          # Errno::EAGAIN on #read_nonblock even when IO.select says it is
+          # readable. This behavior shows in 1.6.6 in both 1.8 and 1.9 mode.
+          # Therefore, fall back on the default Unix socket implementation,
+          # without timeouts.
+
+          def self.connect(path, timeout)
+            Timeout.timeout(timeout) do
+              sock = new(path)
+              sock
+            end
+          rescue Timeout::Error
+            raise TimeoutError
           end
-        rescue Timeout::Error
-          raise TimeoutError
         end
+
       end
 
     else
