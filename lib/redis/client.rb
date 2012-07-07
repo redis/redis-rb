@@ -45,7 +45,7 @@ class Redis
       @options[:db] = db.to_i
     end
 
-    attr :logger
+    attr_accessor :logger
     attr :connection
     attr :command_map
 
