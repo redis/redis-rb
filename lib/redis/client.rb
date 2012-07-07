@@ -46,8 +46,8 @@ class Redis
     end
 
     attr_accessor :logger
-    attr :connection
-    attr :command_map
+    attr_reader :connection
+    attr_reader :command_map
 
     def initialize(options = {})
       @options = _parse_options(options)
