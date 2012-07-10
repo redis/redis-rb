@@ -282,6 +282,19 @@ class Redis
     end
   end
 
+  # Execute raw redis command
+  #
+  # @param [String] command
+  # @return [String]
+  def execute(command)
+    synchronize do |client|
+      # A whitespace is appended to command because the library
+      # splits commands by whitespaces, so commands like "get :key"
+      # won't work without trailing whitespace.
+      client.call "#{command} ".split
+    end
+  end
+
   # Remove the expiration from a key.
   #
   # @param [String] key
