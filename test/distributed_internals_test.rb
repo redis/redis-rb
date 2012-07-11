@@ -38,4 +38,6 @@ class TestDistributedInternals < Test::Unit::TestCase
     assert_equal redis.nodes.last.client.id,  "test1"
     assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
   end
+
+
 end

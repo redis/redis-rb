@@ -18,7 +18,8 @@ class Redis
     def initialize(urls_or_config_hashes, options = {})
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
-      @ring = HashRing.new urls_or_config_hashes.map{|node_config| Redis.new configure_node(node_config) }
+      @ring = HashRing.new
+      urls_or_config_hashes.map{|node_config| add_node(node_config) } 
       @subscribed_node = nil
     end
 
@@ -31,7 +32,12 @@ class Redis
     end
 
     def add_node(url_or_config_hash)
-      @ring.add_node Redis.new( configure_node(url_or_config_hash) )
+      options = if url_or_config_hash.kind_of? Hash
+       @default_options.merge(url_or_config_hash) 
+      else
+        @default_options.merge( :url => url_or_config_hash )
+      end
+      @ring.add_node Redis.new( options )
     end
 
     # Change the selected database for the current connection.
@@ -778,11 +784,6 @@ class Redis
     end
 
   protected
-
-    def configure_node( url_or_config_hash )
-      return @default_options.merge(url_or_config_hash) if url_or_config_hash.kind_of? Hash
-      @default_options.merge( :url => url_or_config_hash )
-    end
 
     def on_each_node(command, *args)
       nodes.map do |node|
