@@ -15,10 +15,11 @@ class Redis
 
     attr_reader :ring
 
-    def initialize(urls, options = {})
+    def initialize(node_configs, options = {})
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
-      @ring = HashRing.new urls.map { |url| Redis.new(options.merge(:url => url)) }
+      @ring = HashRing.new
+      node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
     end
 
@@ -30,8 +31,10 @@ class Redis
       @ring.nodes
     end
 
-    def add_node(url)
-      @ring.add_node Redis.new(@default_options.merge(:url => url))
+    def add_node(options)
+      options = { :url => options } if options.is_a?(String)
+      options = @default_options.merge(options)
+      @ring.add_node Redis.new( options )
     end
 
     # Change the selected database for the current connection.
