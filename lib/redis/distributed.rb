@@ -19,7 +19,7 @@ class Redis
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
       @ring = HashRing.new
-      node_configs.map { |node_config| add_node(node_config) }
+      node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
     end
 
