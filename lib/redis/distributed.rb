@@ -19,7 +19,7 @@ class Redis
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
       @ring = HashRing.new
-      urls_or_config_hashes.map{|node_config| add_node(node_config) } 
+      urls_or_config_hashes.map { |node_config| add_node(node_config) }
       @subscribed_node = nil
     end
 
@@ -31,12 +31,9 @@ class Redis
       @ring.nodes
     end
 
-    def add_node(url_or_config_hash)
-      options = if url_or_config_hash.kind_of? Hash
-       @default_options.merge(url_or_config_hash) 
-      else
-        @default_options.merge( :url => url_or_config_hash )
-      end
+    def add_node(options)
+      options = { :url => options } if options.is_a?(String)
+      options = @default_options.merge(options)
       @ring.add_node Redis.new( options )
     end
 
