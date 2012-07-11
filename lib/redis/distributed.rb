@@ -15,11 +15,11 @@ class Redis
 
     attr_reader :ring
 
-    def initialize(urls_or_config_hashes, options = {})
+    def initialize(node_configs, options = {})
       @tag = options.delete(:tag) || /^\{(.+?)\}/
       @default_options = options
       @ring = HashRing.new
-      urls_or_config_hashes.map { |node_config| add_node(node_config) }
+      node_configs.map { |node_config| add_node(node_config) }
       @subscribed_node = nil
     end
 
