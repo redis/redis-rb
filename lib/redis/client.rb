@@ -336,9 +336,6 @@ class Redis
       end
 
       options = defaults.merge(options)
-      p options
-      p options[:port]
-      p options["port"]
 
       if options[:path]
         options[:scheme] = "unix"
