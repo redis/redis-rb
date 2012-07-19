@@ -16,7 +16,7 @@ class TestUrlParam < Test::Unit::TestCase
   end
 
   def test_allows_to_pass_in_a_url
-    redis = Redis.new :url => "redis://:secr3t@foo.com:999/2"
+    redis = Redis.new "url" => "redis://:secr3t@foo.com:999/2"
 
     assert_equal "foo.com", redis.client.host
     assert_equal 999, redis.client.port

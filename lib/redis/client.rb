@@ -293,7 +293,24 @@ class Redis
       end
     end
 
+    # convert all keys to symbols, returning new hash
+    # inspired by activesupport
+    def symbolize_keys(hash)
+      keys = hash.keys
+      ret = {}
+      keys.each do |key|
+        v = hash[key]
+        if v.is_a?(Hash)
+          v = symbolize_keys(v)
+        end
+        ret[(key.to_sym rescue key) || key] = v
+      end
+      ret
+    end
+
+
     def _parse_options(options)
+      options = symbolize_keys(options)
       defaults = DEFAULTS.dup
 
       url = options[:url] || ENV["REDIS_URL"]

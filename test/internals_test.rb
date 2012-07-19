@@ -67,9 +67,36 @@ class TestInternals < Test::Unit::TestCase
     assert_equal 1, Redis.current.client.db
   end
 
+  def test_redis_current_string_opts
+    # set in test above
+    assert_equal "127.0.0.1", Redis.current.client.host
+    assert_equal 6380, Redis.current.client.port
+    assert_equal 1, Redis.current.client.db
+
+    Redis.current = Redis.new(OPTIONS.merge("port" => 6382, "db" => 2))
+
+    t = Thread.new do
+      assert_equal "127.0.0.1", Redis.current.client.host
+      assert_equal 6382, Redis.current.client.port
+      assert_equal 2, Redis.current.client.db
+    end
+
+    t.join
+
+    assert_equal "127.0.0.1", Redis.current.client.host
+    assert_equal 6382, Redis.current.client.port
+    assert_equal 2, Redis.current.client.db
+  end
+
+
   def test_default_id_with_host_and_port
     redis = Redis.new(OPTIONS.merge(:host => "host", :port => "1234", :db => 0))
     assert_equal "redis://host:1234/0", redis.client.id
+  end
+
+  def test_default_id_with_host_and_port_string_opts
+    redis = Redis.new(OPTIONS.merge("host" => "host2", "port" => "1235", "db" => 1))
+    assert_equal "redis://host2:1235/1", redis.client.id
   end
 
   def test_default_id_with_host_and_port_and_explicit_scheme
