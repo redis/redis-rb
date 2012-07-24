@@ -24,6 +24,15 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal "secr3t", redis.client.password
   end
 
+  def test_allows_to_pass_in_a_url_with_string_key
+    redis = Redis.new "url" => "redis://:secr3t@foo.com:999/2"
+
+    assert_equal "foo.com", redis.client.host
+    assert_equal 999, redis.client.port
+    assert_equal 2, redis.client.db
+    assert_equal "secr3t", redis.client.password
+  end
+
   def test_override_url_if_path_option_is_passed
     redis = Redis.new :url => "redis://:secr3t@foo.com/foo:999/2", :path => "/tmp/redis.sock"
 
@@ -32,8 +41,25 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal nil, redis.client.port
   end
 
+  def test_override_url_if_path_option_is_passed_with_string_key
+    redis = Redis.new :url => "redis://:secr3t@foo.com/foo:999/2", "path" => "/tmp/redis.sock"
+
+    assert_equal "/tmp/redis.sock", redis.client.path
+    assert_equal nil, redis.client.host
+    assert_equal nil, redis.client.port
+  end
+
   def test_overrides_url_if_another_connection_option_is_passed
     redis = Redis.new :url => "redis://:secr3t@foo.com:999/2", :port => 1000
+
+    assert_equal "foo.com", redis.client.host
+    assert_equal 1000, redis.client.port
+    assert_equal 2, redis.client.db
+    assert_equal "secr3t", redis.client.password
+  end
+
+  def test_overrides_url_if_another_connection_option_is_passed_with_string_key
+    redis = Redis.new :url => "redis://:secr3t@foo.com:999/2", "port" => 1000
 
     assert_equal "foo.com", redis.client.host
     assert_equal 1000, redis.client.port

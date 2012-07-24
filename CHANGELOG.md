@@ -1,9 +1,11 @@
 # 3.0.2 (unreleased)
 
+* Allow string keys in options hash passed to `Redis.new` or
+  `Redis.connect`.
+
 * Fix uncaught error triggering unrelated error (synchrony driver).
 
     See f7ffd5f1a628029691084de69e5b46699bb8b96d and #248.
-
 
 # 3.0.1
 
