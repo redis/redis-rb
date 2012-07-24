@@ -4,6 +4,7 @@ class Redis
   class Client
 
     DEFAULTS = {
+      :url => nil,
       :scheme => "redis",
       :host => "127.0.0.1",
       :port => 6379,
@@ -11,6 +12,8 @@ class Redis
       :timeout => 5.0,
       :password => nil,
       :db => 0,
+      :driver => nil,
+      :id => nil,
     }
 
     def scheme
@@ -295,6 +298,12 @@ class Redis
 
     def _parse_options(options)
       defaults = DEFAULTS.dup
+      options = options.dup
+
+      defaults.keys.each do |key|
+        # Symbolize only keys that are needed
+        options[key] = options[key.to_s] if options.has_key?(key.to_s)
+      end
 
       url = options[:url] || ENV["REDIS_URL"]
 
