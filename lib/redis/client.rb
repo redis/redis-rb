@@ -4,6 +4,7 @@ class Redis
   class Client
 
     DEFAULTS = {
+      :url => lambda { ENV["REDIS_URL"] },
       :scheme => "redis",
       :host => "127.0.0.1",
       :port => 6379,
@@ -11,6 +12,8 @@ class Redis
       :timeout => 5.0,
       :password => nil,
       :db => 0,
+      :driver => nil,
+      :id => nil,
     }
 
     def scheme
@@ -295,8 +298,19 @@ class Redis
 
     def _parse_options(options)
       defaults = DEFAULTS.dup
+      options = options.dup
 
-      url = options[:url] || ENV["REDIS_URL"]
+      defaults.keys.each do |key|
+        # Fill in defaults if needed
+        if defaults[key].respond_to?(:call)
+          defaults[key] = defaults[key].call
+        end
+
+        # Symbolize only keys that are needed
+        options[key] = options[key.to_s] if options.has_key?(key.to_s)
+      end
+
+      url = options[:url] || defaults[:url]
 
       # Override defaults from URL if given
       if url
