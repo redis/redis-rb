@@ -1,4 +1,5 @@
 require "redis/errors"
+require "socket"
 
 class Redis
   class Client
@@ -14,6 +15,7 @@ class Redis
       :db => 0,
       :driver => nil,
       :id => nil,
+      :tcp_keepalive => 0
     }
 
     def scheme
@@ -349,6 +351,25 @@ class Redis
       options[:timeout] = options[:timeout].to_f
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
+
+      if options[:tcp_keepalive].is_a? Hash
+        options[:tcp_keepalive][:time]   ||= 40
+        options[:tcp_keepalive][:intvl]  ||= 10
+        options[:tcp_keepalive][:probes] ||= 2
+
+        options[:tcp_keepalive][:time]   = options[:tcp_keepalive][:time].to_i
+        options[:tcp_keepalive][:intvl]  = options[:tcp_keepalive][:intvl].to_i
+        options[:tcp_keepalive][:probes] = options[:tcp_keepalive][:probes].to_i
+
+      elsif options[:tcp_keepalive].to_i >= 60
+        options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 20, :intvl => 10, :probes => 2}
+
+      elsif options[:tcp_keepalive].to_i >= 30
+        options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 10, :intvl => 5, :probes => 2}
+        
+      elsif options[:tcp_keepalive].to_i >= 5
+        options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 2, :intvl => 2, :probes => 1}
+      end
 
       options
     end

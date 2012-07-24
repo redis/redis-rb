@@ -174,7 +174,16 @@ class Redis
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
         end
-
+        
+        keepalive = nil
+        
+        if config[:tcp_keepalive].is_a?(Hash) && [:SOL_SOCKET, :SO_KEEPALIVE, :SOL_TCP, :TCP_KEEPIDLE, :TCP_KEEPINTVL, :TCP_KEEPCNT].all?{|c| Socket.const_defined? c}
+          sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
+          sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE, config[:tcp_keepalive][:time])
+          sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL, config[:tcp_keepalive][:intvl])
+          sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT, config[:tcp_keepalive][:probes])
+        end
+        
         instance = new(sock)
         instance.timeout = config[:timeout]
         instance
