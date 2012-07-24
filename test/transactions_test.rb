@@ -147,6 +147,22 @@ class TestTransactions < Test::Unit::TestCase
     assert_equal "s1", r.get("foo")
   end
 
+  def test_raise_command_error_when_max_memory_reached
+    mm = r.config("get", "maxmemory")[1]
+    begin
+      r.config("set", "maxmemory", 1)
+      assert_raise(Redis::CommandError) do
+        r.multi do |m|
+          r.set("foo", "s1")
+          r.set("bar", "s2")
+        end
+      end
+    ensure
+      r.discard # required since MULTI is left open
+      r.config("set", "maxmemory", mm)
+    end
+  end
+
   def test_watch_with_an_unmodified_key
     r.watch "foo"
     r.multi do |multi|

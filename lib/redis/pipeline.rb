@@ -70,6 +70,9 @@ class Redis
       def finish(replies)
         return if replies.last.nil? # The transaction failed because of WATCH.
 
+        # EXEC command failed.
+        raise replies.last if replies.last.is_a?(::RuntimeError)
+
         if replies.last.size < futures.size - 2
           # Some command wasn't recognized by Redis.
           raise replies.detect { |r| r.kind_of?(::RuntimeError) }
