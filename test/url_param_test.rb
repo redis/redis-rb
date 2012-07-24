@@ -67,6 +67,24 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal "secr3t", redis.client.password
   end
 
+  def test_does_not_overrides_url_if_a_nil_option_is_passed
+    redis = Redis.new :url => "redis://:secr3t@foo.com:999/2", :port => nil
+
+    assert_equal "foo.com", redis.client.host
+    assert_equal 999, redis.client.port
+    assert_equal 2, redis.client.db
+    assert_equal "secr3t", redis.client.password
+  end
+
+  def test_does_not_overrides_url_if_a_nil_option_is_passed_with_string_key
+    redis = Redis.new :url => "redis://:secr3t@foo.com:999/2", "port" => nil
+
+    assert_equal "foo.com", redis.client.host
+    assert_equal 999, redis.client.port
+    assert_equal 2, redis.client.db
+    assert_equal "secr3t", redis.client.password
+  end
+
   def test_does_not_modify_the_passed_options
     options = { :url => "redis://:secr3t@foo.com:999/2" }
 

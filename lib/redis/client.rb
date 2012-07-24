@@ -332,7 +332,10 @@ class Redis
         end
       end
 
-      options = defaults.merge(options)
+      # Use default when option is not specified or nil
+      defaults.keys.each do |key|
+        options[key] ||= defaults[key]
+      end
 
       if options[:path]
         options[:scheme] = "unix"
