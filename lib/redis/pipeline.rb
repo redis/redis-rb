@@ -73,11 +73,11 @@ class Redis
         return if exec.nil? # The transaction failed because of WATCH.
 
         # EXEC command failed.
-        raise exec if exec.is_a?(::RuntimeError)
+        raise exec if exec.is_a?(CommandError)
 
         if exec.size < futures.size - 2
           # Some command wasn't recognized by Redis.
-          raise replies.detect { |r| r.kind_of?(::RuntimeError) }
+          raise replies.detect { |r| r.is_a?(CommandError) }
         end
 
         super(exec) do |reply|
