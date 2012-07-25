@@ -147,6 +147,16 @@ class TestTransactions < Test::Unit::TestCase
     assert_equal "s1", r.get("foo")
   end
 
+  def test_raise_command_error_when_exec_fails
+    redis_mock(:exec => lambda { |*_| "-ERROR" }) do |redis|
+      assert_raise(Redis::CommandError) do
+        redis.multi do |m|
+          m.set "foo", "s1"
+        end
+      end
+    end
+  end
+
   def test_watch_with_an_unmodified_key
     r.watch "foo"
     r.multi do |multi|
