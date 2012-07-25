@@ -68,17 +68,19 @@ class Redis
 
     class Multi < self
       def finish(replies)
-        return if replies.last.nil? # The transaction failed because of WATCH.
+        exec = replies.last
+
+        return if exec.nil? # The transaction failed because of WATCH.
 
         # EXEC command failed.
-        raise replies.last if replies.last.is_a?(::RuntimeError)
+        raise exec if exec.is_a?(::RuntimeError)
 
-        if replies.last.size < futures.size - 2
+        if exec.size < futures.size - 2
           # Some command wasn't recognized by Redis.
           raise replies.detect { |r| r.kind_of?(::RuntimeError) }
         end
 
-        super(replies.last) do |reply|
+        super(exec) do |reply|
           # Because an EXEC returns nested replies, hiredis won't be able to
           # convert an error reply to a CommandError instance itself. This is
           # specific to MULTI/EXEC, so we solve this here.
