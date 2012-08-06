@@ -352,23 +352,24 @@ class Redis
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
 
-      if options[:tcp_keepalive].is_a? Hash
-        options[:tcp_keepalive][:time]   ||= 40
-        options[:tcp_keepalive][:intvl]  ||= 10
-        options[:tcp_keepalive][:probes] ||= 2
+      case options[:tcp_keepalive]
+      when Hash
+        [:time, :intvl, :probes].each do |key|
+          unless options[:tcp_keepalive][key].is_a?(Fixnum)
+            raise "Expected the #{key.inspect} key in :tcp_keepalive to be a Fixnum"
+          end
+        end
 
-        options[:tcp_keepalive][:time]   = options[:tcp_keepalive][:time].to_i
-        options[:tcp_keepalive][:intvl]  = options[:tcp_keepalive][:intvl].to_i
-        options[:tcp_keepalive][:probes] = options[:tcp_keepalive][:probes].to_i
+      when Fixnum
+        if options[:tcp_keepalive] >= 60
+          options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 20, :intvl => 10, :probes => 2}
 
-      elsif options[:tcp_keepalive].to_i >= 60
-        options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 20, :intvl => 10, :probes => 2}
-
-      elsif options[:tcp_keepalive].to_i >= 30
-        options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 10, :intvl => 5, :probes => 2}
+        elsif options[:tcp_keepalive] >= 30
+          options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 10, :intvl => 5, :probes => 2}
         
-      elsif options[:tcp_keepalive].to_i >= 5
-        options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 2, :intvl => 2, :probes => 1}
+        elsif options[:tcp_keepalive] >= 5
+          options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 2, :intvl => 2, :probes => 1}
+        end
       end
 
       options
