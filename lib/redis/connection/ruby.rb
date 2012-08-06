@@ -196,7 +196,6 @@ class Redis
           # NO-OP
         end
       end
-      
 
       def initialize(sock)
         @sock = sock
