@@ -174,7 +174,7 @@ class Redis
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
         end
-        
+
         keepalive = nil
         
         if config[:tcp_keepalive].is_a?(Hash) && [:SOL_SOCKET, :SO_KEEPALIVE, :SOL_TCP, :TCP_KEEPIDLE, :TCP_KEEPINTVL, :TCP_KEEPCNT].all?{|c| Socket.const_defined? c}
