@@ -191,7 +191,7 @@ gem "hiredis", "~> 0.4.5"
 gem "em-synchrony"
 ```
 
-When instantiating the client object, specify hiredis:
+When instantiating the client object, specify synchrony:
 
 ```ruby
 redis = Redis.new(:driver => :synchrony)
