@@ -1939,7 +1939,7 @@ class Redis
   # @see #multi
   def watch(*keys)
     synchronize do |client|
-      client.call([:watch, *keys])
+      client.call([:watch] + keys)
 
       if block_given?
         begin
