@@ -149,7 +149,7 @@ class Redis
 
   def debug(*args)
     synchronize do |client|
-      client.call([:debug, *args])
+      client.call([:debug] + args)
     end
   end
 
