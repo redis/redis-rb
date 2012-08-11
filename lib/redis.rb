@@ -1761,7 +1761,7 @@ class Redis
   # @see #mapped_hmget
   def hmget(key, *fields, &blk)
     synchronize do |client|
-      client.call([:hmget, key, *fields], &blk)
+      client.call([:hmget, key] + fields, &blk)
     end
   end
 
