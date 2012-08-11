@@ -1393,7 +1393,7 @@ class Redis
     args << "WITHSCORES" if with_scores
 
     synchronize do |client|
-      client.call([:zrange, key, start, stop, *args]) do |reply|
+      client.call([:zrange, key, start, stop] + args) do |reply|
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
@@ -1425,7 +1425,7 @@ class Redis
     args << "WITHSCORES" if with_scores
 
     synchronize do |client|
-      client.call([:zrevrange, key, start, stop, *args]) do |reply|
+      client.call([:zrevrange, key, start, stop] + args) do |reply|
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
