@@ -1634,13 +1634,13 @@ class Redis
     args = []
 
     weights = options[:weights]
-    args.concat ["WEIGHTS", *weights] if weights
+    args.concat(["WEIGHTS"] + weights) if weights
 
     aggregate = options[:aggregate]
-    args.concat ["AGGREGATE", aggregate] if aggregate
+    args.concat(["AGGREGATE", aggregate]) if aggregate
 
     synchronize do |client|
-      client.call([:zinterstore, destination, keys.size, *(keys + args)])
+      client.call([:zinterstore, destination, keys.size] + keys + args)
     end
   end
 
@@ -1661,13 +1661,13 @@ class Redis
     args = []
 
     weights = options[:weights]
-    args.concat ["WEIGHTS", *weights] if weights
+    args.concat(["WEIGHTS"] + weights) if weights
 
     aggregate = options[:aggregate]
-    args.concat ["AGGREGATE", aggregate] if aggregate
+    args.concat(["AGGREGATE", aggregate]) if aggregate
 
     synchronize do |client|
-      client.call([:zunionstore, destination, keys.size, *(keys + args)])
+      client.call([:zunionstore, destination, keys.size] + keys + args)
     end
   end
 
