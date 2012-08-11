@@ -17,11 +17,11 @@ class Redis
     end
 
     def unsubscribe(*channels)
-      call [:unsubscribe, *channels]
+      call([:unsubscribe, *channels])
     end
 
     def punsubscribe(*channels)
-      call [:punsubscribe, *channels]
+      call([:punsubscribe, *channels])
     end
 
   protected
