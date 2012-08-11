@@ -1779,11 +1779,7 @@ class Redis
   def mapped_hmget(key, *fields)
     hmget(key, *fields) do |reply|
       if reply.kind_of?(Array)
-        hash = Hash.new
-        fields.zip(reply).each do |field, value|
-          hash[field] = value
-        end
-        hash
+        Hash[keys.zip(reply)]
       else
         reply
       end
