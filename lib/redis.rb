@@ -2180,7 +2180,7 @@ class Redis
 
   def method_missing(command, *args)
     synchronize do |client|
-      client.call([command, *args])
+      client.call([command] + args)
     end
   end
 
