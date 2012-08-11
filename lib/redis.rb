@@ -1199,7 +1199,7 @@ class Redis
   # @return [Array<String>] members in the difference
   def sdiff(*keys)
     synchronize do |client|
-      client.call([:sdiff, *keys])
+      client.call([:sdiff] + keys)
     end
   end
 
@@ -1210,7 +1210,7 @@ class Redis
   # @return [Fixnum] number of elements in the resulting set
   def sdiffstore(destination, *keys)
     synchronize do |client|
-      client.call([:sdiffstore, destination, *keys])
+      client.call([:sdiffstore, destination] + keys)
     end
   end
 
@@ -1220,7 +1220,7 @@ class Redis
   # @return [Array<String>] members in the intersection
   def sinter(*keys)
     synchronize do |client|
-      client.call([:sinter, *keys])
+      client.call([:sinter] + keys)
     end
   end
 
@@ -1231,7 +1231,7 @@ class Redis
   # @return [Fixnum] number of elements in the resulting set
   def sinterstore(destination, *keys)
     synchronize do |client|
-      client.call([:sinterstore, destination, *keys])
+      client.call([:sinterstore, destination] + keys)
     end
   end
 
@@ -1241,7 +1241,7 @@ class Redis
   # @return [Array<String>] members in the union
   def sunion(*keys)
     synchronize do |client|
-      client.call([:sunion, *keys])
+      client.call([:sunion] + keys)
     end
   end
 
@@ -1252,7 +1252,7 @@ class Redis
   # @return [Fixnum] number of elements in the resulting set
   def sunionstore(destination, *keys)
     synchronize do |client|
-      client.call([:sunionstore, destination, *keys])
+      client.call([:sunionstore, destination] + keys)
     end
   end
 
