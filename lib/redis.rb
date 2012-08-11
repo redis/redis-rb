@@ -186,7 +186,7 @@ class Redis
           if cmd && cmd.to_s == "commandstats"
             # Extract nested hashes for INFO COMMANDSTATS
             reply = Hash[reply.map do |k, v|
-              v = v.split(",").each { |e| e.split("=") }
+              v = v.split(",").map { |e| e.split("=") }
               [k[/^cmdstat_(.*)$/, 1], Hash[v]]
             end]
           end
