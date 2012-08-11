@@ -673,7 +673,7 @@ class Redis
   #
   # @see #mset
   def mapped_mset(hash)
-    mset(*hash.to_a.flatten)
+    mset(hash.to_a.flatten)
   end
 
   # Set one or more values, only if none of the keys exist.
