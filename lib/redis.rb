@@ -128,9 +128,9 @@ class Redis
   #   property with `CONFIG GET`
   def config(action, *args)
     synchronize do |client|
-      client.call([:config, action, *args]) do |reply|
+      client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
-          Hash[*reply]
+          Hash[reply.each_slice(2).to_a]
         else
           reply
         end
