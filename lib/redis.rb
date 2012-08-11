@@ -658,7 +658,7 @@ class Redis
   # @see #mapped_mset
   def mset(*args)
     synchronize do |client|
-      client.call([:mset, *args])
+      client.call([:mset] + args)
     end
   end
 
