@@ -688,7 +688,7 @@ class Redis
   # @see #mapped_msetnx
   def msetnx(*args)
     synchronize do |client|
-      client.call([:msetnx, *args], &_boolify)
+      client.call([:msetnx] + args, &_boolify)
     end
   end
 
