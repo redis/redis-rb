@@ -2206,7 +2206,7 @@ private
   end
 
   def _subscription(method, channels, block)
-    return @client.call([method, *channels]) if subscribed?
+    return @client.call([method] + channels) if subscribed?
 
     begin
       original, @client = @client, SubscribedClient.new(@client)
