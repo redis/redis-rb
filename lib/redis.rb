@@ -486,22 +486,22 @@ class Redis
     args = []
 
     by = options[:by]
-    args.concat ["BY", by] if by
+    args.concat(["BY", by]) if by
 
     limit = options[:limit]
-    args.concat ["LIMIT", *limit] if limit
+    args.concat(["LIMIT"] + limit) if limit
 
     get = Array(options[:get])
-    args.concat ["GET"].product(get).flatten unless get.empty?
+    args.concat(["GET"].product(get).flatten) unless get.empty?
 
     order = options[:order]
-    args.concat order.split(" ") if order
+    args.concat(order.split(" ")) if order
 
     store = options[:store]
-    args.concat ["STORE", store] if store
+    args.concat(["STORE", store]) if store
 
     synchronize do |client|
-      client.call([:sort, key, *args]) do |reply|
+      client.call([:sort, key] + args) do |reply|
         if get.size > 1
           if reply
             reply.each_slice(get.size).to_a
