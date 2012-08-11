@@ -1734,7 +1734,7 @@ class Redis
   #
   # @see #hmset
   def mapped_hmset(key, hash)
-    hmset(key, *hash.to_a.flatten)
+    hmset(key, hash.to_a.flatten)
   end
 
   # Get the value of a hash field.
