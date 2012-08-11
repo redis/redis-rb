@@ -26,7 +26,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_info_commandstats
-    return if version < "2.9.0"
+    return if version < "2.5.7"
 
     r.config(:resetstat)
     r.ping

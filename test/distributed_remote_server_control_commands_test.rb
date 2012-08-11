@@ -28,7 +28,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_info_commandstats
-    return if version < "2.9.0"
+    return if version < "2.5.7"
 
     r.nodes.each { |n| n.config(:resetstat) }
     r.ping # Executed on every node
