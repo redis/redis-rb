@@ -422,7 +422,7 @@ class Redis
 
   def object(*args)
     synchronize do |client|
-      client.call([:object, *args])
+      client.call([:object] + args)
     end
   end
 
