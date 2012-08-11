@@ -703,7 +703,7 @@ class Redis
   #
   # @see #msetnx
   def mapped_msetnx(hash)
-    msetnx(*hash.to_a.flatten)
+    msetnx(hash.to_a.flatten)
   end
 
   # Get the value of a key.
