@@ -1512,13 +1512,13 @@ class Redis
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
-    args.concat ["WITHSCORES"] if with_scores
+    args.concat(["WITHSCORES"]) if with_scores
 
     limit = options[:limit]
-    args.concat ["LIMIT", *limit] if limit
+    args.concat(["LIMIT"] + limit) if limit
 
     synchronize do |client|
-      client.call([:zrangebyscore, key, min, max, *args]) do |reply|
+      client.call([:zrangebyscore, key, min, max] + args) do |reply|
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
@@ -1550,13 +1550,13 @@ class Redis
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
-    args.concat ["WITHSCORES"] if with_scores
+    args.concat(["WITHSCORES"]) if with_scores
 
     limit = options[:limit]
-    args.concat ["LIMIT", *limit] if limit
+    args.concat(["LIMIT"] + limit) if limit
 
     synchronize do |client|
-      client.call([:zrevrangebyscore, key, max, min, *args]) do |reply|
+      client.call([:zrevrangebyscore, key, max, min] + args) do |reply|
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
