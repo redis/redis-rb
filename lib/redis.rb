@@ -730,7 +730,7 @@ class Redis
   # @see #mapped_mget
   def mget(*keys, &blk)
     synchronize do |client|
-      client.call([:mget, *keys], &blk)
+      client.call([:mget] + keys, &blk)
     end
   end
 
