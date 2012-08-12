@@ -25,7 +25,7 @@ class TestCommandsOnSortedSets < Test::Unit::TestCase
     assert_equal 4, r.zunionstore("foobar", ["foo", "bar"])
     assert_equal ["s1", "s2", "s3", "s4"], r.zrange("foobar", 0, -1)
   end
-
+  
   def test_zunionstore_with_weights
     r.zadd "foo", 1, "s1"
     r.zadd "foo", 3, "s3"
@@ -39,6 +39,17 @@ class TestCommandsOnSortedSets < Test::Unit::TestCase
     assert_equal ["s1", "s2", "s3", "s4"], r.zrange("foobar", 0, -1)
   end
 
+  def test_zrange_with_scores
+    r.zadd "foo", 1, "s1"
+    r.zadd "bar", 2, "s2"
+    r.zadd "baz", 3, "s3"
+    r.zunionstore "foobarbaz", %w(foo bar baz), :weights => %w(-inf inf -1), :with_scores => true
+    raw_res = r.zrange "foobarbaz", 0, -1, :with_scores => true
+    res = {}
+    raw_res.each { |val| res[val[0].to_sym] = val[1] }
+    assert_equal({:s1 => -Float::INFINITY, :s2 => Float::INFINITY, :s3 => -3}, res)
+  end
+  
   def test_zunionstore_with_aggregate
     r.zadd "foo", 1, "s1"
     r.zadd "foo", 2, "s2"

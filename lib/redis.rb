@@ -1397,6 +1397,9 @@ class Redis
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
+              if (inf = score.match /(-)?inf/)
+                score = (inf[1] ? -1 : 1) * Float::INFINITY
+              end
               [member, Float(score)]
             end
           end
