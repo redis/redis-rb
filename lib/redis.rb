@@ -1522,7 +1522,7 @@ class Redis
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
-              [member, Float(score)]
+              [member, _floatify(score)]
             end
           end
         else
