@@ -98,6 +98,22 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
+  driver(:ruby) do
+    def test_tcp_keepalive
+      # Can only be tested on systems that support per-socket keepalive parameters
+      return unless [:SOL_SOCKET, :SO_KEEPALIVE, :SOL_TCP, :TCP_KEEPIDLE, :TCP_KEEPINTVL, :TCP_KEEPCNT].all?{|c| Socket.const_defined? c}
+
+      keepalive = {:time => 20, :intvl => 10, :probes => 5}
+
+      redis = Redis.new(OPTIONS.merge(:tcp_keepalive => keepalive))
+      redis.ping
+
+      assert_equal redis.instance_variable_get(:"@client").connection.instance_variable_get(:"@sock").getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE).int, keepalive[:time]
+      assert_equal redis.instance_variable_get(:"@client").connection.instance_variable_get(:"@sock").getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL).int, keepalive[:intvl]
+      assert_equal redis.instance_variable_get(:"@client").connection.instance_variable_get(:"@sock").getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT).int, keepalive[:probes]
+    end
+  end
+
   def test_time
     return if version < "2.5.4"
 

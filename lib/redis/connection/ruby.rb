@@ -177,7 +177,24 @@ class Redis
 
         instance = new(sock)
         instance.timeout = config[:timeout]
+        instance.set_tcp_keepalive config[:tcp_keepalive]
         instance
+      end
+
+      if [:SOL_SOCKET, :SO_KEEPALIVE, :SOL_TCP, :TCP_KEEPIDLE, :TCP_KEEPINTVL, :TCP_KEEPCNT].all?{|c| Socket.const_defined? c}
+        def set_tcp_keepalive(keepalive)
+          return unless keepalive.is_a?(Hash)
+
+          @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
+          @sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE, keepalive[:time])
+          @sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL, keepalive[:intvl])
+          @sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT, keepalive[:probes])
+        end
+
+      else
+        def set_tcp_keepalive(keepalive)
+          # NO-OP
+        end
       end
 
       def initialize(sock)
