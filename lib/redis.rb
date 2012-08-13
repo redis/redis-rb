@@ -593,7 +593,7 @@ class Redis
   def incrbyfloat(key, increment)
     synchronize do |client|
       client.call([:incrbyfloat, key, increment]) do |reply|
-        Float(reply) if reply
+        _floatify(reply) if reply
       end
     end
   end
@@ -1315,7 +1315,7 @@ class Redis
   def zincrby(key, increment, member)
     synchronize do |client|
       client.call([:zincrby, key, increment, member]) do |reply|
-        Float(reply) if reply
+        _floatify(reply) if reply
       end
     end
   end
@@ -1363,7 +1363,7 @@ class Redis
   def zscore(key, member)
     synchronize do |client|
       client.call([:zscore, key, member]) do |reply|
-        Float(reply) if reply
+        _floatify(reply) if reply
       end
     end
   end
@@ -1397,7 +1397,7 @@ class Redis
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
-              [member, Float(score)]
+              [member, _floatify(score)]
             end
           end
         else
@@ -1429,7 +1429,7 @@ class Redis
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
-              [member, Float(score)]
+              [member, _floatify(score)]
             end
           end
         else
@@ -1522,7 +1522,7 @@ class Redis
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
-              [member, Float(score)]
+              [member, _floatify(score)]
             end
           end
         else
@@ -1560,7 +1560,7 @@ class Redis
         if with_scores
           if reply
             reply.each_slice(2).map do |member, score|
-              [member, Float(score)]
+              [member, _floatify(score)]
             end
           end
         else
@@ -1829,7 +1829,7 @@ class Redis
   def hincrbyfloat(key, field, increment)
     synchronize do |client|
       client.call([:hincrbyfloat, key, field, increment]) do |reply|
-        Float(reply) if reply
+        _floatify(reply) if reply
       end
     end
   end
@@ -2203,6 +2203,14 @@ private
       end
       hash
     }
+  end
+
+  def _floatify(str)
+    if (inf = str.match(/^(-)?inf/i))
+      (inf[1] ? -1 : 1) * Float::INFINITY
+    else
+      Float str
+    end
   end
 
   def _subscription(method, channels, block)
