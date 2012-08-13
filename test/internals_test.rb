@@ -98,6 +98,24 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
+  driver(:ruby) do
+    def test_tcp_keepalive
+      keepalive = {:time => 20, :intvl => 10, :probes => 5}
+
+      redis = Redis.new(OPTIONS.merge(:tcp_keepalive => keepalive))
+      redis.ping
+
+      connection = redis.client.connection
+      actual_keepalive = connection.get_tcp_keepalive
+
+      [:time, :intvl, :probes].each do |key|
+        if actual_keepalive.has_key?(key)
+          assert_equal actual_keepalive[key], keepalive[key]
+        end
+      end
+    end
+  end
+
   def test_time
     return if version < "2.5.4"
 
