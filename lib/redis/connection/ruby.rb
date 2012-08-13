@@ -185,15 +185,26 @@ class Redis
         def set_tcp_keepalive(keepalive)
           return unless keepalive.is_a?(Hash)
 
-          @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
-          @sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE, keepalive[:time])
-          @sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL, keepalive[:intvl])
-          @sock.setsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT, keepalive[:probes])
+          @sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE,  true)
+          @sock.setsockopt(Socket::SOL_TCP,    Socket::TCP_KEEPIDLE,  keepalive[:time])
+          @sock.setsockopt(Socket::SOL_TCP,    Socket::TCP_KEEPINTVL, keepalive[:intvl])
+          @sock.setsockopt(Socket::SOL_TCP,    Socket::TCP_KEEPCNT,   keepalive[:probes])
         end
 
+        def get_tcp_keepalive
+          {
+            :time   => @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE).int,
+            :intvl  => @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL).int,
+            :probes => @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT).int,
+          }
+        end
       else
         def set_tcp_keepalive(keepalive)
-          # NO-OP
+        end
+
+        def get_tcp_keepalive
+          {
+          }
         end
       end
 
