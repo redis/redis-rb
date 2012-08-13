@@ -2,6 +2,8 @@ module Lint
 
   module SortedSets
 
+    Infinity = 1.0/0.0
+
     def test_zadd
       assert_equal 0, r.zcard("foo")
       assert_equal true, r.zadd("foo", 1, "s1")
@@ -63,10 +65,10 @@ module Lint
       assert_equal 11.0, rv
 
       rv = r.zincrby "bar", "-inf", "s1"
-      assert_equal(-Float::INFINITY, rv)
+      assert_equal(-Infinity, rv)
 
       rv = r.zincrby "bar", "+inf", "s2"
-      assert_equal(+Float::INFINITY, rv)
+      assert_equal(+Infinity, rv)
     end
 
     def test_zrank
@@ -96,8 +98,8 @@ module Lint
 
       r.zadd "bar", "-inf", "s1"
       r.zadd "bar", "+inf", "s2"
-      assert_equal [["s1", -Float::INFINITY], ["s2", +Float::INFINITY]], r.zrange("bar", 0, 1, :with_scores => true)
-      assert_equal [["s1", -Float::INFINITY], ["s2", +Float::INFINITY]], r.zrange("bar", 0, 1, :withscores => true)
+      assert_equal [["s1", -Infinity], ["s2", +Infinity]], r.zrange("bar", 0, 1, :with_scores => true)
+      assert_equal [["s1", -Infinity], ["s2", +Infinity]], r.zrange("bar", 0, 1, :withscores => true)
     end
 
     def test_zrevrange
@@ -111,8 +113,8 @@ module Lint
 
       r.zadd "bar", "-inf", "s1"
       r.zadd "bar", "+inf", "s2"
-      assert_equal [["s2", +Float::INFINITY], ["s1", -Float::INFINITY]], r.zrevrange("bar", 0, 1, :with_scores => true)
-      assert_equal [["s2", +Float::INFINITY], ["s1", -Float::INFINITY]], r.zrevrange("bar", 0, 1, :withscores => true)
+      assert_equal [["s2", +Infinity], ["s1", -Infinity]], r.zrevrange("bar", 0, 1, :with_scores => true)
+      assert_equal [["s2", +Infinity], ["s1", -Infinity]], r.zrevrange("bar", 0, 1, :withscores => true)
     end
 
     def test_zrangebyscore
@@ -166,10 +168,10 @@ module Lint
 
       r.zadd "bar", "-inf", "s1"
       r.zadd "bar", "+inf", "s2"
-      assert_equal [["s1", -Float::INFINITY]], r.zrangebyscore("bar", -Float::INFINITY, +Float::INFINITY, :limit => [0, 1], :with_scores => true)
-      assert_equal [["s2", +Float::INFINITY]], r.zrangebyscore("bar", -Float::INFINITY, +Float::INFINITY, :limit => [1, 1], :with_scores => true)
-      assert_equal [["s1", -Float::INFINITY]], r.zrangebyscore("bar", -Float::INFINITY, +Float::INFINITY, :limit => [0, 1], :withscores => true)
-      assert_equal [["s2", +Float::INFINITY]], r.zrangebyscore("bar", -Float::INFINITY, +Float::INFINITY, :limit => [1, 1], :withscores => true)
+      assert_equal [["s1", -Infinity]], r.zrangebyscore("bar", -Infinity, +Infinity, :limit => [0, 1], :with_scores => true)
+      assert_equal [["s2", +Infinity]], r.zrangebyscore("bar", -Infinity, +Infinity, :limit => [1, 1], :with_scores => true)
+      assert_equal [["s1", -Infinity]], r.zrangebyscore("bar", -Infinity, +Infinity, :limit => [0, 1], :withscores => true)
+      assert_equal [["s2", +Infinity]], r.zrangebyscore("bar", -Infinity, +Infinity, :limit => [1, 1], :withscores => true)
     end
 
     def test_zrevrangebyscore_with_withscores
@@ -185,10 +187,10 @@ module Lint
 
       r.zadd "bar", "-inf", "s1"
       r.zadd "bar", "+inf", "s2"
-      assert_equal [["s2", +Float::INFINITY]], r.zrevrangebyscore("bar", +Float::INFINITY, -Float::INFINITY, :limit => [0, 1], :with_scores => true)
-      assert_equal [["s1", -Float::INFINITY]], r.zrevrangebyscore("bar", +Float::INFINITY, -Float::INFINITY, :limit => [1, 1], :with_scores => true)
-      assert_equal [["s2", +Float::INFINITY]], r.zrevrangebyscore("bar", +Float::INFINITY, -Float::INFINITY, :limit => [0, 1], :withscores => true)
-      assert_equal [["s1", -Float::INFINITY]], r.zrevrangebyscore("bar", +Float::INFINITY, -Float::INFINITY, :limit => [1, 1], :withscores => true)
+      assert_equal [["s2", +Infinity]], r.zrevrangebyscore("bar", +Infinity, -Infinity, :limit => [0, 1], :with_scores => true)
+      assert_equal [["s1", -Infinity]], r.zrevrangebyscore("bar", +Infinity, -Infinity, :limit => [1, 1], :with_scores => true)
+      assert_equal [["s2", +Infinity]], r.zrevrangebyscore("bar", +Infinity, -Infinity, :limit => [0, 1], :withscores => true)
+      assert_equal [["s1", -Infinity]], r.zrevrangebyscore("bar", +Infinity, -Infinity, :limit => [1, 1], :withscores => true)
     end
 
     def test_zcard
@@ -209,8 +211,8 @@ module Lint
 
       r.zadd "bar", "-inf", "s1"
       r.zadd "bar", "+inf", "s2"
-      assert_equal(-Float::INFINITY, r.zscore("bar", "s1"))
-      assert_equal(+Float::INFINITY, r.zscore("bar", "s2"))
+      assert_equal(-Infinity, r.zscore("bar", "s1"))
+      assert_equal(+Infinity, r.zscore("bar", "s2"))
     end
 
     def test_zremrangebyrank

@@ -2207,7 +2207,7 @@ private
 
   def _floatify(str)
     if (inf = str.match(/^(-)?inf/i))
-      (inf[1] ? -1 : 1) * Float::INFINITY
+      (inf[1] ? -1.0 : 1.0) / 0.0
     else
       Float str
     end
