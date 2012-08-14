@@ -96,7 +96,7 @@ class Redis
     synchronize do |client|
       begin
         client.call([:quit])
-      rescue ConnectionError
+      rescue ConnectionError, InheritedError
       ensure
         client.disconnect
       end
