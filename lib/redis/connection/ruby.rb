@@ -2,7 +2,6 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
-require "rbconfig"
 
 class Redis
   module Connection
@@ -80,7 +79,7 @@ class Redis
         end
       end
 
-      if RbConfig::CONFIG["host_os"] !~ /mswin|windows/i
+      if defined?(::UNIXSocket)
 
         class UNIXSocket < ::UNIXSocket
 
