@@ -1100,21 +1100,11 @@ class Redis
   #
   # @param [String] key
   # @param [String, Array<String>] member one member, or array of members
-  # @return [Boolean, Fixnum] `Boolean` when a single member is specified,
-  #   holding whether or not adding the member succeeded, or `Fixnum` when an
-  #   array of members is specified, holding the number of members that were
-  #   successfully added
+  # @return [Fixnum] holding the number of members that were
+  #   successfully added to the set, but were not already in the set.
   def sadd(key, member)
     synchronize do |client|
-      client.call([:sadd, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          _boolify.call(reply)
-        end
-      end
+      client.call([:sadd, key, member])
     end
   end
 
