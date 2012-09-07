@@ -42,8 +42,8 @@ class TestTransactions < Test::Unit::TestCase
       @second = m.sadd("foo", 1)
     end
 
-    assert_equal true, @first.value
-    assert_equal false, @second.value
+    assert_equal 1, @first.value
+    assert_equal 0, @second.value
   end
 
   # Although we could support accessing the values in these futures,

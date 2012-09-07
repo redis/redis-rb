@@ -82,8 +82,8 @@ class TestPipeliningCommands < Test::Unit::TestCase
       @second = r.sadd("foo", 1)
     end
 
-    assert_equal true, @first.value
-    assert_equal false, @second.value
+    assert_equal 1, @first.value
+    assert_equal 0, @second.value
   end
 
   # Although we could support accessing the values in these futures,
@@ -112,8 +112,8 @@ class TestPipeliningCommands < Test::Unit::TestCase
       end
     end
 
-    assert_equal true, @first.value
-    assert_equal false, @second.value
+    assert_equal 1, @first.value
+    assert_equal 0, @second.value
   end
 
   def test_futures_raise_when_confused_with_something_else
