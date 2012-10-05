@@ -33,6 +33,30 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal "secr3t", redis.client.password
   end
 
+  def test_unescape_password_from_url
+    redis = Redis.new :url => "redis://:secr3t%3A@foo.com:999/2"
+
+    assert_equal "secr3t:", redis.client.password
+  end
+
+  def test_unescape_password_from_url_with_string_key
+    redis = Redis.new "url" => "redis://:secr3t%3A@foo.com:999/2"
+
+    assert_equal "secr3t:", redis.client.password
+  end
+
+  def test_does_not_unescape_password_when_explicitly_passed
+    redis = Redis.new :url => "redis://:secr3t%3A@foo.com:999/2", :password => "secr3t%3A"
+
+    assert_equal "secr3t%3A", redis.client.password
+  end
+
+  def test_does_not_unescape_password_when_explicitly_passed_with_string_key
+    redis = Redis.new :url => "redis://:secr3t%3A@foo.com:999/2", "password" => "secr3t%3A"
+
+    assert_equal "secr3t%3A", redis.client.password
+  end
+
   def test_override_url_if_path_option_is_passed
     redis = Redis.new :url => "redis://:secr3t@foo.com/foo:999/2", :path => "/tmp/redis.sock"
 
