@@ -1,5 +1,6 @@
 require "redis/errors"
 require "socket"
+require "cgi"
 
 class Redis
   class Client
@@ -329,7 +330,7 @@ class Redis
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host
           defaults[:port]     = uri.port if uri.port
-          defaults[:password] = CGI::unescape(uri.password) if uri.password
+          defaults[:password] = CGI.unescape(uri.password) if uri.password
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
         end
       end
