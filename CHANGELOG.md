@@ -1,4 +1,8 @@
-# 3.0.2 (unreleased)
+# 3.0.3 (unreleased)
+
+* ...
+
+# 3.0.2
 
 * Unescape CGI escaped password in URL.
 
