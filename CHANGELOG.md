@@ -1,5 +1,17 @@
 # 3.0.2 (unreleased)
 
+* Unescape CGI escaped password in URL.
+
+* Fix test to check availability of `UNIXSocket`.
+
+* Fix handling of score = +/- infinity for sorted set commands.
+
+* Replace array splats with concatenation where possible.
+
+* Raise if `EXEC` returns an error.
+
+* Passing a nil value in options hash no longer overwrites the default.
+
 * Allow string keys in options hash passed to `Redis.new` or
   `Redis.connect`.
 
