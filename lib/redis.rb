@@ -813,6 +813,18 @@ class Redis
     end
   end
 
+  # Count the number of set bits in a range of the string value stored at key.
+  # 
+  # @param [String] key
+  # @param [Fixnum] start start index
+  # @param [Fixnum] stop stop index
+  # @return [Fixnum] the number of bits set to 1
+  def bitcount(key, start = 0, stop = -1)
+    synchronize do |client|
+      client.call([:bitcount, key, start, stop])
+    end
+  end
+
   # Set the string value of a key and return its old value.
   #
   # @param [String] key

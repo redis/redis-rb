@@ -295,6 +295,11 @@ class Redis
       node_for(key).append(key, value)
     end
 
+    # Count the number of set bits in a range of the string value stored at key.
+    def bitcount(key, start = 0, stop = -1)
+      node_for(key).bitcount(key, start, stop)
+    end
+
     # Set the string value of a key and return its old value.
     def getset(key, value)
       node_for(key).getset(key, value)
