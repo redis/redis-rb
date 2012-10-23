@@ -825,6 +825,18 @@ class Redis
     end
   end
 
+  # Perform a bitwise operation between strings and store the resulting string in a key.
+  # 
+  # @param [String] operation e.g. `and`, `or`, `xor`, `not`
+  # @param [String] destkey destination key
+  # @param [String, Array<String>] keys one or more source keys to perform `operation`
+  # @return [Fixnum] the length of the string stored in `destkey`
+  def bitop(operation, destkey, *keys)
+    synchronize do |client|
+      client.call([:bitop, operation, destkey] + keys)
+    end
+  end
+
   # Set the string value of a key and return its old value.
   #
   # @param [String] key
