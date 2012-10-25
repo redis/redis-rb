@@ -1,6 +1,6 @@
 # 3.0.3 (unreleased)
 
-* ...
+* Added support for `BITCOUNT` and `BITOP` (Redis 2.6).
 
 # 3.0.2
 
