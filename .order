@@ -22,7 +22,8 @@
     "slaveof",
     "slowlog",
     "sync",
-    "time"
+    "time",
+    "client"
   ],
   "generic": [
     "persist",
@@ -70,7 +71,8 @@
     "append",
     "bitcount",
     "getset",
-    "strlen"
+    "strlen",
+    "bitop"
   ],
   "list": [
     "llen",
@@ -90,8 +92,7 @@
     "lrange",
     "lrem",
     "lset",
-    "ltrim",
-    "bitop"
+    "ltrim"
   ],
   "set": [
     "scard",
