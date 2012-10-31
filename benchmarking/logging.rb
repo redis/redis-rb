@@ -54,7 +54,16 @@ benchmark "Default options (no logger)" do
 end
 
 logging_redises.each do |redis|
-  benchmark "#{redis.client.logger.class} on #{Logger::SEV_LABEL[redis.client.logger.level]}" do
+  logger = redis.client.logger
+
+  case logger
+  when Logger
+    level = Logger::SEV_LABEL[logger.level]
+  when Log4r::Logger
+    level = logger.levels[logger.level]
+  end
+
+  benchmark "#{logger.class} on #{level}" do
     stress(redis)
   end
 end
