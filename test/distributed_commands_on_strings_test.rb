@@ -45,4 +45,13 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
       r.mapped_msetnx(:foo => "s2", :bar => "s3")
     end
   end
+
+  def test_bitop
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.set("foo", "a")
+      r.set("bar", "b")
+      
+      r.bitop(:and, "foo&bar", "foo", "bar")
+    end
+  end
 end
