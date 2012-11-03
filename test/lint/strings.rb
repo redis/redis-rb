@@ -135,6 +135,7 @@ module Lint
 
     def test_bitcount
       return if version < "2.5.10"
+
       r.set("foo", "abcde")
       
       assert_equal 10, r.bitcount("foo", 1, 3)

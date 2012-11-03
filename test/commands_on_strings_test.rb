@@ -83,6 +83,7 @@ class TestCommandsOnStrings < Test::Unit::TestCase
 
   def test_bitop
     return if version < "2.5.10"
+
     r.set("foo", "a")
     r.set("bar", "b")    
 
