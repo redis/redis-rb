@@ -814,7 +814,7 @@ class Redis
   end
 
   # Count the number of set bits in a range of the string value stored at key.
-  # 
+  #
   # @param [String] key
   # @param [Fixnum] start start index
   # @param [Fixnum] stop stop index
@@ -826,7 +826,7 @@ class Redis
   end
 
   # Perform a bitwise operation between strings and store the resulting string in a key.
-  # 
+  #
   # @param [String] operation e.g. `and`, `or`, `xor`, `not`
   # @param [String] destkey destination key
   # @param [String, Array<String>] keys one or more source keys to perform `operation`

@@ -52,7 +52,7 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
     assert_raise Redis::Distributed::CannotDistribute do
       r.set("foo", "a")
       r.set("bar", "b")
-      
+
       r.bitop(:and, "foo&bar", "foo", "bar")
     end
   end

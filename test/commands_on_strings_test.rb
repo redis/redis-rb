@@ -85,7 +85,7 @@ class TestCommandsOnStrings < Test::Unit::TestCase
     return if version < "2.5.10"
 
     r.set("foo", "a")
-    r.set("bar", "b")    
+    r.set("bar", "b")
 
     r.bitop(:and, "foo&bar", "foo", "bar")
     assert_equal "\x60", r.get("foo&bar")

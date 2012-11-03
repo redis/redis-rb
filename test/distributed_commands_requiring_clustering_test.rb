@@ -151,7 +151,7 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
 
     r.set("{qux}foo", "a")
     r.set("{qux}bar", "b")
-    
+
     r.bitop(:and, "{qux}foo&bar", "{qux}foo", "{qux}bar")
     assert_equal "\x60", r.get("{qux}foo&bar")
     r.bitop(:or, "{qux}foo|bar", "{qux}foo", "{qux}bar")
