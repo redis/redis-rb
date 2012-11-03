@@ -295,6 +295,18 @@ class Redis
       node_for(key).append(key, value)
     end
 
+    # Count the number of set bits in a range of the string value stored at key.
+    def bitcount(key, start = 0, stop = -1)
+      node_for(key).bitcount(key, start, stop)
+    end
+
+    # Perform a bitwise operation between strings and store the resulting string in a key.
+    def bitop(operation, destkey, *keys)
+      ensure_same_node(:bitop, [destkey] + keys) do |node|
+        node.bitop(operation, destkey, *keys)
+      end
+    end
+
     # Set the string value of a key and return its old value.
     def getset(key, value)
       node_for(key).getset(key, value)

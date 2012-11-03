@@ -133,6 +133,14 @@ module Lint
       assert_equal "c", r.get("foo")
     end
 
+    def test_bitcount
+      return if version < "2.5.10"
+      r.set("foo", "abcde")
+      
+      assert_equal 10, r.bitcount("foo", 1, 3)
+      assert_equal 17, r.bitcount("foo", 0, -1)
+    end
+
     def test_getrange
       r.set("foo", "abcde")
 

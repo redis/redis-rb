@@ -813,6 +813,30 @@ class Redis
     end
   end
 
+  # Count the number of set bits in a range of the string value stored at key.
+  # 
+  # @param [String] key
+  # @param [Fixnum] start start index
+  # @param [Fixnum] stop stop index
+  # @return [Fixnum] the number of bits set to 1
+  def bitcount(key, start = 0, stop = -1)
+    synchronize do |client|
+      client.call([:bitcount, key, start, stop])
+    end
+  end
+
+  # Perform a bitwise operation between strings and store the resulting string in a key.
+  # 
+  # @param [String] operation e.g. `and`, `or`, `xor`, `not`
+  # @param [String] destkey destination key
+  # @param [String, Array<String>] keys one or more source keys to perform `operation`
+  # @return [Fixnum] the length of the string stored in `destkey`
+  def bitop(operation, destkey, *keys)
+    synchronize do |client|
+      client.call([:bitop, operation, destkey] + keys)
+    end
+  end
+
   # Set the string value of a key and return its old value.
   #
   # @param [String] key
