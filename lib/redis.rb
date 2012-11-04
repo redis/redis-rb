@@ -359,6 +359,28 @@ class Redis
     end
   end
 
+  # Return a serialized version of the value stored at a key.
+  #
+  # @param [String] key
+  # @return [String] serialized_value
+  def dump(key)
+    synchronize do |client|
+      client.call([:dump, key])
+    end
+  end
+
+  # Create a key using the serialized value, previously obtained using DUMP.
+  #
+  # @param [String] key
+  # @param [String] ttl
+  # @param [String] serialized_value
+  # @return `"OK"`
+  def restore(key, ttl, serialized_value)
+    synchronize do |client|
+      client.call([:restore, key, ttl, serialized_value])
+    end
+  end
+
   # Delete one or more keys.
   #
   # @param [String, Array<String>] keys
