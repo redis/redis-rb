@@ -1,5 +1,7 @@
 # 3.0.3 (unreleased)
 
+* Added support for `DUMP` and `RESTORE` (Redis 2.6).
+
 * Added support for `BITCOUNT` and `BITOP` (Redis 2.6).
 
 # 3.0.2
