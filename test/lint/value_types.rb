@@ -80,6 +80,26 @@ module Lint
       assert_in_range 1..2000, r.pttl("foo")
     end
 
+    def test_dump_and_restore
+      return if version < "2.5.7"
+
+      r.set("foo", "a")
+      v = r.dump("foo")
+      r.del("foo")
+
+      assert r.restore("foo", 1000, v)
+      assert_equal "a", r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+
+      r.rpush("bar", ["b", "c", "d"])
+      w = r.dump("bar")
+      r.del("bar")
+
+      assert r.restore("bar", 1000, w)
+      assert_equal ["b", "c", "d"], r.lrange("bar", 0, -1)
+      assert [0, 1].include? r.ttl("bar")
+    end
+
     def test_move
       r.select 14
       r.flushdb

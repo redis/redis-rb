@@ -137,6 +137,16 @@ class Redis
       node_for(key).pttl(key)
     end
 
+    # Return a serialized version of the value stored at a key.
+    def dump(key)
+      node_for(key).dump(key)
+    end
+
+    # Create a key using the serialized value, previously obtained using DUMP.
+    def restore(key, ttl, serialized_value)
+      node_for(key).restore(key, ttl, serialized_value)
+    end
+
     # Delete a key.
     def del(*args)
       keys_per_node = args.group_by { |key| node_for(key) }
