@@ -55,7 +55,7 @@ class Redis
     def iter_nodes(key)
       return [nil,nil] if @ring.size == 0
       _, pos = get_node_pos(key)
-      (0...@ring.size).each do |n|
+      @ring.size.times do |n|
         yield @ring[@sorted_keys[(pos+n) % @ring.size]]
       end
     end
