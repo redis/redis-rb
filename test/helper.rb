@@ -113,7 +113,7 @@ module Helper
 
         return -1 if a.nil?
         return +1 if b.nil?
-        return a <=> b if a != b
+        return a.to_i <=> b.to_i if a != b
       end
 
       0
