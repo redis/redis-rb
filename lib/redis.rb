@@ -181,7 +181,7 @@ class Redis
         if reply.kind_of?(String)
           reply = Hash[reply.split("\r\n").map do |line|
             line.split(":", 2) unless line =~ /^(#|$)/
-          end]
+          end.compact]
 
           if cmd && cmd.to_s == "commandstats"
             # Extract nested hashes for INFO COMMANDSTATS
