@@ -83,11 +83,7 @@ class Redis
 
         class UNIXSocket < ::UNIXSocket
 
-          # This class doesn't include the mixin, because JRuby raises
-          # Errno::EAGAIN on #read_nonblock even when IO.select says it is
-          # readable. This behavior shows in 1.6.6 in both 1.8 and 1.9 mode.
-          # Therefore, fall back on the default Unix socket implementation,
-          # without timeouts.
+          include SocketMixin
 
           def self.connect(path, timeout)
             Timeout.timeout(timeout) do
@@ -96,6 +92,17 @@ class Redis
             end
           rescue Timeout::Error
             raise TimeoutError
+          end
+
+          # JRuby raises Errno::EAGAIN on #read_nonblock even when IO.select
+          # says it is readable (1.6.6, in both 1.8 and 1.9 mode).
+          # Use the blocking #readpartial method instead.
+
+          def _read_from_socket(nbytes)
+            readpartial(nbytes)
+
+          rescue EOFError
+            raise Errno::ECONNRESET
           end
         end
 
@@ -132,8 +139,7 @@ class Redis
 
       class UNIXSocket < ::Socket
 
-        # This class doesn't include the mixin to keep its behavior in sync
-        # with the JRuby implementation.
+        include SocketMixin
 
         def self.connect(path, timeout)
           sock = new(::Socket::AF_UNIX, Socket::SOCK_STREAM, 0)
