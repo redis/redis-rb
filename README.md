@@ -41,6 +41,12 @@ server or a different port, try:
 redis = Redis.new(:host => "10.0.1.1", :port => 6380)
 ```
 
+To connect to Redis using a url:
+
+```ruby
+redis = Redis.new(:url => 'redis://user:pass@10.0.1.1:6379')
+```
+
 To connect to Redis listening on a Unix socket, try:
 
 ```ruby
