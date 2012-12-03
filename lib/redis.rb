@@ -147,6 +147,14 @@ class Redis
     end
   end
 
+  def silence(&block)
+    tmp = client.logger
+    client.logger = nil
+    block.call
+  ensure
+    client.logger = tmp if tmp
+  end
+
   def debug(*args)
     synchronize do |client|
       client.call([:debug] + args)
