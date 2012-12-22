@@ -92,5 +92,34 @@ module Lint
 
       assert_equal 2, r.scard("foo")
     end
+
+    def test_srandmember_with_positive_count
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "foo", "s3"
+      r.sadd "foo", "s4"
+
+      4.times do
+        assert !(["s1", "s2", "s3", "s4"] & r.srandmember("foo", 3)).empty?
+
+        assert_equal 3, r.srandmember("foo", 3).size
+      end
+
+      assert_equal 4, r.scard("foo")
+    end
+
+    def test_srandmember_with_negative_count
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "foo", "s3"
+      r.sadd "foo", "s4"
+
+      4.times do
+        assert !(["s1", "s2", "s3", "s4"] & r.srandmember("foo", -6)).empty?
+        assert_equal 6, r.srandmember("foo", -6).size
+      end
+
+      assert_equal 4, r.scard("foo")
+    end
   end
 end

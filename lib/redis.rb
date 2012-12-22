@@ -1196,13 +1196,18 @@ class Redis
     end
   end
 
-  # Get a random member from a set.
+  # Get one or more random members from a set.
   #
   # @param [String] key
+  # @param [Fixnum] count
   # @return [String]
-  def srandmember(key)
+  def srandmember(key, count = nil)
     synchronize do |client|
-      client.call([:srandmember, key])
+      if count.nil?
+        client.call([:srandmember, key])
+      else
+        client.call([:srandmember, key, count])
+      end
     end
   end
 

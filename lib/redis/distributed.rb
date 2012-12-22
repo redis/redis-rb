@@ -477,8 +477,8 @@ class Redis
     end
 
     # Get a random member from a set.
-    def srandmember(key)
-      node_for(key).srandmember(key)
+    def srandmember(key, count = nil)
+      node_for(key).srandmember(key, count)
     end
 
     # Move a member from one set to another.
