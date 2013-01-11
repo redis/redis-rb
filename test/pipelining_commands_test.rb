@@ -192,4 +192,14 @@ class TestPipeliningCommands < Test::Unit::TestCase
 
     assert_equal "bar", r.get("foo")
   end
+
+  def test_pipeline_select
+    r.pipelined do |p|
+      p.select 1
+      p.set("foo", "bar")
+    end
+    assert_equal "bar", r.get("foo")
+  ensure
+    r.select 0
+  end
 end
