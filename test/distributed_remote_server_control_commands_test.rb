@@ -63,4 +63,59 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
       assert 500_000 > (ruby_usec - redis_usec).abs
     end
   end
+
+  def test_client_list
+    return if version < "2.4.0"
+
+    keys = [
+     "addr",
+     "fd",
+     "name",
+     "age",
+     "idle",
+     "flags",
+     "db",
+     "sub",
+     "psub",
+     "multi",
+     "qbuf",
+     "qbuf-free",
+     "obl",
+     "oll",
+     "omem",
+     "events",
+     "cmd"
+    ]
+
+    clients = r.client(:list).first
+    clients.each do |client|
+      keys.each do |k|
+        msg = "expected #client(:list) to include #{k}"
+        assert client.keys.include?(k), msg
+      end
+    end
+  end
+
+  def test_client_kill
+    return if version < "2.6.9"
+
+    r.client(:setname, 'redis-rb')
+    clients = r.client(:list).first
+    i = clients.index {|client| client['name'] == 'redis-rb'}
+    assert_equal ["OK"], r.client(:kill, clients[i]["addr"])
+
+    clients = r.client(:list).first
+    i = clients.index {|client| client['name'] == 'redis-rb'}
+    assert_equal nil, i
+  end
+
+  def test_client_getname_and_setname
+    return if version < "2.6.9"
+
+    assert_equal [nil], r.client(:getname)
+
+    r.client(:setname, 'redis-rb')
+    names = r.client(:getname)
+    assert_equal ['redis-rb'], names
+  end
 end

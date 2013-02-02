@@ -62,6 +62,11 @@ class Redis
       on_each_node :bgsave
     end
 
+    # Manage client connections
+    def client(subcommand=nil, *args)
+      on_each_node :client, subcommand, args
+    end
+
     # Return the number of keys in the selected database.
     def dbsize
       on_each_node :dbsize

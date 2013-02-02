@@ -7,8 +7,6 @@ class Redis
     $stderr.puts "\n#{message} (in #{trace})"
   end
 
-  attr :client
-
   # @deprecated The preferred way to create a new client object is using `#new`.
   #             This method does not actually establish a connection to Redis,
   #             in contrary to what you might expect.
@@ -131,6 +129,26 @@ class Redis
       client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
           Hash[reply.each_slice(2).to_a]
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Manage client connections.
+  #
+  # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
+  # @return [String, Hash] depends on subcommand
+  def client(subcommand=nil, *args)
+    return @client if subcommand.nil? # for backward compatibility
+    synchronize do |client|
+      client.call([:client, subcommand] + args) do |reply|
+        if subcommand.to_s == "list"
+          reply.lines.map do |line|
+            entries = line.chomp.split(/[ =]/)
+            Hash[entries.each_slice(2).to_a]
+          end
         else
           reply
         end
