@@ -198,6 +198,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       p.select 1
       p.set("foo", "bar")
     end
+    r.select 1
     assert_equal "bar", r.get("foo")
   ensure
     r.select 0
