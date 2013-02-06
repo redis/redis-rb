@@ -895,7 +895,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String] value
+  # @param [String, Array] string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
