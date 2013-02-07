@@ -627,7 +627,7 @@ class Redis
   # @return `"OK"`
   def set(key, value)
     synchronize do |client|
-      client.call([:set, key, value])
+      client.call([:set, key, value.to_s])
     end
   end
 

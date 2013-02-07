@@ -26,6 +26,14 @@ module Lint
       assert_equal "1\n", r.get("foo")
     end
 
+    def test_set_and_get_with_non_string_value
+      value = ["a", "b"]
+
+      r.set("foo", value)
+
+      assert_equal value.to_s, r.get("foo")
+    end
+
     def test_set_and_get_with_ascii_characters
       if defined?(Encoding)
         with_external_encoding("ASCII-8BIT") do
