@@ -84,4 +84,14 @@ class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
 
     assert_equal [0], r.dbsize
   end
+
+  def test_migrate
+    return if version < "2.5.7"
+
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.set("foo", "s1")
+      port = r.node_for("foo").client.port
+      r.migrate("localhost", port + 1, "foo", 0, 1)
+    end
+  end
 end

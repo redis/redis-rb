@@ -100,6 +100,36 @@ module Lint
       assert [0, 1].include? r.ttl("bar")
     end
 
+    def test_migrate
+      return if version < "2.5.7"
+
+      # MIGRATE returns `OK` on success
+      redis_mock(:migrate => lambda { |host, port, key, db, timeout| "+OK" }) do |redis|
+        redis.set("foo", "s1")
+        port = redis.client.port
+        assert_equal "OK", redis.migrate("localhost", port + 1, "foo", 0, 1)
+      end
+
+      # MIGRATE returns `NOKEY` if the given key does not exist
+      redis_mock(:migrate => lambda { |host, port, key, db, timeout| "+NOKEY" }) do |redis|
+        port = redis.client.port
+        assert_equal "NOKEY", redis.migrate("localhost", port + 1, "foo", 0, 1)
+      end
+
+      r.set("foo", "s1")
+      port = r.client.port
+
+      # MIGRATE raises an exception if the source and destination are the same instance
+      assert_raise Redis::CommandError do
+        r.migrate("localhost", port, "foo", 0, 1)
+      end
+
+      # MIGRATE raises an exception if `timeout` is not an integer
+      assert_raise Redis::CommandError do
+        r.migrate("localhost", port + 1, "foo", 0, 0.1)
+      end
+    end
+
     def test_move
       r.select 14
       r.flushdb
