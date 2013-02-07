@@ -26,6 +26,14 @@ module Lint
       assert_equal "1\n", r.get("foo")
     end
 
+    def test_set_and_get_with_non_string_value
+      value = ["a", "b"]
+
+      r.set("foo", value)
+
+      assert_equal value.to_s, r.get("foo")
+    end
+
     def test_set_and_get_with_ascii_characters
       if defined?(Encoding)
         with_external_encoding("ASCII-8BIT") do
@@ -45,11 +53,29 @@ module Lint
       assert [0, 1].include? r.ttl("foo")
     end
 
+    def test_setex_with_non_string_value
+      value = ["b", "a", "r"]
+
+      assert r.setex("foo", 1, value)
+      assert_equal value.to_s, r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+    end
+
     def test_psetex
       return if version < "2.5.4"
 
       assert r.psetex("foo", 1000, "bar")
       assert_equal "bar", r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+    end
+
+    def test_psetex_with_non_string_value
+      return if version < "2.5.4"
+
+      value = ["b", "a", "r"]
+
+      assert r.psetex("foo", 1000, value)
+      assert_equal value.to_s, r.get("foo")
       assert [0, 1].include? r.ttl("foo")
     end
 
@@ -60,14 +86,35 @@ module Lint
       assert_equal "baz", r.get("foo")
     end
 
+    def test_getset_with_non_string_value
+      r.set("foo", "zap")
+
+      value = ["b", "a", "r"]
+
+      assert_equal "zap", r.getset("foo", value)
+      assert_equal value.to_s, r.get("foo")
+    end
+
     def test_setnx
-      r.set("foo", "s1")
+      r.set("foo", "qux")
+      assert !r.setnx("foo", "bar")
+      assert_equal "qux", r.get("foo")
 
-      assert_equal "s1", r.get("foo")
+      r.del("foo")
+      assert r.setnx("foo", "bar")
+      assert_equal "bar", r.get("foo")
+    end
 
-      r.setnx("foo", "s2")
+    def test_setnx_with_non_string_value
+      value = ["b", "a", "r"]
 
-      assert_equal "s1", r.get("foo")
+      r.set("foo", "qux")
+      assert !r.setnx("foo", value)
+      assert_equal "qux", r.get("foo")
+
+      r.del("foo")
+      assert r.setnx("foo", value)
+      assert_equal value.to_s, r.get("foo")
     end
 
     def test_incr
@@ -155,6 +202,16 @@ module Lint
       r.setrange("foo", 1, "bar")
 
       assert_equal "abare", r.get("foo")
+    end
+
+    def test_setrange_with_non_string_value
+      r.set("foo", "abcde")
+
+      value = ["b", "a", "r"]
+
+      r.setrange("foo", 2, value)
+
+      assert_equal "ab#{value.to_s}", r.get("foo")
     end
 
     def test_strlen
