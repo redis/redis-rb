@@ -204,6 +204,16 @@ module Lint
       assert_equal "abare", r.get("foo")
     end
 
+    def test_setrange_with_non_string_value
+      r.set("foo", "abcde")
+
+      value = ["b", "a", "r"]
+
+      r.setrange("foo", 2, value)
+
+      assert_equal "ab#{value.to_s}", r.get("foo")
+    end
+
     def test_strlen
       r.set "foo", "lorem"
 

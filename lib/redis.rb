@@ -784,7 +784,7 @@ class Redis
   # @return [Fixnum] length of the string after it was modified
   def setrange(key, offset, value)
     synchronize do |client|
-      client.call([:setrange, key, offset, value])
+      client.call([:setrange, key, offset, value.to_s])
     end
   end
 
