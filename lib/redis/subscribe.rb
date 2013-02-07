@@ -29,14 +29,17 @@ class Redis
     def subscription(start, stop, channels, block)
       sub = Subscription.new(&block)
 
+      unsubscribed = false
+
       begin
         @client.call_loop([start, *channels]) do |line|
           type, *rest = line
           sub.callbacks[type].call(*rest)
-          break if type == stop && rest.last == 0
+          unsubscribed = type == stop && rest.last == 0
+          break if unsubscribed
         end
       ensure
-        send(stop)
+        send(stop) if !unsubscribed
       end
     end
   end
