@@ -147,6 +147,11 @@ class Redis
       node_for(key).restore(key, ttl, serialized_value)
     end
 
+    # Atomically transfer a key from a Redis instance to another one.
+    def migrate(host, port, key, destination_db, timeout)
+      raise CannotDistribute, :migrate
+    end
+
     # Delete a key.
     def del(*args)
       keys_per_node = args.group_by { |key| node_for(key) }
