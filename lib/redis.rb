@@ -664,7 +664,7 @@ class Redis
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
     synchronize do |client|
-      client.call([:setnx, key, value], &_boolify)
+      client.call([:setnx, key, value.to_s], &_boolify)
     end
   end
 
