@@ -61,13 +61,13 @@ module Lint
     end
 
     def test_setnx
-      r.set("foo", "s1")
+      r.set("foo", "qux")
+      assert !r.setnx("foo", "bar")
+      assert_equal "qux", r.get("foo")
 
-      assert_equal "s1", r.get("foo")
-
-      r.setnx("foo", "s2")
-
-      assert_equal "s1", r.get("foo")
+      r.del("foo")
+      assert r.setnx("foo", "bar")
+      assert_equal "bar", r.get("foo")
     end
 
     def test_incr
