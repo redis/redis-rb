@@ -867,7 +867,7 @@ class Redis
   #   did not exist
   def getset(key, value)
     synchronize do |client|
-      client.call([:getset, key, value])
+      client.call([:getset, key, value.to_s])
     end
   end
 

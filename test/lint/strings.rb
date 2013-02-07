@@ -86,6 +86,15 @@ module Lint
       assert_equal "baz", r.get("foo")
     end
 
+    def test_getset_with_non_string_value
+      r.set("foo", "zap")
+
+      value = ["b", "a", "r"]
+
+      assert_equal "zap", r.getset("foo", value)
+      assert_equal value.to_s, r.get("foo")
+    end
+
     def test_setnx
       r.set("foo", "qux")
       assert !r.setnx("foo", "bar")
