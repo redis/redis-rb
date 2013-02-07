@@ -627,7 +627,7 @@ class Redis
   # @return `"OK"`
   def set(key, value)
     synchronize do |client|
-      client.call([:set, key, value])
+      client.call([:set, key, value.to_s])
     end
   end
 
@@ -641,7 +641,7 @@ class Redis
   # @return `"OK"`
   def setex(key, ttl, value)
     synchronize do |client|
-      client.call([:setex, key, ttl, value])
+      client.call([:setex, key, ttl, value.to_s])
     end
   end
 
@@ -653,7 +653,7 @@ class Redis
   # @return `"OK"`
   def psetex(key, ttl, value)
     synchronize do |client|
-      client.call([:psetex, key, ttl, value])
+      client.call([:psetex, key, ttl, value.to_s])
     end
   end
 
@@ -664,7 +664,7 @@ class Redis
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
     synchronize do |client|
-      client.call([:setnx, key, value], &_boolify)
+      client.call([:setnx, key, value.to_s], &_boolify)
     end
   end
 
@@ -784,7 +784,7 @@ class Redis
   # @return [Fixnum] length of the string after it was modified
   def setrange(key, offset, value)
     synchronize do |client|
-      client.call([:setrange, key, offset, value])
+      client.call([:setrange, key, offset, value.to_s])
     end
   end
 
@@ -867,7 +867,7 @@ class Redis
   #   did not exist
   def getset(key, value)
     synchronize do |client|
-      client.call([:getset, key, value])
+      client.call([:getset, key, value.to_s])
     end
   end
 

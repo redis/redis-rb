@@ -4,6 +4,9 @@
 
 * Added support for `BITCOUNT` and `BITOP` (Redis 2.6).
 
+* Call `#to_s` on value argument for `SET`, `SETEX`, `PSETEX`, `GETSET`,
+  `SETNX`, and `SETRANGE`.
+
 # 3.0.2
 
 * Unescape CGI escaped password in URL.
