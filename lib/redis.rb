@@ -641,7 +641,7 @@ class Redis
   # @return `"OK"`
   def setex(key, ttl, value)
     synchronize do |client|
-      client.call([:setex, key, ttl, value])
+      client.call([:setex, key, ttl, value.to_s])
     end
   end
 
@@ -653,7 +653,7 @@ class Redis
   # @return `"OK"`
   def psetex(key, ttl, value)
     synchronize do |client|
-      client.call([:psetex, key, ttl, value])
+      client.call([:psetex, key, ttl, value.to_s])
     end
   end
 

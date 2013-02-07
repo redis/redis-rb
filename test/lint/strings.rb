@@ -53,11 +53,29 @@ module Lint
       assert [0, 1].include? r.ttl("foo")
     end
 
+    def test_setex_with_non_string_value
+      value = ["b", "a", "r"]
+
+      assert r.setex("foo", 1, value)
+      assert_equal value.to_s, r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+    end
+
     def test_psetex
       return if version < "2.5.4"
 
       assert r.psetex("foo", 1000, "bar")
       assert_equal "bar", r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
+    end
+
+    def test_psetex_with_non_string_value
+      return if version < "2.5.4"
+
+      value = ["b", "a", "r"]
+
+      assert r.psetex("foo", 1000, value)
+      assert_equal value.to_s, r.get("foo")
       assert [0, 1].include? r.ttl("foo")
     end
 
