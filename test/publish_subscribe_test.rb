@@ -67,8 +67,6 @@ class TestPublishSubscribe < Test::Unit::TestCase
           @unsubscribed = true
           @t2 = total
         end
-
-        listening = true
       end
     end
 
