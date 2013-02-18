@@ -17,9 +17,9 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
      "total_commands_processed",
     ]
 
-    info = r.info
+    infos = r.info
 
-    info.each do |info|
+    infos.each do |info|
       keys.each do |k|
         msg = "expected #info to include #{k}"
         assert info.keys.include?(k), msg
