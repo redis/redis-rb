@@ -391,7 +391,7 @@ class Redis
   # @return [String] `OK` or `NOKEY`
   def migrate(host, port, key, destination_db, timeout)
     synchronize do |client|
-      client.call([:migrate, host, port, key, destination_db, timeout])
+      client.call([:migrate, host, port, key, destination_db, timeout.to_i])
     end
   end
 
