@@ -88,10 +88,10 @@ class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
   def test_migrate
     return if version < "2.5.7"
 
+    r.set("foo", "s1")
+
     assert_raise Redis::Distributed::CannotDistribute do
-      r.set("foo", "s1")
-      port = r.node_for("foo").client.port
-      r.migrate("localhost", port + 1, "foo", 0, 1)
+      r.migrate("localhost", 6381, "foo", 0, 1)
     end
   end
 end
