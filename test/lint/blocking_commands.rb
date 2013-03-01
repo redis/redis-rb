@@ -55,14 +55,6 @@ module Lint
       end
     end
 
-    def test_blpop_socket_timeout
-      mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-        assert_raises(Redis::TimeoutError) do
-          r.blpop("{zap}foo", :timeout => 1)
-        end
-      end
-    end
-
     def test_blpop_with_old_prototype
       assert_equal ["{zap}foo", "s1"], r.blpop("{zap}foo", 0)
       assert_equal ["{zap}foo", "s2"], r.blpop("{zap}foo", 0)
@@ -88,14 +80,6 @@ module Lint
       mock do |r|
         assert_equal ["{zap}foo", "0"], r.brpop("{zap}foo")
         assert_equal ["{zap}foo", "1"], r.brpop("{zap}foo", :timeout => 1)
-      end
-    end
-
-    def test_brpop_socket_timeout
-      mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-        assert_raises(Redis::TimeoutError) do
-          r.brpop("{zap}foo", :timeout => 1)
-        end
       end
     end
 
@@ -125,14 +109,6 @@ module Lint
       end
     end
 
-    def test_brpoplpush_socket_timeout
-      mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-        assert_raises(Redis::TimeoutError) do
-          r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
-        end
-      end
-    end
-
     def test_brpoplpush_with_old_prototype
       assert_equal "s2", r.brpoplpush("{zap}foo", "{zap}qux", 0)
       assert_equal ["s2"], r.lrange("{zap}qux", 0, -1)
@@ -142,6 +118,32 @@ module Lint
       mock do |r|
         assert_equal "0", r.brpoplpush("{zap}foo", "{zap}bar", 0)
         assert_equal "1", r.brpoplpush("{zap}foo", "{zap}bar", 1)
+      end
+    end
+
+    driver(:ruby, :hiredis) do
+      def test_blpop_socket_timeout
+        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+          assert_raises(Redis::TimeoutError) do
+            r.blpop("{zap}foo", :timeout => 1)
+          end
+        end
+      end
+
+      def test_brpop_socket_timeout
+        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+          assert_raises(Redis::TimeoutError) do
+            r.brpop("{zap}foo", :timeout => 1)
+          end
+        end
+      end
+
+      def test_brpoplpush_socket_timeout
+        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+          assert_raises(Redis::TimeoutError) do
+            r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
+          end
+        end
       end
     end
   end
