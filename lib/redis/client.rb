@@ -160,12 +160,16 @@ class Redis
       result
     end
 
-    def call_without_timeout(command, &blk)
-      without_socket_timeout do
+    def call_with_timeout(command, timeout, &blk)
+      with_socket_timeout(timeout) do
         call(command, &blk)
       end
     rescue ConnectionError
       retry
+    end
+
+    def call_without_timeout(command, &blk)
+      call_with_timeout(command, 0, &blk)
     end
 
     def process(commands)
@@ -218,15 +222,19 @@ class Redis
       end
     end
 
-    def without_socket_timeout
+    def with_socket_timeout(timeout)
       connect unless connected?
 
       begin
-        connection.timeout = 0
+        connection.timeout = timeout
         yield
       ensure
-        connection.timeout = timeout if connected?
+        connection.timeout = self.timeout if connected?
       end
+    end
+
+    def without_socket_timeout(&blk)
+      with_socket_timeout(0, &blk)
     end
 
     def with_reconnect(val=true)
