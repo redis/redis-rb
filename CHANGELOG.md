@@ -1,5 +1,11 @@
 # 3.0.3 (unreleased)
 
+* Blocking list commands (`BLPOP`, `BRPOP`, `BRPOPLPUSH`) use a socket
+  timeout equal to the sum of the command's timeout and the Redis
+  client's timeout, instead of disabling socket timeout altogether.
+
+* Ruby 2.0 compatibility.
+
 * Added support for `DUMP` and `RESTORE` (Redis 2.6).
 
 * Added support for `BITCOUNT` and `BITOP` (Redis 2.6).
