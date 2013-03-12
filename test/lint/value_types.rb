@@ -100,6 +100,14 @@ module Lint
       assert [0, 1].include? r.ttl("bar")
     end
 
+    def test_migrate
+      r.set("foo", "s1")
+      
+      redis_mock(:migrate => lambda { |host, port, key, db, timeout| "+OK" }) do |redis|
+        assert_equal "OK", redis.migrate("localhost", 6381, "foo", 0, 1)
+      end
+    end
+
     def test_move
       r.select 14
       r.flushdb
