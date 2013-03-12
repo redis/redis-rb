@@ -102,27 +102,31 @@ module Lint
 
     def test_migrate
       return if version < "2.5.7"
-      
-      r.set("foo", "s1")
 
+      # MIGRATE returns `OK` on success
       redis_mock(:migrate => lambda { |host, port, key, db, timeout| "+OK" }) do |redis|
-        assert_equal "OK", redis.migrate("localhost", 6381, "foo", 0, 1)
+        redis.set("foo", "s1")
+        port = redis.client.port
+        assert_equal "OK", redis.migrate("localhost", port + 1, "foo", 0, 1)
       end
 
-      # MIGRATE raises an exception if the source and destination are the same node 
-      begin
-        r.migrate("localhost", 6381, "foo", 0, 1)
-      rescue => err
-        assert_match /IOERR error or timeout reading from target node/i, err.message
-        assert_kind_of Redis::CommandError, err
+      # MIGRATE returns `NOKEY` if the given key does not exist
+      redis_mock(:migrate => lambda { |host, port, key, db, timeout| "+NOKEY" }) do |redis|
+        port = redis.client.port
+        assert_equal "NOKEY", redis.migrate("localhost", port + 1, "foo", 0, 1)
       end
 
-      # MIGRATE raises an exception if the destination cannot respond 
-      begin
-        r.migrate("localhost", 6379, "foo", 0, 1) # the destination does not run
-      rescue => err
-        assert_match /IOERR error or timeout writing to target instance/i, err.message
-        assert_kind_of Redis::CommandError, err
+      r.set("foo", "s1")
+      port = r.client.port
+
+      # MIGRATE raises an exception if the source and destination are the same instance
+      assert_raise Redis::CommandError do
+        r.migrate("localhost", port, "foo", 0, 1)
+      end
+
+      # MIGRATE raises an exception if `timeout` is not an integer
+      assert_raise Redis::CommandError do
+        r.migrate("localhost", port + 1, "foo", 0, 0.1)
       end
     end
 
