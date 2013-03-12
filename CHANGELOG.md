@@ -17,8 +17,6 @@
 * Call `#to_s` on value argument for `SET`, `SETEX`, `PSETEX`, `GETSET`,
   `SETNX`, and `SETRANGE`.
 
-* Added support for `MIGRATE` (Redis 2.6).
-
 # 3.0.2
 
 * Unescape CGI escaped password in URL.
