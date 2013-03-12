@@ -1,6 +1,6 @@
 # 3.0.4 (unreleased)
 
-* ...
+* Added support for `MIGRATE` (Redis 2.6).
 
 # 3.0.3
 
