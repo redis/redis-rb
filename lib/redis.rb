@@ -525,12 +525,12 @@ class Redis
     synchronize do |client|
       client.call([:sort, key] + args) do |reply|
         if get.size > 1
-          if reply
-            reply.each_slice(get.size).to_a
+          if reply.class != Fixnum
+            return reply.each_slice(get.size).to_a
           end
-        else
-          reply
         end
+
+        reply
       end
     end
   end
