@@ -42,4 +42,18 @@ class TestSorting < Test::Unit::TestCase
     r.sort("bar", :get => "foo:*", :store => "baz")
     assert_equal ["s1", "s2"], r.lrange("baz", 0, -1)
   end
+
+  def test_sort_with_an_array_of_gets_and_with_store
+    r.set("foo:1:a", "s1a")
+    r.set("foo:1:b", "s1b")
+
+    r.set("foo:2:a", "s2a")
+    r.set("foo:2:b", "s2b")
+
+    r.rpush("bar", "1")
+    r.rpush("bar", "2")
+
+    r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :store => 'baz')
+    assert_equal ["s1a", "s1b", "s2a", "s2b"], r.lrange("baz", 0, -1)
+  end
 end
