@@ -127,10 +127,10 @@ class Redis
       end
     end
 
-    def call_loop(command)
+    def call_loop(command, timeout = 0)
       error = nil
 
-      result = without_socket_timeout do
+      result = with_socket_timeout(timeout) do
         process([command]) do
           loop do
             reply = read
