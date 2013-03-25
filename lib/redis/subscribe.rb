@@ -12,8 +12,16 @@ class Redis
       subscription("subscribe", "unsubscribe", channels, block)
     end
 
+    def subscribe_with_timeout(timeout, *channels, &block)
+      subscription("subscribe", "unsubscribe", channels, block, timeout)
+    end
+
     def psubscribe(*channels, &block)
       subscription("psubscribe", "punsubscribe", channels, block)
+    end
+
+    def psubscribe_with_timeout(timeout, *channels, &block)
+      subscription("psubscribe", "punsubscribe", channels, block, timeout)
     end
 
     def unsubscribe(*channels)
@@ -26,13 +34,13 @@ class Redis
 
   protected
 
-    def subscription(start, stop, channels, block)
+    def subscription(start, stop, channels, block, timeout = 0)
       sub = Subscription.new(&block)
 
       unsubscribed = false
 
       begin
-        @client.call_loop([start, *channels]) do |line|
+        @client.call_loop([start, *channels], timeout) do |line|
           type, *rest = line
           sub.callbacks[type].call(*rest)
           unsubscribed = type == stop && rest.last == 0
