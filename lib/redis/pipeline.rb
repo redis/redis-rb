@@ -126,5 +126,13 @@ class Redis
       ::Kernel.raise(@object) if @object.kind_of?(::RuntimeError)
       @object
     end
+
+    def is_a?(other)
+      self.class.ancestors.include?(other)
+    end
+
+    def class
+      Future
+    end
   end
 end
