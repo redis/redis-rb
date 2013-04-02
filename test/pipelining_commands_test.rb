@@ -132,6 +132,18 @@ class TestPipeliningCommands < Test::Unit::TestCase
     end
   end
 
+  def test_futures_can_be_identified
+    r.pipelined do
+      @result = r.sadd("foo", 1)
+    end
+
+    assert_equal true, @result.is_a?(Redis::Future)
+    if defined?(::BasicObject)
+      assert_equal true, @result.is_a?(::BasicObject)
+    end
+    assert_equal Redis::Future, @result.class
+  end
+
   def test_returning_the_result_of_an_empty_pipeline
     result = r.pipelined do
     end
