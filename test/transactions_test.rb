@@ -157,6 +157,12 @@ class TestTransactions < Test::Unit::TestCase
     end
   end
 
+  def test_watch
+    res = r.watch "foo"
+
+    assert_equal "OK", res
+  end
+
   def test_watch_with_an_unmodified_key
     r.watch "foo"
     r.multi do |multi|
