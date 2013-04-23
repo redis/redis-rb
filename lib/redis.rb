@@ -381,6 +381,20 @@ class Redis
     end
   end
 
+  # Atomically transfer a key from a Redis instance to another one.
+  #
+  # @param [String] host
+  # @param [Fixnum] port
+  # @param [String] key
+  # @param [Fixnum] destination_db
+  # @param [Fixnum] timeout
+  # @return [String] `OK` or `NOKEY`
+  def migrate(host, port, key, destination_db, timeout)
+    synchronize do |client|
+      client.call([:migrate, host, port, key, destination_db, timeout.to_i])
+    end
+  end
+
   # Delete one or more keys.
   #
   # @param [String, Array<String>] keys
