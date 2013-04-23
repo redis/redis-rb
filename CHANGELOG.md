@@ -1,4 +1,8 @@
-# 3.0.4 (unreleased)
+# 3.0.5 (unreleased)
+
+* ...
+
+# 3.0.4
 
 * Ensure #watch without a block returns "OK" (#332).
 
