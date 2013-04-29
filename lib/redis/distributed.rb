@@ -17,8 +17,8 @@ class Redis
 
     def initialize(node_configs, options = {})
       @tag = options.delete(:tag) || /^\{(.+?)\}/
+      @ring = options.delete(:ring) || HashRing.new
       @default_options = options
-      @ring = HashRing.new
       node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
     end
