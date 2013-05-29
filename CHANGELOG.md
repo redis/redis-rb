@@ -1,6 +1,14 @@
-# 3.0.4 (unreleased)
+# 3.0.5 (unreleased)
 
 * ...
+
+# 3.0.4
+
+* Ensure #watch without a block returns "OK" (#332).
+
+* Make futures identifiable (#330).
+
+* Fix an issue preventing STORE in a SORT with multiple GETs (#328).
 
 # 3.0.3
 

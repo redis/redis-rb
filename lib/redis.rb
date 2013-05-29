@@ -2008,7 +2008,7 @@ class Redis
   # @see #multi
   def watch(*keys)
     synchronize do |client|
-      client.call([:watch] + keys)
+      res = client.call([:watch] + keys)
 
       if block_given?
         begin
@@ -2019,6 +2019,8 @@ class Redis
           unwatch
           raise
         end
+      else
+        res
       end
     end
   end
