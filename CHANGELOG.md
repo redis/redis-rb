@@ -1,6 +1,6 @@
 # 3.0.5 (unreleased)
 
-* ...
+* Added support for Redis Sentinel
 
 # 3.0.4
 

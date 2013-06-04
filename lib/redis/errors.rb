@@ -37,4 +37,29 @@ class Redis
   # Raised when the connection was inherited by a child process.
   class InheritedError < BaseConnectionError
   end
+
+  # Raised when there are no sentinels to connect to.
+  class NotConnectedToSentinels < Redis::BaseConnectionError
+  end
+
+  # Raised when the master connection is down.
+  class MasterIsDown < Redis::BaseConnectionError
+    attr_accessor :host, :port
+    def initialize(host, port, message = '')
+      host = host
+      port = port
+      if message == ''
+        message = "Master is down host: [#{host}] port: #{port}"
+      end
+      super(message)
+    end
+  end
+
+  # Raised when no masters are available for the master connection.
+  class NoAvailableMasters < Redis::BaseConnectionError
+    def initialize(master_name)
+      super("No available masters named #{master_name}")
+    end
+  end
+
 end
