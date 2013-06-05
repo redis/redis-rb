@@ -30,7 +30,7 @@ class Redis
       @slaves_connections.each{|conn| conn.quit } unless @slaves_connections.empty?
       @sentinels_connection.quit if @sentinels_connection
       set_defaults
-
+      nil
     end
 
     class << self
@@ -63,6 +63,7 @@ class Redis
         command_list.each do |command|
           send_to_slave command
         end
+        nil
       end
     end
 
@@ -106,6 +107,7 @@ class Redis
       @slaves_connections = []
       @slaves_connections_iterator = nil
       @failover_retry = 0
+      nil
     end
 
     def auto_retry_with_timeout(type, &block)
@@ -113,15 +115,17 @@ class Redis
         when :slave
           if Time.now.to_f - @check_for_new_hosts_interval.to_f > @last_slave_check_time
             discover_slaves
+            @last_slave_check_time = Time.now.to_f
           end
         when :master
           if Time.now.to_f - @check_for_new_hosts_interval.to_f > @last_master_check_time
             discover_master
+            @last_master_check_time = Time.now.to_f
           end
       end
       deadline = @reconnect_timeout.to_f + Time.now.to_f
       begin
-        block.call
+        return block.call
       rescue Redis::CannotConnectError => e
         raise e if Time.now.to_f > deadline
         sleep @reconnect_wait
@@ -133,6 +137,7 @@ class Redis
         end
         retry
       end
+      nil
     end
 
     def add_sentinel_config(sentinel_config)
@@ -150,7 +155,9 @@ class Redis
       options = @sentinels_config_iterator.next
       options = { :url => options } if options.is_a?(String)
       options = @default_options.merge(options)
+      options.delete(:db)
       @sentinels_connection = Redis.new(options)
+      nil
     end
 
 
@@ -270,7 +277,7 @@ class Redis
       if @logger && @logger.debug?
         @logger.debug("#{message}")
       end
-      return nil
+      nil
     end
 
   end
