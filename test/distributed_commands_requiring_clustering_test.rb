@@ -159,6 +159,6 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
     r.bitop(:xor, "{qux}foo^bar", "{qux}foo", "{qux}bar")
     assert_equal "\x03", r.get("{qux}foo^bar")
     r.bitop(:not, "{qux}~foo", "{qux}foo")
-    assert_equal "\x9E", r.get("{qux}~foo")
+    assert_equal "\x9E", r.get("{qux}~foo").force_encoding('utf-8')
   end
 end

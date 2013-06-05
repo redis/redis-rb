@@ -78,6 +78,26 @@ class Redis
       end
     end
 
+    def master
+      unless @master_connection
+        discover_master
+      end
+      log("Using master #{@master_connection}")
+      return @master_connection
+    end
+
+    def slave
+      _slave = nil
+      if @slaves_connections_iterator
+        _slave = @slaves_connections_iterator.next
+      else
+        discover_slaves
+        _slave = @slaves_connections_iterator.next
+      end
+      log("Using slave #{_slave}")
+      return _slave
+    end
+
     private
 
     def set_defaults
@@ -120,24 +140,6 @@ class Redis
       @sentinels_config.uniq!
       @sentinels_config_iterator = @sentinels_config.cycle
       nil
-    end
-
-    def master
-      return @master_connection if @master_connection
-      discover_master
-      @master_connection
-    end
-
-    def slave
-      _slave = nil
-      if @slaves_connections_iterator
-        _slave = @slaves_connections_iterator.next
-      else
-        discover_slaves
-        _slave = @slaves_connections_iterator.next
-      end
-      p _slave
-      return _slave
     end
 
     def connect_to_next_sentinel

@@ -17,12 +17,34 @@ require "redis"
 require "redis/distributed"
 require "redis/connection/#{ENV["conn"]}"
 
+require 'redis/sentinel'
+
 require "support/redis_mock"
 require "support/connection/#{ENV["conn"]}"
 
-PORT    = 6381
-OPTIONS = {:port => PORT, :db => 15, :timeout => 0.1}
-NODES   = ["redis://127.0.0.1:#{PORT}/15"]
+PORT          = 6381
+SENTINEL_PORT = 16381
+SLAVE_1_PORT  = 6382
+SLAVE_2_PORT  = 6383
+OPTIONS       = {:port => PORT, :db => 15, :timeout => 0.1}
+NODES         = ["redis://127.0.0.1:#{PORT}/15"]
+SENTINELS     = ["redis://127.0.0.1:#{SENTINEL_PORT}"]
+MASTER        = "redis://127.0.0.1:#{PORT}"
+SLAVE_1       = "redis://127.0.0.1:#{SLAVE_1_PORT}"
+SLAVE_2       = "redis://127.0.0.1:#{SLAVE_2_PORT}"
+
+REDIS_DIR = File.dirname(__FILE__)
+REDIS_CNF = File.join(REDIS_DIR, "test.conf")
+REDIS_PID = File.join(REDIS_DIR, "db", "redis.pid")
+
+REDIS_SLAVE_CNF = File.join(REDIS_DIR, "test_slave.conf")
+REDIS_SLAVE_PID = File.join(REDIS_DIR, "db", "redis_slave.pid")
+
+REDIS_SLAVE_2_CNF = File.join(REDIS_DIR, "test_slave2.conf")
+REDIS_SLAVE_2_PID = File.join(REDIS_DIR, "db", "redis_slave2.pid")
+
+REDIS_SENTINEL_CNF = File.join(REDIS_DIR, "test_sentinel.conf") + " --sentinel"
+REDIS_SENTINEL_PID = File.join(REDIS_DIR, "db", "redis_sentinel.pid")
 
 def init(redis)
   begin
@@ -31,7 +53,8 @@ def init(redis)
     redis.select 15
     redis.flushdb
     redis
-  rescue Redis::CannotConnectError
+  rescue Redis::CannotConnectError => e
+    puts e
     puts <<-EOS
 
       Cannot connect to Redis.
@@ -189,6 +212,94 @@ module Helper
 
     def _new_client(options = {})
       Redis::Distributed.new(NODES, _format_options(options))
+    end
+  end
+
+  module Sentinel
+    include Generic
+
+    def version
+      Version.new(redis.info.first['redis_version'])
+    end
+
+    def setup
+      puts 'sentinel setup'
+      start_slave1
+      start_slave2
+      start_sentinel
+      super
+    end
+
+    def teardown
+      puts 'sentinel teardown'
+      super
+      stop_master
+      stop_slave1
+      stop_slave2
+      stop_sentinel
+      start_master
+    end
+
+    private
+
+    def _format_options(options)
+      {
+          :timeout => OPTIONS[:timeout],
+          :master_name => 'test',
+          :logger => ::Logger.new(@log),
+      }.merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis::Sentinel.new(SENTINELS, _format_options(options))
+    end
+
+    def start_master
+      start_redis REDIS_CNF
+    end
+
+    def start_slave1
+      start_redis REDIS_SLAVE_CNF
+    end
+
+    def start_slave2
+      start_redis REDIS_SLAVE_2_CNF
+    end
+
+    def start_sentinel
+      start_redis REDIS_SENTINEL_CNF
+    end
+
+    def stop_master
+      stop_redis REDIS_PID
+    end
+
+    def stop_slave1
+      stop_redis REDIS_SLAVE_1_PID
+    end
+
+    def stop_slave2
+      stop_redis REDIS_SLAVE_2_PID
+    end
+
+    def stop_sentinel
+      stop_redis REDIS_SENTINEL_PID
+    end
+
+    def stop_redis(pid)
+      begin
+        Process.kill "TERM", File.read(pid).to_i
+        FileUtils.rm pid
+      rescue
+      end
+    end
+
+    def start_redis(conf)
+      unless system("redis-server #{conf}")
+        STDERR.puts "could not start redis-server with conf #{conf}"
+        exit 1
+      end
+      sleep 1
     end
   end
 end
