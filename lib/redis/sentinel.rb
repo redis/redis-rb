@@ -33,6 +33,24 @@ class Redis
       nil
     end
 
+    def set(*args, &block)
+      auto_retry_with_timeout(:master) do
+        master.set(*args, &block)
+      end
+    end
+
+    def setnx(*args, &block)
+      auto_retry_with_timeout(:master) do
+        master.setnx(*args, &block)
+      end
+    end
+
+    def setex(*args, &block)
+      auto_retry_with_timeout(:master) do
+        master.setex(*args, &block)
+      end
+    end
+
     class << self
       private
 
