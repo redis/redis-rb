@@ -624,10 +624,33 @@ class Redis
   #
   # @param [String] key
   # @param [String] value
-  # @return `"OK"`
-  def set(key, value)
+  # @param [Hash] options
+  #   - `:ex => Fixnum`: Set the specified expire time, in seconds.
+  #   - `:px => Fixnum`: Set the specified expire time, in milliseconds.
+  #   - `:nx => true`: Only set the key if it does not already exist.
+  #   - `:xx => true`: Only set the key if it already exist.
+  # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
+  def set(key, value, options = {})
+    args = []
+
+    ex = options[:ex]
+    args.concat(["EX", ex]) if ex
+
+    px = options[:px]
+    args.concat(["PX", px]) if px
+
+    nx = options[:nx]
+    args.concat(["NX"]) if nx
+
+    xx = options[:xx]
+    args.concat(["XX"]) if xx
+
     synchronize do |client|
-      client.call([:set, key, value.to_s])
+      if nx || xx
+        client.call([:set, key, value.to_s] + args, &_boolify_set)
+      else
+        client.call([:set, key, value.to_s] + args)
+      end
     end
   end
 
@@ -2249,6 +2272,16 @@ private
   def _boolify
     lambda { |value|
       value == 1 if value
+    }
+  end
+
+  def _boolify_set
+    lambda { |value|
+      if value && "OK" == value
+        true
+      else
+        false
+      end
     }
   end
 
