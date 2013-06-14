@@ -47,6 +47,43 @@ module Lint
       end
     end
 
+    def test_set_with_ex
+      return if version < "2.6.12"
+
+      r.set("foo", "bar", :ex => 1)
+      assert [0, 1].include? r.ttl("foo")
+    end
+
+    def test_set_with_px
+      return if version < "2.6.12"
+
+      r.set("foo", "bar", :px => 1)
+      assert [0, 1].include? r.ttl("foo")
+    end
+
+    def test_set_with_nx
+      return if version < "2.6.12"
+      
+      r.set("foo", "qux", :nx => true)
+      assert !r.set("foo", "bar", :nx => true)
+      assert_equal "qux", r.get("foo")
+
+      r.del("foo")
+      assert r.set("foo", "bar", :nx => true)
+      assert_equal "bar", r.get("foo")
+    end
+
+    def test_set_with_xx
+      return if version < "2.6.12"
+      
+      r.set("foo", "qux")
+      assert r.set("foo", "bar", :xx => true)
+      assert_equal "bar", r.get("foo")
+
+      r.del("foo")
+      assert !r.set("foo", "bar", :xx => true)
+    end
+
     def test_setex
       assert r.setex("foo", 1, "bar")
       assert_equal "bar", r.get("foo")
