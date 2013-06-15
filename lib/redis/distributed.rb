@@ -229,8 +229,8 @@ class Redis
     end
 
     # Set the string value of a key.
-    def set(key, value)
-      node_for(key).set(key, value)
+    def set(key, value, options = {})
+      node_for(key).set(key, value, options)
     end
 
     # Set the time to live in seconds of a key.
