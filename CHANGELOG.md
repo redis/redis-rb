@@ -1,6 +1,6 @@
 # 3.0.5 (unreleased)
 
-* ...
+* Support extended SET command (#343, thanks to @benubois).
 
 # 3.0.4
 
