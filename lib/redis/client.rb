@@ -118,7 +118,9 @@ class Redis
     def call_pipeline(pipeline)
       with_reconnect pipeline.with_reconnect? do
         begin
-          pipeline.finish(call_pipelined(pipeline.commands))
+          pipeline.finish(call_pipelined(pipeline.commands)).tap do
+            self.db = pipeline.db if pipeline.db
+          end
         rescue ConnectionError => e
           return nil if pipeline.shutdown?
           # Assume the pipeline was sent in one piece, but execution of

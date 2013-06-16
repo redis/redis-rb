@@ -6,6 +6,8 @@ class Redis
   end
 
   class Pipeline
+    attr_accessor :db
+
     attr :futures
 
     def initialize
@@ -38,6 +40,7 @@ class Redis
     def call_pipeline(pipeline)
       @shutdown = true if pipeline.shutdown?
       @futures.concat(pipeline.futures)
+      @db = pipeline.db
       nil
     end
 

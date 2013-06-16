@@ -1,5 +1,7 @@
 # 3.0.5 (unreleased)
 
+* Fix calling #select from a pipeline (#309).
+
 * Added method `Redis#connected?`.
 
 * Added support for `MIGRATE` (Redis 2.6).
