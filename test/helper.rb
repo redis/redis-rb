@@ -170,7 +170,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options))
+      Redis.new(_format_options(options).merge(:driver => ENV["conn"]))
     end
   end
 
@@ -192,7 +192,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options))
+      Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
     end
   end
 end
