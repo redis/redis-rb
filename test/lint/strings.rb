@@ -50,15 +50,15 @@ module Lint
     def test_set_with_ex
       return if version < "2.6.12"
 
-      r.set("foo", "bar", :ex => 1)
-      assert [0, 1].include? r.ttl("foo")
+      r.set("foo", "bar", :ex => 2)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_set_with_px
       return if version < "2.6.12"
 
-      r.set("foo", "bar", :px => 1)
-      assert [0, 1].include? r.ttl("foo")
+      r.set("foo", "bar", :px => 2000)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_set_with_nx

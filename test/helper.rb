@@ -149,6 +149,10 @@ module Helper
         yield _new_client(options.merge(:port => port))
       end
     end
+
+    def assert_in_range(range, value)
+      assert range.include?(value), "expected #{value} to be in #{range.inspect}"
+    end
   end
 
   module Client

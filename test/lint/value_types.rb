@@ -2,10 +2,6 @@ module Lint
 
   module ValueTypes
 
-    def assert_in_range(range, value)
-      assert range.include?(value), "expected #{value} to be in #{range.inspect}"
-    end
-
     def test_exists
       assert_equal false, r.exists("foo")
 
