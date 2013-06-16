@@ -388,18 +388,11 @@ class Redis
       driver = driver.to_s if driver.is_a?(Symbol)
 
       if driver.kind_of?(String)
-        case driver
-        when "ruby"
-          require "redis/connection/ruby"
-          driver = Connection::Ruby
-        when "hiredis"
-          require "redis/connection/hiredis"
-          driver = Connection::Hiredis
-        when "synchrony"
-          require "redis/connection/synchrony"
-          driver = Connection::Synchrony
-        else
-          raise "Unknown driver: #{driver}"
+        begin
+          require "redis/connection/#{driver}"
+          driver = Connection.const_get(driver.capitalize)
+        rescue LoadError, NameError
+          raise RuntimeError, "Cannot load driver #{driver.inspect}"
         end
       end
 
