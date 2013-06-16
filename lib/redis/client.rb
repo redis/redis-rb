@@ -190,7 +190,7 @@ class Redis
     end
 
     def connected?
-      connection && connection.connected?
+      !! (connection && connection.connected?)
     end
 
     def disconnect

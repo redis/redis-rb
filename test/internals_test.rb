@@ -67,6 +67,17 @@ class TestInternals < Test::Unit::TestCase
     assert_equal 1, Redis.current.client.db
   end
 
+  def test_redis_connected?
+    fresh_client = _new_client
+    assert !fresh_client.connected?
+
+    fresh_client.ping
+    assert fresh_client.connected?
+
+    fresh_client.quit
+    assert !fresh_client.connected?
+  end
+
   def test_default_id_with_host_and_port
     redis = Redis.new(OPTIONS.merge(:host => "host", :port => "1234", :db => 0))
     assert_equal "redis://host:1234/0", redis.client.id

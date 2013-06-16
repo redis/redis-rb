@@ -48,6 +48,11 @@ class Redis
     with_reconnect(false, &blk)
   end
 
+  # Test whether or not the client is connected
+  def connected?
+    @original_client.connected?
+  end
+
   # Authenticate to the server.
   #
   # @param [String] password must match the password specified in the
