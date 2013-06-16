@@ -66,6 +66,10 @@ class Redis
       end
     end
 
+    def db=(value)
+      # Used for 'select' command
+    end
+
     class Multi < self
       def finish(replies)
         exec = replies.last
