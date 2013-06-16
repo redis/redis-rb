@@ -27,7 +27,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
-    @client = Client.new(options)
+    @original_client = @client = Client.new(options)
 
     super() # Monitor#initialize
   end
@@ -2274,7 +2274,7 @@ class Redis
 
   def inspect
     synchronize do |client|
-      "#<Redis client v#{Redis::VERSION} for #{client.id}>"
+      "#<Redis client v#{Redis::VERSION} for #{@original_client.id}>"
     end
   end
 
