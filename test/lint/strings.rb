@@ -63,7 +63,7 @@ module Lint
 
     def test_set_with_nx
       return if version < "2.6.12"
-      
+
       r.set("foo", "qux", :nx => true)
       assert !r.set("foo", "bar", :nx => true)
       assert_equal "qux", r.get("foo")
@@ -75,7 +75,7 @@ module Lint
 
     def test_set_with_xx
       return if version < "2.6.12"
-      
+
       r.set("foo", "qux")
       assert r.set("foo", "bar", :xx => true)
       assert_equal "bar", r.get("foo")
