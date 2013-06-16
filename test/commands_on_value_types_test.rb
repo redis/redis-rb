@@ -96,4 +96,36 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
       assert_equal "FLUSHALL", redis.flushall
     end
   end
+
+  def test_migrate
+    redis_mock(:migrate => lambda { |*args| args }) do |redis|
+      options = { :host => "localhost", :port => 1234 }
+
+      assert_raise(RuntimeError, /host not specified/) do
+        redis.migrate("foo", options.reject { |key, _| key == :host })
+      end
+
+      assert_raise(RuntimeError, /port not specified/) do
+        redis.migrate("foo", options.reject { |key, _| key == :port })
+      end
+
+      default_db = redis.client.db.to_i
+      default_timeout = redis.client.timeout.to_i
+
+      # Test defaults
+      actual = redis.migrate("foo", options)
+      expected = ["localhost", "1234", "foo", default_db.to_s, default_timeout.to_s]
+      assert_equal expected, actual
+
+      # Test db override
+      actual = redis.migrate("foo", options.merge(:db => default_db + 1))
+      expected = ["localhost", "1234", "foo", (default_db + 1).to_s, default_timeout.to_s]
+      assert_equal expected, actual
+
+      # Test timeout override
+      actual = redis.migrate("foo", options.merge(:timeout => default_timeout + 1))
+      expected = ["localhost", "1234", "foo", default_db.to_s, (default_timeout + 1).to_s]
+      assert_equal expected, actual
+    end
+  end
 end

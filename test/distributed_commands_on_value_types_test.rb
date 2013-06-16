@@ -84,4 +84,12 @@ class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
 
     assert_equal [0], r.dbsize
   end
+
+  def test_migrate
+    r.set("foo", "s1")
+
+    assert_raise Redis::Distributed::CannotDistribute do
+      r.migrate("foo", {})
+    end
+  end
 end

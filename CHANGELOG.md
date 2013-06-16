@@ -1,5 +1,7 @@
 # 3.0.5 (unreleased)
 
+* Added support for `MIGRATE` (Redis 2.6).
+
 * Support extended SET command (#343, thanks to @benubois).
 
 # 3.0.4

@@ -381,6 +381,26 @@ class Redis
     end
   end
 
+  # Transfer a key from the connected instance to another instance.
+  #
+  # @param [String] key
+  # @param [Hash] options
+  #   - `:host => String`: host of instance to migrate to
+  #   - `:port => Integer`: port of instance to migrate to
+  #   - `:db => Integer`: database to migrate to (default: same as source)
+  #   - `:timeout => Integer`: timeout (default: same as connection timeout)
+  # @return [String] `"OK"`
+  def migrate(key, options)
+    host = options[:host] || raise(RuntimeError, ":host not specified")
+    port = options[:port] || raise(RuntimeError, ":port not specified")
+    db = (options[:db] || client.db).to_i
+    timeout = (options[:timeout] || client.timeout).to_i
+
+    synchronize do |client|
+      client.call([:migrate, host, port, key, db, timeout])
+    end
+  end
+
   # Delete one or more keys.
   #
   # @param [String, Array<String>] keys

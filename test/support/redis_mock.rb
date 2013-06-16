@@ -98,6 +98,11 @@ module RedisMock
           break :exit
         elsif response == :close
           break :close
+        elsif response.is_a?(Array)
+          session.write("*%d\r\n" % response.size)
+          response.each do |e|
+            session.write("$%d\r\n%s\r\n" % [e.length, e])
+          end
         else
           session.write(response)
           session.write("\r\n") unless response.end_with?("\r\n")
