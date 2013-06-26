@@ -46,8 +46,11 @@ task :stop do
   pids = Dir["#{File.join(REDIS_DIR, "db")}/*.pid"]
   pids.each do |pid|
     if File.exists?(pid)
-      Process.kill "INT", File.read(pid).to_i
-      FileUtils.rm pid
+      begin
+        Process.kill "TERM", File.read(pid).to_i
+      ensure
+        FileUtils.rm pid
+      end
     end
   end
 end
