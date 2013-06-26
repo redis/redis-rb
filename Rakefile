@@ -48,6 +48,8 @@ task :stop do
     if File.exists?(pid)
       begin
         Process.kill "TERM", File.read(pid).to_i
+      rescue Exception => e
+
       ensure
         FileUtils.rm pid
       end
