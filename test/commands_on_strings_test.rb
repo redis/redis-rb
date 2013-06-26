@@ -94,6 +94,6 @@ class TestCommandsOnStrings < Test::Unit::TestCase
     r.bitop(:xor, "foo^bar", "foo", "bar")
     assert_equal "\x03", r.get("foo^bar")
     r.bitop(:not, "~foo", "foo")
-    assert_equal "\x9E", r.get("~foo")
+    assert_equal "\x9E".force_encoding('US-ASCII'), r.get("~foo")
   end
 end
