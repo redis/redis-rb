@@ -3,6 +3,7 @@ class Redis
     RECONNECT_WAIT_SECONDS = 0.01
     RECONNECT_TIMEOUT_SECONDS = 0.1
     FAILOVER_TIMEOUT_SECONDS = 0.5
+    MAX_RETRIES = 5
 
     CHECK_FOR_NEW_HOSTS_INTERVAL = 10
 
@@ -11,12 +12,12 @@ class Redis
       @reconnect_wait = options.delete(:reconnect_wait) || RECONNECT_WAIT_SECONDS
       @failover_timeout = options.delete(:failover_timeout) || FAILOVER_TIMEOUT_SECONDS
       @check_for_new_hosts_interval = options.delete(:check_new_hosts_interval) || CHECK_FOR_NEW_HOSTS_INTERVAL
+      @max_reties = options.delete(:max_reties) || MAX_RETRIES
 
       @last_slave_check_time = 0
       @last_master_check_time = 0
 
       @master_name = options.delete(:master_name)
-
       @logger = options[:logger]
 
       @default_options = options
@@ -26,9 +27,9 @@ class Redis
     end
 
     def quit
-      @master_connection.quit if @master_connection
-      @slaves_connections.each{|conn| conn.quit } unless @slaves_connections.empty?
-      @sentinels_connection.quit if @sentinels_connection
+      @master_connection = nil if @master_connection
+      @slaves_connections = [] unless @slaves_connections.empty?
+      @sentinels_connection = nil if @sentinels_connection
       set_defaults
       nil
     end
@@ -107,11 +108,11 @@ class Redis
 
     def slave
       _slave = nil
-      if @slaves_connections_iterator
-        _slave = @slaves_connections_iterator.next
+      unless @slaves_connections.empty?
+        _slave = get_next_slave_connection
       else
         discover_slaves
-        _slave = @slaves_connections_iterator.next
+        _slave = get_next_slave_connection
       end
       log("Using slave #{_slave}")
       return _slave
@@ -123,8 +124,6 @@ class Redis
       @sentinels_connection = nil
       @master_connection = nil
       @slaves_connections = []
-      @slaves_connections_iterator = nil
-      @failover_retry = 0
       nil
     end
 
@@ -154,6 +153,16 @@ class Redis
             discover_master
         end
         retry
+      rescue FiberError => e
+        log(e)
+        quit
+        case type
+          when :slave
+            discover_slaves
+          when :master
+            discover_master
+        end
+        retry
       end
       nil
     end
@@ -161,7 +170,6 @@ class Redis
     def add_sentinel_config(sentinel_config)
       @sentinels_config << sentinel_config
       @sentinels_config.uniq!
-      @sentinels_config_iterator = @sentinels_config.cycle
       nil
     end
 
@@ -170,7 +178,7 @@ class Redis
         @sentinels_connection.quit
         @sentinels_connection = nil
       end
-      options = @sentinels_config_iterator.next
+      options = get_next_sentinel_config
       options = { :url => options } if options.is_a?(String)
       options = @default_options.merge(options)
       options.delete(:db)
@@ -178,6 +186,21 @@ class Redis
       nil
     end
 
+    def get_next_sentinel_config
+      return get_next_element(:@sentinels_config)
+    end
+
+    def get_next_slave_connection
+      return get_next_element(:@slaves_connections)
+    end
+
+    def get_next_element instance_variable_name
+      tmp_conf = instance_variable_get(instance_variable_name).clone
+      next_element = tmp_conf.shift
+      tmp_conf.push next_element
+      instance_variable_set(instance_variable_name, tmp_conf)
+      return next_element
+    end
 
     def get_master_config
       raise Redis::NotConnectedToSentinels.new unless @sentinels_connection
@@ -222,27 +245,23 @@ class Redis
         @master_connection = nil
       end
       loop do
+        @rescue_counter = 0
         begin
           connect_to_next_sentinel
           master_config = get_master_config
         rescue Redis::NotConnectedToSentinels
           retry
         rescue Redis::MasterIsDown => e
-          if @failover_retry == 0
-            log(e.message)
-            @failover_retry += 1
+          if @rescue_counter <= @max_reties
+            @rescue_counter += 1
             sleep @failover_timeout
             log("Retying to reconnect to Master host: [#{e.host}] port: [#{e.port}] after sleep of #{@failover_timeout} seconds")
             retry
+          else
+            log('Retry failed')
+            raise e
           end
-          raise e
-        rescue Redis::CommandError => e
-          p e
-          raise e
-        rescue Exception => e
-          raise e
         else
-          @failover_retry = 0
           @master_connection = Redis.new(@default_options.merge({:host => master_config['ip'], :port => master_config['port']}))
           break
         end
@@ -260,31 +279,26 @@ class Redis
       end
       @slaves_connections = []
       loop do
+        @rescue_counter = 0
         begin
           connect_to_next_sentinel
           slaves_config = get_slaves_config
         rescue Redis::NotConnectedToSentinels
           retry
         rescue Redis::MasterIsDown => e
-          if @failover_retry == 0
+          if @rescue_counter <= @max_reties
             log(e.message)
-            @failover_retry += 1
+            @rescue_counter += 1
             sleep @failover_timeout
             log("Retying to reconnect to Master host: [#{e.host}] port: [#{e.port}] after sleep of #{@failover_timeout} seconds")
             retry
           end
-          raise e
-        rescue Redis::CommandError => e
-          p e
-          raise e
-        rescue Exception => e
+          log('Retry failed')
           raise e
         else
-          @failover_retry = 0
           slaves_config.each do |slave_config|
             @slaves_connections << Redis.new(@default_options.merge({:host => slave_config['ip'], :port => slave_config['port']}))
           end
-          @slaves_connections_iterator = @slaves_connections.cycle
           break
         end
       end
