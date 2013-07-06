@@ -455,7 +455,7 @@ class Redis
   #     # => "OK"
   #   redis.exists "foo"
   #     # => true
-  #   resis.get "foo"
+  #   redis.get "foo"
   #     # => "bar"
   #
   # @param [String] key
