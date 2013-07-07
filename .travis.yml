@@ -40,11 +40,3 @@ matrix:
     - rvm: jruby-19mode
       gemfile: .travis/Gemfile
       env: conn=synchrony
-
-notifications:
-  irc:
-    - irc.freenode.net#redis-rb
-  email:
-    - damian.janowski@gmail.com
-    - michel@soveran.com
-    - pcnoordhuis@gmail.com
