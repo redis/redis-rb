@@ -153,16 +153,6 @@ class Redis
             discover_master
         end
         retry
-      rescue FiberError => e
-        log(e)
-        quit
-        case type
-          when :slave
-            discover_slaves
-          when :master
-            discover_master
-        end
-        retry
       end
       nil
     end
@@ -195,10 +185,9 @@ class Redis
     end
 
     def get_next_element instance_variable_name
-      tmp_conf = instance_variable_get(instance_variable_name).clone
+      tmp_conf = instance_variable_get(instance_variable_name)
       next_element = tmp_conf.shift
       tmp_conf.push next_element
-      instance_variable_set(instance_variable_name, tmp_conf)
       return next_element
     end
 
