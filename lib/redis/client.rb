@@ -16,7 +16,8 @@ class Redis
       :db => 0,
       :driver => nil,
       :id => nil,
-      :tcp_keepalive => 0
+      :tcp_keepalive => 0,
+      :reconnect_attempts => 1
     }
 
     def scheme
@@ -279,7 +280,7 @@ class Redis
     end
 
     def ensure_connected
-      tries = 0
+      attempts = 0
 
       begin
         if connected?
@@ -292,13 +293,13 @@ class Redis
           connect
         end
 
-        tries += 1
+        attempts += 1
 
         yield
       rescue ConnectionError
         disconnect
 
-        if tries < 2 && @reconnect
+        if attempts <= @options[:reconnect_attempts] && @reconnect
           retry
         else
           raise

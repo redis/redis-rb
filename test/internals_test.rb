@@ -146,7 +146,7 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
-  def close_on_ping(seq)
+  def close_on_ping(seq, options = {})
     $request = 0
 
     command = lambda do
@@ -158,7 +158,7 @@ class TestInternals < Test::Unit::TestCase
       rv
     end
 
-    redis_mock(:ping => command, :timeout => 0.1) do |redis|
+    redis_mock({:ping => command}, {:timeout => 0.1}.merge(options)) do |redis|
       yield(redis)
     end
   end
@@ -199,6 +199,22 @@ class TestInternals < Test::Unit::TestCase
 
   def test_retry_only_once_when_read_raises_econnreset
     close_on_ping([0, 1]) do |redis|
+      assert_raise Redis::ConnectionError do
+        redis.ping
+      end
+
+      assert !redis.client.connected?
+    end
+  end
+
+  def test_retry_with_custom_reconnect_attempts
+    close_on_ping([0, 1], :reconnect_attempts => 2) do |redis|
+      assert_equal "2", redis.ping
+    end
+  end
+
+  def test_retry_with_custom_reconnect_attempts_can_still_fail
+    close_on_ping([0, 1, 2], :reconnect_attempts => 2) do |redis|
       assert_raise Redis::ConnectionError do
         redis.ping
       end
