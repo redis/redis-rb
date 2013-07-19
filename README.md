@@ -33,7 +33,7 @@ require "redis"
 redis = Redis.new
 ```
 
-This assumes Redis was started with a default configuration, and it
+This assumes Redis was started with a default configuration, and is
 listening on `localhost`, port 6379. If you need to connect to a remote
 server or a different port, try:
 
