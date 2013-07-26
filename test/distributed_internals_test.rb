@@ -38,4 +38,13 @@ class TestDistributedInternals < Test::Unit::TestCase
     assert_equal redis.nodes.last.client.id,  "test1"
     assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
   end
+
+  def test_colliding_node_ids
+    nodes = ["redis://localhost:#{PORT}/15", "redis://localhost:#{PORT}/15", *NODES]
+
+    assert_raise(RuntimeError) do
+      redis = Redis::Distributed.new nodes
+    end
+  end
+
 end
