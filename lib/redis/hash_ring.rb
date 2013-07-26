@@ -25,6 +25,7 @@ class Redis
       @nodes << node
       @replicas.times do |i|
         key = Zlib.crc32("#{node.id}:#{i}")
+        raise "Node ID collision" if @ring.has_key?(key)
         @ring[key] = node
         @sorted_keys << key
       end
