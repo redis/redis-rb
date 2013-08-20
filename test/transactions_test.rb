@@ -92,7 +92,7 @@ class TestTransactions < Test::Unit::TestCase
 
   def test_transformed_replies_as_return_values_for_multi_exec_block
     info, _ = r.multi do |m|
-      r.info
+      m.info
     end
 
     assert info.kind_of?(Hash)
@@ -100,7 +100,7 @@ class TestTransactions < Test::Unit::TestCase
 
   def test_transformed_replies_inside_multi_exec_block
     r.multi do |m|
-      @info = r.info
+      @info = m.info
     end
 
     assert @info.value.kind_of?(Hash)

@@ -756,12 +756,12 @@ module RubyRedis
       raise CannotDistribute, :unwatch
     end
 
-    def pipelined
+    def pipelined(&block)
       raise CannotDistribute, :pipelined
     end
 
     # Mark the start of a transaction block.
-    def multi
+    def multi(&block)
       raise CannotDistribute, :multi
     end
 

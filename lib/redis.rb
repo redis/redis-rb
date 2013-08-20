@@ -16,10 +16,6 @@ class BaseRedis
     mon_synchronize { yield(@client) }
   end
 
-end
-
-class Redis < BaseRedis
-
   def self.deprecate(message, trace = caller[0])
     $stderr.puts "\n#{message} (in #{trace})"
   end
@@ -37,10 +33,6 @@ class Redis < BaseRedis
 
   def self.current=(redis)
     @current = redis
-  end
-
-  def initialize(options = {})
-    super(Client.new(options))
   end
 
   # Run code with the client reconnecting
@@ -108,7 +100,7 @@ class Redis < BaseRedis
     synchronize do |client|
       begin
         client.call([:quit])
-      rescue ConnectionError
+      rescue RubyRedis::ConnectionError
       ensure
         client.disconnect
       end
@@ -245,7 +237,7 @@ class Redis < BaseRedis
       client.with_reconnect(false) do
         begin
           client.call([:shutdown])
-        rescue ConnectionError
+        rescue RubyRedis::ConnectionError
           # This means Redis has probably exited.
           nil
         end
@@ -1983,7 +1975,7 @@ class Redis < BaseRedis
 
   def subscribed?
     synchronize do |client|
-      client.kind_of? SubscribedClient
+      client.kind_of? RubyRedis::SubscribedClient
     end
   end
 
@@ -2054,7 +2046,7 @@ class Redis < BaseRedis
       if block_given?
         begin
           yield(self)
-        rescue ConnectionError
+        rescue RubyRedis::ConnectionError
           raise
         rescue StandardError
           unwatch
@@ -2081,12 +2073,12 @@ class Redis < BaseRedis
   def pipelined(&block)
     synchronize do |client|
       if block.arity > 0
-        pipeline = BaseRedis.new(@original_client, Pipeline.new)
+        pipeline = BaseRedis.new(@original_client, RubyRedis::Pipeline.new)
         yield(pipeline)
         client.call_pipeline(pipeline.client)
       else
         begin
-          original, @client = @client, Pipeline.new
+          original, @client = @client, RubyRedis::Pipeline.new
           yield(self)
           original.call_pipeline(@client)
         ensure
@@ -2131,12 +2123,12 @@ class Redis < BaseRedis
       if !block_given?
         client.call([:multi])
       elsif block.arity > 0
-        pipeline = BaseRedis.new(@original_client, Pipeline::Multi.new)
+        pipeline = BaseRedis.new(@original_client, RubyRedis::Pipeline::Multi.new)
         yield(pipeline)
         client.call_pipeline(pipeline.client)
       else
         begin
-          original, @client = @client, Pipeline.new
+          original, @client = @client, RubyRedis::Pipeline::Multi.new
           yield(self)
           original.call_pipeline(@client)
         ensure
@@ -2348,11 +2340,19 @@ class Redis < BaseRedis
     return @client.call([method] + channels) if subscribed?
 
     begin
-      original, @client = @client, SubscribedClient.new(@client)
+      original, @client = @client, RubyRedis::SubscribedClient.new(@client)
       @client.send(method, *channels, &block)
     ensure
       @client = original
     end
+  end
+
+end
+
+class Redis < BaseRedis
+
+  def initialize(options = {})
+    super(RubyRedis::Client.new(options))
   end
 
 end
