@@ -241,4 +241,27 @@ class TestPipeliningCommands < Test::Unit::TestCase
 
     assert_equal 3, r.client.db
   end
+
+  def test_nested_pipeline_doesnt_block_connection
+    r.set 'mary', 'poppins'
+    r.set 'queen', 'mary'
+    r.pipelined do |pipeline|
+      @first = pipeline.get 'mary'
+      @second = r.get 'queen'
+    end
+    assert_equal 'poppins', @first.value
+    assert_equal 'mary', @second
+  end
+
+  def test_nested_pipeline_with_inner_pipeline
+    r.set 'mary', 'poppins'
+    r.set 'queen', 'mary'
+    r.pipelined do |pipeline|
+      @first = pipeline.get 'mary'
+      @second = r.get 'queen'
+    end
+    assert_equal 'poppins', @first.value
+    assert_equal 'mary', @second
+  end
+
 end

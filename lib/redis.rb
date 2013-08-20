@@ -1,13 +1,28 @@
 require "monitor"
 require "redis/errors"
 
-class Redis
+class BaseRedis
+  attr :client
+
+  include MonitorMixin
+
+  def initialize(original_client, new_client = nil)
+    @original_client = @client = original_client
+    @client = new_client unless new_client.nil?
+    super() # Monitor#initialize
+  end
+
+  def synchronize
+    mon_synchronize { yield(@client) }
+  end
+
+end
+
+class Redis < BaseRedis
 
   def self.deprecate(message, trace = caller[0])
     $stderr.puts "\n#{message} (in #{trace})"
   end
-
-  attr :client
 
   # @deprecated The preferred way to create a new client object is using `#new`.
   #             This method does not actually establish a connection to Redis,
@@ -24,16 +39,8 @@ class Redis
     @current = redis
   end
 
-  include MonitorMixin
-
   def initialize(options = {})
-    @original_client = @client = Client.new(options)
-
-    super() # Monitor#initialize
-  end
-
-  def synchronize
-    mon_synchronize { yield(@client) }
+    super(Client.new(options))
   end
 
   # Run code with the client reconnecting
@@ -1019,11 +1026,11 @@ class Redis
     options = {}
 
     case args.last
-    when Hash
-      options = args.pop
-    when Integer
-      # Issue deprecation notice in obnoxious mode...
-      options[:timeout] = args.pop
+      when Hash
+        options = args.pop
+      when Integer
+        # Issue deprecation notice in obnoxious mode...
+        options[:timeout] = args.pop
     end
 
     if args.size > 1
@@ -1094,9 +1101,9 @@ class Redis
   #   - the element was popped and pushed otherwise
   def brpoplpush(source, destination, options = {})
     case options
-    when Integer
-      # Issue deprecation notice in obnoxious mode...
-      options = { :timeout => options }
+      when Integer
+        # Issue deprecation notice in obnoxious mode...
+        options = { :timeout => options }
     end
 
     timeout = options[:timeout] || 0
@@ -2071,14 +2078,20 @@ class Redis
     end
   end
 
-  def pipelined
+  def pipelined(&block)
     synchronize do |client|
-      begin
-        original, @client = @client, Pipeline.new
-        yield(self)
-        original.call_pipeline(@client)
-      ensure
-        @client = original
+      if block.arity > 0
+        pipeline = BaseRedis.new(@original_client, Pipeline.new)
+        yield(pipeline)
+        client.call_pipeline(pipeline.client)
+      else
+        begin
+          original, @client = @client, Pipeline.new
+          yield(self)
+          original.call_pipeline(@client)
+        ensure
+          @client = original
+        end
       end
     end
   end
@@ -2113,16 +2126,19 @@ class Redis
   #
   # @see #watch
   # @see #unwatch
-  def multi
+  def multi(&block)
     synchronize do |client|
       if !block_given?
         client.call([:multi])
+      elsif block.arity > 0
+        pipeline = BaseRedis.new(@original_client, Pipeline::Multi.new)
+        yield(pipeline)
+        client.call_pipeline(pipeline.client)
       else
         begin
-          pipeline = Pipeline::Multi.new
-          original, @client = @client, pipeline
+          original, @client = @client, Pipeline.new
           yield(self)
-          original.call_pipeline(pipeline)
+          original.call_pipeline(@client)
         ensure
           @client = original
         end
@@ -2289,7 +2305,7 @@ class Redis
     end
   end
 
-private
+  private
 
   # Commands returning 1 for true and 0 for false may be executed in a pipeline
   # where the method call will return nil. Propagate the nil instead of falsely
