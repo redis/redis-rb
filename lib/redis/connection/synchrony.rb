@@ -4,7 +4,7 @@ require "redis/errors"
 require "em-synchrony"
 require "hiredis/reader"
 
-class Redis
+module RubyRedis
   module Connection
     class RedisClient < EventMachine::Connection
       include EventMachine::Deferrable
@@ -63,7 +63,7 @@ class Redis
     end
 
     class Synchrony
-      include Redis::Connection::CommandHelper
+      include RubyRedis::Connection::CommandHelper
 
       def self.connect(config)
         if config[:scheme] == "unix"
@@ -121,4 +121,4 @@ class Redis
   end
 end
 
-Redis::Connection.drivers << Redis::Connection::Synchrony
+RubyRedis::Connection.drivers << RubyRedis::Connection::Synchrony

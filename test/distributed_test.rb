@@ -7,7 +7,7 @@ class TestDistributed < Test::Unit::TestCase
   include Helper::Distributed
 
   def test_handle_multiple_servers
-    @r = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+    @r = RubyRedis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
 
     100.times do |idx|
       @r.set(idx.to_s, "foo#{idx}")
@@ -24,7 +24,7 @@ class TestDistributed < Test::Unit::TestCase
   def test_add_nodes
     logger = Logger.new("/dev/null")
 
-    @r = Redis::Distributed.new NODES, :logger => logger, :timeout => 10
+    @r = RubyRedis::Distributed.new NODES, :logger => logger, :timeout => 10
 
     assert_equal "127.0.0.1", @r.nodes[0].client.host
     assert_equal PORT, @r.nodes[0].client.port
@@ -42,7 +42,7 @@ class TestDistributed < Test::Unit::TestCase
   end
 
   def test_pipelining_commands_cannot_be_distributed
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.pipelined do
         r.lpush "foo", "s1"
         r.lpush "foo", "s2"

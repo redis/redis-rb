@@ -43,11 +43,11 @@ class TestDistributedScripting < Test::Unit::TestCase
   def test_eval
     return if version < "2.5.9" # 2.6-rc1
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.eval("return #KEYS")
     end
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.eval("return KEYS", ["k1", "k2"])
     end
 
@@ -58,11 +58,11 @@ class TestDistributedScripting < Test::Unit::TestCase
   def test_eval_with_options_hash
     return if version < "2.5.9" # 2.6-rc1
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.eval("return #KEYS", {})
     end
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.eval("return KEYS", { :keys => ["k1", "k2"] })
     end
 
@@ -73,11 +73,11 @@ class TestDistributedScripting < Test::Unit::TestCase
   def test_evalsha
     return if version < "2.5.9" # 2.6-rc1
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.evalsha(to_sha("return #KEYS"))
     end
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.evalsha(to_sha("return KEYS"), ["k1", "k2"])
     end
 
@@ -88,11 +88,11 @@ class TestDistributedScripting < Test::Unit::TestCase
   def test_evalsha_with_options_hash
     return if version < "2.5.9" # 2.6-rc1
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.evalsha(to_sha("return #KEYS"), {})
     end
 
-    assert_raises(Redis::Distributed::CannotDistribute) do
+    assert_raises(RubyRedis::Distributed::CannotDistribute) do
       r.evalsha(to_sha("return KEYS"), { :keys => ["k1", "k2"] })
     end
 

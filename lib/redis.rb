@@ -2295,7 +2295,7 @@ class Redis < BaseRedis
 
   def inspect
     synchronize do |client|
-      "#<Redis client v#{Redis::VERSION} for #{@original_client.id}>"
+      "#<Redis client v#{RubyRedis::VERSION} for #{@original_client.id}>"
     end
   end
 

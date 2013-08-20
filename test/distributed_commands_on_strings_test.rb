@@ -9,38 +9,38 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   include Lint::Strings
 
   def test_mget
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.mget("foo", "bar")
     end
   end
 
   def test_mget_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.mapped_mget("foo", "bar")
     end
   end
 
   def test_mset
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.mset(:foo, "s1", :bar, "s2")
     end
   end
 
   def test_mset_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.mapped_mset(:foo => "s1", :bar => "s2")
     end
   end
 
   def test_msetnx
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.set("foo", "s1")
       r.msetnx(:foo, "s2", :bar, "s3")
     end
   end
 
   def test_msetnx_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.set("foo", "s1")
       r.mapped_msetnx(:foo => "s2", :bar => "s3")
     end
@@ -49,7 +49,7 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   def test_bitop
     return if version < "2.5.10"
 
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.set("foo", "a")
       r.set("bar", "b")
 

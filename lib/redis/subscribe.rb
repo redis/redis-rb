@@ -1,4 +1,4 @@
-class Redis
+module RubyRedis
   class SubscribedClient
     def initialize(client)
       @client = client

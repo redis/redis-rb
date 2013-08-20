@@ -1,4 +1,4 @@
-class Redis
+module RubyRedis
   unless defined?(::BasicObject)
     class BasicObject
       instance_methods.each { |meth| undef_method(meth) unless meth =~ /\A(__|instance_eval)/ }
@@ -104,7 +104,7 @@ class Redis
   end
 
   class Future < BasicObject
-    FutureNotReady = ::Redis::FutureNotReady.new
+    FutureNotReady = ::RubyRedis::FutureNotReady.new
 
     def initialize(command, transformation)
       @command = command
@@ -113,7 +113,7 @@ class Redis
     end
 
     def inspect
-      "<Redis::Future #{@command.inspect}>"
+      "<RubyRedis::Future #{@command.inspect}>"
     end
 
     def _set(object)

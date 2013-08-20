@@ -31,7 +31,7 @@ def init(redis)
     redis.select 15
     redis.flushdb
     redis
-  rescue Redis::CannotConnectError
+  rescue RubyRedis::CannotConnectError
     puts <<-EOS
 
       Cannot connect to Redis.
@@ -192,7 +192,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
+      RubyRedis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
     end
   end
 end

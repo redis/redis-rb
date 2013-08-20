@@ -1,4 +1,4 @@
-class Redis
+module RubyRedis
   # Base error for all redis-rb errors.
   class BaseError < RuntimeError
   end

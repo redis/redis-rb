@@ -124,7 +124,7 @@ module Lint
     driver(:ruby, :hiredis) do
       def test_blpop_socket_timeout
         mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-          assert_raises(Redis::TimeoutError) do
+          assert_raises(RubyRedis::TimeoutError) do
             r.blpop("{zap}foo", :timeout => 1)
           end
         end
@@ -132,7 +132,7 @@ module Lint
 
       def test_brpop_socket_timeout
         mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-          assert_raises(Redis::TimeoutError) do
+          assert_raises(RubyRedis::TimeoutError) do
             r.brpop("{zap}foo", :timeout => 1)
           end
         end
@@ -140,7 +140,7 @@ module Lint
 
       def test_brpoplpush_socket_timeout
         mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-          assert_raises(Redis::TimeoutError) do
+          assert_raises(RubyRedis::TimeoutError) do
             r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
           end
         end
