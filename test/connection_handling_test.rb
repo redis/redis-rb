@@ -120,6 +120,7 @@ class TestConnectionHandling < Test::Unit::TestCase
         redis.shutdown
       end
 
+      puts result.to_s
       assert_equal nil, result
       assert !redis.client.connected?
     end
