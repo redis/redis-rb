@@ -248,20 +248,22 @@ class TestPipeliningCommands < Test::Unit::TestCase
     r.pipelined do |pipeline|
       @first = pipeline.get 'mary'
       @second = r.get 'queen'
+      assert_equal 'mary', @second
     end
     assert_equal 'poppins', @first.value
-    assert_equal 'mary', @second
   end
 
   def test_nested_pipeline_with_inner_pipeline
-    r.set 'mary', 'poppins'
-    r.set 'queen', 'mary'
+    r.set 'mary', 'was a bullfrog'
     r.pipelined do |pipeline|
-      @first = pipeline.get 'mary'
-      @second = r.get 'queen'
+      pipeline.set 'mary', 'had a little lamb'
+      r.pipelined do |p2|
+        @first = p2.get 'mary'
+      end
+      @second = pipeline.get 'mary'
     end
-    assert_equal 'poppins', @first.value
-    assert_equal 'mary', @second
+    assert_equal 'was a bullfrog', @first.value
+    assert_equal 'had a little lamb', @second.value
   end
 
 end
