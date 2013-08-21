@@ -8,3 +8,5 @@ coverage/*
 *.swp
 .yardoc
 doc/
+
+*.iml
