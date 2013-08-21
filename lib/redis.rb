@@ -1018,11 +1018,11 @@ class BaseRedis
     options = {}
 
     case args.last
-      when Hash
-        options = args.pop
-      when Integer
-        # Issue deprecation notice in obnoxious mode...
-        options[:timeout] = args.pop
+    when Hash
+      options = args.pop
+    when Integer
+      # Issue deprecation notice in obnoxious mode...
+      options[:timeout] = args.pop
     end
 
     if args.size > 1
@@ -1093,9 +1093,9 @@ class BaseRedis
   #   - the element was popped and pushed otherwise
   def brpoplpush(source, destination, options = {})
     case options
-      when Integer
-        # Issue deprecation notice in obnoxious mode...
-        options = { :timeout => options }
+    when Integer
+      # Issue deprecation notice in obnoxious mode...
+      options = { :timeout => options }
     end
 
     timeout = options[:timeout] || 0
