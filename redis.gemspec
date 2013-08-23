@@ -7,7 +7,7 @@ require "redis/version"
 Gem::Specification.new do |s|
   s.name = "redis"
 
-  s.version = Redis::VERSION
+  s.version = RubyRedis::VERSION
 
   s.homepage = "https://github.com/redis/redis-rb"
 
