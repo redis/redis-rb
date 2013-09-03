@@ -59,6 +59,14 @@ class Redis
       rescue EOFError
         raise Errno::ECONNRESET
       end
+
+      def _read_from_unixsocket(nbytes)
+        readpartial(nbytes)
+
+      rescue EOFError
+        raise Errno::ECONNRESET
+      end
+
     end
 
     if defined?(RUBY_ENGINE) && RUBY_ENGINE == "jruby"
@@ -85,6 +93,8 @@ class Redis
 
           include SocketMixin
 
+          alias_method :_read_from_socket, :_read_from_unixsocket
+
           def self.connect(path, timeout)
             Timeout.timeout(timeout) do
               sock = new(path)
@@ -94,16 +104,6 @@ class Redis
             raise TimeoutError
           end
 
-          # JRuby raises Errno::EAGAIN on #read_nonblock even when IO.select
-          # says it is readable (1.6.6, in both 1.8 and 1.9 mode).
-          # Use the blocking #readpartial method instead.
-
-          def _read_from_socket(nbytes)
-            readpartial(nbytes)
-
-          rescue EOFError
-            raise Errno::ECONNRESET
-          end
         end
 
       end
@@ -140,6 +140,8 @@ class Redis
       class UNIXSocket < ::Socket
 
         include SocketMixin
+
+        alias_method :_read_from_socket, :_read_from_unixsocket
 
         def self.connect(path, timeout)
           sock = new(::Socket::AF_UNIX, Socket::SOCK_STREAM, 0)
