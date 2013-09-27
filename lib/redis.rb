@@ -1,7 +1,7 @@
 require "monitor"
 require "redis/errors"
 
-class BaseRedis
+class RubyRedis::BaseRedis
   attr :client
 
   include MonitorMixin
@@ -2073,7 +2073,7 @@ class BaseRedis
   def pipelined(&block)
     synchronize do |client|
       if block.arity > 0
-        pipeline = BaseRedis.new(@original_client, RubyRedis::Pipeline.new)
+        pipeline = RubyRedis::BaseRedis.new(@original_client, RubyRedis::Pipeline.new)
         yield(pipeline)
         client.call_pipeline(pipeline.client)
       else
@@ -2123,7 +2123,7 @@ class BaseRedis
       if !block_given?
         client.call([:multi])
       elsif block.arity > 0
-        pipeline = BaseRedis.new(@original_client, RubyRedis::Pipeline::Multi.new)
+        pipeline = RubyRedis::BaseRedis.new(@original_client, RubyRedis::Pipeline::Multi.new)
         yield(pipeline)
         client.call_pipeline(pipeline.client)
       else
@@ -2349,7 +2349,7 @@ class BaseRedis
 
 end
 
-class Redis < BaseRedis
+class Redis < RubyRedis::BaseRedis
 
   def initialize(options = {})
     super(RubyRedis::Client.new(options))
