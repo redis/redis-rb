@@ -1,13 +1,24 @@
 require "monitor"
 require "redis/errors"
 
-class Redis
+class RubyRedis::BaseRedis
+  attr :client
+
+  include MonitorMixin
+
+  def initialize(original_client, new_client = nil)
+    @original_client = @client = original_client
+    @client = new_client unless new_client.nil?
+    super() # Monitor#initialize
+  end
+
+  def synchronize
+    mon_synchronize { yield(@client) }
+  end
 
   def self.deprecate(message, trace = caller[0])
     $stderr.puts "\n#{message} (in #{trace})"
   end
-
-  attr :client
 
   # @deprecated The preferred way to create a new client object is using `#new`.
   #             This method does not actually establish a connection to Redis,
@@ -22,18 +33,6 @@ class Redis
 
   def self.current=(redis)
     @current = redis
-  end
-
-  include MonitorMixin
-
-  def initialize(options = {})
-    @original_client = @client = Client.new(options)
-
-    super() # Monitor#initialize
-  end
-
-  def synchronize
-    mon_synchronize { yield(@client) }
   end
 
   # Run code with the client reconnecting
@@ -101,7 +100,7 @@ class Redis
     synchronize do |client|
       begin
         client.call([:quit])
-      rescue ConnectionError
+      rescue RubyRedis::ConnectionError
       ensure
         client.disconnect
       end
@@ -238,7 +237,7 @@ class Redis
       client.with_reconnect(false) do
         begin
           client.call([:shutdown])
-        rescue ConnectionError
+        rescue RubyRedis::ConnectionError
           # This means Redis has probably exited.
           nil
         end
@@ -1976,7 +1975,7 @@ class Redis
 
   def subscribed?
     synchronize do |client|
-      client.kind_of? SubscribedClient
+      client.kind_of? RubyRedis::SubscribedClient
     end
   end
 
@@ -2047,7 +2046,7 @@ class Redis
       if block_given?
         begin
           yield(self)
-        rescue ConnectionError
+        rescue RubyRedis::ConnectionError
           raise
         rescue StandardError
           unwatch
@@ -2071,14 +2070,20 @@ class Redis
     end
   end
 
-  def pipelined
+  def pipelined(&block)
     synchronize do |client|
-      begin
-        original, @client = @client, Pipeline.new
-        yield(self)
-        original.call_pipeline(@client)
-      ensure
-        @client = original
+      if block.arity > 0
+        pipeline = RubyRedis::BaseRedis.new(@original_client, RubyRedis::Pipeline.new)
+        yield(pipeline)
+        client.call_pipeline(pipeline.client)
+      else
+        begin
+          original, @client = @client, RubyRedis::Pipeline.new
+          yield(self)
+          original.call_pipeline(@client)
+        ensure
+          @client = original
+        end
       end
     end
   end
@@ -2113,16 +2118,19 @@ class Redis
   #
   # @see #watch
   # @see #unwatch
-  def multi
+  def multi(&block)
     synchronize do |client|
       if !block_given?
         client.call([:multi])
+      elsif block.arity > 0
+        pipeline = RubyRedis::BaseRedis.new(@original_client, RubyRedis::Pipeline::Multi.new)
+        yield(pipeline)
+        client.call_pipeline(pipeline.client)
       else
         begin
-          pipeline = Pipeline::Multi.new
-          original, @client = @client, pipeline
+          original, @client = @client, RubyRedis::Pipeline::Multi.new
           yield(self)
-          original.call_pipeline(pipeline)
+          original.call_pipeline(@client)
         ensure
           @client = original
         end
@@ -2279,7 +2287,7 @@ class Redis
 
   def inspect
     synchronize do |client|
-      "#<Redis client v#{Redis::VERSION} for #{@original_client.id}>"
+      "#<Redis client v#{RubyRedis::VERSION} for #{@original_client.id}>"
     end
   end
 
@@ -2289,7 +2297,7 @@ class Redis
     end
   end
 
-private
+  private
 
   # Commands returning 1 for true and 0 for false may be executed in a pipeline
   # where the method call will return nil. Propagate the nil instead of falsely
@@ -2332,11 +2340,19 @@ private
     return @client.call([method] + channels) if subscribed?
 
     begin
-      original, @client = @client, SubscribedClient.new(@client)
+      original, @client = @client, RubyRedis::SubscribedClient.new(@client)
       @client.send(method, *channels, &block)
     ensure
       @client = original
     end
+  end
+
+end
+
+class Redis < RubyRedis::BaseRedis
+
+  def initialize(options = {})
+    super(RubyRedis::Client.new(options))
   end
 
 end

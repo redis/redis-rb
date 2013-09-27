@@ -2,7 +2,7 @@ require "redis/errors"
 require "socket"
 require "cgi"
 
-class Redis
+module RubyRedis
   class Client
 
     DEFAULTS = {

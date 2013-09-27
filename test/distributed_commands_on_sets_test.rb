@@ -9,7 +9,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   include Lint::Sets
 
   def test_smove
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "bar", "s2"
 
@@ -18,7 +18,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   end
 
   def test_sinter
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "foo", "s2"
       r.sadd "bar", "s2"
@@ -28,7 +28,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   end
 
   def test_sinterstore
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "foo", "s2"
       r.sadd "bar", "s2"
@@ -38,7 +38,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   end
 
   def test_sunion
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "foo", "s2"
       r.sadd "bar", "s2"
@@ -49,7 +49,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   end
 
   def test_sunionstore
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "foo", "s2"
       r.sadd "bar", "s2"
@@ -60,7 +60,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   end
 
   def test_sdiff
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "foo", "s2"
       r.sadd "bar", "s2"
@@ -71,7 +71,7 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
   end
 
   def test_sdiffstore
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raise RubyRedis::Distributed::CannotDistribute do
       r.sadd "foo", "s1"
       r.sadd "foo", "s2"
       r.sadd "bar", "s2"

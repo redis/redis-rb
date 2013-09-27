@@ -1,4 +1,4 @@
-class Redis
+module RubyRedis
   module Connection
     module CommandHelper
 

@@ -1,6 +1,6 @@
 require "redis/hash_ring"
 
-class Redis
+module RubyRedis
   class Distributed
 
     class CannotDistribute < RuntimeError
@@ -9,7 +9,7 @@ class Redis
       end
 
       def message
-        "#{@command.to_s.upcase} cannot be used in Redis::Distributed because the keys involved need to be on the same server or because we cannot guarantee that the operation will be atomic."
+        "#{@command.to_s.upcase} cannot be used in RubyRedis::Distributed because the keys involved need to be on the same server or because we cannot guarantee that the operation will be atomic."
       end
     end
 
@@ -756,12 +756,12 @@ class Redis
       raise CannotDistribute, :unwatch
     end
 
-    def pipelined
+    def pipelined(&block)
       raise CannotDistribute, :pipelined
     end
 
     # Mark the start of a transaction block.
-    def multi
+    def multi(&block)
       raise CannotDistribute, :multi
     end
 
@@ -804,7 +804,7 @@ class Redis
     end
 
     def inspect
-      "#<Redis client v#{Redis::VERSION} for #{nodes.map(&:id).join(', ')}>"
+      "#<Redis client v#{RubyRedis::VERSION} for #{nodes.map(&:id).join(', ')}>"
     end
 
   protected

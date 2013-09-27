@@ -49,7 +49,7 @@ class TestTransactions < Test::Unit::TestCase
   # Although we could support accessing the values in these futures,
   # it doesn't make a lot of sense.
   def test_assignment_inside_multi_exec_block_with_delayed_command_errors
-    assert_raise(Redis::CommandError) do
+    assert_raise(RubyRedis::CommandError) do
       r.multi do |m|
         @first = m.set("foo", "s1")
         @second = m.incr("foo") # not an integer
@@ -58,12 +58,12 @@ class TestTransactions < Test::Unit::TestCase
     end
 
     assert_equal "OK", @first.value
-    assert_raise(Redis::CommandError) { @second.value }
-    assert_raise(Redis::FutureNotReady) { @third.value }
+    assert_raise(RubyRedis::CommandError) { @second.value }
+    assert_raise(RubyRedis::FutureNotReady) { @third.value }
   end
 
   def test_assignment_inside_multi_exec_block_with_immediate_command_errors
-    assert_raise(Redis::CommandError) do
+    assert_raise(RubyRedis::CommandError) do
       r.multi do |m|
         m.doesnt_exist
         @first = m.sadd("foo", 1)
@@ -73,8 +73,8 @@ class TestTransactions < Test::Unit::TestCase
       end
     end
 
-    assert_raise(Redis::FutureNotReady) { @first.value }
-    assert_raise(Redis::FutureNotReady) { @second.value }
+    assert_raise(RubyRedis::FutureNotReady) { @first.value }
+    assert_raise(RubyRedis::FutureNotReady) { @second.value }
   end
 
   def test_raise_immediate_errors_in_multi_exec
@@ -92,7 +92,7 @@ class TestTransactions < Test::Unit::TestCase
 
   def test_transformed_replies_as_return_values_for_multi_exec_block
     info, _ = r.multi do |m|
-      r.info
+      m.info
     end
 
     assert info.kind_of?(Hash)
@@ -100,14 +100,14 @@ class TestTransactions < Test::Unit::TestCase
 
   def test_transformed_replies_inside_multi_exec_block
     r.multi do |m|
-      @info = r.info
+      @info = m.info
     end
 
     assert @info.value.kind_of?(Hash)
   end
 
   def test_raise_command_errors_in_multi_exec
-    assert_raise(Redis::CommandError) do
+    assert_raise(RubyRedis::CommandError) do
       r.multi do |m|
         m.set("foo", "s1")
         m.incr("foo") # not an integer
@@ -128,7 +128,7 @@ class TestTransactions < Test::Unit::TestCase
       # Not gonna deal with it
     end
 
-    # We should test for Redis::Error here, but hiredis doesn't yet do
+    # We should test for RubyRedis::Error here, but hiredis doesn't yet do
     # custom error classes.
     err = nil
     begin
@@ -149,7 +149,7 @@ class TestTransactions < Test::Unit::TestCase
 
   def test_raise_command_error_when_exec_fails
     redis_mock(:exec => lambda { |*_| "-ERROR" }) do |redis|
-      assert_raise(Redis::CommandError) do
+      assert_raise(RubyRedis::CommandError) do
         redis.multi do |m|
           m.set "foo", "s1"
         end

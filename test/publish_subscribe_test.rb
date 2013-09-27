@@ -104,7 +104,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_other_commands_within_a_subscribe
-    assert_raise Redis::CommandError do
+    assert_raise RubyRedis::CommandError do
       r.subscribe("foo") do |on|
         on.subscribe do |channel, total|
           r.set("bar", "s2")
