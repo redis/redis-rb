@@ -2271,6 +2271,92 @@ class Redis
     _eval(:evalsha, args)
   end
 
+  def _scan(command, cursor, options = {})
+    # SSCAN/ZSCAN/HSCAN need a key to work on
+    args = []
+
+    if command != :scan
+      key = options[:key]
+      args.concat([key]) if key
+    end
+
+    args.concat([cursor])
+
+    match = options[:match]
+    args.concat(["MATCH", match]) if match
+
+    count = options[:count]
+    args.concat(["COUNT", count]) if count
+
+    synchronize do |client|
+      client.call([command] + args)
+    end
+  end
+
+  # Scan the keyspace
+  #
+  # @example Retrieve the first batch of keys
+  #   redis.scan(0)
+  #     # => ["4", ["key:21", "key:47", "key:42"]]
+  # @example Retrieve a batch of keys matching a pattern
+  #   redis.scan(4, :match => "key:1?")
+  #     # => ["92", ["key:13", "key:18"]]
+  #
+  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [String, Array<String>] the next cursor and all found keys
+  def scan(cursor, options={})
+    _scan(:scan, cursor, options)
+  end
+
+  # Scan a hash
+  #
+  # @example Retrieve the first batch of key/value pairs in a hash
+  #   redis.hscan("hash", 0)
+  #
+  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [String, Array<String>] the next cursor and all found keys
+  def hscan(key, cursor, options={})
+    _scan(:hscan, cursor, options.merge({key: key}))
+  end
+
+  # Scan a sorted set
+  #
+  # @example Retrieve the first batch of key/value pairs in a hash
+  #   redis.zscan("zset", 0)
+  #
+  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [String, Array<String>] the next cursor and all found scores and members
+  def zscan(key, cursor, options={})
+    _scan(:zscan, cursor, options.merge({key: key}))
+  end
+
+  # Scan a set
+  #
+  # @example Retrieve the first batch of keys in a set
+  #   redis.sscan("set", 0)
+  #
+  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [String, Array<String>] the next cursor and all found members
+  def sscan(key, cursor, options={})
+    _scan(:sscan, cursor, options.merge({key: key}))
+  end
+
   def id
     synchronize do |client|
       client.id
