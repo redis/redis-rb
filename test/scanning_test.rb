@@ -7,6 +7,8 @@ class TestScanning < Test::Unit::TestCase
   include Helper::Client
 
   def test_scan_basic
+    return if version < "2.7.105"
+
     r.debug :populate, 1000
 
     cursor = 0
@@ -21,6 +23,8 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_scan_count
+    return if version < "2.7.105"
+
     r.debug :populate, 1000
 
     cursor = 0
@@ -35,6 +39,8 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_scan_match
+    return if version < "2.7.105"
+
     r.debug :populate, 1000
 
     cursor = 0
@@ -49,6 +55,8 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_sscan_with_encoding
+    return if version < "2.7.105"
+
     [:intset, :hashtable].each do |enc|
       r.del "set"
 
@@ -75,6 +83,8 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_hscan_with_encoding
+    return if version < "2.7.105"
+
     [:ziplist, :hashtable].each do |enc|
       r.del "set"
 
@@ -107,6 +117,8 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_zscan_with_encoding
+    return if version < "2.7.105"
+
     [:ziplist, :skiplist].each do |enc|
       r.del "zset"
 
