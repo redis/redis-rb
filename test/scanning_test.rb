@@ -30,7 +30,7 @@ class TestScanning < Test::Unit::TestCase
     cursor = 0
     all_keys   = []
     loop {
-      cursor, keys = r.scan cursor, count: 5
+      cursor, keys = r.scan cursor, :count => 5
       all_keys += keys
       break if cursor == "0"
     }
@@ -46,7 +46,7 @@ class TestScanning < Test::Unit::TestCase
     cursor = 0
     all_keys   = []
     loop {
-      cursor, keys = r.scan cursor, match: "key:1??"
+      cursor, keys = r.scan cursor, :match => "key:1??"
       all_keys += keys
       break if cursor == "0"
     }
