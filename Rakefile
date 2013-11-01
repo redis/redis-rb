@@ -7,15 +7,18 @@ require 'redis/version'
 
 REDIS_DIR = File.expand_path(File.join("..", "test"), __FILE__)
 REDIS_CNF = File.join(REDIS_DIR, "test.conf")
-REDIS_PID = File.join(REDIS_DIR, "db", "redis.pid")
+REDIS_DB_DIR = File.join(REDIS_DIR, "db")
+REDIS_PID = File.join(REDIS_DB_DIR, "redis.pid")
 
 task :default => :run
 
 desc "Run tests and manage server start/stop"
 task :run => [:start, :test, :stop]
 
+directory REDIS_DB_DIR
+
 desc "Start the Redis server"
-task :start do
+task :start => REDIS_DB_DIR do
   redis_running = \
   begin
     File.exists?(REDIS_PID) && Process.kill(0, File.read(REDIS_PID).to_i)
