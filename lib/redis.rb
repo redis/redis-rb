@@ -2324,7 +2324,7 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found keys
   def hscan(key, cursor, options={})
-    _scan(:hscan, cursor, options.merge({key: key}))
+    _scan(:hscan, cursor, options.merge(:key => key))
   end
 
   # Scan a sorted set
@@ -2339,7 +2339,7 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found scores and members
   def zscan(key, cursor, options={})
-    _scan(:zscan, cursor, options.merge({key: key}))
+    _scan(:zscan, cursor, options.merge(:key => key))
   end
 
   # Scan a set
@@ -2354,7 +2354,7 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found members
   def sscan(key, cursor, options={})
-    _scan(:sscan, cursor, options.merge({key: key}))
+    _scan(:sscan, cursor, options.merge(:key => key))
   end
 
   def id
