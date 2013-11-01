@@ -48,21 +48,21 @@ module Lint
     end
 
     def test_set_with_ex
-      return if version < "2.6.12"
+      target_version "2.6.12"
 
       r.set("foo", "bar", :ex => 2)
       assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_set_with_px
-      return if version < "2.6.12"
+      target_version "2.6.12"
 
       r.set("foo", "bar", :px => 2000)
       assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_set_with_nx
-      return if version < "2.6.12"
+      target_version "2.6.12"
 
       r.set("foo", "qux", :nx => true)
       assert !r.set("foo", "bar", :nx => true)
@@ -74,7 +74,7 @@ module Lint
     end
 
     def test_set_with_xx
-      return if version < "2.6.12"
+      target_version "2.6.12"
 
       r.set("foo", "qux")
       assert r.set("foo", "bar", :xx => true)
@@ -99,7 +99,7 @@ module Lint
     end
 
     def test_psetex
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       assert r.psetex("foo", 1000, "bar")
       assert_equal "bar", r.get("foo")
@@ -107,7 +107,7 @@ module Lint
     end
 
     def test_psetex_with_non_string_value
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       value = ["b", "a", "r"]
 
@@ -167,7 +167,7 @@ module Lint
     end
 
     def test_incrbyfloat
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       assert_equal 1.23, r.incrbyfloat("foo", 1.23)
       assert_equal 2   , r.incrbyfloat("foo", 0.77)
@@ -218,7 +218,7 @@ module Lint
     end
 
     def test_bitcount
-      return if version < "2.5.10"
+      target_version "2.5.10"
 
       r.set("foo", "abcde")
 

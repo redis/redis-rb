@@ -153,6 +153,10 @@ module Helper
     def assert_in_range(range, value)
       assert range.include?(value), "expected #{value} to be in #{range.inspect}"
     end
+
+    def target_version(target)
+      skip("Requires Redis > #{target}") if version < target
+    end
   end
 
   module Client

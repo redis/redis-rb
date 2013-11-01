@@ -11,7 +11,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_script_exists
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     a = to_sha("return 1")
     b = a.succ
@@ -24,7 +24,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_script_flush
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     sha = to_sha("return 1")
     assert r.script(:exists, sha).first
@@ -33,7 +33,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_script_kill
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     redis_mock(:script => lambda { |arg| "+#{arg.upcase}" }) do |redis|
       assert_equal ["KILL"], redis.script(:kill)
@@ -41,7 +41,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_eval
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     assert_raises(Redis::Distributed::CannotDistribute) do
       r.eval("return #KEYS")
@@ -56,7 +56,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_eval_with_options_hash
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     assert_raises(Redis::Distributed::CannotDistribute) do
       r.eval("return #KEYS", {})
@@ -71,7 +71,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_evalsha
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     assert_raises(Redis::Distributed::CannotDistribute) do
       r.evalsha(to_sha("return #KEYS"))
@@ -86,7 +86,7 @@ class TestDistributedScripting < Test::Unit::TestCase
   end
 
   def test_evalsha_with_options_hash
-    return if version < "2.5.9" # 2.6-rc1
+    target_version "2.5.9" # 2.6-rc1
 
     assert_raises(Redis::Distributed::CannotDistribute) do
       r.evalsha(to_sha("return #KEYS"), {})

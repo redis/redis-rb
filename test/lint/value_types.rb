@@ -33,7 +33,7 @@ module Lint
     end
 
     def test_pexpire
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       r.set("foo", "s1")
       assert r.pexpire("foo", 2000)
@@ -47,7 +47,7 @@ module Lint
     end
 
     def test_pexpireat
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       r.set("foo", "s1")
       assert r.pexpireat("foo", (Time.now + 2).to_i * 1_000)
@@ -69,7 +69,7 @@ module Lint
     end
 
     def test_pttl
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       r.set("foo", "s1")
       r.expire("foo", 2)
@@ -77,7 +77,7 @@ module Lint
     end
 
     def test_dump_and_restore
-      return if version < "2.5.7"
+      target_version "2.5.7"
 
       r.set("foo", "a")
       v = r.dump("foo")

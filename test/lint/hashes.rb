@@ -31,7 +31,7 @@ module Lint
     end
 
     def test_variadic_hdel
-      return if version < "2.3.9"
+      target_version "2.3.9"
 
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
@@ -144,7 +144,7 @@ module Lint
     end
 
     def test_hincrbyfloat
-      return if version < "2.5.4"
+      target_version "2.5.4"
 
       r.hincrbyfloat("foo", "f1", 1.23)
 

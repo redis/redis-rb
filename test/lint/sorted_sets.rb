@@ -12,7 +12,7 @@ module Lint
     end
 
     def test_variadic_zadd
-      return if version < "2.3.9" # 2.4-rc6
+      target_version "2.3.9" # 2.4-rc6
 
       # Non-nested array with pairs
       assert_equal 0, r.zcard("foo")
@@ -44,7 +44,7 @@ module Lint
     end
 
     def test_variadic_zrem
-      return if version < "2.3.9" # 2.4-rc6
+      target_version "2.3.9" # 2.4-rc6
 
       r.zadd("foo", 1, "s1")
       r.zadd("foo", 2, "s2")

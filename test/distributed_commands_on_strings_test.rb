@@ -47,7 +47,7 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_bitop
-    return if version < "2.5.10"
+    target_version "2.5.10"
 
     assert_raise Redis::Distributed::CannotDistribute do
       r.set("foo", "a")
