@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-require "helper"
+require_relative "helper"
 require "lint/sets"
 
 class TestCommandsOnSets < Test::Unit::TestCase

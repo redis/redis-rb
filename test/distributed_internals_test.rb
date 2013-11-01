@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-require "helper"
+require_relative "helper"
 
 class TestDistributedInternals < Test::Unit::TestCase
 

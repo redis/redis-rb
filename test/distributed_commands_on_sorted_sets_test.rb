@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-require "helper"
+require_relative "helper"
 require "lint/sorted_sets"
 
 class TestDistributedCommandsOnSortedSets < Test::Unit::TestCase
