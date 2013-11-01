@@ -25,14 +25,12 @@ task :start do
   end
 
   unless redis_running
-    unless system("which redis-server")
-      STDERR.puts "redis-server not in PATH"
-      exit 1
+    unless system("which redis-server > /dev/null")
+      abort "redis-server not in PATH"
     end
 
     unless system("redis-server #{REDIS_CNF}")
-      STDERR.puts "could not start redis-server"
-      exit 1
+      abort "could not start redis-server"
     end
   end
 end
