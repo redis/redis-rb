@@ -98,15 +98,15 @@ class TestScanning < Test::Unit::TestCase
         assert_equal enc.to_s, r.object("encoding", "hash")
 
         cursor = 0
-        all_keys   = []
+        all_key_values   = []
         loop {
-          cursor, keys = r.hscan "hash", cursor
-          all_keys += keys
+          cursor, key_values = r.hscan "hash", cursor
+          all_key_values.concat key_values
           break if cursor == "0"
         }
 
         keys2 = []
-        all_keys.each_slice(2) do |k, v|
+        all_key_values.each do |k, v|
           assert_equal "key:#{v}", k
           keys2 << k
         end
