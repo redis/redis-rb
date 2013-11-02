@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-require_relative "helper"
+require File.expand_path("helper", File.dirname(__FILE__))
 
 class TestThreadSafety < Test::Unit::TestCase
 

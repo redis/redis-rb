@@ -1,6 +1,6 @@
 # encoding: UTF-8
 
-require_relative "helper"
+require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/blocking_commands"
 
 class TestBlockingCommands < Test::Unit::TestCase
