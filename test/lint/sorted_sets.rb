@@ -12,25 +12,25 @@ module Lint
     end
 
     def test_variadic_zadd
-      target_version "2.3.9" # 2.4-rc6
+      target_version "2.3.9" do # 2.4-rc6
+        # Non-nested array with pairs
+        assert_equal 0, r.zcard("foo")
+        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"])
+        assert_equal 1, r.zadd("foo", [4, "s1", 5, "s2", 6, "s3"])
+        assert_equal 3, r.zcard("foo")
+        r.del "foo"
 
-      # Non-nested array with pairs
-      assert_equal 0, r.zcard("foo")
-      assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"])
-      assert_equal 1, r.zadd("foo", [4, "s1", 5, "s2", 6, "s3"])
-      assert_equal 3, r.zcard("foo")
-      r.del "foo"
+        # Nested array with pairs
+        assert_equal 0, r.zcard("foo")
+        assert_equal 2, r.zadd("foo", [[1, "s1"], [2, "s2"]])
+        assert_equal 1, r.zadd("foo", [[4, "s1"], [5, "s2"], [6, "s3"]])
+        assert_equal 3, r.zcard("foo")
+        r.del "foo"
 
-      # Nested array with pairs
-      assert_equal 0, r.zcard("foo")
-      assert_equal 2, r.zadd("foo", [[1, "s1"], [2, "s2"]])
-      assert_equal 1, r.zadd("foo", [[4, "s1"], [5, "s2"], [6, "s3"]])
-      assert_equal 3, r.zcard("foo")
-      r.del "foo"
-
-      # Wrong number of arguments
-      assert_raise(Redis::CommandError) { r.zadd("foo", ["bar"]) }
-      assert_raise(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
+        # Wrong number of arguments
+        assert_raise(Redis::CommandError) { r.zadd("foo", ["bar"]) }
+        assert_raise(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
+      end
     end
 
     def test_zrem
@@ -44,17 +44,17 @@ module Lint
     end
 
     def test_variadic_zrem
-      target_version "2.3.9" # 2.4-rc6
+      target_version "2.3.9" do # 2.4-rc6
+        r.zadd("foo", 1, "s1")
+        r.zadd("foo", 2, "s2")
+        r.zadd("foo", 3, "s3")
 
-      r.zadd("foo", 1, "s1")
-      r.zadd("foo", 2, "s2")
-      r.zadd("foo", 3, "s3")
-
-      assert_equal 3, r.zcard("foo")
-      assert_equal 1, r.zrem("foo", ["s1", "aaa"])
-      assert_equal 0, r.zrem("foo", ["bbb", "ccc" "ddd"])
-      assert_equal 1, r.zrem("foo", ["eee", "s3"])
-      assert_equal 1, r.zcard("foo")
+        assert_equal 3, r.zcard("foo")
+        assert_equal 1, r.zrem("foo", ["s1", "aaa"])
+        assert_equal 0, r.zrem("foo", ["bbb", "ccc" "ddd"])
+        assert_equal 1, r.zrem("foo", ["eee", "s3"])
+        assert_equal 1, r.zcard("foo")
+      end
     end
 
     def test_zincrby

@@ -47,13 +47,13 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_bitop
-    target_version "2.5.10"
+    target_version "2.5.10" do
+      assert_raise Redis::Distributed::CannotDistribute do
+        r.set("foo", "a")
+        r.set("bar", "b")
 
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.set("foo", "a")
-      r.set("bar", "b")
-
-      r.bitop(:and, "foo&bar", "foo", "bar")
+        r.bitop(:and, "foo&bar", "foo", "bar")
+      end
     end
   end
 end

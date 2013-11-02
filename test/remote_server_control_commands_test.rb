@@ -26,13 +26,13 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_info_commandstats
-    target_version "2.5.7"
+    target_version "2.5.7" do
+      r.config(:resetstat)
+      r.ping
 
-    r.config(:resetstat)
-    r.ping
-
-    result = r.info(:commandstats)
-    assert_equal "1", result["ping"]["calls"]
+      result = r.info(:commandstats)
+      assert_equal "1", result["ping"]["calls"]
+    end
   end
 
   def test_monitor_redis_lt_2_5_0

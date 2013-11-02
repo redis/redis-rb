@@ -33,11 +33,11 @@ module Lint
     end
 
     def test_pexpire
-      target_version "2.5.4"
-
-      r.set("foo", "s1")
-      assert r.pexpire("foo", 2000)
-      assert_in_range 0..2, r.ttl("foo")
+      target_version "2.5.4" do
+        r.set("foo", "s1")
+        assert r.pexpire("foo", 2000)
+        assert_in_range 0..2, r.ttl("foo")
+      end
     end
 
     def test_expireat
@@ -47,11 +47,11 @@ module Lint
     end
 
     def test_pexpireat
-      target_version "2.5.4"
-
-      r.set("foo", "s1")
-      assert r.pexpireat("foo", (Time.now + 2).to_i * 1_000)
-      assert_in_range 0..2, r.ttl("foo")
+      target_version "2.5.4" do
+        r.set("foo", "s1")
+        assert r.pexpireat("foo", (Time.now + 2).to_i * 1_000)
+        assert_in_range 0..2, r.ttl("foo")
+      end
     end
 
     def test_persist
@@ -69,31 +69,31 @@ module Lint
     end
 
     def test_pttl
-      target_version "2.5.4"
-
-      r.set("foo", "s1")
-      r.expire("foo", 2)
-      assert_in_range 1..2000, r.pttl("foo")
+      target_version "2.5.4" do
+        r.set("foo", "s1")
+        r.expire("foo", 2)
+        assert_in_range 1..2000, r.pttl("foo")
+      end
     end
 
     def test_dump_and_restore
-      target_version "2.5.7"
+      target_version "2.5.7" do
+        r.set("foo", "a")
+        v = r.dump("foo")
+        r.del("foo")
 
-      r.set("foo", "a")
-      v = r.dump("foo")
-      r.del("foo")
+        assert r.restore("foo", 1000, v)
+        assert_equal "a", r.get("foo")
+        assert [0, 1].include? r.ttl("foo")
 
-      assert r.restore("foo", 1000, v)
-      assert_equal "a", r.get("foo")
-      assert [0, 1].include? r.ttl("foo")
+        r.rpush("bar", ["b", "c", "d"])
+        w = r.dump("bar")
+        r.del("bar")
 
-      r.rpush("bar", ["b", "c", "d"])
-      w = r.dump("bar")
-      r.del("bar")
-
-      assert r.restore("bar", 1000, w)
-      assert_equal ["b", "c", "d"], r.lrange("bar", 0, -1)
-      assert [0, 1].include? r.ttl("bar")
+        assert r.restore("bar", 1000, w)
+        assert_equal ["b", "c", "d"], r.lrange("bar", 0, -1)
+        assert [0, 1].include? r.ttl("bar")
+      end
     end
 
     def test_move

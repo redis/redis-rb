@@ -147,18 +147,18 @@ class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
   end
 
   def test_bitop
-    target_version "2.5.10"
+    target_version "2.5.10" do
+      r.set("{qux}foo", "a")
+      r.set("{qux}bar", "b")
 
-    r.set("{qux}foo", "a")
-    r.set("{qux}bar", "b")
-
-    r.bitop(:and, "{qux}foo&bar", "{qux}foo", "{qux}bar")
-    assert_equal "\x60", r.get("{qux}foo&bar")
-    r.bitop(:or, "{qux}foo|bar", "{qux}foo", "{qux}bar")
-    assert_equal "\x63", r.get("{qux}foo|bar")
-    r.bitop(:xor, "{qux}foo^bar", "{qux}foo", "{qux}bar")
-    assert_equal "\x03", r.get("{qux}foo^bar")
-    r.bitop(:not, "{qux}~foo", "{qux}foo")
-    assert_equal "\x9E", r.get("{qux}~foo")
+      r.bitop(:and, "{qux}foo&bar", "{qux}foo", "{qux}bar")
+      assert_equal "\x60", r.get("{qux}foo&bar")
+      r.bitop(:or, "{qux}foo|bar", "{qux}foo", "{qux}bar")
+      assert_equal "\x63", r.get("{qux}foo|bar")
+      r.bitop(:xor, "{qux}foo^bar", "{qux}foo", "{qux}bar")
+      assert_equal "\x03", r.get("{qux}foo^bar")
+      r.bitop(:not, "{qux}~foo", "{qux}foo")
+      assert_equal "\x9E", r.get("{qux}~foo")
+    end
   end
 end

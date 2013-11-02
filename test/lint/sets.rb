@@ -11,12 +11,12 @@ module Lint
     end
 
     def test_variadic_sadd
-      target_version "2.3.9" # 2.4-rc6
+      target_version "2.3.9" do # 2.4-rc6
+        assert_equal 2, r.sadd("foo", ["s1", "s2"])
+        assert_equal 1, r.sadd("foo", ["s1", "s2", "s3"])
 
-      assert_equal 2, r.sadd("foo", ["s1", "s2"])
-      assert_equal 1, r.sadd("foo", ["s1", "s2", "s3"])
-
-      assert_equal ["s1", "s2", "s3"], r.smembers("foo").sort
+        assert_equal ["s1", "s2", "s3"], r.smembers("foo").sort
+      end
     end
 
     def test_srem
@@ -30,17 +30,17 @@ module Lint
     end
 
     def test_variadic_srem
-      target_version "2.3.9" # 2.4-rc6
+      target_version "2.3.9" do # 2.4-rc6
+        r.sadd("foo", "s1")
+        r.sadd("foo", "s2")
+        r.sadd("foo", "s3")
 
-      r.sadd("foo", "s1")
-      r.sadd("foo", "s2")
-      r.sadd("foo", "s3")
+        assert_equal 1, r.srem("foo", ["s1", "aaa"])
+        assert_equal 0, r.srem("foo", ["bbb", "ccc" "ddd"])
+        assert_equal 1, r.srem("foo", ["eee", "s3"])
 
-      assert_equal 1, r.srem("foo", ["s1", "aaa"])
-      assert_equal 0, r.srem("foo", ["bbb", "ccc" "ddd"])
-      assert_equal 1, r.srem("foo", ["eee", "s3"])
-
-      assert_equal ["s2"], r.smembers("foo")
+        assert_equal ["s2"], r.smembers("foo")
+      end
     end
 
     def test_spop

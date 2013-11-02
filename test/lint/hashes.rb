@@ -31,18 +31,18 @@ module Lint
     end
 
     def test_variadic_hdel
-      target_version "2.3.9"
+      target_version "2.3.9" do
+        r.hset("foo", "f1", "s1")
+        r.hset("foo", "f2", "s2")
 
-      r.hset("foo", "f1", "s1")
-      r.hset("foo", "f2", "s2")
+        assert_equal "s1", r.hget("foo", "f1")
+        assert_equal "s2", r.hget("foo", "f2")
 
-      assert_equal "s1", r.hget("foo", "f1")
-      assert_equal "s2", r.hget("foo", "f2")
+        assert_equal 2, r.hdel("foo", ["f1", "f2"])
 
-      assert_equal 2, r.hdel("foo", ["f1", "f2"])
-
-      assert_equal nil, r.hget("foo", "f1")
-      assert_equal nil, r.hget("foo", "f2")
+        assert_equal nil, r.hget("foo", "f1")
+        assert_equal nil, r.hget("foo", "f2")
+      end
     end
 
     def test_hexists
@@ -144,19 +144,19 @@ module Lint
     end
 
     def test_hincrbyfloat
-      target_version "2.5.4"
+      target_version "2.5.4" do
+        r.hincrbyfloat("foo", "f1", 1.23)
 
-      r.hincrbyfloat("foo", "f1", 1.23)
+        assert_equal "1.23", r.hget("foo", "f1")
 
-      assert_equal "1.23", r.hget("foo", "f1")
+        r.hincrbyfloat("foo", "f1", 0.77)
 
-      r.hincrbyfloat("foo", "f1", 0.77)
+        assert_equal "2", r.hget("foo", "f1")
 
-      assert_equal "2", r.hget("foo", "f1")
+        r.hincrbyfloat("foo", "f1", -0.1)
 
-      r.hincrbyfloat("foo", "f1", -0.1)
-
-      assert_equal "1.9", r.hget("foo", "f1")
+        assert_equal "1.9", r.hget("foo", "f1")
+      end
     end
   end
 end

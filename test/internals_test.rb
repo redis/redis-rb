@@ -128,16 +128,16 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_time
-    target_version "2.5.4"
+    target_version "2.5.4" do
+      # Test that the difference between the time that Ruby reports and the time
+      # that Redis reports is minimal (prevents the test from being racy).
+      rv = r.time
 
-    # Test that the difference between the time that Ruby reports and the time
-    # that Redis reports is minimal (prevents the test from being racy).
-    rv = r.time
+      redis_usec = rv[0] * 1_000_000 + rv[1]
+      ruby_usec = Integer(Time.now.to_f * 1_000_000)
 
-    redis_usec = rv[0] * 1_000_000 + rv[1]
-    ruby_usec = Integer(Time.now.to_f * 1_000_000)
-
-    assert 500_000 > (ruby_usec - redis_usec).abs
+      assert 500_000 > (ruby_usec - redis_usec).abs
+    end
   end
 
   def test_connection_timeout

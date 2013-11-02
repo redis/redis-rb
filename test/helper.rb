@@ -156,7 +156,11 @@ module Helper
     end
 
     def target_version(target)
-      skip("Requires Redis > #{target}") if version < target
+      if version < target
+        skip("Requires Redis > #{target}") if respond_to?(:skip)
+      else
+        yield
+      end
     end
   end
 
