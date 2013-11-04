@@ -135,7 +135,7 @@ class Redis
     synchronize do |client|
       client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
-          Hash[reply.each_slice(2).to_a]
+          Hash[_pairify(reply)]
         else
           reply
         end
@@ -639,9 +639,7 @@ class Redis
   # @return [Float] value after incrementing it
   def incrbyfloat(key, increment)
     synchronize do |client|
-      client.call([:incrbyfloat, key, increment]) do |reply|
-        _floatify(reply) if reply
-      end
+      client.call([:incrbyfloat, key, increment], &_floatify)
     end
   end
 
@@ -1417,9 +1415,7 @@ class Redis
   # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
     synchronize do |client|
-      client.call([:zincrby, key, increment, member]) do |reply|
-        _floatify(reply) if reply
-      end
+      client.call([:zincrby, key, increment, member], &_floatify)
     end
   end
 
@@ -1465,9 +1461,7 @@ class Redis
   # @return [Float] score of the member
   def zscore(key, member)
     synchronize do |client|
-      client.call([:zscore, key, member]) do |reply|
-        _floatify(reply) if reply
-      end
+      client.call([:zscore, key, member], &_floatify)
     end
   end
 
@@ -1493,20 +1487,14 @@ class Redis
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
-    args << "WITHSCORES" if with_scores
+
+    if with_scores
+      args << "WITHSCORES"
+      block = _floatify_pairs
+    end
 
     synchronize do |client|
-      client.call([:zrange, key, start, stop] + args) do |reply|
-        if with_scores
-          if reply
-            reply.each_slice(2).map do |member, score|
-              [member, _floatify(score)]
-            end
-          end
-        else
-          reply
-        end
-      end
+      client.call([:zrange, key, start, stop] + args, &block)
     end
   end
 
@@ -1525,20 +1513,14 @@ class Redis
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
-    args << "WITHSCORES" if with_scores
+
+    if with_scores
+      args << "WITHSCORES"
+      block = _floatify_pairs
+    end
 
     synchronize do |client|
-      client.call([:zrevrange, key, start, stop] + args) do |reply|
-        if with_scores
-          if reply
-            reply.each_slice(2).map do |member, score|
-              [member, _floatify(score)]
-            end
-          end
-        else
-          reply
-        end
-      end
+      client.call([:zrevrange, key, start, stop] + args, &block)
     end
   end
 
@@ -1615,23 +1597,17 @@ class Redis
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
-    args.concat(["WITHSCORES"]) if with_scores
+
+    if with_scores
+      args << "WITHSCORES"
+      block = _floatify_pairs
+    end
 
     limit = options[:limit]
     args.concat(["LIMIT"] + limit) if limit
 
     synchronize do |client|
-      client.call([:zrangebyscore, key, min, max] + args) do |reply|
-        if with_scores
-          if reply
-            reply.each_slice(2).map do |member, score|
-              [member, _floatify(score)]
-            end
-          end
-        else
-          reply
-        end
-      end
+      client.call([:zrangebyscore, key, min, max] + args, &block)
     end
   end
 
@@ -1653,23 +1629,17 @@ class Redis
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
-    args.concat(["WITHSCORES"]) if with_scores
+
+    if with_scores
+      args << ["WITHSCORES"]
+      block = _floatify_pairs
+    end
 
     limit = options[:limit]
     args.concat(["LIMIT"] + limit) if limit
 
     synchronize do |client|
-      client.call([:zrevrangebyscore, key, max, min] + args) do |reply|
-        if with_scores
-          if reply
-            reply.each_slice(2).map do |member, score|
-              [member, _floatify(score)]
-            end
-          end
-        else
-          reply
-        end
-      end
+      client.call([:zrevrangebyscore, key, max, min] + args, &block)
     end
   end
 
@@ -1931,9 +1901,7 @@ class Redis
   # @return [Float] value of the field after incrementing it
   def hincrbyfloat(key, field, increment)
     synchronize do |client|
-      client.call([:hincrbyfloat, key, field, increment]) do |reply|
-        _floatify(reply) if reply
-      end
+      client.call([:hincrbyfloat, key, field, increment], &_floatify)
     end
   end
 
@@ -2325,7 +2293,7 @@ class Redis
   # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
     _scan(:hscan, cursor, options.merge(:key => key)) do |reply|
-      [reply[0], reply[1].each_slice(2).to_a]
+      [reply[0], _pairify(reply[1])]
     end
   end
 
@@ -2343,7 +2311,7 @@ class Redis
   #   members and scores
   def zscan(key, cursor, options={})
     _scan(:zscan, cursor, options.merge(:key => key)) do |reply|
-      [reply[0], reply[1].each_slice(2).map{|k,s| [k, _floatify(s)]}]
+      [reply[0], _floatify_pairs.call(reply[1])]
     end
   end
 
@@ -2411,12 +2379,30 @@ private
     }
   end
 
-  def _floatify(str)
-    if (inf = str.match(/^(-)?inf/i))
-      (inf[1] ? -1.0 : 1.0) / 0.0
-    else
-      Float str
-    end
+  def _floatify
+    lambda { |str|
+      return unless str
+
+      if (inf = str.match(/^(-)?inf/i))
+        (inf[1] ? -1.0 : 1.0) / 0.0
+      else
+        Float(str)
+      end
+    }
+  end
+
+  def _floatify_pairs
+    lambda { |array|
+      return unless array
+
+      array.each_slice(2).map do |member, score|
+        [member, _floatify.call(score)]
+      end
+    }
+  end
+
+  def _pairify(array)
+    array.each_slice(2).to_a
   end
 
   def _subscription(method, channels, block)
