@@ -2271,7 +2271,7 @@ class Redis
     _eval(:evalsha, args)
   end
 
-  def _scan(command, cursor, options = {})
+  def _scan(command, cursor, options = {}, &block)
     # SSCAN/ZSCAN/HSCAN need a key to work on
     args = []
 
@@ -2289,7 +2289,7 @@ class Redis
     args.concat(["COUNT", count]) if count
 
     synchronize do |client|
-      client.call([command] + args)
+      client.call([command] + args, &block)
     end
   end
 
@@ -2322,9 +2322,11 @@ class Redis
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
   #
-  # @return [String, Array<String>] the next cursor and all found keys
+  # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
-    _scan(:hscan, cursor, options.merge(:key => key))
+    _scan(:hscan, cursor, options.merge(:key => key)) do |reply|
+      [reply[0], reply[1].each_slice(2).to_a]
+    end
   end
 
   # Scan a sorted set
@@ -2337,9 +2339,12 @@ class Redis
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
   #
-  # @return [String, Array<String>] the next cursor and all found scores and members
+  # @return [String, Array<[String, Float]>] the next cursor and all found
+  #   members and scores
   def zscan(key, cursor, options={})
-    _scan(:zscan, cursor, options.merge(:key => key))
+    _scan(:zscan, cursor, options.merge(:key => key)) do |reply|
+      [reply[0], reply[1].each_slice(2).map{|k,s| [k, _floatify(s)]}]
+    end
   end
 
   # Scan a set
