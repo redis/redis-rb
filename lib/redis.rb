@@ -2239,22 +2239,18 @@ class Redis
     _eval(:evalsha, args)
   end
 
-  def _scan(command, cursor, options = {}, &block)
-    # SSCAN/ZSCAN/HSCAN need a key to work on
-    args = []
+  def _scan(command, cursor, args, options = {}, &block)
+    # SSCAN/ZSCAN/HSCAN already prepend the key to +args+.
 
-    if command != :scan
-      key = options[:key]
-      args.concat([key]) if key
+    args << cursor
+
+    if match = options[:match]
+      args.concat(["MATCH", match])
     end
 
-    args.concat([cursor])
-
-    match = options[:match]
-    args.concat(["MATCH", match]) if match
-
-    count = options[:count]
-    args.concat(["COUNT", count]) if count
+    if count = options[:count]
+      args.concat(["COUNT", count])
+    end
 
     synchronize do |client|
       client.call([command] + args, &block)
@@ -2277,7 +2273,7 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found keys
   def scan(cursor, options={})
-    _scan(:scan, cursor, options)
+    _scan(:scan, cursor, [], options)
   end
 
   # Scan a hash
@@ -2292,7 +2288,7 @@ class Redis
   #
   # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
-    _scan(:hscan, cursor, options.merge(:key => key)) do |reply|
+    _scan(:hscan, cursor, [key], options) do |reply|
       [reply[0], _pairify(reply[1])]
     end
   end
@@ -2310,7 +2306,7 @@ class Redis
   # @return [String, Array<[String, Float]>] the next cursor and all found
   #   members and scores
   def zscan(key, cursor, options={})
-    _scan(:zscan, cursor, options.merge(:key => key)) do |reply|
+    _scan(:zscan, cursor, [key], options) do |reply|
       [reply[0], _floatify_pairs.call(reply[1])]
     end
   end
@@ -2327,7 +2323,7 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found members
   def sscan(key, cursor, options={})
-    _scan(:sscan, cursor, options.merge(:key => key))
+    _scan(:sscan, cursor, [key], options)
   end
 
   def id
