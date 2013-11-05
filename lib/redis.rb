@@ -2276,6 +2276,31 @@ class Redis
     _scan(:scan, cursor, [], options)
   end
 
+  # Scan the keyspace
+  #
+  # @example Retrieve all of the keys (with possible duplicates)
+  #   redis.scan_each.to_a
+  #     # => ["key:21", "key:47", "key:42"]
+  # @example Execute block for each key matching a pattern
+  #   redis.scan_each(:match => "key:1?") {|key| puts key}
+  #     # => key:13
+  #     # => key:18
+  #
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [Enumerator] an enumerator for all found keys
+  def scan_each(options={})
+    return to_enum(:scan_each, options) unless block_given?
+    cursor = 0
+    loop do
+      cursor, keys = scan(cursor, options)
+      keys.each {|key| yield key}
+      break if cursor == "0"
+    end
+  end
+
   # Scan a hash
   #
   # @example Retrieve the first batch of key/value pairs in a hash
@@ -2290,6 +2315,27 @@ class Redis
   def hscan(key, cursor, options={})
     _scan(:hscan, cursor, [key], options) do |reply|
       [reply[0], _pairify(reply[1])]
+    end
+  end
+
+  # Scan a hash
+  #
+  # @example Retrieve all of the key/value pairs in a hash
+  #   redis.hscan_each("hash").to_a
+  #   # => [["key70", "70"], ["key80", "80"]]
+  #
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [Enumerator] an enumerator for all found keys
+  def hscan_each(key, options={})
+    return to_enum(:hscan_each, key, options) unless block_given?
+    cursor = 0
+    loop do
+      cursor, key_values = hscan(key, cursor, options)
+      key_values.each {|key, val| yield key, val }
+      break if cursor == "0"
     end
   end
 
@@ -2311,6 +2357,27 @@ class Redis
     end
   end
 
+  # Scan a sorted set
+  #
+  # @example Retrieve all of the members/scores in a sorted set
+  #   redis.zscan_each("zset").to_a
+  #   # => [["key70", "70"], ["key80", "80"]]
+  #
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [Enumerator] an enumerator for all found scores and members
+  def zscan_each(key, options={})
+    return to_enum(:zscan_each, key, options) unless block_given?
+    cursor = 0
+    loop do
+      cursor, member_score = zscan(key, cursor, options)
+      member_score.each {|member, score| yield member, score }
+      break if cursor == "0"
+    end
+  end
+
   # Scan a set
   #
   # @example Retrieve the first batch of keys in a set
@@ -2324,6 +2391,27 @@ class Redis
   # @return [String, Array<String>] the next cursor and all found members
   def sscan(key, cursor, options={})
     _scan(:sscan, cursor, [key], options)
+  end
+
+  # Scan a set
+  #
+  # @example Retrieve all of the keys in a set
+  #   redis.sscan("set").to_a
+  #   # => ["key1", "key2", "key3"]
+  #
+  # @param [Hash] options
+  #   - `:match => String`: only return keys matching the pattern
+  #   - `:count => Integer`: return count keys at most per iteration
+  #
+  # @return [Enumerator] an enumerator for all keys in the set
+  def sscan_each(key, options={})
+    return to_enum(:sscan_each, key, options) unless block_given?
+    cursor = 0
+    loop do
+      cursor, keys = sscan(key, cursor, options)
+      keys.each {|key| yield key}
+      break if cursor == "0"
+    end
   end
 
   def id
