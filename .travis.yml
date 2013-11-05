@@ -27,21 +27,21 @@ matrix:
     # hiredis
     - rvm: jruby-18mode
       gemfile: .travis/Gemfile
-      env: conn=hiredis
+      env: conn=hiredis REDIS_BRANCH=2.6
     - rvm: jruby-19mode
       gemfile: .travis/Gemfile
-      env: conn=hiredis
+      env: conn=hiredis REDIS_BRANCH=2.6
 
     # synchrony
     - rvm: 1.8.7
       gemfile: .travis/Gemfile
-      env: conn=synchrony
+      env: conn=synchrony REDIS_BRANCH=2.6
     - rvm: jruby-18mode
       gemfile: .travis/Gemfile
-      env: conn=synchrony
+      env: conn=synchrony REDIS_BRANCH=2.6
     - rvm: jruby-19mode
       gemfile: .travis/Gemfile
-      env: conn=synchrony
+      env: conn=synchrony REDIS_BRANCH=2.6
 
 notifications:
   irc:
