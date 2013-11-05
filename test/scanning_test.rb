@@ -65,7 +65,7 @@ class TestScanning < Test::Unit::TestCase
       keys_from_scan = scan_enumerator.to_a.uniq
       all_keys = r.keys "*"
 
-      assert_equal all_keys.sort, keys_from_scan.sort
+      assert all_keys.sort == keys_from_scan.sort
     end
   end
 
@@ -77,7 +77,7 @@ class TestScanning < Test::Unit::TestCase
       keys_from_scan = r.scan_each(:match => "key:1??").to_a.uniq
       all_keys = r.keys "key:1??"
 
-      assert_equal all_keys.sort, keys_from_scan.sort
+      assert all_keys.sort == keys_from_scan.sort
     end
   end
 
@@ -93,7 +93,7 @@ class TestScanning < Test::Unit::TestCase
 
       all_keys = r.keys "*"
 
-      assert_equal all_keys.sort, keys_from_scan.uniq.sort
+      assert all_keys.sort == keys_from_scan.uniq.sort
     end
   end
 
@@ -109,7 +109,7 @@ class TestScanning < Test::Unit::TestCase
 
       all_keys = r.keys "key:1?"
 
-      assert_equal all_keys.sort, keys_from_scan.uniq.sort
+      assert all_keys.sort == keys_from_scan.uniq.sort
     end
   end
 
@@ -153,7 +153,7 @@ class TestScanning < Test::Unit::TestCase
       keys_from_scan = scan_enumerator.to_a.uniq
       all_keys = r.smembers("set")
 
-      assert_equal all_keys.sort, keys_from_scan.sort
+      assert all_keys.sort == keys_from_scan.sort
     end
   end
 
@@ -167,7 +167,7 @@ class TestScanning < Test::Unit::TestCase
 
       all_keys = r.smembers("set").grep(/^ele:1.$/)
 
-      assert_equal all_keys.sort, keys_from_scan.sort
+      assert all_keys.sort == keys_from_scan.sort
     end
   end
 
@@ -184,7 +184,7 @@ class TestScanning < Test::Unit::TestCase
 
       all_keys = r.smembers("set")
 
-      assert_equal all_keys.sort, keys_from_scan.uniq.sort
+      assert all_keys.sort == keys_from_scan.uniq.sort
     end
   end
 
@@ -201,7 +201,7 @@ class TestScanning < Test::Unit::TestCase
 
       all_keys = r.smembers("set").grep(/^ele:1.$/)
 
-      assert_equal all_keys.sort, keys_from_scan.uniq.sort
+      assert all_keys.sort == keys_from_scan.uniq.sort
     end
   end
 
@@ -252,7 +252,7 @@ class TestScanning < Test::Unit::TestCase
       keys_from_scan = scan_enumerator.to_a.uniq
       all_keys = r.hgetall("hash").to_a
 
-      assert_equal all_keys.sort, keys_from_scan.sort
+      assert all_keys.sort == keys_from_scan.sort
     end
   end
 
@@ -269,7 +269,7 @@ class TestScanning < Test::Unit::TestCase
       keys_from_scan = r.hscan_each("hash", :match => "key:1?").to_a.uniq
       all_keys = r.hgetall("hash").to_a.select{|k,v| k =~ /^key:1.$/}
 
-      assert_equal all_keys.sort, keys_from_scan.sort
+      assert all_keys.sort == keys_from_scan.sort
     end
   end
 
@@ -286,7 +286,7 @@ class TestScanning < Test::Unit::TestCase
       end
       all_keys = r.hgetall("hash").to_a
 
-      assert_equal all_keys.sort, keys_from_scan.uniq.sort
+      assert all_keys.sort == keys_from_scan.uniq.sort
     end
   end
 
@@ -306,7 +306,7 @@ class TestScanning < Test::Unit::TestCase
       end
       all_keys = r.hgetall("hash").to_a.select{|k,v| k =~ /^key:1.$/}
 
-      assert_equal all_keys.sort, keys_from_scan.uniq.sort
+      assert all_keys.sort == keys_from_scan.uniq.sort
     end
   end
 
@@ -358,7 +358,7 @@ class TestScanning < Test::Unit::TestCase
       scores_from_scan = scan_enumerator.to_a.uniq
       member_scores = r.zrange("zset", 0, -1, :with_scores => true)
 
-      assert_equal member_scores.sort, scores_from_scan.sort
+      assert member_scores.sort == scores_from_scan.sort
     end
   end
 
@@ -376,7 +376,7 @@ class TestScanning < Test::Unit::TestCase
       member_scores = r.zrange("zset", 0, -1, :with_scores => true)
       filtered_members = member_scores.select{|k,s| k =~ /^key:1..$/}
 
-      assert_equal filtered_members.sort, scores_from_scan.sort
+      assert filtered_members.sort == scores_from_scan.sort
     end
   end
 
@@ -393,7 +393,7 @@ class TestScanning < Test::Unit::TestCase
       end
       member_scores = r.zrange("zset", 0, -1, :with_scores => true)
 
-      assert_equal member_scores.sort, scores_from_scan.sort
+      assert member_scores.sort == scores_from_scan.sort
     end
   end
 
@@ -414,7 +414,7 @@ class TestScanning < Test::Unit::TestCase
       member_scores = r.zrange("zset", 0, -1, :with_scores => true)
       filtered_members = member_scores.select{|k,s| k =~ /^key:1..$/}
 
-      assert_equal filtered_members.sort, scores_from_scan.sort
+      assert filtered_members.sort == scores_from_scan.sort
     end
   end
 
