@@ -257,9 +257,6 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_hscan_each_enumerator_match
-    # HSCAN with MATCH is currently crashing:
-    # https://github.com/antirez/redis/issues/1362
-    return
     target_version "2.7.105" do
       count = 100
       elements = []
@@ -291,9 +288,6 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_hscan_each_block_match
-    # HSCAN with MATCH is currently crashing:
-    # https://github.com/antirez/redis/issues/1362
-    return
     target_version "2.7.105" do
       count = 1000
       elements = []
@@ -363,9 +357,6 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_zscan_each_enumerator_match
-    # ZSCAN with MATCH is currently crashing:
-    # https://github.com/antirez/redis/issues/1362
-    return
     target_version "2.7.105" do
       count = 1000
       elements = []
@@ -398,9 +389,6 @@ class TestScanning < Test::Unit::TestCase
   end
 
   def test_zscan_each_block_match
-    # ZSCAN with MATCH is currently crashing:
-    # https://github.com/antirez/redis/issues/1362
-    return
     target_version "2.7.105" do
       count = 1000
       elements = []
