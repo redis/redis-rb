@@ -1,3 +1,7 @@
+# (unreleased)
+
+* Added support for `SCAN` and variants.
+
 # 3.0.5
 
 * Fix calling #select from a pipeline (#309).
