@@ -2,6 +2,10 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
+unless defined?(Enumerator)
+  Enumerator = Enumerable::Enumerator
+end
+
 class TestScanning < Test::Unit::TestCase
 
   include Helper::Client
