@@ -2291,12 +2291,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all found keys
-  def scan_each(options={})
+  def scan_each(options={}, &block)
     return to_enum(:scan_each, options) unless block_given?
     cursor = 0
     loop do
       cursor, keys = scan(cursor, options)
-      keys.each {|key| yield key}
+      keys.each(&block)
       break if cursor == "0"
     end
   end
@@ -2329,12 +2329,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all found keys
-  def hscan_each(key, options={})
+  def hscan_each(key, options={}, &block)
     return to_enum(:hscan_each, key, options) unless block_given?
     cursor = 0
     loop do
-      cursor, key_values = hscan(key, cursor, options)
-      key_values.each {|key, val| yield key, val }
+      cursor, values = hscan(key, cursor, options)
+      values.each(&block)
       break if cursor == "0"
     end
   end
@@ -2368,12 +2368,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all found scores and members
-  def zscan_each(key, options={})
+  def zscan_each(key, options={}, &block)
     return to_enum(:zscan_each, key, options) unless block_given?
     cursor = 0
     loop do
-      cursor, member_score = zscan(key, cursor, options)
-      member_score.each {|member, score| yield member, score }
+      cursor, values = zscan(key, cursor, options)
+      values.each(&block)
       break if cursor == "0"
     end
   end
@@ -2404,12 +2404,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all keys in the set
-  def sscan_each(key, options={})
+  def sscan_each(key, options={}, &block)
     return to_enum(:sscan_each, key, options) unless block_given?
     cursor = 0
     loop do
       cursor, keys = sscan(key, cursor, options)
-      keys.each {|key| yield key}
+      keys.each(&block)
       break if cursor == "0"
     end
   end

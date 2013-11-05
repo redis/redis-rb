@@ -281,8 +281,8 @@ class TestScanning < Test::Unit::TestCase
       r.hmset "hash", *elements
 
       keys_from_scan = []
-      r.hscan_each("hash") do |*key_value|
-        keys_from_scan << key_value
+      r.hscan_each("hash") do |field, value|
+        keys_from_scan << [field, value]
       end
       all_keys = r.hgetall("hash").to_a
 
@@ -301,8 +301,8 @@ class TestScanning < Test::Unit::TestCase
       r.hmset "hash", *elements
 
       keys_from_scan = []
-      r.hscan_each("hash", :match => "key:1?") do |*key_value|
-        keys_from_scan << key_value
+      r.hscan_each("hash", :match => "key:1?") do |field, value|
+        keys_from_scan << [field, value]
       end
       all_keys = r.hgetall("hash").to_a.select{|k,v| k =~ /^key:1.$/}
 
@@ -388,8 +388,8 @@ class TestScanning < Test::Unit::TestCase
       r.zadd "zset", elements
 
       scores_from_scan = []
-      r.zscan_each("zset") do |*key_score|
-        scores_from_scan << key_score
+      r.zscan_each("zset") do |member, score|
+        scores_from_scan << [member, score]
       end
       member_scores = r.zrange("zset", 0, -1, :with_scores => true)
 
@@ -408,8 +408,8 @@ class TestScanning < Test::Unit::TestCase
       r.zadd "zset", elements
 
       scores_from_scan = []
-      r.zscan_each("zset", :match => "key:1??") do |*key_score|
-        scores_from_scan << key_score
+      r.zscan_each("zset", :match => "key:1??") do |member, score|
+        scores_from_scan << [member, score]
       end
       member_scores = r.zrange("zset", 0, -1, :with_scores => true)
       filtered_members = member_scores.select{|k,s| k =~ /^key:1..$/}
