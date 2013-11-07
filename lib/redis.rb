@@ -2415,15 +2415,11 @@ class Redis
   end
 
   def id
-    synchronize do |client|
-      client.id
-    end
+    @original_client.id
   end
 
   def inspect
-    synchronize do |client|
-      "#<Redis client v#{Redis::VERSION} for #{@original_client.id}>"
-    end
+    "#<Redis client v#{Redis::VERSION} for #{id}>"
   end
 
   def method_missing(command, *args)

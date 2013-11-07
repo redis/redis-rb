@@ -109,6 +109,17 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
+  def test_id_inside_multi
+    redis = Redis.new(OPTIONS)
+    id = nil
+
+    redis.multi do
+      id = redis.id
+    end
+
+    assert_equal id, "redis://127.0.0.1:6381/15"
+  end
+
   driver(:ruby) do
     def test_tcp_keepalive
       keepalive = {:time => 20, :intvl => 10, :probes => 5}
