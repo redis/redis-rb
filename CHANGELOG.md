@@ -1,4 +1,4 @@
-# (unreleased)
+# 3.0.6
 
 * Added support for `SCAN` and variants.
 
