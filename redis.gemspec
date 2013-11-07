@@ -19,6 +19,8 @@ Gem::Specification.new do |s|
     client-side sharding, pipelining, and an obsession for performance.
   EOS
 
+  s.license = "MIT"
+
   s.authors = [
     "Ezra Zygmuntowicz",
     "Taylor Weibley",
