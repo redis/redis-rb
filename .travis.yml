@@ -16,11 +16,14 @@ gemfile:
   - .travis/Gemfile
 
 env:
-  - conn=ruby      REDIS_BRANCH=2.6
-  - conn=hiredis   REDIS_BRANCH=2.6
-  - conn=synchrony REDIS_BRANCH=2.6
-  - conn=ruby      REDIS_BRANCH=2.8
-  - conn=ruby      REDIS_BRANCH=unstable
+  global:
+    - TIMEOUT=1
+  matrix:
+    - conn=ruby      REDIS_BRANCH=2.6
+    - conn=hiredis   REDIS_BRANCH=2.6
+    - conn=synchrony REDIS_BRANCH=2.6
+    - conn=ruby      REDIS_BRANCH=2.8
+    - conn=ruby      REDIS_BRANCH=unstable
 
 matrix:
   exclude:

@@ -22,7 +22,7 @@ require "support/redis_mock"
 require "support/connection/#{ENV["conn"]}"
 
 PORT    = 6381
-OPTIONS = {:port => PORT, :db => 15, :timeout => 0.1}
+OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1)}
 NODES   = ["redis://127.0.0.1:#{PORT}/15"]
 
 def init(redis)
