@@ -51,6 +51,10 @@ class Redis
       @options[:db] = db.to_i
     end
 
+    def driver
+      @options[:driver]
+    end
+
     attr_accessor :logger
     attr_reader :connection
     attr_reader :command_map
