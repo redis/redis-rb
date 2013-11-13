@@ -19,6 +19,10 @@ class Redis
       :tcp_keepalive => 0
     }
 
+    def options
+      Marshal.load(Marshal.dump(@options))
+    end
+
     def scheme
       @options[:scheme]
     end
