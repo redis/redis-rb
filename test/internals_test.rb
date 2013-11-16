@@ -320,4 +320,26 @@ class TestInternals < Test::Unit::TestCase
       serv.close if serv
     end
   end
+
+  def test_client_options
+    redis = Redis.new(OPTIONS.merge(:host => "host", :port => 1234, :db => 1, :scheme => "foo"))
+
+    assert_equal "host", redis.client.options[:host]
+    assert_equal 1234, redis.client.options[:port]
+    assert_equal 1, redis.client.options[:db]
+    assert_equal "foo", redis.client.options[:scheme]
+  end
+
+  def test_does_not_change_self_client_options
+    redis = Redis.new(OPTIONS.merge(:host => "host", :port => 1234, :db => 1, :scheme => "foo"))
+    options = redis.client.options
+
+    options[:host] << "new_host"
+    options[:scheme] << "bar"
+    options.merge!(:db => 0)
+
+    assert_equal "host", redis.client.options[:host]
+    assert_equal 1, redis.client.options[:db]
+    assert_equal "foo", redis.client.options[:scheme]
+  end
 end

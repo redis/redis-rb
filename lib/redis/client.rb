@@ -19,6 +19,10 @@ class Redis
       :tcp_keepalive => 0
     }
 
+    def options
+      Marshal.load(Marshal.dump(@options))
+    end
+
     def scheme
       @options[:scheme]
     end
@@ -49,6 +53,10 @@ class Redis
 
     def db=(db)
       @options[:db] = db.to_i
+    end
+
+    def driver
+      @options[:driver]
     end
 
     attr_accessor :logger
