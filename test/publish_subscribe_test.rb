@@ -6,6 +6,9 @@ class TestPublishSubscribe < Test::Unit::TestCase
 
   include Helper::Client
 
+  class TestError < StandardError
+  end
+
   def test_subscribe_and_unsubscribe
     @subscribed = false
     @unsubscribed = false
@@ -82,6 +85,62 @@ class TestPublishSubscribe < Test::Unit::TestCase
     assert @unsubscribed
     assert_equal 0, @t2
     assert_equal "s1", @message
+  end
+
+  def test_subscribe_connection_usable_after_raise
+    @subscribed = false
+
+    wire = Wire.new do
+      begin
+        r.subscribe("foo") do |on|
+          on.subscribe do |channel, total|
+            @subscribed = true
+          end
+
+          on.message do |channel, message|
+            raise TestError
+          end
+        end
+      rescue TestError
+      end
+    end
+
+    # Wait until the subscription is active before publishing
+    Wire.pass while !@subscribed
+
+    Redis.new(OPTIONS).publish("foo", "s1")
+
+    wire.join
+
+    assert_equal "PONG", r.ping
+  end
+
+  def test_psubscribe_connection_usable_after_raise
+    @subscribed = false
+
+    wire = Wire.new do
+      begin
+        r.psubscribe("f*") do |on|
+          on.psubscribe do |pattern, total|
+            @subscribed = true
+          end
+
+          on.pmessage do |pattern, channel, message|
+            raise TestError
+          end
+        end
+      rescue TestError
+      end
+    end
+
+    # Wait until the subscription is active before publishing
+    Wire.pass while !@subscribed
+
+    Redis.new(OPTIONS).publish("foo", "s1")
+
+    wire.join
+
+    assert_equal "PONG", r.ping
   end
 
   def test_subscribe_within_subscribe

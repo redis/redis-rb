@@ -39,7 +39,8 @@ class Redis
           break if unsubscribed
         end
       ensure
-        send(stop) if !unsubscribed
+        # No need to unsubscribe here. The real client closes the connection
+        # whenever an exception is raised (see #ensure_connected).
       end
     end
   end
