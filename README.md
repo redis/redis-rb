@@ -47,6 +47,12 @@ To connect to Redis listening on a Unix socket, try:
 redis = Redis.new(:path => "/tmp/redis.sock")
 ```
 
+To connect to a password protected Redis instance, use:
+
+```ruby
+redis = Redis.new(:password => "mysecret")
+```
+
 The Redis class exports methods that are named identical to the commands
 they execute. The arguments these methods accept are often identical to
 the arguments specified on the [Redis website][redis-commands]. For
