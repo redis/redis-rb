@@ -288,6 +288,8 @@ class Redis
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
       raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
+    rescue Errno::EINVAL
+      raise CannotConnectError, "Error connecting to Redis on #{location} (EINVAL)"
     end
 
     def ensure_connected
