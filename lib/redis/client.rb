@@ -74,9 +74,13 @@ class Redis
     def connect
       @pid = Process.pid
 
-      establish_connection
-      call [:auth, password] if password
-      call [:select, db] if db != 0
+      # Don't try to reconnect when the connection is fresh
+      with_reconnect(false) do
+        establish_connection
+        call [:auth, password] if password
+        call [:select, db] if db != 0
+      end
+
       self
     end
 
