@@ -82,18 +82,20 @@ class TestCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_bitop
-    target_version "2.5.10" do
-      r.set("foo", "a")
-      r.set("bar", "b")
+    try_encoding("UTF-8") do
+      target_version "2.5.10" do
+        r.set("foo", "a")
+        r.set("bar", "b")
 
-      r.bitop(:and, "foo&bar", "foo", "bar")
-      assert_equal "\x60", r.get("foo&bar")
-      r.bitop(:or, "foo|bar", "foo", "bar")
-      assert_equal "\x63", r.get("foo|bar")
-      r.bitop(:xor, "foo^bar", "foo", "bar")
-      assert_equal "\x03", r.get("foo^bar")
-      r.bitop(:not, "~foo", "foo")
-      assert_equal "\x9E", r.get("~foo")
+        r.bitop(:and, "foo&bar", "foo", "bar")
+        assert_equal "\x60", r.get("foo&bar")
+        r.bitop(:or, "foo|bar", "foo", "bar")
+        assert_equal "\x63", r.get("foo|bar")
+        r.bitop(:xor, "foo^bar", "foo", "bar")
+        assert_equal "\x03", r.get("foo^bar")
+        r.bitop(:not, "~foo", "foo")
+        assert_equal "\x9E", r.get("~foo")
+      end
     end
   end
 end
