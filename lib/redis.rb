@@ -1929,9 +1929,16 @@ class Redis
   #
   # @param [String] key
   # @return [Hash<String, String>]
-  def hgetall(key)
-    synchronize do |client|
-      client.call([:hgetall, key], &_hashify)
+  # @yield [field, value]
+  def hgetall(key, &block)
+    if block_given? && block.arity == 2
+      synchronize { |client|
+        client.call([:hgetall, key], &_hashify)
+      }.each { |field, value| yield field, value }
+    else
+      synchronize do |client|
+        client.call([:hgetall, key], &_hashify)
+      end
     end
   end
 
