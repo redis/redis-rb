@@ -18,4 +18,27 @@ class TestCommandsOnHashes < Test::Unit::TestCase
 
     assert_equal result[0], { "f1" => "s1", "f2" => "s2" }
   end
+
+  def test_hgetall
+    r.hset("foo", "f1", "s1")
+    r.hset("foo", "f2", "s2")
+
+    result = r.hgetall("foo")
+
+    assert_equal "s1", result["f1"]
+    assert_equal "s2", result["f2"]
+  end
+
+  def test_hgetall_with_block
+    r.hset("foo", "f1", "s1")
+    r.hset("foo", "f2", "s2")
+
+    result = {}
+    r.hgetall("foo") do |field, value|
+      result[field] = value
+    end
+
+    assert_equal "s1", result["f1"]
+    assert_equal "s2", result["f2"]
+  end
 end
