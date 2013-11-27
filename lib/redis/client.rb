@@ -297,10 +297,13 @@ class Redis
       begin
         if connected?
           if Process.pid != @pid
-            reconnect and return if options[:auto_reconnect]
-            raise InheritedError,
-              "Tried to use a connection from a child process without reconnecting. " +
-              "You need to reconnect to Redis after forking."
+            if options[:auto_reconnect]
+              reconnect
+            else
+              raise InheritedError,
+                "Tried to use a connection from a child process without reconnecting. " +
+                "You need to reconnect to Redis after forking."
+            end
           end
         else
           connect
