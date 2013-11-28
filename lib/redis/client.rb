@@ -60,6 +60,14 @@ class Redis
       @options[:driver]
     end
 
+    def auto_reconnect
+      if @reconnect && @options[:auto_reconnect]
+        raise "Could not reconnect automatically because reconnect option is false. " +
+              "Set reconnect option as true to reconnect automatically"
+      end
+      @options[:auto_reconnect]
+    end
+
     attr_accessor :logger
     attr_reader :connection
     attr_reader :command_map
@@ -297,7 +305,7 @@ class Redis
       begin
         if connected?
           if Process.pid != @pid
-            if options[:auto_reconnect]
+            if options[:auto_reconnect] && @reconnect
               reconnect
             else
               raise InheritedError,
