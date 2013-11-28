@@ -61,7 +61,7 @@ class Redis
     end
 
     def auto_reconnect
-      if @reconnect && @options[:auto_reconnect]
+      if !@reconnect && @options[:auto_reconnect]
         raise "Could not reconnect automatically because reconnect option is false. " +
               "Set reconnect option as true to reconnect automatically"
       end
