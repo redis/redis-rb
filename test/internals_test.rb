@@ -344,14 +344,14 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_auto_reconnect_option_by_default
-    redis = Redis.new
-    assert redis.options.has_key?[:auto_reconnect]
-    assert not(redis.options[:auto_reconnect])
+    redis = Redis.new(OPTIONS)
+    assert redis.client.options.has_key?[:auto_reconnect]
+    assert not(redis.client.options[:auto_reconnect])
   end
 
   def test_pass_auto_reconnect_option
     redis = Redis.new(OPTIONS.merge(:auto_reconnect => true))
-    assert redis.options[:auto_reconnect]
+    assert redis.client.options[:auto_reconnect]
   end
 
 end
