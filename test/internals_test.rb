@@ -344,7 +344,7 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_auto_reconnect_option
-    redis = Redis.new(OPTIONS.merger(:auto_reconnect=>true))
+    redis = Redis.new(OPTIONS.merge(:auto_reconnect=>true))
     fork do 
       redis.ping
     end
