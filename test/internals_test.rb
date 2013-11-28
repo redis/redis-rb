@@ -343,13 +343,15 @@ class TestInternals < Test::Unit::TestCase
     assert_equal "foo", redis.client.options[:scheme]
   end
 
-  def test_auto_reconnect_option
-    redis = Redis.new(OPTIONS.merge(:auto_reconnect => false))
-    fork do 
-      redis.ping
-    end
-    fork do 
-      redis.ping
-    end
+  def test_auto_reconnect_option_by_default
+    redis = Redis.new
+    assert redis.options.has_key?[:auto_reconnect]
+    assert not(redis.options[:auto_reconnect])
   end
+
+  def test_pass_auto_reconnect_option
+    redis = Redis.new(OPTIONS.merge(:auto_reconnect => true))
+    assert redis.options[:auto_reconnect]
+  end
+
 end
