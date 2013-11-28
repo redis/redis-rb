@@ -17,7 +17,7 @@ class Redis
       :driver => nil,
       :id => nil,
       :tcp_keepalive => 0,
-      :auto_reconnect => true
+      :auto_reconnect => false
     }
 
     def options
