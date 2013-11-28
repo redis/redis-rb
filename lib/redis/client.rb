@@ -94,7 +94,10 @@ class Redis
 
     def call(command, &block)
       reply = process([command]) { read }
-      raise reply if reply.is_a?(CommandError)
+
+      if reply.is_a?(CommandError)
+        raise CommandError.new("#{reply.message} (#{command.flatten.join(" ")})"[0, 256])
+      end
 
       if block
         block.call(reply)
