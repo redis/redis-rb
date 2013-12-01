@@ -128,7 +128,7 @@ class Redis
 
   # Get or set server configuration parameters.
   #
-  # @param [String] action e.g. `get`, `set`, `resetstat`
+  # @param [Symbol] action e.g. `:get`, `:set`, `:resetstat`
   # @return [String, Hash] string reply, or hash when retrieving more than one
   #   property with `CONFIG GET`
   def config(action, *args)
