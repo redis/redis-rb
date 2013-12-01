@@ -198,7 +198,7 @@ class Redis
       if master_config.empty?
         raise Redis::NoAvailableMasters.new(@master_name)
       end
-      is_down, run_id = @sentinels_connection.sentinel('is-master-down-by-addr', master_config['ip'], master_config['port'])
+      is_down, run_id = @sentinels_connection.sentinel('is-master-down-by-addr', master_config['ip'], master_config['port'], Time.now.to_i, master_config['runid'])
       if is_down == 1 || run_id == '?'
         raise Redis::MasterIsDown.new(master_config['ip'], master_config['port'])
       end
