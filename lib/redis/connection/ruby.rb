@@ -115,8 +115,7 @@ class Redis
         include SocketMixin
 
         def self.connect(host, port, timeout)
-          # Limit lookup to IPv4, as Redis doesn't yet do IPv6...
-          addr = ::Socket.getaddrinfo(host, nil, Socket::AF_INET)
+          addr = ::Socket.getaddrinfo(host, nil, Socket::AF_UNSPEC)
           sock = new(::Socket.const_get(addr[0][0]), Socket::SOCK_STREAM, 0)
           sockaddr = ::Socket.pack_sockaddr_in(port, addr[0][3])
 
