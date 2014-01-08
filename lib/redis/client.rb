@@ -16,7 +16,8 @@ class Redis
       :db => 0,
       :driver => nil,
       :id => nil,
-      :tcp_keepalive => 0
+      :tcp_keepalive => 0,
+      :auto_reconnect => false
     }
 
     def options
@@ -57,6 +58,14 @@ class Redis
 
     def driver
       @options[:driver]
+    end
+
+    def auto_reconnect
+      if !@reconnect && @options[:auto_reconnect]
+        raise "Could not reconnect automatically because reconnect option is false. " +
+              "Set reconnect option as true to reconnect automatically"
+      end
+      @options[:auto_reconnect]
     end
 
     attr_accessor :logger
@@ -296,9 +305,13 @@ class Redis
       begin
         if connected?
           if Process.pid != @pid
-            raise InheritedError,
-              "Tried to use a connection from a child process without reconnecting. " +
-              "You need to reconnect to Redis after forking."
+            if options[:auto_reconnect] && @reconnect
+              reconnect
+            else
+              raise InheritedError,
+                "Tried to use a connection from a child process without reconnecting. " +
+                "You need to reconnect to Redis after forking."
+            end
           end
         else
           connect

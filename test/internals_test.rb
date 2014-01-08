@@ -342,4 +342,16 @@ class TestInternals < Test::Unit::TestCase
     assert_equal 1, redis.client.options[:db]
     assert_equal "foo", redis.client.options[:scheme]
   end
+
+  def test_auto_reconnect_option_by_default
+    redis = Redis.new(OPTIONS)
+    assert redis.client.options.has_key? :auto_reconnect
+    assert (not redis.client.options[:auto_reconnect])
+  end
+
+  def test_pass_auto_reconnect_option
+    redis = Redis.new(OPTIONS.merge(:auto_reconnect => true))
+    assert redis.client.options[:auto_reconnect]
+  end
+
 end
