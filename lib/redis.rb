@@ -905,6 +905,21 @@ class Redis
     end
   end
 
+  # Perform a bitwise operation between strings using slices and store the resulting string in a key.
+  # Since bitop operation is a potentially slow command as it runs in O(N) time, performing the bitwise
+  # operation in small slices doesn't occupy the main single Redis thread for a long time.
+  #
+  # @param [String] operation e.g. `and`, `or`, `xor`, `not`
+  # @param [Fixnum] the size of each slice of strings
+  # @param [String] destkey destination key
+  # @param [String, Array<String>] keys one or more source keys to perform `operation`
+  # @return [Fixnum] the length of the string stored in `destkey`
+  def bitop_with_slices(operation, slice_size, destkey, *keys)
+    (keys || []).each_slice(slice_size) do |keys_slice|
+      bitop(operation, destkey, keys_slice)
+    end
+  end
+
   # Set the string value of a key and return its old value.
   #
   # @param [String] key
