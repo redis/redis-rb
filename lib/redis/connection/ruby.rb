@@ -114,10 +114,9 @@ class Redis
 
         include SocketMixin
 
-        def self.connect(host, port, timeout)
-          addr = ::Socket.getaddrinfo(host, nil, Socket::AF_UNSPEC)
-          sock = new(::Socket.const_get(addr[0][0]), Socket::SOCK_STREAM, 0)
-          sockaddr = ::Socket.pack_sockaddr_in(port, addr[0][3])
+        def self.connect_addrinfo(ai, port, timeout)
+          sock = new(::Socket.const_get(ai[0]), Socket::SOCK_STREAM, 0)
+          sockaddr = ::Socket.pack_sockaddr_in(port, ai[3])
 
           begin
             sock.connect_nonblock(sockaddr)
@@ -133,6 +132,25 @@ class Redis
           end
 
           sock
+        end
+
+        def self.connect(host, port, timeout)
+          addrinfo = ::Socket.getaddrinfo(host, nil, Socket::AF_UNSPEC, Socket::SOCK_STREAM)
+
+          # From the man page for getaddrinfo(3):
+          #
+          #   Normally, the application should try using the addresses in the
+          #   order in which they are returned. The sorting function used
+          #   within getaddrinfo() is defined in RFC 3484 [...].
+          #
+          addrinfo.each_with_index do |ai, i|
+            begin
+              return connect_addrinfo(ai, port, timeout)
+            rescue SystemCallError
+              # Raise if this was our last attempt.
+              raise if addrinfo.length == i+1
+            end
+          end
         end
       end
 
