@@ -342,4 +342,10 @@ class TestInternals < Test::Unit::TestCase
     assert_equal 1, redis.client.options[:db]
     assert_equal "foo", redis.client.options[:scheme]
   end
+
+  def test_resolves_localhost
+    assert_nothing_raised do
+      Redis.new(OPTIONS.merge(:host => 'localhost')).ping
+    end
+  end
 end
