@@ -383,15 +383,19 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
-  af_family_supported(Socket::AF_INET) do
-    def test_connect_ipv4
-      af_test("127.0.0.1")
+  driver(:ruby) do
+    af_family_supported(Socket::AF_INET) do
+      def test_connect_ipv4
+        af_test("127.0.0.1")
+      end
     end
   end
 
-  af_family_supported(Socket::AF_INET6) do
-    def test_connect_ipv6
-      af_test("::1")
+  driver(:ruby) do
+    af_family_supported(Socket::AF_INET6) do
+      def test_connect_ipv6
+        af_test("::1")
+      end
     end
   end
 end
