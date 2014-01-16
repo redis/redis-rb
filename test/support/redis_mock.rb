@@ -4,8 +4,8 @@ module RedisMock
   class Server
     VERBOSE = false
 
-    def initialize(port, &block)
-      @server = TCPServer.new("127.0.0.1", port)
+    def initialize(port, options = {}, &block)
+      @server = TCPServer.new(options[:host] || "127.0.0.1", port)
       @server.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
     end
 
@@ -53,8 +53,8 @@ module RedisMock
   #     # Every connection will be closed immediately
   #   end
   #
-  def self.start_with_handler(blk)
-    server = Server.new(MOCK_PORT)
+  def self.start_with_handler(blk, options = {})
+    server = Server.new(MOCK_PORT, options)
 
     begin
       server.start(&blk)
@@ -75,7 +75,7 @@ module RedisMock
   #     assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
   #   end
   #
-  def self.start(commands = {}, &blk)
+  def self.start(commands, options = {}, &blk)
     handler = lambda do |session|
       while line = session.gets
         argv = Array.new(line[1..-3].to_i) do
@@ -110,6 +110,6 @@ module RedisMock
       end
     end
 
-    start_with_handler(handler, &blk)
+    start_with_handler(handler, options, &blk)
   end
 end
