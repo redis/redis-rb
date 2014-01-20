@@ -7,7 +7,7 @@ class TestDistributed < Test::Unit::TestCase
   include Helper::Distributed
 
   def test_handle_multiple_servers
-    @r = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
+    @r = Redis::Distributed.new ["redis://127.0.0.1:#{PORT}/15", *NODES]
 
     100.times do |idx|
       @r.set(idx.to_s, "foo#{idx}")
@@ -32,9 +32,9 @@ class TestDistributed < Test::Unit::TestCase
     assert_equal 10, @r.nodes[0].client.timeout
     assert_equal logger, @r.nodes[0].client.logger
 
-    @r.add_node("redis://localhost:6380/14")
+    @r.add_node("redis://127.0.0.1:6380/14")
 
-    assert_equal "localhost", @r.nodes[1].client.host
+    assert_equal "127.0.0.1", @r.nodes[1].client.host
     assert_equal 6380, @r.nodes[1].client.port
     assert_equal 14, @r.nodes[1].client.db
     assert_equal 10, @r.nodes[1].client.timeout

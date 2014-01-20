@@ -191,7 +191,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
   def test_subscribe_past_a_timeout
     # For some reason, a thread here doesn't reproduce the issue.
     sleep = %{sleep #{OPTIONS[:timeout] * 2}}
-    publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
+    publish = %{echo "publish foo bar\r\n" | nc 127.0.0.1 #{OPTIONS[:port]}}
     cmd = [sleep, publish].join("; ")
 
     IO.popen(cmd, "r+") do |pipe|

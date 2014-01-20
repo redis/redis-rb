@@ -114,11 +114,9 @@ class Redis
 
         include SocketMixin
 
-        def self.connect(host, port, timeout)
-          # Limit lookup to IPv4, as Redis doesn't yet do IPv6...
-          addr = ::Socket.getaddrinfo(host, nil, Socket::AF_INET)
-          sock = new(::Socket.const_get(addr[0][0]), Socket::SOCK_STREAM, 0)
-          sockaddr = ::Socket.pack_sockaddr_in(port, addr[0][3])
+        def self.connect_addrinfo(ai, port, timeout)
+          sock = new(::Socket.const_get(ai[0]), Socket::SOCK_STREAM, 0)
+          sockaddr = ::Socket.pack_sockaddr_in(port, ai[3])
 
           begin
             sock.connect_nonblock(sockaddr)
@@ -134,6 +132,39 @@ class Redis
           end
 
           sock
+        end
+
+        def self.connect(host, port, timeout)
+          # Don't pass AI_ADDRCONFIG as flag to getaddrinfo(3)
+          #
+          # From the man page for getaddrinfo(3):
+          #
+          #   If hints.ai_flags includes the AI_ADDRCONFIG flag, then IPv4
+          #   addresses are returned in the list pointed to by res only if the
+          #   local system has at least one IPv4 address configured, and IPv6
+          #   addresses are returned only if the local system has at least one
+          #   IPv6 address configured. The loopback address is not considered
+          #   for this case as valid as a configured address.
+          #
+          # We do want the IPv6 loopback address to be returned if applicable,
+          # even if it is the only configured IPv6 address on the machine.
+          # Also see: https://github.com/redis/redis-rb/pull/394.
+          addrinfo = ::Socket.getaddrinfo(host, nil, Socket::AF_UNSPEC, Socket::SOCK_STREAM)
+
+          # From the man page for getaddrinfo(3):
+          #
+          #   Normally, the application should try using the addresses in the
+          #   order in which they are returned. The sorting function used
+          #   within getaddrinfo() is defined in RFC 3484 [...].
+          #
+          addrinfo.each_with_index do |ai, i|
+            begin
+              return connect_addrinfo(ai, port, timeout)
+            rescue SystemCallError
+              # Raise if this was our last attempt.
+              raise if addrinfo.length == i+1
+            end
+          end
         end
       end
 

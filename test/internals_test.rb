@@ -343,6 +343,62 @@ class TestInternals < Test::Unit::TestCase
     assert_equal "foo", redis.client.options[:scheme]
   end
 
+  def test_resolves_localhost
+    assert_nothing_raised do
+      Redis.new(OPTIONS.merge(:host => 'localhost')).ping
+    end
+  end
+
+  class << self
+    def af_family_supported(af)
+      hosts = {
+        Socket::AF_INET  => "127.0.0.1",
+        Socket::AF_INET6 => "::1",
+      }
+
+      begin
+        s = Socket.new(af, Socket::SOCK_STREAM, 0)
+        begin
+          sa = Socket.pack_sockaddr_in(9999, hosts[af])
+          s.bind(sa)
+          yield
+        rescue Errno::EADDRNOTAVAIL
+        ensure
+          s.close
+        end
+      rescue Errno::ESOCKTNOSUPPORT
+      end
+    end
+  end
+
+  def af_test(host)
+    commands = {
+      :ping => lambda { |*_| "+pong" },
+    }
+
+    redis_mock(commands, :host => host) do |redis|
+      assert_nothing_raised do
+        redis.ping
+      end
+    end
+  end
+
+  driver(:ruby) do
+    af_family_supported(Socket::AF_INET) do
+      def test_connect_ipv4
+        af_test("127.0.0.1")
+      end
+    end
+  end
+
+  driver(:ruby) do
+    af_family_supported(Socket::AF_INET6) do
+      def test_connect_ipv6
+        af_test("::1")
+      end
+    end
+  end
+
   def test_can_be_duped_to_create_a_new_connection
     clients = r.info["connected_clients"].to_i
 

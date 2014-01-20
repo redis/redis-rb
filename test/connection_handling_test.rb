@@ -157,7 +157,7 @@ class TestConnectionHandling < Test::Unit::TestCase
 
   def test_slaveof
     redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do |redis|
-      assert_equal "SLAVEOF localhost 6381", redis.slaveof("localhost", 6381)
+      assert_equal "SLAVEOF somehost 6381", redis.slaveof("somehost", 6381)
     end
   end
 

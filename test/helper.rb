@@ -151,13 +151,13 @@ module Helper
     end
 
     def redis_mock(commands, options = {}, &blk)
-      RedisMock.start(commands) do |port|
+      RedisMock.start(commands, options) do |port|
         yield _new_client(options.merge(:port => port))
       end
     end
 
     def redis_mock_with_handler(handler, options = {}, &blk)
-      RedisMock.start_with_handler(handler) do |port|
+      RedisMock.start_with_handler(handler, options) do |port|
         yield _new_client(options.merge(:port => port))
       end
     end
