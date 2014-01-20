@@ -398,4 +398,13 @@ class TestInternals < Test::Unit::TestCase
       end
     end
   end
+
+  def test_can_be_duped_to_create_a_new_connection
+    clients = r.info["connected_clients"].to_i
+
+    r2 = r.dup
+    r2.ping
+
+    assert_equal clients + 1, r.info["connected_clients"].to_i
+  end
 end

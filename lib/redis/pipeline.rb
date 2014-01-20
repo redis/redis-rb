@@ -78,7 +78,7 @@ class Redis
         # EXEC command failed.
         raise exec if exec.is_a?(CommandError)
 
-        if exec.size < futures.size - 2
+        if exec.size < futures.size
           # Some command wasn't recognized by Redis.
           raise replies.detect { |r| r.is_a?(CommandError) }
         end

@@ -38,8 +38,18 @@ listening on `localhost`, port 6379. If you need to connect to a remote
 server or a different port, try:
 
 ```ruby
-redis = Redis.new(:host => "10.0.1.1", :port => 6380)
+redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15)
 ```
+
+You can also specify connection options as an URL:
+
+```ruby
+redis = Redis.new(:url => "redis://:p4ssw0rd@10.0.1.1:6380/15")
+```
+
+By default, the client will try to read the `REDIS_URL` environment variable
+and use that as URL to connect to. The above statement is therefore equivalent
+to setting this environment variable and calling `Redis.new` without arguments.
 
 To connect to Redis listening on a Unix socket, try:
 

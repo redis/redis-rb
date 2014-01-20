@@ -27,6 +27,7 @@ class Redis
   include MonitorMixin
 
   def initialize(options = {})
+    @options = options.dup
     @original_client = @client = Client.new(options)
 
     super() # Monitor#initialize
@@ -2420,6 +2421,10 @@ class Redis
 
   def inspect
     "#<Redis client v#{Redis::VERSION} for #{id}>"
+  end
+
+  def dup
+    self.class.new(@options)
   end
 
   def method_missing(command, *args)

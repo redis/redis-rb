@@ -38,4 +38,33 @@ class TestDistributedInternals < Test::Unit::TestCase
     assert_equal redis.nodes.last.client.id,  "test1"
     assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
   end
+
+  def test_can_be_duped_to_create_a_new_connection
+    redis = Redis::Distributed.new(NODES)
+
+    clients = redis.info[0]["connected_clients"].to_i
+
+    r2 = redis.dup
+    r2.ping
+
+    assert_equal clients + 1, redis.info[0]["connected_clients"].to_i
+  end
+
+  def test_keeps_options_after_dup
+    r1 = Redis::Distributed.new(NODES, :tag => /^(\w+):/)
+
+    assert_raise(Redis::Distributed::CannotDistribute) do
+      r1.sinter("foo", "bar")
+    end
+
+    assert_equal [], r1.sinter("baz:foo", "baz:bar")
+
+    r2 = r1.dup
+
+    assert_raise(Redis::Distributed::CannotDistribute) do
+      r2.sinter("foo", "bar")
+    end
+
+    assert_equal [], r2.sinter("baz:foo", "baz:bar")
+  end
 end
