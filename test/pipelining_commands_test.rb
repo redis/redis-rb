@@ -93,9 +93,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       r.pipelined do
         r.doesnt_exist
         @first = r.sadd("foo", 1)
-        r.doesnt_exist
         @second = r.sadd("foo", 1)
-        r.doesnt_exist
       end
     end
 

@@ -67,9 +67,7 @@ class TestTransactions < Test::Unit::TestCase
       r.multi do |m|
         m.doesnt_exist
         @first = m.sadd("foo", 1)
-        m.doesnt_exist
         @second = m.sadd("foo", 1)
-        m.doesnt_exist
       end
     end
 
