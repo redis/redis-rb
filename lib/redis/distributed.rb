@@ -16,9 +16,10 @@ class Redis
     attr_reader :ring
 
     def initialize(node_configs, options = {})
-      @tag = options.delete(:tag) || /^\{(.+?)\}/
-      @ring = options.delete(:ring) || HashRing.new
-      @default_options = options
+      @tag = options[:tag] || /^\{(.+?)\}/
+      @ring = options[:ring] || HashRing.new
+      @node_configs = node_configs.dup
+      @default_options = options.dup
       node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
     end
@@ -805,6 +806,10 @@ class Redis
 
     def inspect
       "#<Redis client v#{Redis::VERSION} for #{nodes.map(&:id).join(', ')}>"
+    end
+
+    def dup
+      self.class.new(@node_configs, @default_options)
     end
 
   protected

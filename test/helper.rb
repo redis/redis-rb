@@ -141,6 +141,9 @@ module Helper
     def setup
       @log = StringIO.new
       @redis = init _new_client
+
+      # Run GC to make sure orphaned connections are closed.
+      GC.start
     end
 
     def teardown
