@@ -2,6 +2,8 @@
 
 * Added method `Redis#dup` to duplicate a Redis connection.
 
+* IPv6 support.
+
 # 3.0.6
 
 * Added support for `SCAN` and variants.
