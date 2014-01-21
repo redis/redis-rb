@@ -1,5 +1,9 @@
 # (unreleased)
 
+...
+
+# 3.0.7
+
 * Added method `Redis#dup` to duplicate a Redis connection.
 
 * IPv6 support.
