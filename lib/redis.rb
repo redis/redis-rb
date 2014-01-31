@@ -1841,7 +1841,18 @@ class Redis
 
   # Get the values of all the given hash fields.
   #
-  # @example
+  # Passing a block is optional.
+  # If block is passed, it must return a hash, which is stored in redis.
+  #
+  # @example With a block
+  #   redis.hmget("hash", "f1", "f2") do
+  #     { "f1" => "v1", "f2" => "v2", "f3" => "v3" }
+  #   end
+  #     # => { "f1" => "v1", "f2" => "v2" }
+  #   redis.hgetall("hash")
+  #     # => { "f1" => "v1", "f2" => "v2", "f3" => "v3" }
+  #
+  # @example Without a block
   #   redis.hmget("hash", "f1", "f2")
   #     # => { "f1" => "v1", "f2" => "v2" }
   #
@@ -1851,13 +1862,19 @@ class Redis
   #
   # @see #hmget
   def mapped_hmget(key, *fields)
-    hmget(key, *fields) do |reply|
+    val = hmget(key, *fields) do |reply|
       if reply.kind_of?(Array)
         Hash[fields.zip(reply)]
       else
         reply
       end
     end
+    if block_given? && !val.values.any?
+      val = yield
+      mapped_hmset(key, val)
+      val = Hash[val.select { |k, v| fields.include?(k) }]
+    end
+    val
   end
 
   # Delete one or more hash fields.
