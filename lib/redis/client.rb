@@ -362,7 +362,7 @@ class Redis
 
       # Use default when option is not specified or nil
       defaults.keys.each do |key|
-        options[key] ||= defaults[key]
+        options[key] = defaults[key] if options[key].nil?
       end
 
       if options[:path]
