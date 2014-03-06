@@ -187,6 +187,8 @@ class Redis
     end
 
     def process(commands)
+      @commands = commands.dup + (@commands ||= [])
+
       logging(commands) do
         ensure_connected do
           commands.each do |command|
@@ -225,8 +227,17 @@ class Redis
     end
 
     def read
-      io do
+      reply = io do
         connection.read
+      end
+
+      command = @commands.shift
+
+      if reply.is_a?(CommandError) && reply.message.include?("operation not permitted")
+        operation = "#{command.shift.to_s.upcase} #{command.join(' ')}".strip
+        CommandError.new "#{reply.message} (\"#{operation}\")"[0, 256]
+      else
+        reply
       end
     end
 
