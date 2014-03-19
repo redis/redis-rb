@@ -656,7 +656,7 @@ class Redis
     end
 
     def mapped_hmset(key, hash)
-      node_for(key).hmset(key, *hash.to_a.flatten)
+      node_for(key).hmset(key, *hash.to_a.flatten) unless hash.empty?
     end
 
     # Get the value of a hash field.
