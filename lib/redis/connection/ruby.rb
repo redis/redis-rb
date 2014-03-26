@@ -2,6 +2,11 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
+begin
+  require "openssl"
+rescue LoadError
+  #ignore the error, ssl support will not work
+end
 
 class Redis
   module Connection
@@ -209,6 +214,16 @@ class Redis
           sock = UNIXSocket.connect(config[:path], config[:timeout])
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
+          if config[:scheme] == "rediss" or config[:use_ssl]
+            ssl_context = OpenSSL::SSL::SSLContext.new
+            ssl_context.ca_file = config[:ssl_ca_file]
+            ssl_context.key = config[:ssl_key]
+            ssl_context.cert = config[:ssl_cert]
+            ssl_context.verify_mode = config[:ssl_verify_mode]
+            ssl_client = OpenSSL::SSL::SSLSocket.new sock, ssl_context
+            ssl_client.connect
+            sock = ssl_client
+          end
         end
 
         instance = new(sock)
