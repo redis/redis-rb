@@ -294,6 +294,8 @@ class Redis
       tries = 0
 
       begin
+        tries += 1
+
         if connected?
           if Process.pid != @pid
             raise InheritedError,
@@ -303,8 +305,6 @@ class Redis
         else
           connect
         end
-
-        tries += 1
 
         yield
       rescue ConnectionError, InheritedError
