@@ -276,7 +276,7 @@ class Redis
         commands.each do |name, *args|
           logged_args = args.map do |a|
             str = a.respond_to?(:inspect) ? a.inspect : a.to_s
-            str.truncate(100)
+            str.length > 100 ? str[0..100] + "..." : str
           end
           @logger.debug("[Redis] name=#{name.to_s.upcase} args=#{logged_args.join(" ")}")
         end
