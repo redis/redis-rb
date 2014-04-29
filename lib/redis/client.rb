@@ -218,8 +218,6 @@ class Redis
 
     def io
       yield
-    rescue TimeoutError
-      raise TimeoutError, "Connection timed out"
     rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL => e
       raise ConnectionError, "Connection lost (%s)" % [e.class.name.split("::").last]
     end
