@@ -218,8 +218,11 @@ class Redis
 
     def io
       yield
-    rescue TimeoutError
-      raise TimeoutError, "Connection timed out"
+    rescue TimeoutError => e1
+      # Add a message to the exception without destroying the original stack
+      e2 = TimeoutError.new("Connection timed out")
+      e2.set_backtrace(e1.backtrace)
+      raise e2
     rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL => e
       raise ConnectionError, "Connection lost (%s)" % [e.class.name.split("::").last]
     end
