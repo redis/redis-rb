@@ -16,7 +16,8 @@ class Redis
       :db => 0,
       :driver => nil,
       :id => nil,
-      :tcp_keepalive => 0
+      :tcp_keepalive => 0,
+      :enable_inherited_socket => false
     }
 
     def options
@@ -57,6 +58,10 @@ class Redis
 
     def driver
       @options[:driver]
+    end
+
+    def enable_inherited_socket
+      @options[:enable_inherited_socket]
     end
 
     attr_accessor :logger
@@ -300,10 +305,11 @@ class Redis
         tries += 1
 
         if connected?
-          if Process.pid != @pid
+          if !enable_inherited_socket && Process.pid != @pid
             raise InheritedError,
               "Tried to use a connection from a child process without reconnecting. " +
-              "You need to reconnect to Redis after forking."
+              "You need to reconnect to Redis after forking " +
+              "or set :enable_inherited_socket to true."
           end
         else
           connect
