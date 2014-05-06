@@ -781,6 +781,24 @@ class Redis
       on_each_node(:script, subcommand, *args)
     end
 
+    # Add one or more members to a HyperLogLog structure.
+    def pfadd(key, member)
+      node_for(key).pfadd(key, member)
+    end
+
+    # Get the approximate cardinality of members added to HyperLogLog structure.
+    def pfcount(key)
+      node_for(key).pfcount(key)
+    end
+
+    # Merge multiple HyperLogLog values into an unique value that will approximate the cardinality of the union of
+    # the observed Sets of the source HyperLogLog structures.
+    def pfmerge(dest_key, *source_key)
+      ensure_same_node(:pfmerge, [dest_key, *source_key]) do |node|
+        node.pfmerge(dest_key, *source_key)
+      end
+    end
+
     def _eval(cmd, args)
       script = args.shift
       options = args.pop if args.last.is_a?(Hash)
