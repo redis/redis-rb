@@ -58,4 +58,12 @@ class TestBitpos < Test::Unit::TestCase
     end
   end
 
+  def test_bitpos_raise_exception_if_stop_not_start
+    target_version "2.9.11" do
+      assert_raises(ArgumentError) do
+        r.bitpos("foo", 0, nil, 2)
+      end
+    end
+  end
+
 end
