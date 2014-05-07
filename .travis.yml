@@ -52,5 +52,4 @@ notifications:
     - irc.freenode.net#redis-rb
   email:
     - damian.janowski@gmail.com
-    - michel@soveran.com
     - pcnoordhuis@gmail.com
