@@ -906,6 +906,27 @@ class Redis
     end
   end
 
+  # Return the position of the first bit set to 1 or 0 in a string.
+  #
+  # @param [String] key
+  # @param [Fixnum] bit whether to look for the first 1 or 0 bit
+  # @param [Fixnum] start start index
+  # @param [Fixnum] stop stop index
+  # @return [Fixnum] the position of the first 1/0 bit.
+  #                  -1 if looking for 1 and it is not found or start and stop are given.
+  def bitpos(key, bit, start=nil, stop=nil)
+    if stop and not start
+      raise(ArgumentError, 'stop parameter specified without start parameter')
+    end
+
+    synchronize do |client|
+      command = [:bitpos, key, bit]
+      command << start if start
+      command << stop if stop
+      client.call(command)
+    end
+  end
+
   # Set the string value of a key and return its old value.
   #
   # @param [String] key

@@ -323,6 +323,11 @@ class Redis
       end
     end
 
+    # Return the position of the first bit set to 1 or 0 in a string.
+    def bitpos(key, bit, start=nil, stop=nil)
+      node_for(key).bitpos(key, bit, start, stop)
+    end
+
     # Set the string value of a key and return its old value.
     def getset(key, value)
       node_for(key).getset(key, value)
