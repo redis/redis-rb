@@ -274,13 +274,17 @@ class Redis
 
       begin
         commands.each do |name, *args|
-          @logger.debug("Redis >> #{name.to_s.upcase} #{args.map(&:to_s).join(" ")}")
+          logged_args = args.map do |a|
+            str = a.respond_to?(:inspect) ? a.inspect : a.to_s
+            str.length > 100 ? str[0..100] + "..." : str
+          end
+          @logger.debug("[Redis] name=#{name.to_s.upcase} args=#{logged_args.join(" ")}")
         end
 
         t1 = Time.now
         yield
       ensure
-        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000)) if t1
+        @logger.debug("[Redis] call_time=%0.2f ms" % ((Time.now - t1) * 1000)) if t1
       end
     end
 
