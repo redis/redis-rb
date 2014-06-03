@@ -1,6 +1,8 @@
 # 3.1.x (unreleased)
 
 * Added debug log sanitization (#428)
+* Added support for `pfadd`, `pfcount`, and `pfmerge` commands to support
+  HyperLogLog (Redis 2.8.9, #432)
 
 # 3.0.7
 
