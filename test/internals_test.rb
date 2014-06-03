@@ -9,8 +9,8 @@ class TestInternals < Test::Unit::TestCase
   def test_logger
     r.ping
 
-    assert log.string =~ /Redis >> PING/
-      assert log.string =~ /Redis >> \d+\.\d+ms/
+    assert log.string["[Redis] command=PING"]
+    assert log.string =~ /\[Redis\] call_time=\d+\.\d+ ms/
   end
 
   def test_logger_with_pipelining
@@ -19,8 +19,8 @@ class TestInternals < Test::Unit::TestCase
       r.get "foo"
     end
 
-    assert log.string["SET foo bar"]
-    assert log.string["GET foo"]
+    assert log.string[" command=SET args=\"foo\" \"bar\""]
+    assert log.string[" command=GET args=\"foo\""]
   end
 
   def test_recovers_from_failed_commands

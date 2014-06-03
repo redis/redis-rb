@@ -1,6 +1,6 @@
-# (unreleased)
+# 3.1.x (unreleased)
 
-...
+* Added debug log sanitization (@airhorns, @orenmazor, @yaauie)
 
 # 3.0.7
 
