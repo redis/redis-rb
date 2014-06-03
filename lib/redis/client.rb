@@ -274,13 +274,23 @@ class Redis
 
       begin
         commands.each do |name, *args|
-          @logger.debug("Redis >> #{name.to_s.upcase} #{args.map(&:to_s).join(" ")}")
+          logged_args = args.map do |a|
+            case
+            when a.respond_to?(:inspect) then a.inspect
+            when a.respond_to?(:to_s)    then a.to_s
+            else
+              # handle poorly-behaved descendants of BasicObject
+              klass = a.instance_exec { (class << self; self end).superclass }
+              "\#<#{klass}:#{a.__id__}>"
+            end
+          end
+          @logger.debug("[Redis] command=#{name.to_s.upcase} args=#{logged_args.join(' ')}")
         end
 
         t1 = Time.now
         yield
       ensure
-        @logger.debug("Redis >> %0.2fms" % ((Time.now - t1) * 1000)) if t1
+        @logger.debug("[Redis] call_time=%0.2f ms" % ((Time.now - t1) * 1000)) if t1
       end
     end
 
