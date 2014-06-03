@@ -215,4 +215,17 @@ module Helper
       Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
     end
   end
+
+  # Basic support for `skip` in 1.8.x
+  # Note: YOU MUST use `return skip(message)` in order to appropriately bail
+  # from a running test.
+  module Skipable
+    Skipped = Class.new(RuntimeError)
+
+    def skip(message = nil, bt = caller)
+      return super if defined?(super)
+
+      $stderr.puts("SKIPPED: #{self} #{message || 'no reason given'}")
+    end
+  end
 end
