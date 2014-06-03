@@ -16,7 +16,8 @@ class Redis
       :db => 0,
       :driver => nil,
       :id => nil,
-      :tcp_keepalive => 0
+      :tcp_keepalive => 0,
+      :inherit_socket => false
     }
 
     def options
@@ -57,6 +58,10 @@ class Redis
 
     def driver
       @options[:driver]
+    end
+
+    def inherit_socket?
+      @options[:inherit_socket]
     end
 
     attr_accessor :logger
@@ -310,10 +315,11 @@ class Redis
         tries += 1
 
         if connected?
-          if Process.pid != @pid
+          unless inherit_socket? || Process.pid == @pid
             raise InheritedError,
               "Tried to use a connection from a child process without reconnecting. " +
-              "You need to reconnect to Redis after forking."
+              "You need to reconnect to Redis after forking " +
+              "or set :inherit_socket to true."
           end
         else
           connect
@@ -372,7 +378,7 @@ class Redis
 
       # Use default when option is not specified or nil
       defaults.keys.each do |key|
-        options[key] ||= defaults[key]
+        options[key] = defaults[key] if options[key].nil?
       end
 
       if options[:path]

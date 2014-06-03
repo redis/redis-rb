@@ -5,6 +5,9 @@
   HyperLogLog (Redis 2.8.9, #432)
 * Added support for `bitpos` command (Redis 2.9.11, #412)
 * Added support for automatically reconnecting in forked child (#414)
+* Added support for expert-mode option `inherit_socket`, which disables
+  fork-safety check and enables a socket to be shared with a child
+  process (#409)
 * Added MRI Ruby 2.1.0 to CI
 * Fix truncation of meaningful information in certain timeouts (#430)
 * Fix handling of connection retries that could result in retry loop (#415)
