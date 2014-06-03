@@ -2436,6 +2436,39 @@ class Redis
     end
   end
 
+  # Add one or more members to a HyperLogLog structure.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member, or array of members
+  # @return [Boolean] true if at least 1 HyperLogLog internal register was altered. false otherwise.
+  def pfadd(key, member)
+    synchronize do |client|
+      client.call([:pfadd, key, member], &_boolify)
+    end
+  end
+
+  # Get the approximate cardinality of members added to HyperLogLog structure.
+  #
+  # @param [String] key
+  # @return [Fixnum]
+  def pfcount(key)
+    synchronize do |client|
+      client.call([:pfcount, key])
+    end
+  end
+
+  # Merge multiple HyperLogLog values into an unique value that will approximate the cardinality of the union of
+  # the observed Sets of the source HyperLogLog structures.
+  #
+  # @param [String] dest_key destination key
+  # @param [String, Array<String>] source_key source key, or array of keys
+  # @return [Boolean]
+  def pfmerge(dest_key, *source_key)
+    synchronize do |client|
+      client.call([:pfmerge, dest_key, *source_key], &_boolify_set)
+    end
+  end
+
   def id
     @original_client.id
   end
