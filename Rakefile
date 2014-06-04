@@ -34,6 +34,10 @@ task :start => BINARY do
       abort "could not start redis-server"
     end
   end
+
+  at_exit do
+    Rake::Task["stop"].invoke
+  end
 end
 
 desc "Stop the Redis server"
