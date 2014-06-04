@@ -40,14 +40,13 @@ def init(redis)
       Make sure Redis is running on localhost, port #{PORT}.
       This testing suite connects to the database 15.
 
-      To install redis:
-        visit <http://redis.io/download/>.
+      Try this once:
 
-      To start the server:
-        rake start
+        $ rake clean
 
-      To stop the server:
-        rake stop
+      Then run the build again:
+
+        $ rake
 
     EOS
     exit 1
