@@ -64,7 +64,7 @@ file BINARY do
 end
 
 Rake::TestTask.new do |t|
-  t.options = "-v"
+  t.options = "-v" if $VERBOSE
   t.test_files = FileList["test/*_test.rb"]
 end
 
