@@ -3,8 +3,8 @@
 [travis-image]: https://secure.travis-ci.org/redis/redis-rb.png?branch=master
 [travis-link]: http://travis-ci.org/redis/redis-rb
 [travis-home]: http://travis-ci.org/
-[inchpages-image]: http://inch-pages.github.io/github/redis/redis-rb.png
-[inchpages-link]: http://inch-pages.github.io/github/redis/redis-rb
+[inchpages-image]: http://inch-ci.org/github/redis/redis-rb.png
+[inchpages-link]: http://inch-ci.org/github/redis/redis-rb
 
 A Ruby client library for [Redis][redis-home].
 
