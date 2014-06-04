@@ -18,6 +18,7 @@ gemfile:
 
 env:
   global:
+    - VERBOSE=true
     - TIMEOUT=1
   matrix:
     - conn=ruby      REDIS_BRANCH=2.6
