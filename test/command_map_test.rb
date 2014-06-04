@@ -11,9 +11,9 @@ class TestCommandMap < Test::Unit::TestCase
 
     assert_equal 2, r.incr("counter")
 
-    r.client.command_map[:incr] = :decr
+    r2 = Redis.new(OPTIONS.merge(command_map: {incr: :decr}))
 
-    assert_equal 1, r.incr("counter")
+    assert_equal 1, r2.incr("counter")
   end
 
   def test_override_non_existing_commands

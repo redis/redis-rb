@@ -109,8 +109,8 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
         redis.migrate("foo", options.reject { |key, _| key == :port })
       end
 
-      default_db = redis.client.db.to_i
-      default_timeout = redis.client.timeout.to_i
+      default_db = OPTIONS[:db].to_i
+      default_timeout = OPTIONS[:timeout].to_i
 
       # Test defaults
       actual = redis.migrate("foo", options)

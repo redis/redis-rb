@@ -7,7 +7,12 @@ class Redis
     $stderr.puts "\n#{message} (in #{trace})"
   end
 
-  attr :client
+  # @deprecated Accessing the connection object directly will not be supported
+  #             in version 4.0.
+  def client
+    self.class.deprecate("Accessing Redis#client directly will not be supported in version 4.0.", caller[0])
+    @client
+  end
 
   # @deprecated The preferred way to create a new client object is using `#new`.
   #             This method does not actually establish a connection to Redis,
@@ -399,8 +404,8 @@ class Redis
   def migrate(key, options)
     host = options[:host] || raise(RuntimeError, ":host not specified")
     port = options[:port] || raise(RuntimeError, ":port not specified")
-    db = (options[:db] || client.db).to_i
-    timeout = (options[:timeout] || client.timeout).to_i
+    db = (options[:db] || @client.db).to_i
+    timeout = (options[:timeout] || @client.timeout).to_i
 
     synchronize do |client|
       client.call([:migrate, host, port, key, db, timeout])

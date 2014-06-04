@@ -17,7 +17,7 @@ class TestBlockingCommands < Test::Unit::TestCase
       yield(r)
       t2 = Time.now
 
-      assert timeout == r.client.timeout
+      assert timeout == r.instance_variable_get("@client").timeout
       assert delay <= (t2 - t1)
     end
   end
