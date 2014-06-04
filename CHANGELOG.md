@@ -1,16 +1,16 @@
 # 3.1.x (unreleased)
 
-* Added debug log sanitization (#428)
-* Added support for `pfadd`, `pfcount`, and `pfmerge` commands to support
-  HyperLogLog (Redis 2.8.9, #432)
-* Added support for `bitpos` command (Redis 2.9.11, #412)
-* Added support for automatically reconnecting in forked child (#414)
-* Added support for expert-mode option `inherit_socket`, which disables
-  fork-safety check and enables a socket to be shared with a child
-  process (#409)
-* Added MRI Ruby 2.1.0 to CI
-* Fix truncation of meaningful information in certain timeouts (#430)
-* Fix handling of connection retries that could result in retry loop (#415)
+* Added debug log sanitization (#428).
+
+* Added support for HyperLogLog commands (Redis 2.8.9, #432).
+
+* Added support for `BITPOS` command (Redis 2.9.11, #412).
+
+* The client will now automatically reconnect after a fork (#414).
+
+* If you want to disable the fork-safety check and prefer to share the
+  connection across child processes, you can now pass the `inherit_socket`
+  option (#409).
 
 # 3.0.7
 
