@@ -44,12 +44,18 @@ task :stop do
   end
 end
 
+desc "Clean up testing artifacts"
+task :clean do
+  FileUtils.rm_f(BINARY)
+end
+
 file BINARY do
   branch = ENV.fetch("REDIS_BRANCH")
 
   sh <<-SH
   mkdir -p tmp;
   cd tmp;
+  rm -rf redis-#{branch};
   wget https://github.com/antirez/redis/archive/#{branch}.tar.gz -O #{branch}.tar.gz;
   tar xf #{branch}.tar.gz;
   cd redis-#{branch};
