@@ -313,7 +313,7 @@ class Redis
       attempts = 0
 
       begin
-        tries += 1
+        attempts += 1
 
         if connected?
           unless inherit_socket? || Process.pid == @pid
@@ -326,11 +326,6 @@ class Redis
           connect
         end
 
-<<<<<<< HEAD
-=======
-        attempts += 1
-
->>>>>>> make number of retries in ensure_connected configurable
         yield
       rescue ConnectionError, InheritedError
         disconnect
