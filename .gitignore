@@ -1,5 +1,7 @@
 *.rdb
 *.swp
+Gemfile.lock
+/tmp/
 /.idea
 /.yardoc
 /coverage/*
