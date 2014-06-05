@@ -17,6 +17,7 @@ class Redis
       :driver => nil,
       :id => nil,
       :tcp_keepalive => 0,
+      :reconnect_attempts => 1,
       :inherit_socket => false
     }
 
@@ -309,7 +310,7 @@ class Redis
     end
 
     def ensure_connected
-      tries = 0
+      attempts = 0
 
       begin
         tries += 1
@@ -325,11 +326,16 @@ class Redis
           connect
         end
 
+<<<<<<< HEAD
+=======
+        attempts += 1
+
+>>>>>>> make number of retries in ensure_connected configurable
         yield
       rescue ConnectionError, InheritedError
         disconnect
 
-        if tries < 2 && @reconnect
+        if attempts <= @options[:reconnect_attempts] && @reconnect
           retry
         else
           raise
