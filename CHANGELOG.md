@@ -12,6 +12,9 @@
   connection across child processes, you can now pass the `inherit_socket`
   option (#409).
 
+* If you want the client to attempt to reconnect more than once, you can now
+  pass the `reconnect_attempts` option (#347)
+
 # 3.0.7
 
 * Added method `Redis#dup` to duplicate a Redis connection.
