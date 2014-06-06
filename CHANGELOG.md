@@ -12,7 +12,7 @@
   security updates in June of 2013; continuing to support it would prevent
   the use of newer features of Ruby.
 
-# 3.1.x (unreleased)
+# 3.1.0
 
 * Added debug log sanitization (#428).
 
