@@ -1,6 +1,7 @@
 *.rdb
 *.swp
 Gemfile.lock
+*.gem
 /tmp/
 /.idea
 /.yardoc
