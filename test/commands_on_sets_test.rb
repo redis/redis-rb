@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/sets"
 
-class TestCommandsOnSets < Test::Unit::TestCase
+class TestCommandsOnSets < Minitest::Test
 
   include Helper::Client
   include Lint::Sets

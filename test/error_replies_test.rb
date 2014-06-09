@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestErrorReplies < Test::Unit::TestCase
+class TestErrorReplies < Minitest::Test
 
   include Helper::Client
 

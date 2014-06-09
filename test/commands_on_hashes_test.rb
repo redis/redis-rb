@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/hashes"
 
-class TestCommandsOnHashes < Test::Unit::TestCase
+class TestCommandsOnHashes < Minitest::Test
 
   include Helper::Client
   include Lint::Hashes

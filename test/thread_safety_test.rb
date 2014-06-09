@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestThreadSafety < Test::Unit::TestCase
+class TestThreadSafety < Minitest::Test
 
   include Helper::Client
 

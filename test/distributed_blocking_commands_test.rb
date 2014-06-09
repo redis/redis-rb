@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/blocking_commands"
 
-class TestDistributedBlockingCommands < Test::Unit::TestCase
+class TestDistributedBlockingCommands < Minitest::Test
 
   include Helper::Distributed
   include Lint::BlockingCommands

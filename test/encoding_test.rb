@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestEncoding < Test::Unit::TestCase
+class TestEncoding < Minitest::Test
 
   include Helper::Client
 

@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestDistributedScripting < Test::Unit::TestCase
+class TestDistributedScripting < Minitest::Test
 
   include Helper::Distributed
 

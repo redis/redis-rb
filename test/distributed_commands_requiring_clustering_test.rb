@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestDistributedCommandsRequiringClustering < Test::Unit::TestCase
+class TestDistributedCommandsRequiringClustering < Minitest::Test
 
   include Helper::Distributed
 

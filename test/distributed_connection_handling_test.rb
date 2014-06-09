@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestDistributedConnectionHandling < Test::Unit::TestCase
+class TestDistributedConnectionHandling < Minitest::Test
 
   include Helper::Distributed
 

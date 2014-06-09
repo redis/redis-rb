@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestForkSafety < Test::Unit::TestCase
+class TestForkSafety < Minitest::Test
 
   include Helper::Client
   include Helper::Skipable
@@ -21,8 +21,9 @@ class TestForkSafety < Test::Unit::TestCase
             redis.set "foo", 2
           end
         rescue Redis::InheritedError
-          exit 127
+          exit! 127
         end
+        exit! 0
       end
 
       _, status = Process.wait2(child_pid)
@@ -48,8 +49,9 @@ class TestForkSafety < Test::Unit::TestCase
             redis.set "foo", 2
           end
         rescue Redis::InheritedError
-          exit 127
+          exit! 127
         end
+        exit! 0
       end
 
       _, status = Process.wait2(child_pid)
