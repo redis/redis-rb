@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestConnectionHandling < Test::Unit::TestCase
+class TestConnectionHandling < Minitest::Test
 
   include Helper::Client
 
@@ -61,7 +61,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       connections = redis.connections
 
       # SHUTDOWN replies with an error: test that it gets raised
-      assert_raise Redis::CommandError do
+      assert_raises Redis::CommandError do
         redis.shutdown
       end
 
@@ -97,7 +97,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       connections = redis.connections
 
       # SHUTDOWN replies with an error: test that it gets raised
-      assert_raise Redis::CommandError do
+      assert_raises Redis::CommandError do
         redis.pipelined do
           redis.shutdown
         end

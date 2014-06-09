@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/strings"
 
-class TestCommandsOnStrings < Test::Unit::TestCase
+class TestCommandsOnStrings < Minitest::Test
 
   include Helper::Client
   include Lint::Strings

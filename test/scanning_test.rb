@@ -6,7 +6,7 @@ unless defined?(Enumerator)
   Enumerator = Enumerable::Enumerator
 end
 
-class TestScanning < Test::Unit::TestCase
+class TestScanning < Minitest::Test
 
   include Helper::Client
 

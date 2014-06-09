@@ -97,7 +97,7 @@ module Lint
       assert r.lset("foo", 1, "s3")
       assert_equal "s3", r.lindex("foo", 1)
 
-      assert_raise Redis::CommandError do
+      assert_raises Redis::CommandError do
         r.lset("foo", 4, "s3")
       end
     end
@@ -135,7 +135,7 @@ module Lint
 
       assert_equal ["s1", "s2", "s3"], r.lrange("foo", 0, -1)
 
-      assert_raise(Redis::CommandError) do
+      assert_raises(Redis::CommandError) do
         r.linsert "foo", :anywhere, "s3", "s2"
       end
     end

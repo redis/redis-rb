@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestPersistenceControlCommands < Test::Unit::TestCase
+class TestPersistenceControlCommands < Minitest::Test
 
   include Helper::Client
 

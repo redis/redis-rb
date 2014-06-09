@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestDistributed < Test::Unit::TestCase
+class TestDistributed < Minitest::Test
 
   include Helper::Distributed
 
@@ -42,7 +42,7 @@ class TestDistributed < Test::Unit::TestCase
   end
 
   def test_pipelining_commands_cannot_be_distributed
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.pipelined do
         r.lpush "foo", "s1"
         r.lpush "foo", "s2"
@@ -51,7 +51,7 @@ class TestDistributed < Test::Unit::TestCase
   end
 
   def test_unknown_commands_does_not_work_by_default
-    assert_raise NoMethodError do
+    assert_raises NoMethodError do
       r.not_yet_implemented_command
     end
   end

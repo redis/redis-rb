@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestDistributedKeyTags < Test::Unit::TestCase
+class TestDistributedKeyTags < Minitest::Test
 
   include Helper
   include Helper::Distributed

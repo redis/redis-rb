@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/value_types"
 
-class TestCommandsOnValueTypes < Test::Unit::TestCase
+class TestCommandsOnValueTypes < Minitest::Test
 
   include Helper::Client
   include Lint::ValueTypes
@@ -101,11 +101,11 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     redis_mock(:migrate => lambda { |*args| args }) do |redis|
       options = { :host => "127.0.0.1", :port => 1234 }
 
-      assert_raise(RuntimeError, /host not specified/) do
+      assert_raises(RuntimeError, /host not specified/) do
         redis.migrate("foo", options.reject { |key, _| key == :host })
       end
 
-      assert_raise(RuntimeError, /port not specified/) do
+      assert_raises(RuntimeError, /port not specified/) do
         redis.migrate("foo", options.reject { |key, _| key == :port })
       end
 

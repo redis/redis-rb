@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestSorting < Test::Unit::TestCase
+class TestSorting < Minitest::Test
 
   include Helper::Client
 

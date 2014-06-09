@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/hyper_log_log"
 
-class TestCommandsOnHyperLogLog < Test::Unit::TestCase
+class TestCommandsOnHyperLogLog < Minitest::Test
 
   include Helper::Client
   include Lint::HyperLogLog

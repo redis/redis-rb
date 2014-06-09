@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestPublishSubscribe < Test::Unit::TestCase
+class TestPublishSubscribe < Minitest::Test
 
   include Helper::Client
 
@@ -163,7 +163,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_other_commands_within_a_subscribe
-    assert_raise Redis::CommandError do
+    assert_raises Redis::CommandError do
       r.subscribe("foo") do |on|
         on.subscribe do |channel, total|
           r.set("bar", "s2")
@@ -173,17 +173,17 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_without_a_block
-    assert_raise LocalJumpError do
+    assert_raises LocalJumpError do
       r.subscribe("foo")
     end
   end
 
   def test_unsubscribe_without_a_subscribe
-    assert_raise RuntimeError do
+    assert_raises RuntimeError do
       r.unsubscribe
     end
 
-    assert_raise RuntimeError do
+    assert_raises RuntimeError do
       r.punsubscribe
     end
   end

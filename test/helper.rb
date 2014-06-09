@@ -1,7 +1,7 @@
 $:.unshift File.expand_path("../lib", File.dirname(__FILE__))
 $:.unshift File.expand_path(File.dirname(__FILE__))
 
-require "test/unit"
+require "minitest/autorun"
 require "logger"
 require "stringio"
 
@@ -60,14 +60,6 @@ def driver(*drivers, &blk)
 end
 
 module Helper
-
-  def run(runner)
-    if respond_to?(:around)
-      around { super(runner) }
-    else
-      super
-    end
-  end
 
   def silent
     verbose, $VERBOSE = $VERBOSE, false

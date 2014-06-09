@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
+class TestDistributedRemoteServerControlCommands < Minitest::Test
 
   include Helper::Distributed
 

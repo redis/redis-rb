@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/lists"
 
-class TestCommandsOnLists < Test::Unit::TestCase
+class TestCommandsOnLists < Minitest::Test
 
   include Helper::Client
   include Lint::Lists

@@ -3,7 +3,7 @@
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/sorted_sets"
 
-class TestCommandsOnSortedSets < Test::Unit::TestCase
+class TestCommandsOnSortedSets < Minitest::Test
 
   include Helper::Client
   include Lint::SortedSets

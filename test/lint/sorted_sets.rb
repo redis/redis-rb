@@ -28,8 +28,8 @@ module Lint
         r.del "foo"
 
         # Wrong number of arguments
-        assert_raise(Redis::CommandError) { r.zadd("foo", ["bar"]) }
-        assert_raise(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", ["bar"]) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
       end
     end
 
