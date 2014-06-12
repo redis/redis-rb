@@ -1824,7 +1824,7 @@ class Redis
   #     # => "OK"
   #
   # @param [String] key
-  # @param [Hash] hash fields mapping to values
+  # @param [Hash] a non-empty hash with fields mapping to values
   # @return `"OK"`
   #
   # @see #hmset
