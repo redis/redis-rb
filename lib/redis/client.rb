@@ -338,7 +338,6 @@ class Redis
             @options[:host] = reply[0]
             @options[:port] = reply[1]
             responder = sentinel
-            gotit = true
             break
           elsif @options[:role] == :slave
             raise WorkInProgress, "TODO..."
