@@ -85,6 +85,27 @@ available on [rdoc.info][rdoc].
 
 [rdoc]: http://rdoc.info/github/redis/redis-rb/
 
+## Sentinel support
+
+Redis-rb is able to optionally fetch the current master address using
+[Redis Sentinel](http://redis.io/topics/sentinel). The new
+[Sentinel handshake protocol](http://redis.io/topics/sentinel-clients)
+is supported, so redis-rb when used with Sentinel will automatically connect
+to the new master after a failover, assuming you use a Recent version of
+Redis 2.8.
+
+To connect using Sentinel, use:
+
+```ruby
+Sentinels = [{:host => "127.0.0.1", :port => 26380},
+             {:host => "127.0.0.1", :port => 26381}]
+r = Redis.new(:url => "sentinel://mymaster", :sentinels => Sentinels, :role => :master)
+```
+
+* The master name, that identifies a group of Redis instances composed of a master and one or more slaves, is specified in the url parameter (`mymaster` in the example).
+* It is possible to optionally provide a role. The allowed roles are `master` and `slave`, and the default is `master`. When the role is `slave` redis-rb will try to fetch a list of slaves and will connect to a random slave.
+* When using the Sentinel support you need to specify a list of Sentinels to connect to. The list does not need to enumerate all your Sentinel instances, but a few so that if one is down redis-rb will try the next one. The client is able to remember the last Sentinel that was able to reply correctly and will use it for the next requests.
+
 ## Storing objects
 
 Redis only stores strings as values. If you want to store an object, you
