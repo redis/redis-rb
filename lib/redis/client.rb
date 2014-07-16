@@ -340,7 +340,16 @@ class Redis
             responder = sentinel
             break
           elsif @options[:role] == :slave
-            raise WorkInProgress, "TODO..."
+            reply = sentinel[:link].client.call(["sentinel","slaves",@options[:mastername]])
+            slaves = []
+            reply.each{|slave|
+                slaves << Hash[*slave]
+            }
+            random_slave = slaves[rand(slaves.length)]
+            @options[:host] = random_slave['ip']
+            @options[:port] = random_slave['port']
+            responder = sentinel
+            break
           else
             raise ArgumentError, "Unknown instance role #{@options[:role]}"
           end
