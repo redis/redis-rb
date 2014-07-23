@@ -46,7 +46,7 @@ redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15)
 You can also specify connection options as an URL:
 
 ```ruby
-redis = Redis.new(:url => "redis://:p4ssw0rd@10.0.1.1:6380/15")
+redis = Redis.new(:url => "redis://:p4ssw0rd@10.0.1.1:6380/15?timeout=3")
 ```
 
 By default, the client will try to read the `REDIS_URL` environment variable
@@ -166,7 +166,7 @@ end
       to redis, AND
     - your own code prevents the parent process from using the redis
       connection while a child is alive
-   
+
    Improper use of `inherit_socket` will result in corrupted and/or incorrect
    responses.
 

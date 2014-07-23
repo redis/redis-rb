@@ -374,6 +374,12 @@ class Redis
           defaults[:port]     = uri.port if uri.port
           defaults[:password] = CGI.unescape(uri.password) if uri.password
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
+
+          if uri.query
+            queries = CGI.parse(uri.query)
+            defaults[:timeout]  = queries["timeout"].first if queries.has_key?("timeout")
+            defaults[:inherit_socket] = queries["inherit_socket"].first == "true" if queries.has_key?("inherit_socket")
+          end
         end
       end
 
