@@ -412,6 +412,8 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Fixnum] number of keys that were deleted
   def del(*keys)
+    return 0 if keys == [[]]
+
     synchronize do |client|
       client.call([:del] + keys)
     end
