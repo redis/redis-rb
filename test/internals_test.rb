@@ -365,11 +365,9 @@ class TestInternals < Test::Unit::TestCase
             s.bind(sa)
           rescue Errno::EADDRINUSE => e
             tries -= 1
-            if tries > 0
-              retry
-            else
-              raise Errno::EADDRINUSE, e
-            end
+            retry if tries > 0
+
+            raise
           end
           yield
         rescue Errno::EADDRNOTAVAIL
