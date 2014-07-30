@@ -8,6 +8,20 @@ class TestCommandsOnSortedSets < Test::Unit::TestCase
   include Helper::Client
   include Lint::SortedSets
 
+  def test_zrangebylex
+    target_version "2.8.9" do
+      r.zadd "foo", 0, "aaren"
+      r.zadd "foo", 0, "abagael"
+      r.zadd "foo", 0, "abby"
+      r.zadd "foo", 0, "abbygail"
+
+      assert_equal ["aaren", "abagael", "abby", "abbygail"], r.zrangebylex("foo", "[a", "[a\xff")
+      assert_equal ["aaren", "abagael"], r.zrangebylex("foo", "[a", "[a\xff", :limit => [0, 2])
+      assert_equal ["abby", "abbygail"], r.zrangebylex("foo", "(abb", "(abb\xff")
+      assert_equal ["abbygail"], r.zrangebylex("foo", "(abby", "(abby\xff")
+    end
+  end
+
   def test_zcount
     r.zadd "foo", 1, "s1"
     r.zadd "foo", 2, "s2"
