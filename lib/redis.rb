@@ -2000,6 +2000,20 @@ class Redis
     end
   end
 
+  # redis.pubsub(:channels, '*')
+  #   # => ['channel-1', 'channel-2']
+  # redis.pubsub(:numsub, 'channel-1', 'channel-2')
+  #   # => ['channel-1', 23, 'channel-2', 11]
+  # redis.pubsub(:numpat)
+  #   # => 3
+  # Inspect the state of the Pub/Sub subsystem. 
+  # Possible subcommands: channels, numsub, numpat.
+  def pubsub(subcommand, *args)
+    synchronize do |client|
+      client.call([:pubsub, subcommand, args].flatten)
+    end
+  end
+
   # Watch the given keys to determine execution of the MULTI/EXEC block.
   #
   # Using a block is optional, but is necessary for thread-safety.
