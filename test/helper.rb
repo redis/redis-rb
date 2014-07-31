@@ -5,6 +5,8 @@ require "test/unit"
 require "logger"
 require "stringio"
 
+(class Random; def self.rand(*args) super end; end) unless defined?(Random)
+
 begin
   require "ruby-debug"
 rescue LoadError

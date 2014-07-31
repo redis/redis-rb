@@ -361,7 +361,7 @@ class TestInternals < Test::Unit::TestCase
         begin
           tries = 5
           begin
-            sa = Socket.pack_sockaddr_in(Random.rand(1024..65000), hosts[af])
+            sa = Socket.pack_sockaddr_in(1024 + Random.rand(63076), hosts[af])
             s.bind(sa)
           rescue Errno::EADDRINUSE => e
             tries -= 1
