@@ -375,8 +375,16 @@ class TestInternals < Test::Unit::TestCase
       begin
         s = Socket.new(af, Socket::SOCK_STREAM, 0)
         begin
-          sa = Socket.pack_sockaddr_in(9999, hosts[af])
-          s.bind(sa)
+          tries = 5
+          begin
+            sa = Socket.pack_sockaddr_in(1024 + Random.rand(63076), hosts[af])
+            s.bind(sa)
+          rescue Errno::EADDRINUSE => e
+            tries -= 1
+            retry if tries > 0
+
+            raise
+          end
           yield
         rescue Errno::EADDRNOTAVAIL
         ensure
