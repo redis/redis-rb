@@ -30,6 +30,10 @@ class TestCommandsOnStrings < Test::Unit::TestCase
     assert_equal "s1", response["foo"]
     assert_equal "s2", response["bar"]
     assert_equal nil , response["baz"]
+
+    response = r.mapped_mget %w(foo bar)
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
   end
 
   def test_mapped_mget_in_a_pipeline_returns_hash

@@ -816,7 +816,7 @@ class Redis
   def mapped_mget(*keys)
     mget(*keys) do |reply|
       if reply.kind_of?(Array)
-        Hash[keys.zip(reply)]
+        Hash[keys.flatten.zip(reply)]
       else
         reply
       end
