@@ -1588,6 +1588,38 @@ class Redis
     end
   end
 
+  # Return a range of members with the same score in a sorted set, by lexicographical ordering
+  #
+  # @example Retrieve members matching a
+  #   redis.zrangebylex("zset", "[a", "[a\xff")
+  #     # => ["aaren", "aarika", "abagael", "abby"]
+  # @example Retrieve the first 2 members matching a
+  #   redis.zrangebylex("zset", "[a", "[a\xff", :limit => [0, 2])
+  #     # => ["aaren", "aarika"]
+  #
+  # @param [String] key
+  # @param [String] min
+  #   - inclusive minimum is specified by prefixing `(`
+  #   - exclusive minimum is specified by prefixing `[`
+  # @param [String] max
+  #   - inclusive maximum is specified by prefixing `(`
+  #   - exclusive maximum is specified by prefixing `[`
+  # @param [Hash] options
+  #   - `:limit => [offset, count]`: skip `offset` members, return a maximum of
+  #   `count` members
+  #
+  # @return [Array<String>, Array<[String, Float]>]
+  def zrangebylex(key, min, max, options = {})
+    args = []
+
+    limit = options[:limit]
+    args.concat(["LIMIT"] + limit) if limit
+
+    synchronize do |client|
+      client.call([:zrangebylex, key, min, max] + args)
+    end
+  end
+
   # Return a range of members in a sorted set, by score.
   #
   # @example Retrieve members with score `>= 5` and `< 100`
