@@ -294,6 +294,7 @@ class Redis
   # @param [String] key
   # @return [Boolean] whether the timeout was removed or not
   def persist(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:persist, key], &_boolify)
     end
@@ -305,6 +306,7 @@ class Redis
   # @param [Fixnum] seconds time to live
   # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
+    check_key_size(key)
     synchronize do |client|
       client.call([:expire, key, seconds], &_boolify)
     end
@@ -316,6 +318,7 @@ class Redis
   # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
   # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
+    check_key_size(key)
     synchronize do |client|
       client.call([:expireat, key, unix_time], &_boolify)
     end
@@ -327,6 +330,7 @@ class Redis
   # @return [Fixnum] remaining time to live in seconds, or -1 if the
   #   key does not exist or does not have a timeout
   def ttl(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:ttl, key])
     end
@@ -338,6 +342,7 @@ class Redis
   # @param [Fixnum] milliseconds time to live
   # @return [Boolean] whether the timeout was set or not
   def pexpire(key, milliseconds)
+    check_key_size(key)
     synchronize do |client|
       client.call([:pexpire, key, milliseconds], &_boolify)
     end
@@ -349,6 +354,7 @@ class Redis
   # @param [Fixnum] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
   # @return [Boolean] whether the timeout was set or not
   def pexpireat(key, ms_unix_time)
+    check_key_size(key)
     synchronize do |client|
       client.call([:pexpireat, key, ms_unix_time], &_boolify)
     end
@@ -360,6 +366,7 @@ class Redis
   # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
   #   key does not exist or does not have a timeout
   def pttl(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:pttl, key])
     end
@@ -370,6 +377,7 @@ class Redis
   # @param [String] key
   # @return [String] serialized_value
   def dump(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:dump, key])
     end
@@ -382,6 +390,7 @@ class Redis
   # @param [String] serialized_value
   # @return `"OK"`
   def restore(key, ttl, serialized_value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:restore, key, ttl, serialized_value])
     end
@@ -412,6 +421,7 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Fixnum] number of keys that were deleted
   def del(*keys)
+    keys.each{ |key| check_key_size(key) }
     synchronize do |client|
       client.call([:del] + keys)
     end
@@ -422,6 +432,7 @@ class Redis
   # @param [String] key
   # @return [Boolean]
   def exists(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:exists, key], &_boolify)
     end
@@ -580,6 +591,7 @@ class Redis
   # @param [String] key
   # @return [Fixnum] value after decrementing it
   def decr(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:decr, key])
     end
@@ -595,6 +607,7 @@ class Redis
   # @param [Fixnum] decrement
   # @return [Fixnum] value after decrementing it
   def decrby(key, decrement)
+    check_key_size(key)
     synchronize do |client|
       client.call([:decrby, key, decrement])
     end
@@ -609,6 +622,7 @@ class Redis
   # @param [String] key
   # @return [Fixnum] value after incrementing it
   def incr(key)
+    check_key_size(key)
     synchronize do |client|
       client.call([:incr, key])
     end
@@ -624,6 +638,7 @@ class Redis
   # @param [Fixnum] increment
   # @return [Fixnum] value after incrementing it
   def incrby(key, increment)
+    check_key_size(key)
     synchronize do |client|
       client.call([:incrby, key, increment])
     end
@@ -639,6 +654,7 @@ class Redis
   # @param [Float] increment
   # @return [Float] value after incrementing it
   def incrbyfloat(key, increment)
+    check_key_size(key)
     synchronize do |client|
       client.call([:incrbyfloat, key, increment], &_floatify)
     end
@@ -655,6 +671,7 @@ class Redis
   #   - `:xx => true`: Only set the key if it already exist.
   # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
   def set(key, value, options = {})
+    check_key_size(key)
     args = []
 
     ex = options[:ex]
@@ -687,6 +704,7 @@ class Redis
   # @param [String] value
   # @return `"OK"`
   def setex(key, ttl, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:setex, key, ttl, value.to_s])
     end
@@ -699,6 +717,7 @@ class Redis
   # @param [String] value
   # @return `"OK"`
   def psetex(key, ttl, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:psetex, key, ttl, value.to_s])
     end
@@ -710,6 +729,7 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:setnx, key, value.to_s], &_boolify)
     end
@@ -726,6 +746,11 @@ class Redis
   #
   # @see #mapped_mset
   def mset(*args)
+
+    args.each_with_index do |thing,  i|
+      check_key_size(thing) if i.even?
+    end
+
     synchronize do |client|
       client.call([:mset] + args)
     end
@@ -742,6 +767,7 @@ class Redis
   #
   # @see #mset
   def mapped_mset(hash)
+    hash.keys.each{ |key| check_key_size(key) }
     mset(hash.to_a.flatten)
   end
 
@@ -756,6 +782,10 @@ class Redis
   #
   # @see #mapped_msetnx
   def msetnx(*args)
+    args.each_with_index do |thing,  i|
+      check_key_size(thing) if i.even?
+    end
+
     synchronize do |client|
       client.call([:msetnx] + args, &_boolify)
     end
@@ -772,6 +802,7 @@ class Redis
   #
   # @see #msetnx
   def mapped_msetnx(hash)
+    hash.keys.each{ |key| check_key_size(key) }
     msetnx(hash.to_a.flatten)
   end
 
@@ -830,6 +861,7 @@ class Redis
   # @param [String] value
   # @return [Fixnum] length of the string after it was modified
   def setrange(key, offset, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:setrange, key, offset, value.to_s])
     end
@@ -855,6 +887,7 @@ class Redis
   # @param [Fixnum] value bit value `0` or `1`
   # @return [Fixnum] the original bit value stored at `offset`
   def setbit(key, offset, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:setbit, key, offset, value])
     end
@@ -877,6 +910,7 @@ class Redis
   # @param [String] value value to append
   # @return [Fixnum] length of the string after appending
   def append(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:append, key, value])
     end
@@ -901,6 +935,7 @@ class Redis
   # @param [String, Array<String>] keys one or more source keys to perform `operation`
   # @return [Fixnum] the length of the string stored in `destkey`
   def bitop(operation, destkey, *keys)
+    check_key_size(destkey)
     synchronize do |client|
       client.call([:bitop, operation, destkey] + keys)
     end
@@ -934,6 +969,7 @@ class Redis
   # @return [String] the old value stored in the key, or `nil` if the key
   #   did not exist
   def getset(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:getset, key, value.to_s])
     end
@@ -966,6 +1002,7 @@ class Redis
   # @param [String, Array] string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:lpush, key, value])
     end
@@ -977,6 +1014,7 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def lpushx(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:lpushx, key, value])
     end
@@ -988,6 +1026,7 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def rpush(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:rpush, key, value])
     end
@@ -999,6 +1038,7 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def rpushx(key, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:rpushx, key, value])
     end
@@ -1187,6 +1227,7 @@ class Redis
   # @param [String] value
   # @return [String] `OK`
   def lset(key, index, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:lset, key, index, value])
     end
@@ -1223,6 +1264,7 @@ class Redis
   #   array of members is specified, holding the number of members that were
   #   successfully added
   def sadd(key, member)
+    check_key_size(key)
     synchronize do |client|
       client.call([:sadd, key, member]) do |reply|
         if member.is_a? Array
@@ -1353,6 +1395,7 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to intersect
   # @return [Fixnum] number of elements in the resulting set
   def sinterstore(destination, *keys)
+    keys.each { |key| check_key_size(key) }
     synchronize do |client|
       client.call([:sinterstore, destination] + keys)
     end
@@ -1375,6 +1418,7 @@ class Redis
   # @return [Fixnum] number of elements in the resulting set
   def sunionstore(destination, *keys)
     synchronize do |client|
+    keys.each { |key| check_key_size(key) }
       client.call([:sunionstore, destination] + keys)
     end
   end
@@ -1412,6 +1456,7 @@ class Redis
   #   - `Fixnum` when an array of pairs is specified, holding the number of
   #   pairs that were **added** to the sorted set
   def zadd(key, *args)
+    check_key_size(key)
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
         # Variadic: return integer
@@ -1436,6 +1481,7 @@ class Redis
   # @param [String] member
   # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
+    check_key_size(key)
     synchronize do |client|
       client.call([:zincrby, key, increment, member], &_floatify)
     end
@@ -1758,6 +1804,7 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zinterstore(destination, keys, options = {})
+    check_key_size(destination)
     args = []
 
     weights = options[:weights]
@@ -1785,6 +1832,7 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zunionstore(destination, keys, options = {})
+    check_key_size(destination)
     args = []
 
     weights = options[:weights]
@@ -1815,6 +1863,7 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether or not the field was **added** to the hash
   def hset(key, field, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:hset, key, field, value], &_boolify)
     end
@@ -1827,6 +1876,7 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether or not the field was **added** to the hash
   def hsetnx(key, field, value)
+    check_key_size(key)
     synchronize do |client|
       client.call([:hsetnx, key, field, value], &_boolify)
     end
@@ -1844,6 +1894,7 @@ class Redis
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
+    check_key_size(key)
     synchronize do |client|
       client.call([:hmset, key] + attrs)
     end
@@ -1861,6 +1912,7 @@ class Redis
   #
   # @see #hmset
   def mapped_hmset(key, hash)
+    check_key_size(key)
     hmset(key, hash.to_a.flatten)
   end
 
@@ -1942,6 +1994,7 @@ class Redis
   # @param [Fixnum] increment
   # @return [Fixnum] value of the field after incrementing it
   def hincrby(key, field, increment)
+    check_key_size(key)
     synchronize do |client|
       client.call([:hincrby, key, field, increment])
     end
@@ -1954,6 +2007,7 @@ class Redis
   # @param [Float] increment
   # @return [Float] value of the field after incrementing it
   def hincrbyfloat(key, field, increment)
+    check_key_size(key)
     synchronize do |client|
       client.call([:hincrbyfloat, key, field, increment], &_floatify)
     end
@@ -2474,6 +2528,7 @@ class Redis
   # @param [String, Array<String>] member one member, or array of members
   # @return [Boolean] true if at least 1 HyperLogLog internal register was altered. false otherwise.
   def pfadd(key, member)
+    check_key_size(key)
     synchronize do |client|
       client.call([:pfadd, key, member], &_boolify)
     end
@@ -2496,6 +2551,7 @@ class Redis
   # @param [String, Array<String>] source_key source key, or array of keys
   # @return [Boolean]
   def pfmerge(dest_key, *source_key)
+    check_key_size(dest_key)
     synchronize do |client|
       client.call([:pfmerge, dest_key, *source_key], &_boolify_set)
     end
@@ -2585,6 +2641,11 @@ private
     ensure
       @client = original
     end
+  end
+
+  def check_key_size(key)
+    return unless @options[:max_key_size]
+    raise KeyTooLongError if key.respond_to?(:size) && key.size > @options[:max_key_size]
   end
 
 end
