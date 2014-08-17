@@ -37,4 +37,8 @@ class Redis
   # Raised when the connection was inherited by a child process.
   class InheritedError < BaseConnectionError
   end
+
+  # Raised when a key exceeds the maximun size option
+  class KeyTooLongError < BaseError
+  end
 end
