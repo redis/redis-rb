@@ -307,6 +307,8 @@ class Redis
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
       raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
+    rescue Errno::EHOSTUNREACH
+      raise CannotConnectError, "Error connecting to Redis on #{location} (EHOSTUNREACH)"
     end
 
     def ensure_connected
