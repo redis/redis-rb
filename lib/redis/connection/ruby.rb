@@ -206,9 +206,9 @@ class Redis
 
       def self.connect(config)
         if config[:scheme] == "unix"
-          sock = UNIXSocket.connect(config[:path], config[:timeout])
+          sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
         else
-          sock = TCPSocket.connect(config[:host], config[:port], config[:timeout])
+          sock = TCPSocket.connect(config[:host], config[:port], config[:connect_timeout])
         end
 
         instance = new(sock)

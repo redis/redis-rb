@@ -152,9 +152,12 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_connection_timeout
+    opts = OPTIONS.merge(:host => "10.255.255.254", :connect_timeout => 0.1, :timeout => 5.0)
+    start_time = Time.now
     assert_raise Redis::CannotConnectError do
-      Redis.new(OPTIONS.merge(:host => "10.255.255.254", :timeout => 0.1)).ping
+      Redis.new(opts).ping
     end
+    assert (Time.now - start_time) <= opts[:timeout]
   end
 
   def close_on_ping(seq, options = {})

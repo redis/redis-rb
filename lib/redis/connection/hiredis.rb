@@ -11,9 +11,9 @@ class Redis
         connection = ::Hiredis::Connection.new
 
         if config[:scheme] == "unix"
-          connection.connect_unix(config[:path], Integer(config[:timeout] * 1_000_000))
+          connection.connect_unix(config[:path], Integer(config[:connect_timeout] * 1_000_000))
         else
-          connection.connect(config[:host], config[:port], Integer(config[:timeout] * 1_000_000))
+          connection.connect(config[:host], config[:port], Integer(config[:connect_timeout] * 1_000_000))
         end
 
         instance = new(connection)

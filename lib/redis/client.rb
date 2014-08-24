@@ -12,6 +12,7 @@ class Redis
       :port => 6379,
       :path => nil,
       :timeout => 5.0,
+      :connect_timeout => 5.0,
       :password => nil,
       :db => 0,
       :driver => nil,
