@@ -47,17 +47,31 @@ class Redis
       def _read_from_socket(nbytes)
         begin
           read_nonblock(nbytes)
-
-        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
-          if IO.select([self], nil, nil, @timeout)
-            retry
-          else
-            raise Redis::TimeoutError
-          end
+        rescue Errno::EWOULDBLOCK, Errno::EAGAIN => ex
+          retry if monitor_socket_fd
         end
 
       rescue EOFError
         raise Errno::ECONNRESET
+      end
+
+      def monitor_socket_fd
+        rd, wr = IO.pipe
+
+        begin
+          @monitoring_thread = Thread.new do
+            begin
+              wr.write(IO.select([self], nil, nil, @timeout))
+            ensure
+              wr.close
+            end
+          end
+
+          select_value = rd.read
+          select_value != "" ? true : (raise Redis::TimeoutError)
+        ensure
+          rd.close
+        end
       end
     end
 
@@ -253,6 +267,8 @@ class Redis
       end
 
       def disconnect
+        monitoring_thread = @sock.instance_variable_get("@monitoring_thread")
+        monitoring_thread.terminate if monitoring_thread
         @sock.close
       rescue
       ensure
