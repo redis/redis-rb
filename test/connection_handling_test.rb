@@ -1,5 +1,6 @@
 # encoding: UTF-8
 
+require "timeout"
 require File.expand_path("helper", File.dirname(__FILE__))
 
 class TestConnectionHandling < Test::Unit::TestCase
@@ -19,6 +20,17 @@ class TestConnectionHandling < Test::Unit::TestCase
 
   def test_ping
     assert_equal "PONG", r.ping
+  end
+
+  def test_disconnect_on_blocked_io
+    Thread.new do
+      sleep 0.2
+      r.client.disconnect
+    end
+
+    assert_raises(Redis::TimeoutError) do
+     ::Timeout::timeout(0.5) {r.blpop("nothing_to_read")}
+    end
   end
 
   def test_select
