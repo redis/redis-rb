@@ -32,7 +32,7 @@ class TestConnectionHandling < Test::Unit::TestCase
 
     timeout_scenario = Proc.new do
       if ENV["conn"] == "synchrony"
-        ::Timeout::timeout(5) {r.blpop("nothing_to_read", timeout: 3)}
+        ::Timeout::timeout(5) {r.blpop("nothing_to_read", :timeout => 3)}
       else
         ::Timeout::timeout(5) {r.blpop("nothing_to_read")}
       end
