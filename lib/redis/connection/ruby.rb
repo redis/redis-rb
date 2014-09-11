@@ -62,6 +62,7 @@ class Redis
         begin
           @monitoring_thread = Thread.new do
             begin
+              sleep 1 if defined?(RUBY_ENGINE) && RUBY_ENGINE == "jruby"
               wr.write(IO.select([self], nil, nil, @timeout))
             ensure
               wr.close
