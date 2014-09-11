@@ -25,6 +25,7 @@ class Redis
 
       def initialize(connection)
         @connection = connection
+        @monitoring_thread = nil
       end
 
       def connected?
@@ -37,6 +38,7 @@ class Redis
       end
 
       def disconnect
+        @monitoring_thread.terminate if @monitoring_thread
         @connection.disconnect
         @connection = nil
       end
@@ -48,13 +50,36 @@ class Redis
       end
 
       def read
-        reply = @connection.read
-        reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-        reply
-      rescue Errno::EAGAIN
-        raise TimeoutError
-      rescue RuntimeError => err
-        raise ProtocolError.new(err.message)
+        read_result = read_with_pipe
+
+        begin
+          @monitoring_thread.join
+        rescue Errno::EAGAIN
+          raise TimeoutError
+        rescue RuntimeError => err
+          raise ProtocolError.new(err.message)
+        end
+
+        raise TimeoutError if read_result != "Done"
+        @reply = CommandError.new(@reply.message) if @reply.is_a?(RuntimeError)
+        @reply
+      end
+
+      def read_with_pipe
+        rd, wr = IO.pipe
+
+        @monitoring_thread = Thread.new do
+          begin
+            @reply = @connection.read
+            wr.write("Done")
+          ensure
+            wr.close
+          end
+        end
+
+        rd.read
+      ensure
+        rd.close
       end
     end
   end

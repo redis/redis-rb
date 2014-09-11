@@ -13,6 +13,7 @@ class Redis
         super(*args)
 
         @timeout = nil
+        @monitoring_thread = nil
         @buffer = ""
       end
 
@@ -72,6 +73,11 @@ class Redis
         ensure
           rd.close
         end
+      end
+
+      def close
+        @monitoring_thread.terminate if @monitoring_thread
+        super
       end
     end
 
@@ -267,8 +273,6 @@ class Redis
       end
 
       def disconnect
-        monitoring_thread = @sock.instance_variable_get("@monitoring_thread")
-        monitoring_thread.terminate if monitoring_thread
         @sock.close
       rescue
       ensure
