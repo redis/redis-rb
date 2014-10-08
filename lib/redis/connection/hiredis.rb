@@ -27,6 +27,7 @@ class Redis
         @connection = connection
         @reader, @writer = IO.pipe
         listen_connection_closed
+        @reading = false
       end
 
       def listen_connection_closed
@@ -62,9 +63,14 @@ class Redis
       end
 
       def read
-        reply = @connection.read
-        reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-        reply
+        begin
+          @monitoring_thread.abort_on_exception = true
+          reply = @connection.read
+          reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
+          reply
+        ensure
+          @monitoring_thread.abort_on_exception = false
+        end
       rescue Errno::EAGAIN
         raise TimeoutError
       rescue RuntimeError => err
