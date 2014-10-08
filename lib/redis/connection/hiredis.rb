@@ -25,6 +25,19 @@ class Redis
 
       def initialize(connection)
         @connection = connection
+        @reader, @writer = IO.pipe
+        listen_connection_closed
+      end
+
+      def listen_connection_closed
+        @monitoring_thread = Thread.new do
+          loop do
+            unless @reader.closed?
+              IO.select([@reader], nil, nil, nil)
+              raise Errno::ECONNABORTED
+            end
+          end
+        end
       end
 
       def connected?
@@ -37,6 +50,7 @@ class Redis
       end
 
       def disconnect
+        @writer.write('q') unless @writer.closed?
         @connection.disconnect
         @connection = nil
       end
