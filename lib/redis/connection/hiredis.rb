@@ -6,7 +6,7 @@ require "timeout"
 class Redis
   module Connection
     class Hiredis
-
+attr_reader :connection
       def self.connect(config)
         connection = ::Hiredis::Connection.new
 
@@ -27,7 +27,6 @@ class Redis
         @connection = connection
         @reader, @writer = IO.pipe
         listen_connection_closed
-        @reading = false
       end
 
       def listen_connection_closed
@@ -51,7 +50,8 @@ class Redis
       end
 
       def disconnect
-        @writer.write('q') unless @writer.closed?
+        @writer.close unless @writer.closed?
+        @reader, @writer = IO.pipe
         @connection.disconnect
         @connection = nil
       end
@@ -75,6 +75,47 @@ class Redis
         raise TimeoutError
       rescue RuntimeError => err
         raise ProtocolError.new(err.message)
+      end
+
+      if defined?(RUBY_ENGINE) && RUBY_ENGINE == "jruby"
+
+        def initialize(connection)
+          @connection = connection
+          @reader, @writer = IO.pipe
+          listen_connection_closed
+          @result_queue = Queue.new
+          @read_queue = Queue.new
+        end
+
+        def read
+          @read_queue << ''
+          reply = @result_queue.pop
+          reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
+          raise reply if reply.is_a?(Errno::ECONNABORTED)
+
+          reply
+        rescue Errno::EAGAIN
+          raise TimeoutError
+        rescue RuntimeError => err
+          raise ProtocolError.new(err.message)
+        end
+
+        def listen_connection_closed
+          @monitoring_thread = Thread.new do
+            loop do
+              @read_queue.pop
+              @result_queue << @connection.read
+            end
+          end
+        end
+
+        def disconnect
+          @result_queue << Errno::ECONNABORTED.new
+          @connection.disconnect
+          @result_queue.clear
+          @connection = nil
+        end
+
       end
     end
   end

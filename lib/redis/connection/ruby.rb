@@ -63,7 +63,8 @@ class Redis
       end
 
       def close
-        @writer.write('q') unless @writer.closed?
+        @writer.close unless @writer.closed?
+        @reader, @writer = IO.pipe
         super
       end
     end
