@@ -14,6 +14,7 @@ class Redis
 
         @timeout = nil
         @buffer = ""
+        @reader, @writer = IO.pipe
       end
 
       def timeout=(timeout)
@@ -49,7 +50,8 @@ class Redis
           read_nonblock(nbytes)
 
         rescue Errno::EWOULDBLOCK, Errno::EAGAIN
-          if IO.select([self], nil, nil, @timeout)
+          if result = IO.select([self, @reader], nil, nil, @timeout)
+            raise Errno::ECONNABORTED if result[0][0] != self
             retry
           else
             raise Redis::TimeoutError
@@ -58,6 +60,11 @@ class Redis
 
       rescue EOFError
         raise Errno::ECONNRESET
+      end
+
+      def close
+        @writer.write('q') unless @writer.closed?
+        super
       end
     end
 
