@@ -6,7 +6,7 @@ require "timeout"
 class Redis
   module Connection
     class Hiredis
-attr_reader :connection
+
       def self.connect(config)
         connection = ::Hiredis::Connection.new
 
@@ -81,19 +81,24 @@ attr_reader :connection
 
         def initialize(connection)
           @connection = connection
-          @reader, @writer = IO.pipe
-          listen_connection_closed
           @result_queue = Queue.new
           @read_queue = Queue.new
+          listen_connection_closed
         end
 
         def read
-          @read_queue << ''
-          reply = @result_queue.pop
-          reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-          raise reply if reply.is_a?(Errno::ECONNABORTED)
+          begin
+            @monitoring_thread.abort_on_exception = true
 
-          reply
+            @read_queue << ''
+            reply = @result_queue.pop
+            reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
+            raise reply if reply.is_a?(Errno::ECONNABORTED)
+
+            reply
+          ensure
+            @monitoring_thread.abort_on_exception = false
+          end
         rescue Errno::EAGAIN
           raise TimeoutError
         rescue RuntimeError => err
