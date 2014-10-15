@@ -58,7 +58,7 @@ class Redis
           end
         end
 
-      rescue EOFError
+      rescue EOFError, IOError
         raise Errno::ECONNRESET
       end
 
