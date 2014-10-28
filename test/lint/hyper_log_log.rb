@@ -33,13 +33,25 @@ module Lint
 
     def test_variadic_pfcount
       target_version "2.8.9" do
-        assert_equal 0, r.pfcount(["foo", "bar"])
+        assert_equal 0, r.pfcount(["{1}foo", "{1}bar"])
 
-        assert_equal true, r.pfadd("foo", "s1")
-        assert_equal true, r.pfadd("bar", "s1")
-        assert_equal true, r.pfadd("bar", "s2")
+        assert_equal true, r.pfadd("{1}foo", "s1")
+        assert_equal true, r.pfadd("{1}bar", "s1")
+        assert_equal true, r.pfadd("{1}bar", "s2")
 
-        assert_equal 2, r.pfcount(["foo", "bar"])
+        assert_equal 2, r.pfcount(["{1}foo", "{1}bar"])
+      end
+    end
+
+    def test_variadic_pfcount_expanded
+      target_version "2.8.9" do
+        assert_equal 0, r.pfcount("{1}foo", "{1}bar")
+
+        assert_equal true, r.pfadd("{1}foo", "s1")
+        assert_equal true, r.pfadd("{1}bar", "s1")
+        assert_equal true, r.pfadd("{1}bar", "s2")
+
+        assert_equal 2, r.pfcount("{1}foo", "{1}bar")
       end
     end
 

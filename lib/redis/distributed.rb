@@ -792,8 +792,10 @@ class Redis
     end
 
     # Get the approximate cardinality of members added to HyperLogLog structure.
-    def pfcount(key)
-      node_for(key).pfcount(key)
+    def pfcount(*keys)
+      ensure_same_node(:pfcount, keys.flatten(1)) do |node|
+        node.pfcount(keys)
+      end
     end
 
     # Merge multiple HyperLogLog values into an unique value that will approximate the cardinality of the union of
