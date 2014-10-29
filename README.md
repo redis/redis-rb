@@ -87,24 +87,31 @@ available on [rdoc.info][rdoc].
 
 ## Sentinel support
 
-Redis-rb is able to optionally fetch the current master address using
-[Redis Sentinel](http://redis.io/topics/sentinel). The new
-[Sentinel handshake protocol](http://redis.io/topics/sentinel-clients)
-is supported, so redis-rb when used with Sentinel will automatically connect
-to the new master after a failover, assuming you use a Recent version of
-Redis 2.8.
+The client is able to perform automatic failovers by using [Redis
+Sentinel](http://redis.io/topics/sentinel).  Make sure to run Redis 2.8+
+if you want to use this feature.
 
 To connect using Sentinel, use:
 
 ```ruby
-Sentinels = [{:host => "127.0.0.1", :port => 26380},
+SENTINELS = [{:host => "127.0.0.1", :port => 26380},
              {:host => "127.0.0.1", :port => 26381}]
-r = Redis.new(:url => "sentinel://mymaster", :sentinels => Sentinels, :role => :master)
+
+redis = Redis.new(:url => "redis://mymaster", :sentinels => SENTINELS, :role => :master)
 ```
 
-* The master name, that identifies a group of Redis instances composed of a master and one or more slaves, is specified in the url parameter (`mymaster` in the example).
-* It is possible to optionally provide a role. The allowed roles are `master` and `slave`, and the default is `master`. When the role is `slave` redis-rb will try to fetch a list of slaves and will connect to a random slave.
-* When using the Sentinel support you need to specify a list of Sentinels to connect to. The list does not need to enumerate all your Sentinel instances, but a few so that if one is down redis-rb will try the next one. The client is able to remember the last Sentinel that was able to reply correctly and will use it for the next requests.
+* The master name identifies a group of Redis instances composed of a master
+and one or more slaves (`mymaster` in the example).
+
+* It is possible to optionally provide a role. The allowed roles are `master`
+and `slave`. When the role is `slave`, the client will try to connect to a
+random slave of the specified master.
+
+* When using the Sentinel support you need to specify a list of sentinels to
+connect to. The list does not need to enumerate all your Sentinel instances,
+but a few so that if one is down the client will try the next one. The client
+is able to remember the last Sentinel that was able to reply correctly and will
+use it for the next requests.
 
 ## Storing objects
 
@@ -187,7 +194,7 @@ end
       to redis, AND
     - your own code prevents the parent process from using the redis
       connection while a child is alive
-   
+
    Improper use of `inherit_socket` will result in corrupted and/or incorrect
    responses.
 
