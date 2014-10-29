@@ -13,6 +13,8 @@ class Redis
         super(*args)
 
         @timeout = nil
+        @monitoring_thread = nil
+        @writer = nil
         @buffer = ""
       end
 
@@ -47,17 +49,37 @@ class Redis
       def _read_from_socket(nbytes)
         begin
           read_nonblock(nbytes)
-
-        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
-          if IO.select([self], nil, nil, @timeout)
-            retry
-          else
-            raise Redis::TimeoutError
-          end
+        rescue Errno::EWOULDBLOCK, Errno::EAGAIN => ex
+          retry if monitor_socket_fd
         end
 
       rescue EOFError
         raise Errno::ECONNRESET
+      end
+
+      def monitor_socket_fd
+        reader, @writer = IO.pipe
+
+        begin
+          @monitoring_thread = Thread.new do
+            begin
+              @writer.write(IO.select([self], nil, nil, @timeout))
+            ensure
+              @writer.close
+            end
+          end
+
+          select_value = reader.read
+          select_value != "" ? true : (raise Redis::TimeoutError)
+        ensure
+          reader.close
+        end
+      end
+
+      def close
+        @monitoring_thread.terminate if @monitoring_thread
+        @writer.close if @writer && !@writer.closed?
+        super
       end
     end
 

@@ -1,5 +1,6 @@
 # encoding: UTF-8
 
+require "timeout"
 require File.expand_path("helper", File.dirname(__FILE__))
 
 class TestConnectionHandling < Test::Unit::TestCase
@@ -19,6 +20,30 @@ class TestConnectionHandling < Test::Unit::TestCase
 
   def test_ping
     assert_equal "PONG", r.ping
+  end
+
+  def test_disconnect_on_blocked_io
+    Thread.new do
+      sleep 1 # need to wait enough for the blpop connection to be established
+      assert_equal(true, r.client.connected?)
+      r.client.disconnect
+      assert_equal(false, r.client.connected?)
+    end
+
+    timeout_scenario = Proc.new do
+      if ENV["conn"] == "synchrony"
+        ::Timeout::timeout(5) {r.blpop("nothing_to_read", :timeout => 3)}
+      else
+        ::Timeout::timeout(5) {r.blpop("nothing_to_read")}
+      end
+    end
+
+    assert_nothing_raised (::Timeout::Error) do
+      begin
+        timeout_scenario.call
+      rescue Redis::TimeoutError,Redis::CannotConnectError
+      end
+    end
   end
 
   def test_select

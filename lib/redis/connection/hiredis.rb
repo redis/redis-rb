@@ -25,6 +25,8 @@ class Redis
 
       def initialize(connection)
         @connection = connection
+        @monitoring_thread = nil
+        @writer = nil
       end
 
       def connected?
@@ -37,6 +39,8 @@ class Redis
       end
 
       def disconnect
+        @monitoring_thread.terminate if @monitoring_thread
+        @writer.close if @writer && !@writer.closed?
         @connection.disconnect
         @connection = nil
       end
@@ -48,13 +52,38 @@ class Redis
       end
 
       def read
-        reply = @connection.read
-        reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
-        reply
-      rescue Errno::EAGAIN
-        raise TimeoutError
-      rescue RuntimeError => err
-        raise ProtocolError.new(err.message)
+        read_result = read_with_pipe
+
+        begin
+          @monitoring_thread.join
+        rescue Errno::EAGAIN
+          raise TimeoutError
+        rescue RuntimeError => err
+          raise ProtocolError.new(err.message)
+        rescue Exception => ex
+          raise unless ex.message =~ /expired/ # Jruby can raise anonynous exceptions (<#<Class:12653: execution expired>>)...
+        end
+
+        raise TimeoutError if read_result != "Done"
+        @reply = CommandError.new(@reply.message) if @reply.is_a?(RuntimeError)
+        @reply
+      end
+
+      def read_with_pipe
+        reader, @writer = IO.pipe
+
+        @monitoring_thread = Thread.new do
+          begin
+            @reply = @connection.read
+            @writer.write("Done")
+          ensure
+            @writer.close unless @writer.closed?
+          end
+        end
+
+        reader.read
+      ensure
+        reader.close
       end
     end
   end
