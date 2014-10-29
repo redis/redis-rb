@@ -80,7 +80,7 @@ class ConsistencyTester
                 check_consistency(key,val.to_i)
                 @reads += 1
             rescue => e
-                puterr "Reading: #{e.to_s}"
+                puterr "Reading: #{e.class}: #{e.message} (#{e.backtrace.first})"
                 @failed_reads += 1
             end
 
@@ -89,7 +89,7 @@ class ConsistencyTester
                 @cached[key] = @r.incr(key).to_i
                 @writes += 1
             rescue => e
-                puterr "Writing: #{e.to_s}"
+                puterr "Writing: #{e.class}: #{e.message} (#{e.backtrace.first})"
                 @failed_writes += 1
             end
 
