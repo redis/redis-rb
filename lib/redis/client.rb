@@ -85,6 +85,25 @@ class Redis
         establish_connection
         call [:auth, password] if password
         call [:select, db] if db != 0
+        if @options[:sentinels]
+          # Check the instance is really of the role we are looking for.
+          # We can't assume the command is supported since it was
+          # introduced recently and this client should work with old stuff.
+          role = nil
+          begin
+            role = call [:role]
+          rescue
+            # Assume the test is passed if we can't get a reply from ROLE...
+            role = [@options[:role].to_s]
+          end
+
+          # Raise an error on role mismatch. TODO: we could do better, wait
+          # some time and connect again...
+          if role[0] != @options[:role].to_s
+            disconnect
+            raise ConnectionError, "Instance role mismatch, try again."
+          end
+        end
       end
 
       self
@@ -300,9 +319,60 @@ class Redis
       end
     end
 
-    def establish_connection
-      @connection = @options[:driver].connect(@options.dup)
+    def set_addr_via_sentinel
+      responder = nil # The Sentinel that was able to reply
 
+      # Try one Sentinel after the other, using the list provided
+      # by the user.
+      @options[:sentinels].each{|sentinel|
+        begin
+          if !sentinel[:link]
+            sentinel[:link] = Redis.new(:host => sentinel[:host],
+                                        :port => sentinel[:port],
+                                        :timeout => 0.300)
+          end
+          if @options[:role] == :master
+            reply = sentinel[:link].client.call(["sentinel","get-master-addr-by-name",@options[:mastername]])
+            next if !reply
+            # Got it, set :host and :port
+            @options[:host] = reply[0]
+            @options[:port] = reply[1]
+            responder = sentinel
+            break
+          elsif @options[:role] == :slave
+            reply = sentinel[:link].client.call(["sentinel","slaves",@options[:mastername]])
+            slaves = []
+            reply.each{|slave|
+                slaves << Hash[*slave]
+            }
+            random_slave = slaves[rand(slaves.length)]
+            @options[:host] = random_slave['ip']
+            @options[:port] = random_slave['port']
+            responder = sentinel
+            break
+          else
+            raise ArgumentError, "Unknown instance role #{@options[:role]}"
+          end
+        rescue
+            next; # Try the next one on error
+        end
+      }
+
+      if responder
+        # If we were able to obtain the address, make sure to put the Sentinel
+        # that was able to reply as the first in the list.
+        @options[:sentinels].delete(responder)
+        @options[:sentinels].unshift(responder)
+      else
+        raise ConnectionError, "Unable to fetch #{@options[:role]} via Sentinel."
+      end
+    end
+
+    def establish_connection
+      if @options[:sentinels]
+        set_addr_via_sentinel
+      end
+      @connection = @options[:driver].connect(@options.dup)
     rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
@@ -365,7 +435,7 @@ class Redis
 
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
-        else
+        elsif uri.scheme == "redis"
           # Require the URL to have at least a host
           raise ArgumentError, "invalid url" unless uri.host
 
@@ -374,6 +444,14 @@ class Redis
           defaults[:port]     = uri.port if uri.port
           defaults[:password] = CGI.unescape(uri.password) if uri.password
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
+        elsif uri.scheme == "sentinel"
+          defaults[:scheme]   = uri.scheme
+          defaults[:mastername] = uri.host
+          defaults[:role] = :master
+          defaults[:password] = CGI.unescape(uri.password) if uri.password
+          defaults[:db]       = uri.path[1..-1].to_i if uri.path
+        else
+          raise ArgumentError, "invalid uri scheme '#{uri.scheme}'"
         end
       end
 
@@ -383,10 +461,19 @@ class Redis
       end
 
       if options[:path]
+        # Unix socket
         options[:scheme] = "unix"
         options.delete(:host)
         options.delete(:port)
+      elsif options[:mastername]
+        # Sentinel
+        options.delete(:host)
+        options.delete(:port)
+        if options[:sentinels].nil?
+          raise ArgumentError, "list of Sentinels required"
+        end
       else
+        # TCP socket
         options[:host] = options[:host].to_s
         options[:port] = options[:port].to_i
       end
