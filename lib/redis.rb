@@ -2481,7 +2481,10 @@ class Redis
 
   # Get the approximate cardinality of members added to HyperLogLog structure.
   #
-  # @param [String] key
+  # If called with multiple keys, returns the approximate cardinality of the
+  # union of the HyperLogLogs contained in the keys.
+  #
+  # @param [String, Array<String>] keys
   # @return [Fixnum]
   def pfcount(*keys)
     synchronize do |client|
