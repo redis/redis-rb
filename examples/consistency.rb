@@ -107,8 +107,8 @@ class ConsistencyTester
     end
 end
 
-Sentinels = [{:host => "127.0.0.1", :port => 26380},
-             {:host => "127.0.0.1", :port => 26381}]
-r = Redis.new(:url => "sentinel://mymaster", :sentinels => Sentinels, :role => :master)
+Sentinels = [{:host => "127.0.0.1", :port => 26379},
+             {:host => "127.0.0.1", :port => 26380}]
+r = Redis.new(:url => "redis://master1", :sentinels => Sentinels, :role => :master)
 tester = ConsistencyTester.new(r)
 tester.test
