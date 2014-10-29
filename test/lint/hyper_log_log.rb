@@ -39,7 +39,7 @@ module Lint
         assert_equal true, r.pfadd("{1}bar", "s1")
         assert_equal true, r.pfadd("{1}bar", "s2")
 
-        assert_equal 2, r.pfcount(["{1}foo", "{1}bar"])
+        assert_equal 2, r.pfcount("{1}foo", "{1}bar")
       end
     end
 

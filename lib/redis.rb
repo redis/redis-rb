@@ -2485,7 +2485,7 @@ class Redis
   # @return [Fixnum]
   def pfcount(*keys)
     synchronize do |client|
-      client.call([:pfcount] + keys.flatten(1))
+      client.call([:pfcount] + keys)
     end
   end
 
