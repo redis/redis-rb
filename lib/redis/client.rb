@@ -327,7 +327,7 @@ class Redis
         end
 
         yield
-      rescue ConnectionError, InheritedError
+      rescue BaseConnectionError
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
