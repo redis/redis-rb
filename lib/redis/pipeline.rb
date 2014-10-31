@@ -76,11 +76,11 @@ class Redis
         return if exec.nil? # The transaction failed because of WATCH.
 
         # EXEC command failed.
-        raise exec if exec.is_a?(CommandError)
-
-        if exec.size < futures.size
-          # Some command wasn't recognized by Redis.
-          raise replies.detect { |r| r.is_a?(CommandError) }
+        if exec.is_a?(CommandError)
+          # Include details if EXEC failed due to previous errors.
+          details = replies[1..-2].select { |r| r.is_a?(CommandError) }
+          details = details.any? ? " [#{details.map { |d| d.message }.join('; ')}]" : nil
+          raise CommandError, "#{exec.message}#{details}"
         end
 
         super(exec) do |reply|
