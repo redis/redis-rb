@@ -511,6 +511,8 @@ class Redis
               client.disconnect
             end
           end
+
+          return nil
         end
 
         def resolve_master
