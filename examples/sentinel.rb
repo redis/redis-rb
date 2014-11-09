@@ -2,7 +2,7 @@ require 'redis'
 
 Sentinels = [{:host => "127.0.0.1", :port => 26379},
              {:host => "127.0.0.1", :port => 26380}]
-r = Redis.new(:url => "sentinel://mymaster", :sentinels => Sentinels, :role => :master)
+r = Redis.new(:url => "redis://master1", :sentinels => Sentinels, :role => :master)
 
 # Set keys into a loop.
 #
@@ -12,8 +12,8 @@ r = Redis.new(:url => "sentinel://mymaster", :sentinels => Sentinels, :role => :
     begin
         r.set(i,i)
         puts i
-    rescue
-        puts "ERROR #{i}"
+    rescue => e
+        puts "(#{i}) ERR: #{e}"
     end
     sleep(0.01)
 }
