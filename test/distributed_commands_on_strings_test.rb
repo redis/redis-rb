@@ -33,15 +33,17 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_mset
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mset(:foo, "s1", :bar, "s2")
-    end
+    r.mset(:foo, "s1", :bar, "s2")
+
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
   end
 
   def test_mset_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mapped_mset(:foo => "s1", :bar => "s2")
-    end
+    r.mapped_mset(:foo => "s1", :bar => "s2")
+
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
   end
 
   def test_msetnx

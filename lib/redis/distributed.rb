@@ -255,12 +255,16 @@ class Redis
     end
 
     # Set multiple keys to multiple values.
-    def mset(*args)
-      raise CannotDistribute, :mset
+    def mset(*keys)
+      mapped_mset(Hash[keys.each_slice(2).to_a])
     end
 
     def mapped_mset(hash)
-      raise CannotDistribute, :mapped_mset
+      keys_per_node = hash.group_by { |key, value| node_for(key) }
+
+      keys_per_node.map do |node, mset|
+        node.mapped_mset(Hash[mset])
+      end
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
