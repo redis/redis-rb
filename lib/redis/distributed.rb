@@ -290,7 +290,7 @@ class Redis
     def mapped_mget(*mget_keys)
       keys_per_node = mget_keys.group_by { |key| node_for(key) }
 
-      result = keys_per_node.each_with_object({}) do |(node, keys), accum|
+      result = keys_per_node.inject({}) do |accum, (node, keys)|
         values = node.mget(*keys)
         accum.merge!(Hash[keys.zip(values)])
       end
