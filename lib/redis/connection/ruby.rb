@@ -12,7 +12,7 @@ class Redis
       def initialize(*args)
         super(*args)
 
-        @timeout = nil
+        @timeout = @write_timeout = nil
         @buffer = ""
       end
 
@@ -21,6 +21,14 @@ class Redis
           @timeout = timeout
         else
           @timeout = nil
+        end
+      end
+
+      def write_timeout=(timeout)
+        if timeout && timeout > 0
+          @write_timeout = timeout
+        else
+          @write_timeout = nil
         end
       end
 
@@ -58,6 +66,11 @@ class Redis
 
       rescue EOFError
         raise Errno::ECONNRESET
+      end
+
+      # UNIXSocket and TCPSocket don't support write timeouts
+      def write(*args)
+        Timeout.timeout(@write_timeout, TimeoutError) { super }
       end
     end
 
@@ -213,6 +226,7 @@ class Redis
 
         instance = new(sock)
         instance.timeout = config[:timeout]
+        instance.write_timeout = config[:write_timeout]
         instance.set_tcp_keepalive config[:tcp_keepalive]
         instance
       end
@@ -263,6 +277,10 @@ class Redis
         if @sock.respond_to?(:timeout=)
           @sock.timeout = timeout
         end
+      end
+
+      def write_timeout=(timeout)
+        @sock.write_timeout = timeout
       end
 
       def write(command)

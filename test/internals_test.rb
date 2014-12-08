@@ -160,6 +160,30 @@ class TestInternals < Test::Unit::TestCase
     assert (Time.now - start_time) <= opts[:timeout]
   end
 
+  driver(:ruby) do
+    def test_write_timeout
+      redis_mock(:write_timeout => 0.1, :timeout => 1) do |redis|
+        # This is really disgusting, but this essentially mocks the "super" call in write
+        IO.class_eval do
+          alias_method :old_write, :write
+
+          def write(*args)
+            sleep 1
+          end
+        end
+        assert_raise Redis::TimeoutError do
+          redis.rpush("tmp", "test")
+        end
+      end
+    ensure
+      IO.class_eval do
+        undef_method :write
+        alias_method :write, :old_write
+        undef_method :old_write
+      end
+    end
+  end
+
   def close_on_ping(seq, options = {})
     $request = 0
 
