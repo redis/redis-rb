@@ -1,5 +1,16 @@
 require 'redis'
 
+# This example creates a master-slave setup with a sentinel, then connects to
+# it and sends write commands in a loop.
+#
+# After 30 seconds, the master dies. You will be able to see how a new master
+# is elected and things continue to work as if nothing happened.
+#
+# To run this example:
+#
+#   $ ruby -I./lib examples/sentinel.rb
+#
+
 at_exit do
   begin
     Process.kill(:INT, $redises)
