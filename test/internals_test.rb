@@ -379,7 +379,7 @@ class TestInternals < Test::Unit::TestCase
           begin
             sa = Socket.pack_sockaddr_in(1024 + Random.rand(63076), hosts[af])
             s.bind(sa)
-          rescue Errno::EADDRINUSE => e
+          rescue Errno::EADDRINUSE
             tries -= 1
             retry if tries > 0
 
