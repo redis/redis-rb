@@ -1,5 +1,16 @@
 require 'redis'
 
+at_exit do
+  begin
+    Process.kill(:INT, $redises)
+  rescue Errno::ESRCH
+  end
+
+  Process.waitall
+end
+
+$redises = spawn("examples/sentinel/start")
+
 Sentinels = [{:host => "127.0.0.1", :port => 26379},
              {:host => "127.0.0.1", :port => 26380}]
 r = Redis.new(:url => "redis://master1", :sentinels => Sentinels, :role => :master)
