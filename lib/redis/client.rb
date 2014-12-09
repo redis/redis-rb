@@ -308,7 +308,12 @@ class Redis
     end
 
     def establish_connection
-      @connection = @options[:driver].connect(@connector.resolve.dup)
+      server = @connector.resolve.dup
+
+      @options[:host] = server[:host]
+      @options[:port] = server[:port]
+
+      @connection = @options[:driver].connect(server)
     rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
