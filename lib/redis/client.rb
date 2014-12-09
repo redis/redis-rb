@@ -476,7 +476,7 @@ class Redis
           # recently and this client should work with old stuff.
           begin
             role = client.call([:role])[0]
-          rescue
+          rescue Redis::CommandError
             # Assume the test is passed if we can't get a reply from ROLE...
             role = @role
           end
