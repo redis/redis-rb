@@ -1,29 +1,36 @@
 #! /usr/bin/env ruby
 
+require "fileutils"
+
+$pids = []
+
 at_exit do
-  pids.each do |pid|
+  $pids.each do |pid|
     Process.kill(:INT, pid)
   end
 
   Process.waitall
 end
 
-pids = []
+base = File.expand_path(File.dirname(__FILE__))
 
 # Masters
-pids << spawn("redis-server --port 6380")
-pids << spawn("redis-server --port 6381")
+$pids << spawn("redis-server --port 6380")
+$pids << spawn("redis-server --port 6381")
 
 # Slaves of Master 1
-pids << spawn("redis-server --port 63800 --slaveof 127.0.0.1 6380")
-pids << spawn("redis-server --port 63801 --slaveof 127.0.0.1 6380")
+$pids << spawn("redis-server --port 63800 --slaveof 127.0.0.1 6380")
+$pids << spawn("redis-server --port 63801 --slaveof 127.0.0.1 6380")
 
 # Slaves of Master 2
-pids << spawn("redis-server --port 63810 --slaveof 127.0.0.1 6381")
-pids << spawn("redis-server --port 63811 --slaveof 127.0.0.1 6381")
+$pids << spawn("redis-server --port 63810 --slaveof 127.0.0.1 6381")
+$pids << spawn("redis-server --port 63811 --slaveof 127.0.0.1 6381")
+
+FileUtils.cp(File.join(base, "sentinel.conf"), "tmp/sentinel1.conf")
+FileUtils.cp(File.join(base, "sentinel.conf"), "tmp/sentinel2.conf")
 
 # Sentinels
-pids << spawn("redis-server sentinel/sentinel.conf --sentinel --port 26379")
-pids << spawn("redis-server sentinel/sentinel.conf --sentinel --port 26380")
+$pids << spawn("redis-server tmp/sentinel1.conf --sentinel --port 26379")
+$pids << spawn("redis-server tmp/sentinel2.conf --sentinel --port 26380")
 
 Process.waitall
