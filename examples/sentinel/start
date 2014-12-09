@@ -1,12 +1,21 @@
 #! /usr/bin/env ruby
 
+# This is a helper script used together with examples/sentinel.rb
+# It runs two Redis masters, two slaves for each of them, and two sentinels.
+# After 30 seconds, the first master dies.
+#
+# You don't need to run this script yourself. Rather, use examples/sentinel.rb.
+
 require "fileutils"
 
 $pids = []
 
 at_exit do
   $pids.each do |pid|
-    Process.kill(:INT, pid)
+    begin
+      Process.kill(:INT, pid)
+    rescue Errno::ESRCH
+    end
   end
 
   Process.waitall
@@ -32,5 +41,9 @@ FileUtils.cp(File.join(base, "sentinel.conf"), "tmp/sentinel2.conf")
 # Sentinels
 $pids << spawn("redis-server tmp/sentinel1.conf --sentinel --port 26379")
 $pids << spawn("redis-server tmp/sentinel2.conf --sentinel --port 26380")
+
+sleep 30
+
+Process.kill(:KILL, $pids[0])
 
 Process.waitall
