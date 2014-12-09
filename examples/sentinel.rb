@@ -22,9 +22,9 @@ r = Redis.new(:url => "redis://master1", :sentinels => Sentinels, :role => :mast
 (0..1000000).each{|i|
     begin
         r.set(i,i)
-        puts i
+        $stdout.write("SET (#{i} times)\n") if i % 100 == 0
     rescue => e
-        puts "(#{i}) ERR: #{e}"
+        $stdout.write("E")
     end
     sleep(0.01)
 }
