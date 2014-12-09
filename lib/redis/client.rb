@@ -518,7 +518,7 @@ class Redis
         def resolve_master
           sentinel_detect do |client|
             if reply = client.call(["sentinel", "get-master-addr-by-name", @master])
-              {host: reply[0], port: reply[1]}
+              {:host => reply[0], :port => reply[1]}
             end
           end
         end
@@ -528,7 +528,7 @@ class Redis
             if reply = client.call(["sentinel", "slaves", @master])
               slave = Hash[*reply.sample]
 
-              {host: slave.fetch("ip"), port: slave.fetch("port")}
+              {:host => slave.fetch("ip"), :port => slave.fetch("port")}
             end
           end
         end
