@@ -99,6 +99,7 @@ class Redis
   #
   # @return [String] `OK`
   def quit
+    return 'OK' unless connected?
     synchronize do |client|
       begin
         client.call([:quit])
