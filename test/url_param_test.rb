@@ -109,6 +109,16 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal "secr3t", redis.client.password
   end
 
+  def test_override_timeout_by_query_string
+    redis = Redis.new :url => "redis://:secr3t%3A@foo.com:999/2?timeout=10"
+    assert_equal 10, redis.client.timeout
+  end
+
+  def test_override_inherit_socket_by_query_string
+    redis = Redis.new :url => "redis://:secret3t%3A@foo.com:999/2?inherit_socket=true"
+    assert_equal true, redis.client.inherit_socket?
+  end
+
   def test_does_not_modify_the_passed_options
     options = { :url => "redis://:secr3t@foo.com:999/2" }
 
