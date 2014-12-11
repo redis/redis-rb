@@ -127,7 +127,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
       wire.join
 
       assert_equal channels_result, ['foo']
-      assert_equal numsub_result, ['foo', '1', 'boo', '0']
+      assert_equal numsub_result, ['foo', 1, 'boo', 0]
     end
   end
 
