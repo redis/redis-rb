@@ -75,6 +75,12 @@ class Redis
       @logger = @options[:logger]
       @connection = nil
       @command_map = {}
+
+      if options.include?(:sentinels)
+        @connector = Connector::Sentinel.new(@options)
+      else
+        @connector = Connector.new(@options)
+      end
     end
 
     def connect
@@ -85,6 +91,7 @@ class Redis
         establish_connection
         call [:auth, password] if password
         call [:select, db] if db != 0
+        @connector.check(self)
       end
 
       self
@@ -301,8 +308,12 @@ class Redis
     end
 
     def establish_connection
-      @connection = @options[:driver].connect(@options.dup)
+      server = @connector.resolve.dup
 
+      @options[:host] = server[:host]
+      @options[:port] = server[:port]
+
+      @connection = @options[:driver].connect(server)
     rescue TimeoutError
       raise CannotConnectError, "Timed out connecting to Redis on #{location}"
     rescue Errno::ECONNREFUSED
@@ -365,7 +376,7 @@ class Redis
 
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
-        else
+        elsif uri.scheme == "redis"
           # Require the URL to have at least a host
           raise ArgumentError, "invalid url" unless uri.host
 
@@ -374,6 +385,9 @@ class Redis
           defaults[:port]     = uri.port if uri.port
           defaults[:password] = CGI.unescape(uri.password) if uri.password
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
+          defaults[:role] = :master
+        else
+          raise ArgumentError, "invalid uri scheme '#{uri.scheme}'"
         end
       end
 
@@ -383,10 +397,12 @@ class Redis
       end
 
       if options[:path]
+        # Unix socket
         options[:scheme] = "unix"
         options.delete(:host)
         options.delete(:port)
       else
+        # TCP socket
         options[:host] = options[:host].to_s
         options[:port] = options[:port].to_i
       end
@@ -431,6 +447,97 @@ class Redis
       end
 
       driver
+    end
+
+    class Connector
+      def initialize(options)
+        @options = options
+      end
+
+      def resolve
+        @options
+      end
+
+      def check(client)
+      end
+
+      class Sentinel < Connector
+        def initialize(options)
+          super(options)
+
+          @sentinels = options.fetch(:sentinels).dup
+          @role = options[:role].to_s
+          @master = options[:host]
+        end
+
+        def check(client)
+          # Check the instance is really of the role we are looking for.
+          # We can't assume the command is supported since it was introduced
+          # recently and this client should work with old stuff.
+          begin
+            role = client.call([:role])[0]
+          rescue Redis::CommandError
+            # Assume the test is passed if we can't get a reply from ROLE...
+            role = @role
+          end
+
+          if role != @role
+            disconnect
+            raise ConnectionError, "Instance role mismatch. Expected #{@role}, got #{role}."
+          end
+        end
+
+        def resolve
+          result = case @role
+                   when "master"
+                     resolve_master
+                   when "slave"
+                     resolve_slave
+                   else
+                     raise ArgumentError, "Unknown instance role #{@role}"
+                   end
+
+          result || (raise ConnectionError, "Unable to fetch #{@role} via Sentinel.")
+        end
+
+        def sentinel_detect
+          @sentinels.each do |sentinel|
+            client = Client.new(:host => sentinel[:host], :port => sentinel[:port], :timeout => 0.3)
+
+            begin
+              if result = yield(client)
+                # This sentinel responded. Make sure we ask it first next time.
+                @sentinels.delete(sentinel)
+                @sentinels.unshift(sentinel)
+
+                return result
+              end
+            ensure
+              client.disconnect
+            end
+          end
+
+          return nil
+        end
+
+        def resolve_master
+          sentinel_detect do |client|
+            if reply = client.call(["sentinel", "get-master-addr-by-name", @master])
+              {:host => reply[0], :port => reply[1]}
+            end
+          end
+        end
+
+        def resolve_slave
+          sentinel_detect do |client|
+            if reply = client.call(["sentinel", "slaves", @master])
+              slave = Hash[*reply.sample]
+
+              {:host => slave.fetch("ip"), :port => slave.fetch("port")}
+            end
+          end
+        end
+      end
     end
   end
 end
