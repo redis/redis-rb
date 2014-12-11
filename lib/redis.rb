@@ -2036,7 +2036,7 @@ class Redis
   # Possible subcommands: channels, numsub, numpat.
   def pubsub(subcommand, *args)
     synchronize do |client|
-      client.call([:pubsub, subcommand, args].flatten)
+      client.call([:pubsub, subcommand] + args)
     end
   end
 
