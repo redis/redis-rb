@@ -87,6 +87,50 @@ class TestPublishSubscribe < Test::Unit::TestCase
     assert_equal "s1", @message
   end
 
+  def test_pubsub_with_numpat_subcommand
+    target_version("2.8.0") do
+      @subscribed = false
+      wire = Wire.new do
+        r.psubscribe("f*") do |on|
+          on.psubscribe { |channel, total| @subscribed = true }
+          on.pmessage   { |pattern, channel, message| r.punsubscribe }
+        end
+      end
+      Wire.pass while !@subscribed
+      redis = Redis.new(OPTIONS)
+      numpat_result = redis.pubsub(:numpat)
+
+      redis.publish("foo", "s1")
+      wire.join
+
+      assert_equal redis.pubsub(:numpat), 0
+      assert_equal numpat_result, 1
+    end
+  end
+
+
+  def test_pubsub_with_channels_and_numsub_subcommnads
+    target_version("2.8.0") do
+      @subscribed = false
+      wire = Wire.new do
+        r.subscribe("foo") do |on|
+          on.subscribe { |channel, total| @subscribed = true }
+          on.message   { |channel, message| r.unsubscribe }
+        end
+      end
+      Wire.pass while !@subscribed
+      redis = Redis.new(OPTIONS)
+      channels_result = redis.pubsub(:channels)
+      numsub_result   = redis.pubsub(:numsub, 'foo', 'boo')
+
+      redis.publish("foo", "s1")
+      wire.join
+
+      assert_equal channels_result, ['foo']
+      assert_equal numsub_result, ['foo', '1', 'boo', '0']
+    end
+  end
+
   def test_subscribe_connection_usable_after_raise
     @subscribed = false
 
