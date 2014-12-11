@@ -14,6 +14,10 @@
 
 # (unreleased)
 
+* Added support for `PUBSUB` command.
+
+* More low-level socket errors are now raised as `CannotConnectError`.
+
 * Added `:connect_timeout` option.
 
 # 3.2.0
