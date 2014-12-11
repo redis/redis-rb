@@ -70,7 +70,7 @@ class Redis
           conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
         else
           conn = EventMachine.connect(config[:host], config[:port], RedisClient) do |c|
-            c.pending_connect_timeout = [config[:timeout], 0.1].max
+            c.pending_connect_timeout = [config[:connect_timeout], 0.1].max
           end
         end
 

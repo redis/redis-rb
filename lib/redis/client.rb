@@ -12,6 +12,7 @@ class Redis
       :port => 6379,
       :path => nil,
       :timeout => 5.0,
+      :connect_timeout => 5.0,
       :password => nil,
       :db => 0,
       :driver => nil,
@@ -408,6 +409,12 @@ class Redis
       end
 
       options[:timeout] = options[:timeout].to_f
+      options[:connect_timeout] = if options[:connect_timeout]
+        options[:connect_timeout].to_f
+      else
+        options[:timeout]
+      end
+
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
 
