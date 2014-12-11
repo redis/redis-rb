@@ -315,12 +315,14 @@ class Redis
       @options[:port] = server[:port]
 
       @connection = @options[:driver].connect(server)
-    rescue TimeoutError
-      raise CannotConnectError, "Timed out connecting to Redis on #{location}"
-    rescue Errno::ECONNREFUSED
-      raise CannotConnectError, "Error connecting to Redis on #{location} (ECONNREFUSED)"
-    rescue Errno::EHOSTUNREACH
-      raise CannotConnectError, "Error connecting to Redis on #{location} (EHOSTUNREACH)"
+    rescue TimeoutError,
+           Errno::ECONNREFUSED,
+           Errno::EHOSTDOWN,
+           Errno::EHOSTUNREACH,
+           Errno::ENETUNREACH,
+           Errno::ETIMEDOUT
+
+      raise CannotConnectError, "Error connecting to Redis on #{location} (#{$!.class})"
     end
 
     def ensure_connected
