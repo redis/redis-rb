@@ -4,6 +4,7 @@ ENV["REDIS_BRANCH"] ||= "unstable"
 
 REDIS_DIR = File.expand_path(File.join("..", "test"), __FILE__)
 REDIS_CNF = File.join(REDIS_DIR, "test.conf")
+REDIS_CNF_TEMPLATE = File.join(REDIS_DIR, "test.conf.erb")
 REDIS_PID = File.join(REDIS_DIR, "db", "redis.pid")
 REDIS_LOG = File.join(REDIS_DIR, "db", "redis.log")
 REDIS_SOCKET = File.join(REDIS_DIR, "db", "redis.sock")
@@ -65,13 +66,15 @@ file BINARY do
   SH
 end
 
-file REDIS_CNF do
+file REDIS_CNF => [REDIS_CNF_TEMPLATE, __FILE__] do |t|
   require 'erb'
-  template_path = "#{REDIS_CNF}.erb"
-  template = File.read("#{REDIS_CNF}.erb")
+
+  erb = t.prerequisites[0]
+  template = File.read(erb)
+
   File.open(REDIS_CNF, 'w') do |file|
     file.puts "\# This file was auto-generated at #{Time.now}",
-              "\# from (#{"#{REDIS_CNF}.erb"})",
+              "\# from (#{erb})",
               "\#"
     conf = ERB.new(template).result
     file << conf
