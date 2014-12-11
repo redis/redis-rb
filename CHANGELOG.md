@@ -12,6 +12,10 @@
   security updates in June of 2013; continuing to support it would prevent
   the use of newer features of Ruby.
 
+# (unreleased)
+
+* Added `:connect_timeout` option.
+
 # 3.2.0
 
 * Redis Sentinel support.
