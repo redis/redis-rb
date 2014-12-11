@@ -20,10 +20,6 @@
 
 * Redis Sentinel support.
 
-# 3.1.1 (unreleased)
-
-* Added support for variadic `PFCOUNT`.
-
 # 3.1.0
 
 * Added debug log sanitization (#428).
