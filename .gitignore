@@ -13,3 +13,4 @@ Gemfile.lock
 /rdsrv
 /redis/*
 /test/db
+/test/test.conf
