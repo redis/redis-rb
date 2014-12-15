@@ -105,7 +105,8 @@ and one or more slaves (`mymaster` in the example).
 
 * It is possible to optionally provide a role. The allowed roles are `master`
 and `slave`. When the role is `slave`, the client will try to connect to a
-random slave of the specified master.
+random slave of the specified master. If a role is not specified, the client
+will connect to the master.
 
 * When using the Sentinel support you need to specify a list of sentinels to
 connect to. The list does not need to enumerate all your Sentinel instances,
