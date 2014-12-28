@@ -22,6 +22,20 @@ class TestCommandsOnSortedSets < Test::Unit::TestCase
     end
   end
 
+  def test_zrevrangebylex
+    target_version "2.9.9" do
+      r.zadd "foo", 0, "aaren"
+      r.zadd "foo", 0, "abagael"
+      r.zadd "foo", 0, "abby"
+      r.zadd "foo", 0, "abbygail"
+
+      assert_equal ["abbygail", "abby", "abagael", "aaren"], r.zrevrangebylex("foo", "[a\xff", "[a")
+      assert_equal ["abbygail", "abby"], r.zrevrangebylex("foo", "[a\xff", "[a", :limit => [0, 2])
+      assert_equal ["abbygail", "abby"], r.zrevrangebylex("foo", "(abb\xff", "(abb")
+      assert_equal ["abbygail"], r.zrevrangebylex("foo", "(abby\xff", "(abby")
+    end
+  end
+
   def test_zcount
     r.zadd "foo", 1, "s1"
     r.zadd "foo", 2, "s2"
