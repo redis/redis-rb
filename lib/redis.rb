@@ -1620,6 +1620,28 @@ class Redis
     end
   end
 
+  # Return a range of members with the same score in a sorted set, by reversed lexicographical ordering.
+  # Apart from the reversed ordering, #zrevrangebylex is similar to #zrangebylex.
+  #
+  # @example Retrieve members matching a
+  #   redis.zrevrangebylex("zset", "[a", "[a\xff")
+  #     # => ["abbygail", "abby", "abagael", "aaren"]
+  # @example Retrieve the last 2 members matching a
+  #   redis.zrevrangebylex("zset", "[a", "[a\xff", :limit => [0, 2])
+  #     # => ["abbygail", "abby"]
+  #
+  # @see #zrangebylex
+  def zrevrangebylex(key, max, min, options = {})
+    args = []
+
+    limit = options[:limit]
+    args.concat(["LIMIT"] + limit) if limit
+
+    synchronize do |client|
+      client.call([:zrevrangebylex, key, max, min] + args)
+    end
+  end
+
   # Return a range of members in a sorted set, by score.
   #
   # @example Retrieve members with score `>= 5` and `< 100`
