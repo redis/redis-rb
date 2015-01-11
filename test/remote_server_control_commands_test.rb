@@ -82,7 +82,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
       break line
     end
 
-    assert_equal result, "OK"
+    assert_equal "OK", result
   end
 
   def test_echo
@@ -98,8 +98,9 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   def test_object
     r.lpush "list", "value"
 
-    assert_equal r.object(:refcount, "list"), 1
-    assert_equal r.object(:encoding, "list"), "ziplist"
+    assert_equal 1, r.object(:refcount, "list")
+    encoding = r.object(:encoding, "list")
+    assert "ziplist" == encoding || "quicklist" == encoding, "Wrong encoding for list"
     assert r.object(:idletime, "list").kind_of?(Fixnum)
   end
 
@@ -112,6 +113,6 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   def test_slowlog
     r.slowlog(:reset)
     result = r.slowlog(:len)
-    assert_equal result, 0
+    assert_equal 0, result
   end
 end
