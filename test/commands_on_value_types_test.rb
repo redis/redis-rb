@@ -101,13 +101,15 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     redis_mock(:migrate => lambda { |*args| args }) do |redis|
       options = { :host => "127.0.0.1", :port => 1234 }
 
-      assert_raise(RuntimeError, /host not specified/) do
+      ex = assert_raise(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :host })
       end
+      assert ex.message =~ /host not specified/
 
-      assert_raise(RuntimeError, /port not specified/) do
+      ex = assert_raise(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :port })
       end
+      assert ex.message =~ /port not specified/
 
       default_db = redis.client.db.to_i
       default_timeout = redis.client.timeout.to_i
