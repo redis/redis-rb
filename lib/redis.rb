@@ -764,7 +764,7 @@ class Redis
   # Set one or more values, only if none of the keys exist.
   #
   # @example
-  #   redis.msetnx({ "key1" => "v1", "key2" => "v2" })
+  #   redis.mapped_msetnx({ "key1" => "v1", "key2" => "v2" })
   #     # => true
   #
   # @param [Hash] hash keys mapping to values
@@ -1895,7 +1895,7 @@ class Redis
   # Get the values of all the given hash fields.
   #
   # @example
-  #   redis.hmget("hash", "f1", "f2")
+  #   redis.mapped_hmget("hash", "f1", "f2")
   #     # => { "f1" => "v1", "f2" => "v2" }
   #
   # @param [String] key
@@ -2032,7 +2032,7 @@ class Redis
     end
   end
 
-  # Inspect the state of the Pub/Sub subsystem. 
+  # Inspect the state of the Pub/Sub subsystem.
   # Possible subcommands: channels, numsub, numpat.
   def pubsub(subcommand, *args)
     synchronize do |client|
@@ -2458,7 +2458,7 @@ class Redis
   # Scan a set
   #
   # @example Retrieve all of the keys in a set
-  #   redis.sscan("set").to_a
+  #   redis.sscan_each("set").to_a
   #   # => ["key1", "key2", "key3"]
   #
   # @param [Hash] options
