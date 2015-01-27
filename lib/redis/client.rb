@@ -461,9 +461,7 @@ class Redis
     end
 
     class Connector
-      attr_reader :logger
       def initialize(options)
-        @logger = options[:logger]
         @options = options
       end
 
@@ -514,28 +512,28 @@ class Redis
         end
 
         def sentinel_detect
-          @sentinels.each do |sentinel|
-            client = Client.new(:host => sentinel[:host], :port => sentinel[:port], :timeout => 0.3)
+          3.times do
+            @sentinels.each do |sentinel|
+              client = Client.new(:host => sentinel[:host], :port => sentinel[:port], :timeout => 0.3)
 
-            begin
-              if result = yield(client)
-                # This sentinel responded. Make sure we ask it first next time.
-                @sentinels.delete(sentinel)
-                @sentinels.unshift(sentinel)
+              begin
+                if result = yield(client)
+                  # This sentinel responded. Make sure we ask it first next time.
+                  @sentinels.delete(sentinel)
+                  @sentinels.unshift(sentinel)
 
-                return result
+                  return result
+                end
+              rescue CannotConnectError
+              ensure
+                client.disconnect
               end
-            rescue CannotConnectError
-              if logger
-                msg = "[Redis] Could not connect to sentinel #{sentinel[:host]}:#{sentinel[:port]}"
-                logger.debug(msg)
-              end
-            ensure
-              client.disconnect
             end
+
+            sleep(0.3)
           end
 
-          return nil
+          raise CannotConnectError, "No sentinels available."
         end
 
         def resolve_master
