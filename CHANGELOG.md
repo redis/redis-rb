@@ -20,6 +20,8 @@
 
 * Added `:connect_timeout` option.
 
+* Added support for `:limit` option for `ZREVRANGEBYLEX`.
+
 # 3.2.0
 
 * Redis Sentinel support.
