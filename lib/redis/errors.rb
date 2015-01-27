@@ -37,4 +37,11 @@ class Redis
   # Raised when the connection was inherited by a child process.
   class InheritedError < BaseConnectionError
   end
+
+  # Raised when the connection is left in an inconsistent state
+  # due to timeout issues. See issue #501.
+  #
+  # Only used internally.
+  class ConnectionCorruptedError < BaseConnectionError
+  end
 end

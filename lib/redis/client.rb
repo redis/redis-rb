@@ -342,7 +342,10 @@ class Redis
           connect
         end
 
-        yield
+        connection.use { yield }
+      rescue ConnectionCorruptedError
+        disconnect
+        retry
       rescue BaseConnectionError
         disconnect
 

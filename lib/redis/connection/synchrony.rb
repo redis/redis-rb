@@ -117,6 +117,10 @@ class Redis
           raise "Unknown type #{type.inspect}"
         end
       end
+
+      def use
+        yield
+      end
     end
   end
 end
