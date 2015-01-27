@@ -461,7 +461,9 @@ class Redis
     end
 
     class Connector
+      attr_reader :logger
       def initialize(options)
+        @logger = options[:logger]
         @options = options
       end
 
@@ -522,6 +524,11 @@ class Redis
                 @sentinels.unshift(sentinel)
 
                 return result
+              end
+            rescue CannotConnectError
+              if logger
+                msg = "[Redis] Could not connect to sentinel #{sentinel[:host]}:#{sentinel[:port]}"
+                logger.debug(msg)
               end
             ensure
               client.disconnect
