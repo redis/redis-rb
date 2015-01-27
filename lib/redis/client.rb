@@ -383,7 +383,7 @@ class Redis
           defaults[:path]   = uri.path
         elsif uri.scheme == "redis"
           # Require the URL to have at least a host
-          raise ArgumentError, "invalid url" unless uri.host
+          raise ArgumentError, "invalid url: #{uri}" unless uri.host
 
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host
