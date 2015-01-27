@@ -477,7 +477,7 @@ class Redis
           super(options)
 
           @sentinels = options.fetch(:sentinels).dup
-          @role = options[:role].to_s
+          @role = options.fetch(:role, "master").to_s
           @master = options[:host]
         end
 
