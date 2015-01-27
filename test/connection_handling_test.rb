@@ -186,4 +186,23 @@ class TestConnectionHandling < Test::Unit::TestCase
       r.config :set, "timeout", 300
     end
   end
+
+  def test_consistency_on_multithreaded_env
+    t = nil
+
+    commands = {
+      :set => lambda { |key, value| t.kill; "+OK\r\n" },
+      :incr => lambda { |key| ":1\r\n" },
+    }
+
+    redis_mock(commands) do |redis|
+      t = Thread.new do
+        redis.set("foo", "bar")
+      end
+
+      t.join
+
+      assert_equal 1, redis.incr("baz")
+    end
+  end
 end
