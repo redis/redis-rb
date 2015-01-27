@@ -246,7 +246,6 @@ class Redis
 
       def initialize(sock)
         @sock = sock
-        @pending_reads = 0
       end
 
       def connected?
@@ -267,7 +266,6 @@ class Redis
       end
 
       def write(command)
-        @pending_reads += 1
         @sock.write(build_command(command))
       end
 
@@ -292,22 +290,18 @@ class Redis
       end
 
       def format_error_reply(line)
-        @pending_reads -= 1
         CommandError.new(line.strip)
       end
 
       def format_status_reply(line)
-        @pending_reads -= 1
         line.strip
       end
 
       def format_integer_reply(line)
-        @pending_reads -= 1
         line.to_i
       end
 
       def format_bulk_reply(line)
-        @pending_reads -= 1
         bulklen = line.to_i
         return if bulklen == -1
         reply = encode(@sock.read(bulklen))
@@ -317,19 +311,9 @@ class Redis
 
       def format_multi_bulk_reply(line)
         n = line.to_i
-
-        @pending_reads += n
-
         return if n == -1
 
-        @pending_reads -= 1
-
         Array.new(n) { read }
-      end
-
-      def use
-        raise ConnectionCorruptedError if @pending_reads > 0
-        yield
       end
     end
   end

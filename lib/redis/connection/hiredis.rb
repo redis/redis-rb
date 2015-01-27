@@ -56,10 +56,6 @@ class Redis
       rescue RuntimeError => err
         raise ProtocolError.new(err.message)
       end
-
-      def use
-        yield
-      end
     end
   end
 end

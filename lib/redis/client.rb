@@ -77,6 +77,8 @@ class Redis
       @connection = nil
       @command_map = {}
 
+      @pending_reads = 0
+
       if options.include?(:sentinels)
         @connector = Connector::Sentinel.new(@options)
       else
@@ -243,12 +245,15 @@ class Redis
 
     def read
       io do
-        connection.read
+        value = connection.read
+        @pending_reads -= 1
+        value
       end
     end
 
     def write(command)
       io do
+        @pending_reads += 1
         connection.write(command)
       end
     end
@@ -315,6 +320,7 @@ class Redis
       @options[:port] = server[:port]
 
       @connection = @options[:driver].connect(server)
+      @pending_reads = 0
     rescue TimeoutError,
            Errno::ECONNREFUSED,
            Errno::EHOSTDOWN,
@@ -326,6 +332,8 @@ class Redis
     end
 
     def ensure_connected
+      disconnect if @pending_reads > 0
+
       attempts = 0
 
       begin
@@ -342,10 +350,7 @@ class Redis
           connect
         end
 
-        connection.use { yield }
-      rescue ConnectionCorruptedError
-        disconnect
-        retry
+        yield
       rescue BaseConnectionError
         disconnect
 
