@@ -24,20 +24,23 @@ module RedisMock
     end
 
     def run
-      loop do
-        session = @server.accept
+      begin
+        loop do
+          session = @server.accept
 
-        begin
-          return if yield(session) == :exit
-        ensure
-          session.close
+          begin
+            return if yield(session) == :exit
+          ensure
+            session.close
+          end
         end
+      rescue => ex
+        $stderr.puts "Error running mock server: #{ex.message}" if VERBOSE
+        $stderr.puts ex.backtrace if VERBOSE
+        retry
+      ensure
+        @server.close
       end
-    rescue => ex
-      $stderr.puts "Error running mock server: #{ex.message}" if VERBOSE
-      $stderr.puts ex.backtrace if VERBOSE
-    ensure
-      @server.close
     end
   end
 
