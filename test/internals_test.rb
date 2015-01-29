@@ -175,7 +175,7 @@ class TestInternals < Test::Unit::TestCase
 
       assert_raise(Redis::TimeoutError) do
         Timeout.timeout(1) do
-          redis = Redis.new(:port => 6383, timeout: 5, write_timeout: 0.2)
+          redis = Redis.new(:port => 6383, :timeout => 5, :write_timeout => 0.2)
           redis.set("foo", "1" * 1048576)
         end
       end
