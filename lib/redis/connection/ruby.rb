@@ -2,6 +2,7 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
+require "timeout"
 
 class Redis
   module Connection
