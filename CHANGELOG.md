@@ -22,6 +22,9 @@
 
 * Added support for `:limit` option for `ZREVRANGEBYLEX`.
 
+* Fixed an issue where connections become inconsistent when using Ruby's
+  Timeout module outside of the client (see #501, #502).
+
 # 3.2.0
 
 * Redis Sentinel support.
