@@ -162,25 +162,25 @@ class TestInternals < Test::Unit::TestCase
 
   driver(:ruby) do
     def test_write_timeout
-      redis_mock(:write_timeout => 0.1, :timeout => 1) do |redis|
-        # This is really disgusting, but this essentially mocks the "super" call in write
-        IO.class_eval do
-          alias_method :old_write, :write
+      t = Thread.new do
+        TCPServer.new("127.0.0.1", 6383)
+      end
 
-          def write(*args)
-            sleep 1
-          end
-        end
-        assert_raise Redis::TimeoutError do
-          redis.rpush("tmp", "test")
+      begin
+        TCPSocket.new("127.0.0.1", 6383)
+      rescue Errno::ECONNREFUSED
+        sleep(0.05)
+        retry
+      end
+
+      assert_raise(Redis::TimeoutError) do
+        Timeout.timeout(1) do
+          redis = Redis.new(:port => 6383, timeout: 5, write_timeout: 0.2)
+          redis.set("foo", "1" * 1048576)
         end
       end
     ensure
-      IO.class_eval do
-        undef_method :write
-        alias_method :write, :old_write
-        undef_method :old_write
-      end
+      t.join if t
     end
   end
 
