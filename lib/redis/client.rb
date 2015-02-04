@@ -317,9 +317,9 @@ class Redis
       server = @connector.resolve.dup
 
       @options[:host] = server[:host]
-      @options[:port] = server[:port]
+      @options[:port] = Integer(server[:port])
 
-      @connection = @options[:driver].connect(server)
+      @connection = @options[:driver].connect(@options)
       @pending_reads = 0
     rescue TimeoutError,
            Errno::ECONNREFUSED,
@@ -470,7 +470,7 @@ class Redis
 
     class Connector
       def initialize(options)
-        @options = options
+        @options = options.dup
       end
 
       def resolve
@@ -484,9 +484,9 @@ class Redis
         def initialize(options)
           super(options)
 
-          @sentinels = options.fetch(:sentinels).dup
-          @role = options.fetch(:role, "master").to_s
-          @master = options[:host]
+          @sentinels = @options.delete(:sentinels).dup
+          @role = @options.fetch(:role, "master").to_s
+          @master = @options[:host]
         end
 
         def check(client)
@@ -521,7 +521,10 @@ class Redis
 
         def sentinel_detect
           @sentinels.each do |sentinel|
-            client = Client.new(:host => sentinel[:host], :port => sentinel[:port], :timeout => 0.3)
+            client = Client.new(@options.merge({
+              :host => sentinel[:host],
+              :port => sentinel[:port]
+            }))
 
             begin
               if result = yield(client)
