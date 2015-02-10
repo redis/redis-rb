@@ -59,8 +59,6 @@ class SentinalTest < Test::Unit::TestCase
       end
     }
 
-    Thread.abort_on_exception = true
-
     RedisMock.start(s1, {}, 26381) do
       RedisMock.start(s2, {}, 26382) do
         redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
