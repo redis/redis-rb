@@ -520,28 +520,25 @@ class Redis
         end
 
         def sentinel_detect
-          3.times do
-            @sentinels.each do |sentinel|
-              client = Client.new(@options.merge({
-                :host => sentinel[:host],
-                :port => sentinel[:port]
-              }))
+          @sentinels.each do |sentinel|
+            client = Client.new(@options.merge({
+              :host => sentinel[:host],
+              :port => sentinel[:port],
+              :reconnect_attempts => 0,
+            }))
 
-              begin
-                if result = yield(client)
-                  # This sentinel responded. Make sure we ask it first next time.
-                  @sentinels.delete(sentinel)
-                  @sentinels.unshift(sentinel)
+            begin
+              if result = yield(client)
+                # This sentinel responded. Make sure we ask it first next time.
+                @sentinels.delete(sentinel)
+                @sentinels.unshift(sentinel)
 
-                  return result
-                end
-              rescue CannotConnectError
-              ensure
-                client.disconnect
+                return result
               end
+            rescue BaseConnectionError
+            ensure
+              client.disconnect
             end
-
-            sleep(0.3)
           end
 
           raise CannotConnectError, "No sentinels available."
