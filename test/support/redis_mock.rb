@@ -24,20 +24,26 @@ module RedisMock
     end
 
     def run
-      loop do
-        session = @server.accept
+      begin
+        loop do
+          session = @server.accept
 
+          begin
+            return if yield(session) == :exit
+          ensure
+            session.close
+          end
+        end
+      rescue => ex
+        $stderr.puts "Error running mock server: #{ex.message}" if VERBOSE
+        $stderr.puts ex.backtrace if VERBOSE
+        retry
+      ensure
         begin
-          return if yield(session) == :exit
-        ensure
-          session.close
+          @server.close
+        rescue IOError
         end
       end
-    rescue => ex
-      $stderr.puts "Error running mock server: #{ex.message}" if VERBOSE
-      $stderr.puts ex.backtrace if VERBOSE
-    ensure
-      @server.close
     end
   end
 
@@ -53,13 +59,13 @@ module RedisMock
   #     # Every connection will be closed immediately
   #   end
   #
-  def self.start_with_handler(blk, options = {})
-    server = Server.new(MOCK_PORT, options)
+  def self.start_with_handler(blk, options = {}, port = MOCK_PORT)
+    server = Server.new(port, options)
 
     begin
       server.start(&blk)
 
-      yield(MOCK_PORT)
+      yield(port)
 
     ensure
       server.shutdown
@@ -75,7 +81,7 @@ module RedisMock
   #     assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
   #   end
   #
-  def self.start(commands, options = {}, &blk)
+  def self.start(commands, options = {}, port = MOCK_PORT, &blk)
     handler = lambda do |session|
       while line = session.gets
         argv = Array.new(line[1..-3].to_i) do
@@ -110,6 +116,6 @@ module RedisMock
       end
     end
 
-    start_with_handler(handler, options, &blk)
+    start_with_handler(handler, options, port, &blk)
   end
 end

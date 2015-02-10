@@ -77,6 +77,8 @@ class Redis
       @connection = nil
       @command_map = {}
 
+      @pending_reads = 0
+
       if options.include?(:sentinels)
         @connector = Connector::Sentinel.new(@options)
       else
@@ -243,12 +245,15 @@ class Redis
 
     def read
       io do
-        connection.read
+        value = connection.read
+        @pending_reads -= 1
+        value
       end
     end
 
     def write(command)
       io do
+        @pending_reads += 1
         connection.write(command)
       end
     end
@@ -312,9 +317,10 @@ class Redis
       server = @connector.resolve.dup
 
       @options[:host] = server[:host]
-      @options[:port] = server[:port]
+      @options[:port] = Integer(server[:port]) if server.include?(:port)
 
-      @connection = @options[:driver].connect(server)
+      @connection = @options[:driver].connect(@options)
+      @pending_reads = 0
     rescue TimeoutError,
            Errno::ECONNREFUSED,
            Errno::EHOSTDOWN,
@@ -326,6 +332,8 @@ class Redis
     end
 
     def ensure_connected
+      disconnect if @pending_reads > 0
+
       attempts = 0
 
       begin
@@ -383,7 +391,7 @@ class Redis
           defaults[:path]   = uri.path
         elsif uri.scheme == "redis"
           # Require the URL to have at least a host
-          raise ArgumentError, "invalid url" unless uri.host
+          raise ArgumentError, "invalid url: #{uri}" unless uri.host
 
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host
@@ -462,7 +470,7 @@ class Redis
 
     class Connector
       def initialize(options)
-        @options = options
+        @options = options.dup
       end
 
       def resolve
@@ -476,9 +484,9 @@ class Redis
         def initialize(options)
           super(options)
 
-          @sentinels = options.fetch(:sentinels).dup
-          @role = options[:role].to_s
-          @master = options[:host]
+          @sentinels = @options.delete(:sentinels).dup
+          @role = @options.fetch(:role, "master").to_s
+          @master = @options[:host]
         end
 
         def check(client)
@@ -493,7 +501,7 @@ class Redis
           end
 
           if role != @role
-            disconnect
+            client.disconnect
             raise ConnectionError, "Instance role mismatch. Expected #{@role}, got #{role}."
           end
         end
@@ -514,7 +522,10 @@ class Redis
         def sentinel_detect
           3.times do
             @sentinels.each do |sentinel|
-              client = Client.new(:host => sentinel[:host], :port => sentinel[:port], :timeout => 0.3)
+              client = Client.new(@options.merge({
+                :host => sentinel[:host],
+                :port => sentinel[:port]
+              }))
 
               begin
                 if result = yield(client)

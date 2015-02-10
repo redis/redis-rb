@@ -105,7 +105,8 @@ and one or more slaves (`mymaster` in the example).
 
 * It is possible to optionally provide a role. The allowed roles are `master`
 and `slave`. When the role is `slave`, the client will try to connect to a
-random slave of the specified master.
+random slave of the specified master. If a role is not specified, the client
+will connect to the master.
 
 * When using the Sentinel support you need to specify a list of sentinels to
 connect to. The list does not need to enumerate all your Sentinel instances,
@@ -170,7 +171,7 @@ end
 Replies to commands in a pipeline can be accessed via the *futures* they
 emit (since redis-rb 3.0). All calls inside a pipeline block return a
 `Future` object, which responds to the `#value` method. When the
-pipeline has succesfully executed, all futures are assigned their
+pipeline has successfully executed, all futures are assigned their
 respective replies and can be used.
 
 ```ruby
@@ -185,6 +186,26 @@ end
 @incr.value
 # => 1
 ```
+
+## Error Handling
+
+In general, if something goes wrong you'll get an exception. For example, if
+it can't connect to the server a `Redis::CannotConnectError` error will be raised.
+
+```ruby
+begin
+  redis.ping
+rescue Exception => e
+  e.inspect
+# => #<Redis::CannotConnectError: Timed out connecting to Redis on 10.0.1.1:6380>
+
+  e.message
+# => Timed out connecting to Redis on 10.0.1.1:6380
+end
+```
+
+See lib/redis/errors.rb for information about what exceptions are possible.
+
 
 ## Expert-Mode Options
 
