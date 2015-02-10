@@ -39,7 +39,10 @@ module RedisMock
         $stderr.puts ex.backtrace if VERBOSE
         retry
       ensure
-        @server.close
+        begin
+          @server.close
+        rescue IOError
+        end
       end
     end
   end
