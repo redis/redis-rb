@@ -317,7 +317,7 @@ class Redis
       server = @connector.resolve.dup
 
       @options[:host] = server[:host]
-      @options[:port] = Integer(server[:port])
+      @options[:port] = Integer(server[:port]) if server.include?(:port)
 
       @connection = @options[:driver].connect(@options)
       @pending_reads = 0
