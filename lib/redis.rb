@@ -54,6 +54,11 @@ class Redis
     @original_client.connected?
   end
 
+  # Disconnect the client as quickly and silently as possible.
+  def disconnect!
+    @original_client.disconnect
+  end
+
   # Authenticate to the server.
   #
   # @param [String] password must match the password specified in the

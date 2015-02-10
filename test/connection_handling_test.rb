@@ -38,6 +38,33 @@ class TestConnectionHandling < Test::Unit::TestCase
     assert !r.client.connected?
   end
 
+  def test_disconnect
+    quit = 0
+
+    commands = {
+      :quit => lambda do
+        quit += 1
+        "+OK"
+      end
+    }
+
+    redis_mock(commands) do |redis|
+      assert_equal 0, quit
+
+      redis.quit
+
+      assert_equal 1, quit
+
+      redis.ping
+
+      redis.disconnect!
+
+      assert_equal 1, quit
+
+      assert !redis.connected?
+    end
+  end
+
   def test_shutdown
     commands = {
       :shutdown => lambda { :exit }
