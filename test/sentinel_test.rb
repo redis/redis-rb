@@ -109,4 +109,42 @@ class SentinalTest < Test::Unit::TestCase
     assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
     assert_equal commands[:s2], [%w[get-master-addr-by-name master1], %w[get-master-addr-by-name master1]]
   end
+
+  def test_sentinel_with_auth
+    sentinels = [{:host => "127.0.0.1", :port => 26381}]
+
+    commands = {
+      :s1 => [],
+      :m1 => []
+    }
+
+    sentinel = {
+      :sentinel => lambda do |command, *args|
+        commands[:s1] << [command, *args]
+        ["127.0.0.1", "6382"]
+      end
+    }
+
+    master = {
+      :auth => lambda do |pass|
+        commands[:m1] << ["auth", pass]
+        "+OK"
+      end,
+      :role => lambda do
+        commands[:m1] << ["role"]
+        ["master"]
+      end
+    }
+
+    RedisMock.start(master, {}, 6382) do
+      RedisMock.start(sentinel, {}, 26381) do
+        redis = Redis.new(:url => "redis://:foo@master1", :sentinels => sentinels, :role => :master)
+
+        assert redis.ping
+      end
+    end
+
+    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
+    assert_equal commands[:m1], [%w[auth foo], %w[role]]
+  end
 end
