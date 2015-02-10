@@ -147,4 +147,32 @@ class SentinalTest < Test::Unit::TestCase
     assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
     assert_equal commands[:m1], [%w[auth foo], %w[role]]
   end
+
+  def test_sentinel_role_mismatch
+    sentinels = [{:host => "127.0.0.1", :port => 26381}]
+
+    sentinel = {
+      :sentinel => lambda do |command, *args|
+        ["127.0.0.1", "6382"]
+      end
+    }
+
+    master = {
+      :role => lambda do
+        ["slave"]
+      end
+    }
+
+    ex = assert_raise(Redis::ConnectionError) do
+      RedisMock.start(master, {}, 6382) do
+        RedisMock.start(sentinel, {}, 26381) do
+          redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+
+          assert redis.ping
+        end
+      end
+    end
+
+    assert_match /Instance role mismatch/, ex.message
+  end
 end

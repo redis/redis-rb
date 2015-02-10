@@ -501,7 +501,7 @@ class Redis
           end
 
           if role != @role
-            disconnect
+            client.disconnect
             raise ConnectionError, "Instance role mismatch. Expected #{@role}, got #{role}."
           end
         end
