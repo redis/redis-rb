@@ -162,16 +162,7 @@ class TestInternals < Test::Unit::TestCase
 
   driver(:ruby) do
     def test_write_timeout
-      t = Thread.new do
-        TCPServer.new("127.0.0.1", 6383)
-      end
-
-      begin
-        TCPSocket.new("127.0.0.1", 6383)
-      rescue Errno::ECONNREFUSED
-        sleep(0.05)
-        retry
-      end
+      TCPServer.new("127.0.0.1", 6383)
 
       assert_raise(Redis::TimeoutError) do
         Timeout.timeout(1) do
@@ -179,8 +170,6 @@ class TestInternals < Test::Unit::TestCase
           redis.set("foo", "1" * 1048576)
         end
       end
-    ensure
-      t.join if t
     end
   end
 
