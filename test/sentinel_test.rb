@@ -181,7 +181,7 @@ class SentinalTest < Test::Unit::TestCase
       end
     end
 
-    assert_match /Instance role mismatch/, ex.message
+    assert_match(/Instance role mismatch/, ex.message)
   end
 
   def test_sentinel_retries
@@ -236,6 +236,6 @@ class SentinalTest < Test::Unit::TestCase
       end
     end
 
-    assert_match /No sentinels available/, ex.message
+    assert_match(/No sentinels available/, ex.message)
   end
 end
