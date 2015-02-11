@@ -32,6 +32,8 @@
 
 * Fixed Sentinel support when using authentication and databases.
 
+* Improved resilience when trying to contact sentinels.
+
 # 3.2.0
 
 * Redis Sentinel support.
