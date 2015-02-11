@@ -59,13 +59,13 @@ module RedisMock
   #     # Every connection will be closed immediately
   #   end
   #
-  def self.start_with_handler(blk, options = {})
-    server = Server.new(MOCK_PORT, options)
+  def self.start_with_handler(blk, options = {}, port = MOCK_PORT)
+    server = Server.new(port, options)
 
     begin
       server.start(&blk)
 
-      yield(MOCK_PORT)
+      yield(port)
 
     ensure
       server.shutdown
@@ -81,7 +81,7 @@ module RedisMock
   #     assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
   #   end
   #
-  def self.start(commands, options = {}, &blk)
+  def self.start(commands, options = {}, port = MOCK_PORT, &blk)
     handler = lambda do |session|
       while line = session.gets
         argv = Array.new(line[1..-3].to_i) do
@@ -116,6 +116,6 @@ module RedisMock
       end
     end
 
-    start_with_handler(handler, options, &blk)
+    start_with_handler(handler, options, port, &blk)
   end
 end
