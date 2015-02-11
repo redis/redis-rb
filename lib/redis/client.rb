@@ -366,6 +366,8 @@ class Redis
     end
 
     def _parse_options(options)
+      return options if options[:_parsed]
+
       defaults = DEFAULTS.dup
       options = options.dup
 
@@ -450,6 +452,8 @@ class Redis
         end
       end
 
+      options[:_parsed] = true
+
       options
     end
 
@@ -485,6 +489,7 @@ class Redis
           super(options)
 
           @sentinels = @options.delete(:sentinels).dup
+          @options.delete(:password)
           @role = @options.fetch(:role, "master").to_s
           @master = @options[:host]
         end

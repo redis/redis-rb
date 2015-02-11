@@ -119,6 +119,10 @@ class SentinalTest < Test::Unit::TestCase
     }
 
     sentinel = {
+      :auth => lambda do |pass|
+        commands[:s1] << ["auth", pass]
+        "-ERR unknown command 'auth'"
+      end,
       :sentinel => lambda do |command, *args|
         commands[:s1] << [command, *args]
         ["127.0.0.1", "6382"]
