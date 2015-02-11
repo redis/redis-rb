@@ -488,8 +488,10 @@ class Redis
         def initialize(options)
           super(options)
 
+          @options[:password] = DEFAULTS.fetch(:password)
+          @options[:db] = DEFAULTS.fetch(:db)
+
           @sentinels = @options.delete(:sentinels).dup
-          @options.delete(:password)
           @role = @options.fetch(:role, "master").to_s
           @master = @options[:host]
         end
