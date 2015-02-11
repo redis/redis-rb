@@ -144,8 +144,8 @@ class SentinalTest < Test::Unit::TestCase
       end
     end
 
-    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
-    assert_equal commands[:m1], [%w[auth foo], %w[role]]
+    assert_equal [%w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[auth foo], %w[role]], commands[:m1]
   end
 
   def test_sentinel_role_mismatch
