@@ -183,4 +183,59 @@ class SentinalTest < Test::Unit::TestCase
 
     assert_match /Instance role mismatch/, ex.message
   end
+
+  def test_sentinel_retries
+    sentinels = [{:host => "127.0.0.1", :port => 26381},
+                 {:host => "127.0.0.1", :port => 26382}]
+
+    connections = []
+
+    handler = lambda do |id|
+      {
+        :sentinel => lambda do |command, *args|
+          connections << id
+
+          if connections.count(id) < 2
+            :close
+          else
+            ["127.0.0.1", "6382"]
+          end
+        end
+      }
+    end
+
+    master = {
+      :role => lambda do
+        ["master"]
+      end
+    }
+
+    RedisMock.start(master, {}, 6382) do
+      RedisMock.start(handler.call(:s1), {}, 26381) do
+        RedisMock.start(handler.call(:s2), {}, 26382) do
+          redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 1)
+
+          assert redis.ping
+        end
+      end
+    end
+
+    assert_equal [:s1, :s2, :s1], connections
+
+    connections.clear
+
+    ex = assert_raise(Redis::CannotConnectError) do
+      RedisMock.start(master, {}, 6382) do
+        RedisMock.start(handler.call(:s1), {}, 26381) do
+          RedisMock.start(handler.call(:s2), {}, 26382) do
+            redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 0)
+
+            assert redis.ping
+          end
+        end
+      end
+    end
+
+    assert_match /No sentinels available/, ex.message
+  end
 end

@@ -530,7 +530,8 @@ class Redis
           @sentinels.each do |sentinel|
             client = Client.new(@options.merge({
               :host => sentinel[:host],
-              :port => sentinel[:port]
+              :port => sentinel[:port],
+              :reconnect_attempts => 0,
             }))
 
             begin
@@ -541,12 +542,13 @@ class Redis
 
                 return result
               end
+            rescue BaseConnectionError
             ensure
               client.disconnect
             end
           end
 
-          return nil
+          raise CannotConnectError, "No sentinels available."
         end
 
         def resolve_master
