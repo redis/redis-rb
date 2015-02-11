@@ -25,6 +25,13 @@
 * Fixed an issue where connections become inconsistent when using Ruby's
   Timeout module outside of the client (see #501, #502).
 
+* Added `Redis#disconnect!` as a public-API way of disconnecting the client
+  (without needing to use `QUIT`). See #506.
+
+* Fixed Sentinel support with Hiredis.
+
+* Fixed Sentinel support when using authentication and databases.
+
 # 3.2.0
 
 * Redis Sentinel support.
