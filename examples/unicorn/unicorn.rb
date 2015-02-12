@@ -16,5 +16,5 @@ worker_processes 3
 # worker processes.
 
 after_fork do |server, worker|
-  Redis.current.quit
+  Redis.current.disconnect!
 end
