@@ -56,6 +56,10 @@ class Redis
     end
 
     def finish(replies, &blk)
+      unless replies.size == futures.size
+        raise ProtocolError, "#{futures.size} commands were enqueued, but only #{replies.size} responses were received"
+      end
+
       if blk
         futures.each_with_index.map do |future, i|
           future._set(blk.call(replies[i]))
@@ -68,8 +72,8 @@ class Redis
     end
 
     class Multi < self
-      def finish(replies)
-        exec = replies.last
+      def finish(replies_and_exec)
+        *replies, exec = replies_and_exec
 
         return if exec.nil? # The transaction failed because of WATCH.
 
@@ -77,8 +81,10 @@ class Redis
         raise exec if exec.is_a?(CommandError)
 
         if exec.size < futures.size
-          # Some command wasn't recognized by Redis.
-          raise replies.detect { |r| r.is_a?(CommandError) }
+          if error = replies.detect { |r| r.is_a?(CommandError) }
+            # Some command wasn't recognized by Redis.
+            raise error
+          end
         end
 
         super(exec) do |reply|

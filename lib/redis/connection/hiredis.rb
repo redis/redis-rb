@@ -57,7 +57,7 @@ class Redis
       rescue Errno::EAGAIN
         raise TimeoutError
       rescue RuntimeError => err
-        raise ProtocolError.new(err.message)
+        raise ProtocolError.invalid_reply_type(err.message)
       end
     end
   end

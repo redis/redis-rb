@@ -243,4 +243,35 @@ class TestPipeliningCommands < Test::Unit::TestCase
 
     assert_equal 3, r._client.db
   end
+
+  class LazyString
+    def initialize(redis)
+      @redis = redis
+    end
+
+    def to_s
+      @redis.hgetall('foo').inspect
+    end
+  end
+
+  def test_pipeline_race_condition
+    ttl = LazyString.new(r)
+    error = assert_raises(Redis::ProtocolError) do
+      r.pipelined do
+        r.expire('bar', ttl)
+      end
+    end
+    assert_equal '2 commands were enqueued, but only 1 responses were received', error.message
+  end
+
+  def test_multi_race_condition
+    ttl = LazyString.new(r)
+
+    error = assert_raises(Redis::ProtocolError) do
+      r.multi do
+        r.expire('bar', ttl)
+      end
+    end
+    assert_equal '2 commands were enqueued, but only 1 responses were received', error.message
+  end
 end

@@ -33,7 +33,7 @@ class Redis
           begin
             reply = @reader.gets
           rescue RuntimeError => err
-            @req.fail [:error, ProtocolError.new(err.message)]
+            @req.fail [:error, ProtocolError.invalid_reply_type(err.message)]
             break
           end
 

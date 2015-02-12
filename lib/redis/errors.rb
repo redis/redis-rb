@@ -5,8 +5,8 @@ class Redis
 
   # Raised by the connection when a protocol error occurs.
   class ProtocolError < BaseError
-    def initialize(reply_type)
-      super(<<-EOS.gsub(/(?:^|\n)\s*/, " "))
+    def self.invalid_reply_type(reply_type)
+      new(<<-EOS.gsub(/(?:^|\n)\s*/, " "))
         Got '#{reply_type}' as initial reply byte.
         If you're in a forking environment, such as Unicorn, you need to
         connect to Redis after forking.

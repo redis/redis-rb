@@ -375,7 +375,7 @@ class Redis
         when COLON    then format_integer_reply(line)
         when DOLLAR   then format_bulk_reply(line)
         when ASTERISK then format_multi_bulk_reply(line)
-        else raise ProtocolError.new(reply_type)
+        else raise ProtocolError.invalid_reply_type(reply_type)
         end
       end
 
