@@ -239,4 +239,28 @@ class TestPipeliningCommands < Test::Unit::TestCase
 
     assert_equal 3, r.client.db
   end
+
+  class LazyString
+    def initialize(redis)
+      @redis = redis
+    end
+
+    def to_s
+      @redis.hgetall('foo').inspect
+    end
+  end
+
+  def test_pipeline_race_condition
+    ttl = LazyString.new(r)
+    r.pipelined do
+      r.expire('bar', ttl)
+    end
+  end
+
+  def test_multi_race_condition
+    ttl = LazyString.new(r)
+    r.multi do
+      r.expire('bar', ttl)
+    end
+  end
 end

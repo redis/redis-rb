@@ -122,7 +122,7 @@ class Redis
     end
 
     def _command
-      @command
+      @command.map(&:to_s)
     end
 
     def value
