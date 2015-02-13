@@ -94,6 +94,7 @@ class Redis
         establish_connection
         call [:auth, password] if password
         call [:select, db] if db != 0
+        call [:client, :setname, @options[:id]] if @options[:id]
         @connector.check(self)
       end
 
