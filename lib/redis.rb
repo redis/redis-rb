@@ -385,7 +385,7 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def restore(key, ttl, serialized_value)
     synchronize do |client|
       client.call([:restore, key, ttl, serialized_value])
@@ -690,7 +690,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def setex(key, ttl, value)
     synchronize do |client|
       client.call([:setex, key, ttl, value.to_s])
@@ -702,7 +702,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def psetex(key, ttl, value)
     synchronize do |client|
       client.call([:psetex, key, ttl, value.to_s])
@@ -727,7 +727,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Array<String>] args array of keys and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_mset
   def mset(*args)
@@ -743,7 +743,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Hash] hash keys mapping to values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mset
   def mapped_mset(hash)
@@ -1867,7 +1867,7 @@ class Redis
   #
   # @param [String] key
   # @param [Array<String>] attrs array of fields and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
@@ -1884,7 +1884,7 @@ class Redis
   #
   # @param [String] key
   # @param [Hash] a non-empty hash with fields mapping to values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #hmset
   def mapped_hmset(key, hash)
@@ -2207,7 +2207,7 @@ class Redis
   #
   # Only call this method when `#multi` was called **without** a block.
   #
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #multi
   # @see #exec
