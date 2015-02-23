@@ -968,7 +968,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String, Array] string value, or array of string values to push
+  # @param [String, Array] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
@@ -1883,7 +1883,7 @@ class Redis
   #     # => "OK"
   #
   # @param [String] key
-  # @param [Hash] a non-empty hash with fields mapping to values
+  # @param [Hash] hash a non-empty hash with fields mapping to values
   # @return [String] `"OK"`
   #
   # @see #hmset
@@ -2355,7 +2355,7 @@ class Redis
   #   redis.scan(4, :match => "key:1?")
   #     # => ["92", ["key:13", "key:18"]]
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2395,7 +2395,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.hscan("hash", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2433,7 +2433,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.zscan("zset", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2472,7 +2472,7 @@ class Redis
   # @example Retrieve the first batch of keys in a set
   #   redis.sscan("set", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
