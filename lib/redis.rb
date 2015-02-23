@@ -26,6 +26,26 @@ class Redis
 
   include MonitorMixin
 
+  # Create a new client instance
+  #
+  # @param [Hash] options
+  # @option options [String] :url (value of the environment variable REDIS_URL) a Redis url, for a TCP connection: `redis://:[password]@[hostname]:[port]/[db]` (password, port and database are optional), for a unix socket connection: `unix://[path to Redis socket]`. This overrides all other options.
+  # @option options [String] :host ("127.0.0.1") server hostname
+  # @option options [Fixnum] :port (6379) server port
+  # @option options [String] :path path to server socket (overrides host and port)
+  # @option options [Float] :timeout (5.0) timeout in seconds
+  # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
+  # @option options [String] :password Password to authenticate against server
+  # @option options [Fixnum] :db (0) Database to select after initial connect
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`
+  # @option options [String] :id ID for the client connection, assigns name to current connection by sending `CLIENT SETNAME`
+  # @option options [Hash, Fixnum] :tcp_keepalive Keepalive values, if Fixnum `intvl` and `probe` are calculated based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Fixnum
+  # @option options [Fixnum] :reconnect_attempts Number of attempts trying to connect
+  # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [Array] :sentinels List of sentinels to contact
+  # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
+  #
+  # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
     @original_client = @client = Client.new(options)
