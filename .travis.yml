@@ -6,6 +6,7 @@ rvm:
   - 2.1
   - jruby-18mode
   - jruby-19mode
+  - rbx-2
 
 gemfile: ".travis/Gemfile"
 
@@ -45,6 +46,8 @@ matrix:
     - rvm: jruby-19mode
       gemfile: .travis/Gemfile
       env: conn=synchrony REDIS_BRANCH=2.8
+  allow_failures:
+    - rvm: rbx-2
 
 notifications:
   irc:
