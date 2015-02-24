@@ -37,7 +37,7 @@ class Redis
   # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
   # @option options [String] :password Password to authenticate against server
   # @option options [Fixnum] :db (0) Database to select after initial connect
-  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
   # @option options [String] :id ID for the client connection, assigns name to current connection by sending `CLIENT SETNAME`
   # @option options [Hash, Fixnum] :tcp_keepalive Keepalive values, if Fixnum `intvl` and `probe` are calculated based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Fixnum
   # @option options [Fixnum] :reconnect_attempts Number of attempts trying to connect
