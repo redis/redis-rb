@@ -17,6 +17,19 @@ class TestConnectionHandling < Test::Unit::TestCase
     end
   end
 
+  def test_id
+    commands = {
+      :client => lambda { |cmd, name| $name = [cmd, name]; "+OK" },
+      :ping  => lambda { "+PONG" },
+    }
+
+    redis_mock(commands, :id => "client-name") do |redis|
+      assert_equal "PONG", redis.ping
+    end
+
+    assert_equal ["setname","client-name"], $name
+  end
+
   def test_ping
     assert_equal "PONG", r.ping
   end
