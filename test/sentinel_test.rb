@@ -7,33 +7,42 @@ class SentinalTest < Test::Unit::TestCase
   include Helper::Client
 
   def test_sentinel_connection
-    sentinels = [{:host => "127.0.0.1", :port => 26381},
-                 {:host => "127.0.0.1", :port => 26382}]
+    sentinels_symbols = [{:host => "127.0.0.1", :port => 26381},
+                         {:host => "127.0.0.1", :port => 26382}]
 
-    commands = {
-      :s1 => [],
-      :s2 => [],
-    }
+    sentinels_strings = [{"host" => "127.0.0.1", "port" => 26381},
+                         {"host" => "127.0.0.1", "port" => 26382}]
 
-    handler = lambda do |id|
-      {
-        :sentinel => lambda do |command, *args|
-          commands[id] << [command, *args]
-          ["127.0.0.1", "6381"]
-        end
+    # test options with symbol or string keys
+    [
+      { :url  => "redis://master1", :sentinels  => sentinels_symbols, :role  => :master  },
+      { "url" => "redis://master1", "sentinels" => sentinels_strings, "role" => "master" }
+    ].each do |options|
+      commands = {
+        :s1 => [],
+        :s2 => [],
       }
-    end
 
-    RedisMock.start(handler.call(:s1), {}, 26381) do
-      RedisMock.start(handler.call(:s2), {}, 26382) do
-        redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
-
-        assert redis.ping
+      handler = lambda do |id|
+        {
+          :sentinel => lambda do |command, *args|
+            commands[id] << [command, *args]
+            ["127.0.0.1", "6381"]
+          end
+        }
       end
-    end
 
-    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
-    assert_equal commands[:s2], []
+      RedisMock.start(handler.call(:s1), {}, 26381) do
+        RedisMock.start(handler.call(:s2), {}, 26382) do
+          redis = Redis.new(options)
+
+          assert redis.ping
+        end
+      end
+
+      assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
+      assert_equal commands[:s2], []
+    end
   end
 
   def test_sentinel_failover

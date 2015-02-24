@@ -79,7 +79,7 @@ class Redis
 
       @pending_reads = 0
 
-      if options.include?(:sentinels)
+      if @options.include?(:sentinels)
         @connector = Connector::Sentinel.new(@options)
       else
         @connector = Connector.new(@options)
@@ -378,12 +378,26 @@ class Redis
         end
 
         # Symbolize only keys that are needed
-        options[key] = options[key.to_s] if options.has_key?(key.to_s)
+        options[key] = options.delete(key.to_s) if options.has_key?(key.to_s)
       end
 
-      url = options[:url] || defaults[:url]
+      # Symbolize keys related to sentinel config
+      ["sentinels", "role"].each do |k|
+        options[k.to_sym] = options.delete(k) if options.has_key?(k)
+      end
+      
+      if options.has_key?(:sentinels)
+        # Dup array and hashes + symbolize keys in hashes
+        options[:sentinels] = options[:sentinels].map do |h|
+          h = h.dup
+          h.keys.each { |k| h[k.to_sym] = h.delete(k) if k.is_a?(String) }
+          h
+        end
+      end
 
       # Override defaults from URL if given
+      url = options[:url] || defaults[:url]
+
       if url
         require "uri"
 
