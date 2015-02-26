@@ -114,6 +114,8 @@ but a few so that if one is down the client will try the next one. The client
 is able to remember the last Sentinel that was able to reply correctly and will
 use it for the next requests.
 
+*Note:* If you are using the [redis-sentinel gem](https://github.com/flyerhzm/redis-sentinel) it should be removed to avoid conflicts.
+
 ## Storing objects
 
 Redis only stores strings as values. If you want to store an object, you
