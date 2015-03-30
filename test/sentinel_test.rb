@@ -26,13 +26,13 @@ class SentinalTest < Test::Unit::TestCase
 
     RedisMock.start(handler.call(:s1), {}, 26381) do
       RedisMock.start(handler.call(:s2), {}, 26382) do
-        redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+        redis = Redis.new(:url => "redis://master_1", :sentinels => sentinels, :role => :master)
 
         assert redis.ping
       end
     end
 
-    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
+    assert_equal commands[:s1], [%w[get-master-addr-by-name master_1]]
     assert_equal commands[:s2], []
   end
 
@@ -61,14 +61,14 @@ class SentinalTest < Test::Unit::TestCase
 
     RedisMock.start(s1, {}, 26381) do
       RedisMock.start(s2, {}, 26382) do
-        redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+        redis = Redis.new(:url => "redis://master_1", :sentinels => sentinels, :role => :master)
 
         assert redis.ping
       end
     end
 
-    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
-    assert_equal commands[:s2], [%w[get-master-addr-by-name master1]]
+    assert_equal commands[:s1], [%w[get-master-addr-by-name master_1]]
+    assert_equal commands[:s2], [%w[get-master-addr-by-name master_1]]
   end
 
   def test_sentinel_failover_prioritize_healthy_sentinel
@@ -96,7 +96,7 @@ class SentinalTest < Test::Unit::TestCase
 
     RedisMock.start(s1, {}, 26381) do
       RedisMock.start(s2, {}, 26382) do
-        redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+        redis = Redis.new(:url => "redis://master_1", :sentinels => sentinels, :role => :master)
 
         assert redis.ping
 
@@ -106,8 +106,8 @@ class SentinalTest < Test::Unit::TestCase
       end
     end
 
-    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
-    assert_equal commands[:s2], [%w[get-master-addr-by-name master1], %w[get-master-addr-by-name master1]]
+    assert_equal commands[:s1], [%w[get-master-addr-by-name master_1]]
+    assert_equal commands[:s2], [%w[get-master-addr-by-name master_1], %w[get-master-addr-by-name master_1]]
   end
 
   def test_sentinel_with_non_sentinel_options
@@ -146,13 +146,13 @@ class SentinalTest < Test::Unit::TestCase
 
     RedisMock.start(master, {}, 6382) do
       RedisMock.start(sentinel, {}, 26381) do
-        redis = Redis.new(:url => "redis://:foo@master1/15", :sentinels => sentinels, :role => :master)
+        redis = Redis.new(:url => "redis://:foo@master_1/15", :sentinels => sentinels, :role => :master)
 
         assert redis.ping
       end
     end
 
-    assert_equal [%w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[get-master-addr-by-name master_1]], commands[:s1]
     assert_equal [%w[auth foo], %w[role]], commands[:m1]
   end
 
@@ -174,7 +174,7 @@ class SentinalTest < Test::Unit::TestCase
     ex = assert_raise(Redis::ConnectionError) do
       RedisMock.start(master, {}, 6382) do
         RedisMock.start(sentinel, {}, 26381) do
-          redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+          redis = Redis.new(:url => "redis://master_1", :sentinels => sentinels, :role => :master)
 
           assert redis.ping
         end
@@ -213,7 +213,7 @@ class SentinalTest < Test::Unit::TestCase
     RedisMock.start(master, {}, 6382) do
       RedisMock.start(handler.call(:s1), {}, 26381) do
         RedisMock.start(handler.call(:s2), {}, 26382) do
-          redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 1)
+          redis = Redis.new(:url => "redis://master_1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 1)
 
           assert redis.ping
         end
@@ -228,7 +228,7 @@ class SentinalTest < Test::Unit::TestCase
       RedisMock.start(master, {}, 6382) do
         RedisMock.start(handler.call(:s1), {}, 26381) do
           RedisMock.start(handler.call(:s2), {}, 26382) do
-            redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 0)
+            redis = Redis.new(:url => "redis://master_1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 0)
 
             assert redis.ping
           end
