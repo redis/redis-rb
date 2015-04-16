@@ -298,7 +298,7 @@ all contributors)
 * Matthew Clark
 * Brian McKinney
 * Luca Guidi
-* Salvatore Sanfillipo
+* Salvatore Sanfilippo
 * Chris Wanstrath
 * Damian Janowski
 * Michel Martens
