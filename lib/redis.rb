@@ -56,7 +56,7 @@ class Redis
 
   # Test whether or not the redis server is up
   def connection_alive?
-    ping
+    without_reconnect { ping }
     connected?
   rescue Redis::CannotConnectError
     false
