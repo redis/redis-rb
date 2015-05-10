@@ -58,7 +58,7 @@ class Redis
   def connection_alive?
     without_reconnect { ping }
     connected?
-  rescue Redis::CannotConnectError
+  rescue Redis::CannotConnectError, Redis::ConnectionError
     false
   end
 
