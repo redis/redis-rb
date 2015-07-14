@@ -23,6 +23,8 @@ most important changes, as well as a full list of changes.
 
 ## Getting started
 
+Add `gem 'redis'` to Gemfile, run `bundle install`
+
 As of version 2.0 this client only targets Redis version 2.0 and higher.
 You can use an older version of this client if you need to interface
 with a Redis instance older than 2.0, but this is no longer supported.
