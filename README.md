@@ -23,7 +23,19 @@ most important changes, as well as a full list of changes.
 
 ## Getting started
 
-Add `gem 'redis'` to Gemfile, run `bundle install`
+To install **redis-rb**, run the following command:
+
+```
+  gem install redis
+```
+
+Or if you are using **bundler**, add 
+
+```
+  gem 'redis', '~>3.2'
+```
+
+to your `Gemfile`, and run `bundle install`
 
 As of version 2.0 this client only targets Redis version 2.0 and higher.
 You can use an older version of this client if you need to interface
