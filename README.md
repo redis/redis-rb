@@ -43,11 +43,13 @@ server or a different port, try:
 redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15)
 ```
 
-You can also specify connection options as an URL:
+You can also specify connection options as a [`redis://` URL][redis-url]:
 
 ```ruby
 redis = Redis.new(:url => "redis://:p4ssw0rd@10.0.1.1:6380/15")
 ```
+
+[redis-url]: http://www.iana.org/assignments/uri-schemes/prov/redis
 
 By default, the client will try to read the `REDIS_URL` environment variable
 and use that as URL to connect to. The above statement is therefore equivalent
