@@ -14,44 +14,44 @@ module Lint
       target_version "3.0.2" do
         # XX option
         assert_equal 0, r.zcard("foo")
-        assert_equal false, r.zadd("foo", 1, "s1", xx: true)
+        assert_equal false, r.zadd("foo", 1, "s1", :xx => true)
         r.zadd("foo", 1, "s1")
-        assert_equal false, r.zadd("foo", 2, "s1", xx: true)
+        assert_equal false, r.zadd("foo", 2, "s1", :xx => true)
         assert_equal 2, r.zscore("foo", "s1")
         r.del "foo"
 
         # NX option
         assert_equal 0, r.zcard("foo")
-        assert_equal true, r.zadd("foo", 1, "s1", nx: true)
-        assert_equal false, r.zadd("foo", 2, "s1", nx: true)
+        assert_equal true, r.zadd("foo", 1, "s1", :nx => true)
+        assert_equal false, r.zadd("foo", 2, "s1", :nx => true)
         assert_equal 1, r.zscore("foo", "s1")
         assert_equal 1, r.zcard("foo")
         r.del "foo"
 
         # CH option
         assert_equal 0, r.zcard("foo")
-        assert_equal true, r.zadd("foo", 1, "s1", ch: true)
-        assert_equal false, r.zadd("foo", 1, "s1", ch: true)
-        assert_equal true, r.zadd("foo", 2, "s1", ch: true)
+        assert_equal true, r.zadd("foo", 1, "s1", :ch => true)
+        assert_equal false, r.zadd("foo", 1, "s1", :ch => true)
+        assert_equal true, r.zadd("foo", 2, "s1", :ch => true)
         assert_equal 1, r.zcard("foo")
         r.del "foo"
 
         # INCR option
-        rv = r.zadd("foo", 1, "s1", incr: true)
+        rv = r.zadd("foo", 1, "s1", :incr => true)
         assert_equal 1.0, rv
 
-        rv = r.zadd("foo", 10, "s1", incr: true)
+        rv = r.zadd("foo", 10, "s1", :incr => true)
         assert_equal 11.0, rv
 
-        rv = r.zadd("bar", "-inf", "s1", incr: true)
+        rv = r.zadd("bar", "-inf", "s1", :incr => true)
         assert_equal(-Infinity, rv)
 
-        rv = r.zadd("bar", "+inf", "s2", incr: true)
+        rv = r.zadd("bar", "+inf", "s2", :incr => true)
         assert_equal(+Infinity, rv)
         r.del "foo", "bar"
 
         # Incompatible options combinations
-        assert_raise(ArgumentError) { r.zadd("foo", 1, "s1", xx: true, nx: true) }
+        assert_raise(ArgumentError) { r.zadd("foo", 1, "s1", :xx => true, :nx => true) }
       end
     end
 
@@ -79,9 +79,9 @@ module Lint
       target_version "3.0.2" do
         # XX option
         assert_equal 0, r.zcard("foo")
-        assert_equal 0, r.zadd("foo", [1, "s1", 2, "s2"], xx: true)
+        assert_equal 0, r.zadd("foo", [1, "s1", 2, "s2"], :xx => true)
         r.zadd("foo", [1, "s1", 2, "s2"])
-        assert_equal 0, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], xx: true)
+        assert_equal 0, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], :xx => true)
         assert_equal 2, r.zscore("foo", "s1")
         assert_equal 3, r.zscore("foo", "s2")
         assert_equal nil, r.zscore("foo", "s3")
@@ -90,8 +90,8 @@ module Lint
 
         # NX option
         assert_equal 0, r.zcard("foo")
-        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], nx: true)
-        assert_equal 1, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], nx: true)
+        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], :nx => true)
+        assert_equal 1, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], :nx => true)
         assert_equal 1, r.zscore("foo", "s1")
         assert_equal 2, r.zscore("foo", "s2")
         assert_equal 4, r.zscore("foo", "s3")
@@ -100,16 +100,16 @@ module Lint
 
         # CH option
         assert_equal 0, r.zcard("foo")
-        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], ch: true)
-        assert_equal 2, r.zadd("foo", [1, "s1", 3, "s2", 4, "s3"], ch: true)
+        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], :ch => true)
+        assert_equal 2, r.zadd("foo", [1, "s1", 3, "s2", 4, "s3"], :ch => true)
         assert_equal 3, r.zcard("foo")
         r.del "foo"
 
         # INCR option
-        assert_raise(ArgumentError) { r.zadd("foo", [1, "s1"], incr: true) }
+        assert_raise(ArgumentError) { r.zadd("foo", [1, "s1"], :incr => true) }
 
         # Incompatible options combinations
-        assert_raise(ArgumentError) { r.zadd("foo", [1, "s1"], xx: true, nx: true) }
+        assert_raise(ArgumentError) { r.zadd("foo", [1, "s1"], :xx => true, :nx => true) }
       end
     end
 

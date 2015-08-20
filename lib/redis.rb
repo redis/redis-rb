@@ -1429,9 +1429,11 @@ class Redis
   #   pairs that were **added** to the sorted set.
   #   - `Float` when option :incr is specified, holding the score of the member
   #   after incrementing it.
-  def zadd(key, *args, options)
+  def zadd(key, *args) #, options
     zadd_options = []
-    if options.is_a?(Hash)
+    if args.last.is_a?(Hash)
+      options = args.pop
+
       nx = options[:nx]
       zadd_options << "NX" if nx
 
@@ -1445,8 +1447,6 @@ class Redis
 
       incr = options[:incr]
       zadd_options << "INCR" if incr
-    else
-      args << options
     end
 
     synchronize do |client|
@@ -1456,7 +1456,7 @@ class Redis
         client.call([:zadd, key] + zadd_options + args[0])
       elsif args.size == 2
         # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key, *zadd_options, args[0], args[1]], &(incr ? _floatify : _boolify))
+        client.call([:zadd, key] + zadd_options + [args[0], args[1]], &(incr ? _floatify : _boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
