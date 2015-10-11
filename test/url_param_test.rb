@@ -129,4 +129,10 @@ class TestUrlParam < Test::Unit::TestCase
 
     ENV.delete("REDIS_URL")
   end
+
+  def test_defaults_to_localhost
+    redis = Redis.new(:url => "redis:///")
+
+    assert_equal "127.0.0.1", redis.client.host
+  end
 end

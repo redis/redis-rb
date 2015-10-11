@@ -392,11 +392,8 @@ class Redis
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
         elsif uri.scheme == "redis"
-          # Require the URL to have at least a host
-          raise ArgumentError, "invalid url: #{uri}" unless uri.host
-
           defaults[:scheme]   = uri.scheme
-          defaults[:host]     = uri.host
+          defaults[:host]     = uri.host if uri.host
           defaults[:port]     = uri.port if uri.port
           defaults[:password] = CGI.unescape(uri.password) if uri.password
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
