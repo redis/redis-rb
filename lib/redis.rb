@@ -1440,8 +1440,6 @@ class Redis
       xx = options[:xx]
       zadd_options << "XX" if xx
 
-      raise ArgumentError, "XX and NX options at the same time are not compatible" if nx && xx
-
       ch = options[:ch]
       zadd_options << "CH" if ch
 
@@ -1451,12 +1449,11 @@ class Redis
 
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
-        # Variadic: return integer
-        raise ArgumentError, "only one score-element pair can be specified with the :incr option" if incr
-        client.call([:zadd, key] + zadd_options + args[0])
+        # Variadic: return float if INCR, integer if !INCR
+        client.call([:zadd, key] + zadd_options + args[0], &(incr ? _floatify : _identity))
       elsif args.size == 2
         # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key] + zadd_options + [args[0], args[1]], &(incr ? _floatify : _boolify))
+        client.call([:zadd, key] + zadd_options + args, &(incr ? _floatify : _boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
@@ -2645,6 +2642,12 @@ private
 
   def _pairify(array)
     array.each_slice(2).to_a
+  end
+
+  def _identity
+    lambda { |value|
+      value
+    }
   end
 
   def _subscription(method, channels, block)

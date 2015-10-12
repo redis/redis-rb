@@ -37,21 +37,14 @@ module Lint
         r.del "foo"
 
         # INCR option
-        rv = r.zadd("foo", 1, "s1", :incr => true)
-        assert_equal 1.0, rv
-
-        rv = r.zadd("foo", 10, "s1", :incr => true)
-        assert_equal 11.0, rv
-
-        rv = r.zadd("bar", "-inf", "s1", :incr => true)
-        assert_equal(-Infinity, rv)
-
-        rv = r.zadd("bar", "+inf", "s2", :incr => true)
-        assert_equal(+Infinity, rv)
+        assert_equal 1.0, r.zadd("foo", 1, "s1", :incr => true)
+        assert_equal 11.0, r.zadd("foo", 10, "s1", :incr => true)
+        assert_equal -Infinity, r.zadd("bar", "-inf", "s1", :incr => true)
+        assert_equal +Infinity, r.zadd("bar", "+inf", "s2", :incr => true)
         r.del "foo", "bar"
 
-        # Incompatible options combinations
-        assert_raise(ArgumentError) { r.zadd("foo", 1, "s1", :xx => true, :nx => true) }
+        # Incompatible options combination
+        assert_raise(Redis::CommandError) { r.zadd("foo", 1, "s1", :xx => true, :nx => true) }
       end
     end
 
@@ -106,10 +99,15 @@ module Lint
         r.del "foo"
 
         # INCR option
-        assert_raise(ArgumentError) { r.zadd("foo", [1, "s1"], :incr => true) }
+        assert_equal 1.0, r.zadd("foo", [1, "s1"], :incr => true)
+        assert_equal 11.0, r.zadd("foo", [10, "s1"], :incr => true)
+        assert_equal -Infinity, r.zadd("bar", ["-inf", "s1"], :incr => true)
+        assert_equal +Infinity, r.zadd("bar", ["+inf", "s2"], :incr => true)
+        assert_raise(Redis::CommandError) { r.zadd("foo", [1, "s1", 2, "s2"], :incr => true) }
+        r.del "foo", "bar"
 
-        # Incompatible options combinations
-        assert_raise(ArgumentError) { r.zadd("foo", [1, "s1"], :xx => true, :nx => true) }
+        # Incompatible options combination
+        assert_raise(Redis::CommandError) { r.zadd("foo", [1, "s1"], :xx => true, :nx => true) }
       end
     end
 
