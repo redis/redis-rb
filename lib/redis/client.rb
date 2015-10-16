@@ -385,9 +385,9 @@ class Redis
 
       # Override defaults from URL if given
       if url
-        require "uri"
+        require "addressable/uri"
 
-        uri = URI(url)
+        uri = Addressable::URI.parse(url)
 
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
