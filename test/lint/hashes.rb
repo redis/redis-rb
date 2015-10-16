@@ -151,7 +151,7 @@ module Lint
 
         r.hincrbyfloat("foo", "f1", 0.77)
 
-        assert_equal "2", r.hget("foo", "f1").to_f.round.to_s
+        assert_equal "2", r.hget("foo", "f1").to_f.round(0).to_s
 
         r.hincrbyfloat("foo", "f1", -0.1)
 
