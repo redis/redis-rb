@@ -9,27 +9,41 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   include Lint::Strings
 
   def test_mget
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mget("foo", "bar")
-    end
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    assert_equal ["s1", "s2"]     , r.mget("foo", "bar")
+    assert_equal ["s1", "s2", nil], r.mget("foo", "bar", "baz")
   end
 
   def test_mget_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mapped_mget("foo", "bar")
-    end
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    response = r.mapped_mget("foo", "bar")
+
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
+
+    response = r.mapped_mget("foo", "bar", "baz")
+
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
+    assert_equal nil , response["baz"]
   end
 
   def test_mset
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mset(:foo, "s1", :bar, "s2")
-    end
+    r.mset(:foo, "s1", :bar, "s2")
+
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
   end
 
   def test_mset_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mapped_mset(:foo => "s1", :bar => "s2")
-    end
+    r.mapped_mset(:foo => "s1", :bar => "s2")
+
+    assert_equal "s1", r.get("foo")
+    assert_equal "s2", r.get("bar")
   end
 
   def test_msetnx

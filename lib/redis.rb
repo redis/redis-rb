@@ -2032,7 +2032,7 @@ class Redis
     end
   end
 
-  # Inspect the state of the Pub/Sub subsystem. 
+  # Inspect the state of the Pub/Sub subsystem.
   # Possible subcommands: channels, numsub, numpat.
   def pubsub(subcommand, *args)
     synchronize do |client|
