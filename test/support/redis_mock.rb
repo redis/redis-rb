@@ -106,8 +106,16 @@ module RedisMock
           break :close
         elsif response.is_a?(Array)
           session.write("*%d\r\n" % response.size)
-          response.each do |e|
-            session.write("$%d\r\n%s\r\n" % [e.length, e])
+
+          response.each do |resp|
+            if resp.is_a?(Array)
+              session.write("*%d\r\n" % resp.size)
+              resp.each do |r|
+                session.write("$%d\r\n%s\r\n" % [r.length, r])
+              end
+            else
+              session.write("$%d\r\n%s\r\n" % [resp.length, resp])
+            end
           end
         else
           session.write(response)
