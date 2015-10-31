@@ -82,7 +82,7 @@ class TestCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_bitop
-    try_encoding("UTF-8") do
+    with_external_encoding("UTF-8") do
       target_version "2.5.10" do
         r.set("foo", "a")
         r.set("bar", "b")

@@ -23,14 +23,12 @@ module Lint
     end
 
     def test_set_and_get_with_ascii_characters
-      if defined?(Encoding)
-        with_external_encoding("ASCII-8BIT") do
-          (0..255).each do |i|
-            str = "#{i.chr}---#{i.chr}"
-            r.set("foo", str)
+      with_external_encoding("ASCII-8BIT") do
+        (0..255).each do |i|
+          str = "#{i.chr}---#{i.chr}"
+          r.set("foo", str)
 
-            assert_equal str, r.get("foo")
-          end
+          assert_equal str, r.get("foo")
         end
       end
     end

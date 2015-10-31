@@ -92,14 +92,6 @@ module Helper
     end
   end
 
-  def try_encoding(encoding, &block)
-    if defined?(Encoding)
-      with_external_encoding(encoding, &block)
-    else
-      yield
-    end
-  end
-
   class Version
 
     include Comparable
