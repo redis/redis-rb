@@ -1,5 +1,3 @@
-# encoding: UTF-8
-
 require File.expand_path("helper", File.dirname(__FILE__))
 require "lint/hyper_log_log"
 

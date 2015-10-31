@@ -1,5 +1,3 @@
-# encoding: UTF-8
-
 require File.expand_path("helper", File.dirname(__FILE__))
 
 class TestRemoteServerControlCommands < Test::Unit::TestCase

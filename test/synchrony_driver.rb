@@ -1,5 +1,3 @@
-# encoding: UTF-8
-
 require 'em-synchrony'
 require 'em-synchrony/connection_pool'
 
