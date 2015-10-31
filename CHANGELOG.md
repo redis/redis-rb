@@ -2,6 +2,8 @@
 
 * Removed `Redis.connect`. Use `Redis.new`.
 
+* Removed `Redis#[]` and `Redis#[]=` aliases.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.

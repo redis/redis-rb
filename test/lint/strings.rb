@@ -8,18 +8,6 @@ module Lint
       assert_equal "s1", r.get("foo")
     end
 
-    def test_set_and_get_with_brackets
-      r["foo"] = "s1"
-
-      assert_equal "s1", r["foo"]
-    end
-
-    def test_set_and_get_with_brackets_and_symbol
-      r[:foo] = "s1"
-
-      assert_equal "s1", r[:foo]
-    end
-
     def test_set_and_get_with_newline_characters
       r.set("foo", "1\n")
 

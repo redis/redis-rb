@@ -672,8 +672,6 @@ class Redis
     end
   end
 
-  alias :[]= :set
-
   # Set the time to live in seconds of a key.
   #
   # @param [String] key
@@ -778,8 +776,6 @@ class Redis
       client.call([:get, key])
     end
   end
-
-  alias :[] :get
 
   # Get the values of all the given keys.
   #
