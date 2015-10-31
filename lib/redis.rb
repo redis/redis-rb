@@ -3,18 +3,7 @@ require "redis/errors"
 
 class Redis
 
-  def self.deprecate(message, trace = caller[0])
-    $stderr.puts "\n#{message} (in #{trace})"
-  end
-
   attr :client
-
-  # @deprecated The preferred way to create a new client object is using `#new`.
-  #             This method does not actually establish a connection to Redis,
-  #             in contrary to what you might expect.
-  def self.connect(options = {})
-    new(options)
-  end
 
   def self.current
     @current ||= Redis.new
