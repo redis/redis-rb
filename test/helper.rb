@@ -14,7 +14,6 @@ $VERBOSE = true
 ENV["conn"] ||= "ruby"
 
 require_relative "../lib/redis"
-require_relative "../lib/redis/distributed"
 require_relative "../lib/redis/connection/#{ENV["conn"]}"
 
 require_relative "support/redis_mock"
@@ -184,25 +183,4 @@ module Helper
     end
   end
 
-  module Distributed
-
-    include Generic
-
-    def version
-      Version.new(redis.info.first["redis_version"])
-    end
-
-    private
-
-    def _format_options(options)
-      {
-        :timeout => OPTIONS[:timeout],
-        :logger => ::Logger.new(@log),
-      }.merge(options)
-    end
-
-    def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
-    end
-  end
 end

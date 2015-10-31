@@ -4,6 +4,8 @@
 
 * Removed `Redis#[]` and `Redis#[]=` aliases.
 
+* Removed `Redis::Distributed`.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.
