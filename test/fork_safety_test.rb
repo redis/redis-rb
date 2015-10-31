@@ -5,7 +5,6 @@ require File.expand_path("helper", File.dirname(__FILE__))
 class TestForkSafety < Test::Unit::TestCase
 
   include Helper::Client
-  include Helper::Skipable
 
   driver(:ruby, :hiredis) do
     def test_fork_safety
