@@ -1,4 +1,4 @@
-require "redis/errors"
+require_relative "errors"
 require "socket"
 require "cgi"
 
@@ -517,11 +517,16 @@ class Redis
 
       if driver.kind_of?(String)
         begin
-          require "redis/connection/#{driver}"
-          driver = Connection.const_get(driver.capitalize)
-        rescue LoadError, NameError
-          raise RuntimeError, "Cannot load driver #{driver.inspect}"
+          require_relative "connection/#{driver}"
+        rescue LoadError, NameError => e
+          begin
+            require "connection/#{driver}"
+          rescue LoadError, NameError => e
+            raise RuntimeError, "Cannot load driver #{driver.inspect}: #{e.message}"
+          end
         end
+
+        driver = Connection.const_get(driver.capitalize)
       end
 
       driver

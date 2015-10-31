@@ -1,5 +1,5 @@
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/value_types"
+require_relative "helper"
+require_relative "lint/value_types"
 
 class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
 

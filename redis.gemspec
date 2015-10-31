@@ -1,6 +1,4 @@
-$:.unshift File.expand_path("../lib", __FILE__)
-
-require "redis/version"
+require_relative "lib/redis/version"
 
 Gem::Specification.new do |s|
   s.name = "redis"

@@ -1,5 +1,5 @@
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/hashes"
+require_relative "helper"
+require_relative "lint/hashes"
 
 class TestDistributedCommandsOnHashes < Test::Unit::TestCase
 

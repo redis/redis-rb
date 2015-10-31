@@ -1,6 +1,3 @@
-$:.unshift File.expand_path("../lib", File.dirname(__FILE__))
-$:.unshift File.expand_path(File.dirname(__FILE__))
-
 require "test/unit"
 require "logger"
 require "stringio"
@@ -16,12 +13,12 @@ $VERBOSE = true
 
 ENV["conn"] ||= "ruby"
 
-require "redis"
-require "redis/distributed"
-require "redis/connection/#{ENV["conn"]}"
+require_relative "../lib/redis"
+require_relative "../lib/redis/distributed"
+require_relative "../lib/redis/connection/#{ENV["conn"]}"
 
-require "support/redis_mock"
-require "support/connection/#{ENV["conn"]}"
+require_relative "support/redis_mock"
+require_relative "support/connection/#{ENV["conn"]}"
 
 PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1)}

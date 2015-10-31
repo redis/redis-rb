@@ -1,5 +1,5 @@
 require "monitor"
-require "redis/errors"
+require_relative "redis/errors"
 
 class Redis
 
@@ -2612,8 +2612,8 @@ private
 
 end
 
-require "redis/version"
-require "redis/connection"
-require "redis/client"
-require "redis/pipeline"
-require "redis/subscribe"
+require_relative "redis/version"
+require_relative "redis/connection"
+require_relative "redis/client"
+require_relative "redis/pipeline"
+require_relative "redis/subscribe"

@@ -1,5 +1,5 @@
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/blocking_commands"
+require_relative "helper"
+require_relative "lint/blocking_commands"
 
 class TestDistributedBlockingCommands < Test::Unit::TestCase
 
