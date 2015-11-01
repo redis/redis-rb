@@ -319,7 +319,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_connecting_to_unix_domain_socket
     assert_nothing_raised do
-      Redis.new(OPTIONS.merge(:path => "./test/db/redis.sock")).ping
+      Redis.new(OPTIONS.merge(:path => ENV.fetch("SOCKET_PATH"))).ping
     end
   end
 
