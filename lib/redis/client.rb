@@ -527,8 +527,8 @@ class Redis
         def sentinel_detect
           @sentinels.each do |sentinel|
             client = Client.new(@options.merge({
-              :host => sentinel[:host],
-              :port => sentinel[:port],
+              :host => sentinel[:host] || sentinel["host"],
+              :port => sentinel[:port] || sentinel["port"],
               :reconnect_attempts => 0,
             }))
 
