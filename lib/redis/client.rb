@@ -106,18 +106,8 @@ class Redis
       else
         @connector = Connector.new(@options)
       end
-
-      @queue = []
     end
 
-    # Sends a command to Redis and returns its reply.
-    #
-    # Replies are converted to Ruby objects according to the RESP protocol, so
-    # you can expect a Ruby array, integer or nil when Redis sends one. Higher
-    # level transformations, such as converting an array of pairs into a Ruby
-    # hash, are up to consumers.
-    #
-    # Redis error replies are raised as Ruby exceptions.
     def call(command, &block)
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
@@ -127,26 +117,6 @@ class Redis
       else
         reply
       end
-    end
-
-    # Queues a command for pipelining.
-    #
-    # Commands in the queue are executed with the Redis::Client#commit method.
-    #
-    # See http://redis.io/topics/pipelining for more details.
-    #
-    def queue(command)
-      @queue << command
-    end
-
-    # Sends all commands in the queue.
-    #
-    # See http://redis.io/topics/pipelining for more details.
-    #
-    def commit
-      call_pipelined(@queue)
-    ensure
-      @queue.clear
     end
 
     def connect

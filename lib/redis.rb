@@ -59,6 +59,44 @@ class Redis
     @original_client.disconnect
   end
 
+  # Sends a command to Redis and returns its reply.
+  #
+  # Replies are converted to Ruby objects according to the RESP protocol, so
+  # you can expect a Ruby array, integer or nil when Redis sends one. Higher
+  # level transformations, such as converting an array of pairs into a Ruby
+  # hash, are up to consumers.
+  #
+  # Redis error replies are raised as Ruby exceptions.
+  def call(*command)
+    synchronize do |client|
+      client.call(command)
+    end
+  end
+
+  # Queues a command for pipelining.
+  #
+  # Commands in the queue are executed with the Redis::Client#commit method.
+  #
+  # See http://redis.io/topics/pipelining for more details.
+  #
+  def queue(*command)
+    _queue << command
+  end
+
+  # Sends all commands in the queue.
+  #
+  # See http://redis.io/topics/pipelining for more details.
+  #
+  def commit
+    synchronize do |client|
+      begin
+        client.call_pipelined(_queue)
+      ensure
+        _queue.clear
+      end
+    end
+  end
+
   # Authenticate to the server.
   #
   # @param [String] password must match the password specified in the
@@ -2623,6 +2661,10 @@ private
     ensure
       @client = original
     end
+  end
+
+  def _queue
+    Thread.current[:redis_queue] ||= []
   end
 
 end
