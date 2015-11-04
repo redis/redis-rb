@@ -76,7 +76,7 @@ class Redis
 
   # Queues a command for pipelining.
   #
-  # Commands in the queue are executed with the Redis::Client#commit method.
+  # Commands in the queue are executed with the Redis#commit method.
   #
   # See http://redis.io/topics/pipelining for more details.
   #

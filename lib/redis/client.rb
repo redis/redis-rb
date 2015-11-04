@@ -3,28 +3,6 @@ require "socket"
 require "cgi"
 
 class Redis
-  # Redis::Client handles the connection to Redis, sending and receiving commands.
-  #
-  # Usage:
-  #
-  #   client = Redis::Client.new
-  #
-  #   client.call(["PING"])
-  #   => "PONG"
-  #
-  #   client.call(["SET", "key", "value"])
-  #   => "OK"
-  #
-  #   client.call(["INCR", "key"])
-  #   => 1
-  #
-  # It provides an API for command pipelining:
-  #
-  #   client.queue(["SET", "key", "value"])
-  #   client.queue(["GET", "key"])
-  #   client.commit
-  #   => ["OK", "value"]
-  #
   class Client
 
     DEFAULTS = {
@@ -108,17 +86,6 @@ class Redis
       end
     end
 
-    def call(command, &block)
-      reply = process([command]) { read }
-      raise reply if reply.is_a?(CommandError)
-
-      if block
-        block.call(reply)
-      else
-        reply
-      end
-    end
-
     def connect
       @pid = Process.pid
 
@@ -139,6 +106,17 @@ class Redis
 
     def location
       path || "#{host}:#{port}"
+    end
+
+    def call(command, &block)
+      reply = process([command]) { read }
+      raise reply if reply.is_a?(CommandError)
+
+      if block
+        block.call(reply)
+      else
+        reply
+      end
     end
 
     def call_loop(command)
