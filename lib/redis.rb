@@ -55,9 +55,10 @@ class Redis
   end
 
   # Disconnect the client as quickly and silently as possible.
-  def disconnect!
+  def close
     @original_client.disconnect
   end
+  alias disconnect! close
 
   # Sends a command to Redis and returns its reply.
   #
