@@ -12,6 +12,10 @@
   security updates in June of 2013; continuing to support it would prevent
   the use of newer features of Ruby.
 
+# (unreleased)
+
+* Added support for `ZADD` options `NX`, `XX`, `CH`, `INCR`. See #547.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.
