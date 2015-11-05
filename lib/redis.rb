@@ -1410,20 +1410,50 @@ class Redis
   # @param [[Float, String], Array<[Float, String]>] args
   #   - a single `[score, member]` pair
   #   - an array of `[score, member]` pairs
+  # @param [Hash] options
+  #   - `:xx => true`: Only update elements that already exist (never
+  #   add elements)
+  #   - `:nx => true`: Don't update already existing elements (always
+  #   add new elements)
+  #   - `:ch => true`: Modify the return value from the number of new
+  #   elements added, to the total number of elements changed (CH is an
+  #   abbreviation of changed); changed elements are new elements added
+  #   and elements already existing for which the score was updated
+  #   - `:incr => true`: When this option is specified ZADD acts like
+  #   ZINCRBY; only one score-element pair can be specified in this mode
   #
-  # @return [Boolean, Fixnum]
+  # @return [Boolean, Fixnum, Float]
   #   - `Boolean` when a single pair is specified, holding whether or not it was
-  #   **added** to the sorted set
+  #   **added** to the sorted set.
   #   - `Fixnum` when an array of pairs is specified, holding the number of
-  #   pairs that were **added** to the sorted set
-  def zadd(key, *args)
+  #   pairs that were **added** to the sorted set.
+  #   - `Float` when option :incr is specified, holding the score of the member
+  #   after incrementing it.
+  def zadd(key, *args) #, options
+    zadd_options = []
+    if args.last.is_a?(Hash)
+      options = args.pop
+
+      nx = options[:nx]
+      zadd_options << "NX" if nx
+
+      xx = options[:xx]
+      zadd_options << "XX" if xx
+
+      ch = options[:ch]
+      zadd_options << "CH" if ch
+
+      incr = options[:incr]
+      zadd_options << "INCR" if incr
+    end
+
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
-        # Variadic: return integer
-        client.call([:zadd, key] + args[0])
+        # Variadic: return float if INCR, integer if !INCR
+        client.call([:zadd, key] + zadd_options + args[0], &(incr ? _floatify : _identity))
       elsif args.size == 2
-        # Single pair: return boolean
-        client.call([:zadd, key, args[0], args[1]], &_boolify)
+        # Single pair: return float if INCR, boolean if !INCR
+        client.call([:zadd, key] + zadd_options + args, &(incr ? _floatify : _boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
@@ -2612,6 +2642,12 @@ private
 
   def _pairify(array)
     array.each_slice(2).to_a
+  end
+
+  def _identity
+    lambda { |value|
+      value
+    }
   end
 
   def _subscription(method, channels, block)
