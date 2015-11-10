@@ -1,4 +1,4 @@
-require_relative "helper"
+require File.expand_path("helper", File.dirname(__FILE__))
 
 class TestClient < Test::Unit::TestCase
 
