@@ -2582,6 +2582,34 @@ class Redis
     end
   end
 
+  # Interact with the sentinel command (masters, master, slaves, failover)
+  #
+  # @param [String] subcommand e.g. `masters`, `master`, `slaves`
+  # @param [Array<String>] args depends on subcommand
+  # @return [Array<String>, Hash<String, String>, String] depends on subcommand
+  def sentinel(subcommand, *args)
+    subcommand = subcommand.to_s.downcase
+    synchronize do |client|
+      if subcommand == 'master'
+        client.call([:sentinel, subcommand] + args, &_hashify)
+      elsif subcommand == 'get-master-addr-by-name'
+        client.call([:sentinel, subcommand] + args)
+      else
+        client.call([:sentinel, subcommand] + args) do |reply|
+          if reply.kind_of?(Array)
+            new_reply = Array.new
+            reply.each do |r|
+              new_reply << _hashify.call(r)
+            end
+            new_reply
+          else
+            reply
+          end
+        end
+      end
+    end
+  end
+
   def id
     @original_client.id
   end
