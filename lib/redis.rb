@@ -329,8 +329,15 @@ class Redis
   # Get the time to live (in seconds) for a key.
   #
   # @param [String] key
-  # @return [Fixnum] remaining time to live in seconds, or -1 if the
-  #   key does not exist or does not have a timeout
+  # @return [Fixnum] remaining time to live in seconds.
+  #
+  # In Redis 2.6 or older the command returns -1 if the key does not exist or if
+  # the key exist but has no associated expire.
+  #
+  # Starting with Redis 2.8 the return value in case of error changed:
+  #
+  #     - The command returns -2 if the key does not exist.
+  #     - The command returns -1 if the key exists but has no associated expire.
   def ttl(key)
     synchronize do |client|
       client.call([:ttl, key])
@@ -362,8 +369,14 @@ class Redis
   # Get the time to live (in milliseconds) for a key.
   #
   # @param [String] key
-  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
-  #   key does not exist or does not have a timeout
+  # @return [Fixnum] remaining time to live in milliseconds
+  # In Redis 2.6 or older the command returns -1 if the key does not exist or if
+  # the key exist but has no associated expire.
+  #
+  # Starting with Redis 2.8 the return value in case of error changed:
+  #
+  #     - The command returns -2 if the key does not exist.
+  #     - The command returns -1 if the key exists but has no associated expire.
   def pttl(key)
     synchronize do |client|
       client.call([:pttl, key])
