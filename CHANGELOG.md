@@ -16,6 +16,8 @@
 
 * Added support for `ZADD` options `NX`, `XX`, `CH`, `INCR`. See #547.
 
+* Added support for sentinel commands. See #556.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.
