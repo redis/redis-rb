@@ -2590,18 +2590,17 @@ class Redis
   def sentinel(subcommand, *args)
     subcommand = subcommand.to_s.downcase
     synchronize do |client|
-      if subcommand == 'master'
-        client.call([:sentinel, subcommand] + args, &_hashify)
-      elsif subcommand == 'get-master-addr-by-name'
-        client.call([:sentinel, subcommand] + args)
-      else
-        client.call([:sentinel, subcommand] + args) do |reply|
+      client.call([:sentinel, subcommand] + args) do |reply|
+        case subcommand
+        when "get-master-addr-by-name"
+          reply
+        else
           if reply.kind_of?(Array)
-            new_reply = Array.new
-            reply.each do |r|
-              new_reply << _hashify.call(r)
+            if reply[0].kind_of?(Array)
+              reply.map(&_hashify)
+            else
+              _hashify.call(reply)
             end
-            new_reply
           else
             reply
           end
