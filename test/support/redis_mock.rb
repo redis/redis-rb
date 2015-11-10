@@ -9,6 +9,10 @@ module RedisMock
       @server.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
     end
 
+    def port
+      @server.addr[1]
+    end
+
     def start(&block)
       @thread = Thread.new { run(&block) }
     end
@@ -61,6 +65,7 @@ module RedisMock
   #
   def self.start_with_handler(blk, options = {}, port = MOCK_PORT)
     server = Server.new(port, options)
+    port = server.port
 
     begin
       server.start(&blk)
