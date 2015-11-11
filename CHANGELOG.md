@@ -18,6 +18,8 @@
 
 * Added support for sentinel commands. See #556.
 
+* New `:id` option allows you to identify the client against Redis. See #510.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.
