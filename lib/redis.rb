@@ -26,6 +26,26 @@ class Redis
 
   include MonitorMixin
 
+  # Create a new client instance
+  #
+  # @param [Hash] options
+  # @option options [String] :url (value of the environment variable REDIS_URL) a Redis URL, for a TCP connection: `redis://:[password]@[hostname]:[port]/[db]` (password, port and database are optional), for a unix socket connection: `unix://[path to Redis socket]`. This overrides all other options.
+  # @option options [String] :host ("127.0.0.1") server hostname
+  # @option options [Fixnum] :port (6379) server port
+  # @option options [String] :path path to server socket (overrides host and port)
+  # @option options [Float] :timeout (5.0) timeout in seconds
+  # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
+  # @option options [String] :password Password to authenticate against server
+  # @option options [Fixnum] :db (0) Database to select after initial connect
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
+  # @option options [String] :id ID for the client connection, assigns name to current connection by sending `CLIENT SETNAME`
+  # @option options [Hash, Fixnum] :tcp_keepalive Keepalive values, if Fixnum `intvl` and `probe` are calculated based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Fixnum
+  # @option options [Fixnum] :reconnect_attempts Number of attempts trying to connect
+  # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [Array] :sentinels List of sentinels to contact
+  # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
+  #
+  # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
     @original_client = @client = Client.new(options)
@@ -398,7 +418,7 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def restore(key, ttl, serialized_value)
     synchronize do |client|
       client.call([:restore, key, ttl, serialized_value])
@@ -703,7 +723,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def setex(key, ttl, value)
     synchronize do |client|
       client.call([:setex, key, ttl, value.to_s])
@@ -715,7 +735,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def psetex(key, ttl, value)
     synchronize do |client|
       client.call([:psetex, key, ttl, value.to_s])
@@ -740,7 +760,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Array<String>] args array of keys and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_mset
   def mset(*args)
@@ -756,7 +776,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Hash] hash keys mapping to values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mset
   def mapped_mset(hash)
@@ -981,7 +1001,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String, Array] string value, or array of string values to push
+  # @param [String, Array] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
@@ -1910,7 +1930,7 @@ class Redis
   #
   # @param [String] key
   # @param [Array<String>] attrs array of fields and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
@@ -1926,8 +1946,8 @@ class Redis
   #     # => "OK"
   #
   # @param [String] key
-  # @param [Hash] a non-empty hash with fields mapping to values
-  # @return `"OK"`
+  # @param [Hash] hash a non-empty hash with fields mapping to values
+  # @return [String] `"OK"`
   #
   # @see #hmset
   def mapped_hmset(key, hash)
@@ -2250,7 +2270,7 @@ class Redis
   #
   # Only call this method when `#multi` was called **without** a block.
   #
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #multi
   # @see #exec
@@ -2398,7 +2418,7 @@ class Redis
   #   redis.scan(4, :match => "key:1?")
   #     # => ["92", ["key:13", "key:18"]]
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2438,7 +2458,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.hscan("hash", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2476,7 +2496,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.zscan("zset", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2515,7 +2535,7 @@ class Redis
   # @example Retrieve the first batch of keys in a set
   #   redis.sscan("set", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
