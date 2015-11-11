@@ -2,11 +2,9 @@ require "socket"
 
 module RedisMock
   class Server
-    VERBOSE = false
-
-    def initialize(port, options = {}, &block)
-      @server = TCPServer.new(options[:host] || "127.0.0.1", port)
-      @server.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
+    def initialize(options = {}, &block)
+      @server = TCPServer.new(options[:host] || "127.0.0.1", 0)
+      @server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
     end
 
     def port
@@ -17,14 +15,8 @@ module RedisMock
       @thread = Thread.new { run(&block) }
     end
 
-    # Bail out of @server.accept before closing the socket. This is required
-    # to avoid EADDRINUSE after a couple of iterations.
     def shutdown
-      @thread.terminate if @thread
-      @server.close if @server
-    rescue => ex
-      $stderr.puts "Error closing mock server: #{ex.message}" if VERBOSE
-      $stderr.puts ex.backtrace if VERBOSE
+      @thread.kill
     end
 
     def run
@@ -39,19 +31,14 @@ module RedisMock
           end
         end
       rescue => ex
-        $stderr.puts "Error running mock server: #{ex.message}" if VERBOSE
-        $stderr.puts ex.backtrace if VERBOSE
+        $stderr.puts "Error running mock server: #{ex.message}"
+        $stderr.puts ex.backtrace
         retry
       ensure
-        begin
-          @server.close
-        rescue IOError
-        end
+        @server.close
       end
     end
   end
-
-  MOCK_PORT = 6382
 
   # Starts a mock Redis server in a thread.
   #
@@ -63,15 +50,13 @@ module RedisMock
   #     # Every connection will be closed immediately
   #   end
   #
-  def self.start_with_handler(blk, options = {}, port = MOCK_PORT)
-    server = Server.new(port, options)
+  def self.start_with_handler(blk, options = {})
+    server = Server.new(options)
     port = server.port
 
     begin
       server.start(&blk)
-
       yield(port)
-
     ensure
       server.shutdown
     end
@@ -82,11 +67,11 @@ module RedisMock
   # The server will reply with a `+OK` to all commands, but you can
   # customize it by providing a hash. For example:
   #
-  #   RedisMock.start(:ping => lambda { "+PONG" }) do
-  #     assert_equal "PONG", Redis.new(:port => MOCK_PORT).ping
+  #   RedisMock.start(:ping => lambda { "+PONG" }) do |port|
+  #     assert_equal "PONG", Redis.new(:port => port).ping
   #   end
   #
-  def self.start(commands, options = {}, port = MOCK_PORT, &blk)
+  def self.start(commands, options = {}, &blk)
     handler = lambda do |session|
       while line = session.gets
         argv = Array.new(line[1..-3].to_i) do
@@ -129,6 +114,6 @@ module RedisMock
       end
     end
 
-    start_with_handler(handler, options, port, &blk)
+    start_with_handler(handler, options, &blk)
   end
 end

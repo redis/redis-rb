@@ -16,8 +16,8 @@ class SentinalCommandsTest < Test::Unit::TestCase
       }
     end
 
-    RedisMock.start(handler.call(:s1), {}, 26381) do
-      redis = Redis.new(:host => "127.0.0.1", :port => 26381)
+    RedisMock.start(handler.call(:s1)) do |port|
+      redis = Redis.new(:host => "127.0.0.1", :port => port)
 
       result = redis.sentinel('master', 'master1')
       assert_equal result, { "name" => "master1", "ip" => "127.0.0.1" }
@@ -34,8 +34,8 @@ class SentinalCommandsTest < Test::Unit::TestCase
       }
     end
 
-    RedisMock.start(handler.call(:s1), {}, 26381) do
-      redis = Redis.new(:host => "127.0.0.1", :port => 26381)
+    RedisMock.start(handler.call(:s1)) do |port|
+      redis = Redis.new(:host => "127.0.0.1", :port => port)
 
       result = redis.sentinel('masters')
       assert_equal result[0], { "name" => "master1", "ip" => "127.0.0.1", "port" => "6381" }
@@ -53,8 +53,8 @@ class SentinalCommandsTest < Test::Unit::TestCase
       }
     end
 
-    RedisMock.start(handler.call(:s1), {}, 26381) do
-      redis = Redis.new(:host => "127.0.0.1", :port => 26381)
+    RedisMock.start(handler.call(:s1)) do |port|
+      redis = Redis.new(:host => "127.0.0.1", :port => port)
 
       result = redis.sentinel('get-master-addr-by-name', 'master1')
       assert_equal result, ["127.0.0.1", "6381"]
@@ -70,8 +70,8 @@ class SentinalCommandsTest < Test::Unit::TestCase
       }
     end
 
-    RedisMock.start(handler.call(:s1), {}, 26381) do
-      redis = Redis.new(:host => "127.0.0.1", :port => 26381)
+    RedisMock.start(handler.call(:s1)) do |port|
+      redis = Redis.new(:host => "127.0.0.1", :port => port)
 
       result = redis.sentinel('ckquorum', 'master1')
       assert_equal result, "OK 2 usable Sentinels. Quorum and failover authorization can be reached"
