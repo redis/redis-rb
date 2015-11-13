@@ -26,6 +26,26 @@ class Redis
 
   include MonitorMixin
 
+  # Create a new client instance
+  #
+  # @param [Hash] options
+  # @option options [String] :url (value of the environment variable REDIS_URL) a Redis URL, for a TCP connection: `redis://:[password]@[hostname]:[port]/[db]` (password, port and database are optional), for a unix socket connection: `unix://[path to Redis socket]`. This overrides all other options.
+  # @option options [String] :host ("127.0.0.1") server hostname
+  # @option options [Fixnum] :port (6379) server port
+  # @option options [String] :path path to server socket (overrides host and port)
+  # @option options [Float] :timeout (5.0) timeout in seconds
+  # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
+  # @option options [String] :password Password to authenticate against server
+  # @option options [Fixnum] :db (0) Database to select after initial connect
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
+  # @option options [String] :id ID for the client connection, assigns name to current connection by sending `CLIENT SETNAME`
+  # @option options [Hash, Fixnum] :tcp_keepalive Keepalive values, if Fixnum `intvl` and `probe` are calculated based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Fixnum
+  # @option options [Fixnum] :reconnect_attempts Number of attempts trying to connect
+  # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [Array] :sentinels List of sentinels to contact
+  # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
+  #
+  # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
     @original_client = @client = Client.new(options)
@@ -329,8 +349,15 @@ class Redis
   # Get the time to live (in seconds) for a key.
   #
   # @param [String] key
-  # @return [Fixnum] remaining time to live in seconds, or -1 if the
-  #   key does not exist or does not have a timeout
+  # @return [Fixnum] remaining time to live in seconds.
+  #
+  # In Redis 2.6 or older the command returns -1 if the key does not exist or if
+  # the key exist but has no associated expire.
+  #
+  # Starting with Redis 2.8 the return value in case of error changed:
+  #
+  #     - The command returns -2 if the key does not exist.
+  #     - The command returns -1 if the key exists but has no associated expire.
   def ttl(key)
     synchronize do |client|
       client.call([:ttl, key])
@@ -362,8 +389,14 @@ class Redis
   # Get the time to live (in milliseconds) for a key.
   #
   # @param [String] key
-  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
-  #   key does not exist or does not have a timeout
+  # @return [Fixnum] remaining time to live in milliseconds
+  # In Redis 2.6 or older the command returns -1 if the key does not exist or if
+  # the key exist but has no associated expire.
+  #
+  # Starting with Redis 2.8 the return value in case of error changed:
+  #
+  #     - The command returns -2 if the key does not exist.
+  #     - The command returns -1 if the key exists but has no associated expire.
   def pttl(key)
     synchronize do |client|
       client.call([:pttl, key])
@@ -385,7 +418,7 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def restore(key, ttl, serialized_value)
     synchronize do |client|
       client.call([:restore, key, ttl, serialized_value])
@@ -690,7 +723,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def setex(key, ttl, value)
     synchronize do |client|
       client.call([:setex, key, ttl, value.to_s])
@@ -702,7 +735,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def psetex(key, ttl, value)
     synchronize do |client|
       client.call([:psetex, key, ttl, value.to_s])
@@ -727,7 +760,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Array<String>] args array of keys and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_mset
   def mset(*args)
@@ -743,7 +776,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Hash] hash keys mapping to values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mset
   def mapped_mset(hash)
@@ -968,7 +1001,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String, Array] string value, or array of string values to push
+  # @param [String, Array] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
@@ -1410,20 +1443,50 @@ class Redis
   # @param [[Float, String], Array<[Float, String]>] args
   #   - a single `[score, member]` pair
   #   - an array of `[score, member]` pairs
+  # @param [Hash] options
+  #   - `:xx => true`: Only update elements that already exist (never
+  #   add elements)
+  #   - `:nx => true`: Don't update already existing elements (always
+  #   add new elements)
+  #   - `:ch => true`: Modify the return value from the number of new
+  #   elements added, to the total number of elements changed (CH is an
+  #   abbreviation of changed); changed elements are new elements added
+  #   and elements already existing for which the score was updated
+  #   - `:incr => true`: When this option is specified ZADD acts like
+  #   ZINCRBY; only one score-element pair can be specified in this mode
   #
-  # @return [Boolean, Fixnum]
+  # @return [Boolean, Fixnum, Float]
   #   - `Boolean` when a single pair is specified, holding whether or not it was
-  #   **added** to the sorted set
+  #   **added** to the sorted set.
   #   - `Fixnum` when an array of pairs is specified, holding the number of
-  #   pairs that were **added** to the sorted set
-  def zadd(key, *args)
+  #   pairs that were **added** to the sorted set.
+  #   - `Float` when option :incr is specified, holding the score of the member
+  #   after incrementing it.
+  def zadd(key, *args) #, options
+    zadd_options = []
+    if args.last.is_a?(Hash)
+      options = args.pop
+
+      nx = options[:nx]
+      zadd_options << "NX" if nx
+
+      xx = options[:xx]
+      zadd_options << "XX" if xx
+
+      ch = options[:ch]
+      zadd_options << "CH" if ch
+
+      incr = options[:incr]
+      zadd_options << "INCR" if incr
+    end
+
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
-        # Variadic: return integer
-        client.call([:zadd, key] + args[0])
+        # Variadic: return float if INCR, integer if !INCR
+        client.call([:zadd, key] + zadd_options + args[0], &(incr ? _floatify : _identity))
       elsif args.size == 2
-        # Single pair: return boolean
-        client.call([:zadd, key, args[0], args[1]], &_boolify)
+        # Single pair: return float if INCR, boolean if !INCR
+        client.call([:zadd, key] + zadd_options + args, &(incr ? _floatify : _boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
@@ -1867,7 +1930,7 @@ class Redis
   #
   # @param [String] key
   # @param [Array<String>] attrs array of fields and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
@@ -1883,8 +1946,8 @@ class Redis
   #     # => "OK"
   #
   # @param [String] key
-  # @param [Hash] a non-empty hash with fields mapping to values
-  # @return `"OK"`
+  # @param [Hash] hash a non-empty hash with fields mapping to values
+  # @return [String] `"OK"`
   #
   # @see #hmset
   def mapped_hmset(key, hash)
@@ -2207,7 +2270,7 @@ class Redis
   #
   # Only call this method when `#multi` was called **without** a block.
   #
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #multi
   # @see #exec
@@ -2355,7 +2418,7 @@ class Redis
   #   redis.scan(4, :match => "key:1?")
   #     # => ["92", ["key:13", "key:18"]]
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2395,7 +2458,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.hscan("hash", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2433,7 +2496,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.zscan("zset", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2472,7 +2535,7 @@ class Redis
   # @example Retrieve the first batch of keys in a set
   #   redis.sscan("set", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2536,6 +2599,33 @@ class Redis
   def pfmerge(dest_key, *source_key)
     synchronize do |client|
       client.call([:pfmerge, dest_key, *source_key], &_boolify_set)
+    end
+  end
+
+  # Interact with the sentinel command (masters, master, slaves, failover)
+  #
+  # @param [String] subcommand e.g. `masters`, `master`, `slaves`
+  # @param [Array<String>] args depends on subcommand
+  # @return [Array<String>, Hash<String, String>, String] depends on subcommand
+  def sentinel(subcommand, *args)
+    subcommand = subcommand.to_s.downcase
+    synchronize do |client|
+      client.call([:sentinel, subcommand] + args) do |reply|
+        case subcommand
+        when "get-master-addr-by-name"
+          reply
+        else
+          if reply.kind_of?(Array)
+            if reply[0].kind_of?(Array)
+              reply.map(&_hashify)
+            else
+              _hashify.call(reply)
+            end
+          else
+            reply
+          end
+        end
+      end
     end
   end
 
@@ -2612,6 +2702,12 @@ private
 
   def _pairify(array)
     array.each_slice(2).to_a
+  end
+
+  def _identity
+    lambda { |value|
+      value
+    }
   end
 
   def _subscription(method, channels, block)

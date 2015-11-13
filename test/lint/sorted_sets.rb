@@ -9,6 +9,43 @@ module Lint
       assert_equal true, r.zadd("foo", 1, "s1")
       assert_equal false, r.zadd("foo", 1, "s1")
       assert_equal 1, r.zcard("foo")
+      r.del "foo"
+
+      target_version "3.0.2" do
+        # XX option
+        assert_equal 0, r.zcard("foo")
+        assert_equal false, r.zadd("foo", 1, "s1", :xx => true)
+        r.zadd("foo", 1, "s1")
+        assert_equal false, r.zadd("foo", 2, "s1", :xx => true)
+        assert_equal 2, r.zscore("foo", "s1")
+        r.del "foo"
+
+        # NX option
+        assert_equal 0, r.zcard("foo")
+        assert_equal true, r.zadd("foo", 1, "s1", :nx => true)
+        assert_equal false, r.zadd("foo", 2, "s1", :nx => true)
+        assert_equal 1, r.zscore("foo", "s1")
+        assert_equal 1, r.zcard("foo")
+        r.del "foo"
+
+        # CH option
+        assert_equal 0, r.zcard("foo")
+        assert_equal true, r.zadd("foo", 1, "s1", :ch => true)
+        assert_equal false, r.zadd("foo", 1, "s1", :ch => true)
+        assert_equal true, r.zadd("foo", 2, "s1", :ch => true)
+        assert_equal 1, r.zcard("foo")
+        r.del "foo"
+
+        # INCR option
+        assert_equal 1.0, r.zadd("foo", 1, "s1", :incr => true)
+        assert_equal 11.0, r.zadd("foo", 10, "s1", :incr => true)
+        assert_equal -Infinity, r.zadd("bar", "-inf", "s1", :incr => true)
+        assert_equal +Infinity, r.zadd("bar", "+inf", "s2", :incr => true)
+        r.del "foo", "bar"
+
+        # Incompatible options combination
+        assert_raise(Redis::CommandError) { r.zadd("foo", 1, "s1", :xx => true, :nx => true) }
+      end
     end
 
     def test_variadic_zadd
@@ -30,6 +67,47 @@ module Lint
         # Wrong number of arguments
         assert_raise(Redis::CommandError) { r.zadd("foo", ["bar"]) }
         assert_raise(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
+      end
+
+      target_version "3.0.2" do
+        # XX option
+        assert_equal 0, r.zcard("foo")
+        assert_equal 0, r.zadd("foo", [1, "s1", 2, "s2"], :xx => true)
+        r.zadd("foo", [1, "s1", 2, "s2"])
+        assert_equal 0, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], :xx => true)
+        assert_equal 2, r.zscore("foo", "s1")
+        assert_equal 3, r.zscore("foo", "s2")
+        assert_equal nil, r.zscore("foo", "s3")
+        assert_equal 2, r.zcard("foo")
+        r.del "foo"
+
+        # NX option
+        assert_equal 0, r.zcard("foo")
+        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], :nx => true)
+        assert_equal 1, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], :nx => true)
+        assert_equal 1, r.zscore("foo", "s1")
+        assert_equal 2, r.zscore("foo", "s2")
+        assert_equal 4, r.zscore("foo", "s3")
+        assert_equal 3, r.zcard("foo")
+        r.del "foo"
+
+        # CH option
+        assert_equal 0, r.zcard("foo")
+        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], :ch => true)
+        assert_equal 2, r.zadd("foo", [1, "s1", 3, "s2", 4, "s3"], :ch => true)
+        assert_equal 3, r.zcard("foo")
+        r.del "foo"
+
+        # INCR option
+        assert_equal 1.0, r.zadd("foo", [1, "s1"], :incr => true)
+        assert_equal 11.0, r.zadd("foo", [10, "s1"], :incr => true)
+        assert_equal -Infinity, r.zadd("bar", ["-inf", "s1"], :incr => true)
+        assert_equal +Infinity, r.zadd("bar", ["+inf", "s2"], :incr => true)
+        assert_raise(Redis::CommandError) { r.zadd("foo", [1, "s1", 2, "s2"], :incr => true) }
+        r.del "foo", "bar"
+
+        # Incompatible options combination
+        assert_raise(Redis::CommandError) { r.zadd("foo", [1, "s1"], :xx => true, :nx => true) }
       end
     end
 
