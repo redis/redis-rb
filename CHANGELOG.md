@@ -14,7 +14,7 @@
 
 # 3.3.0
 
-* Added `write_timeout` option. See #482.
+* Added `read_timeout` and `write_timeout` options. See #437, #482.
 
 # 3.2.2
 
