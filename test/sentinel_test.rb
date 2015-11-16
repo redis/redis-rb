@@ -24,8 +24,8 @@ class SentinalTest < Test::Unit::TestCase
       }
     end
 
-    RedisMock.start(handler.call(:s1), {}, 0) do |s1_port|
-      RedisMock.start(handler.call(:s2), {}, 0) do |s2_port|
+    RedisMock.start(handler.call(:s1)) do |s1_port|
+      RedisMock.start(handler.call(:s2)) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
         redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
@@ -61,8 +61,8 @@ class SentinalTest < Test::Unit::TestCase
       end
     }
 
-    RedisMock.start(s1, {}, 0) do |s1_port|
-      RedisMock.start(s2, {}, 0) do |s2_port|
+    RedisMock.start(s1) do |s1_port|
+      RedisMock.start(s2) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
         redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
@@ -98,8 +98,8 @@ class SentinalTest < Test::Unit::TestCase
       end
     }
 
-    RedisMock.start(s1, {}, 0) do |s1_port|
-      RedisMock.start(s2, {}, 0) do |s2_port|
+    RedisMock.start(s1) do |s1_port|
+      RedisMock.start(s2) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
         redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
@@ -152,8 +152,8 @@ class SentinalTest < Test::Unit::TestCase
       end
     }
 
-    RedisMock.start(master, {}, 0) do |master_port|
-      RedisMock.start(sentinel.call(master_port), {}, 0) do |sen_port|
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(sentinel.call(master_port)) do |sen_port|
         sentinels[0][:port] = sen_port
         redis = Redis.new(:url => "redis://:foo@master1/15", :sentinels => sentinels, :role => :master)
 
@@ -183,8 +183,8 @@ class SentinalTest < Test::Unit::TestCase
     }
 
     ex = assert_raise(Redis::ConnectionError) do
-      RedisMock.start(master, {}, 0) do |master_port|
-        RedisMock.start(sentinel.call(master_port), {}, 0) do |sen_port|
+      RedisMock.start(master) do |master_port|
+        RedisMock.start(sentinel.call(master_port)) do |sen_port|
           sentinels[0][:port] = sen_port
           redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
 
@@ -222,9 +222,9 @@ class SentinalTest < Test::Unit::TestCase
       end
     }
 
-    RedisMock.start(master, {}, 0) do |master_port|
-      RedisMock.start(handler.call(:s1, master_port), {}, 0) do |s1_port|
-        RedisMock.start(handler.call(:s2, master_port), {}, 0) do |s2_port|
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(handler.call(:s1, master_port)) do |s1_port|
+        RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
           sentinels[0][:port] = s1_port
           sentinels[1][:port] = s2_port
           redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 1)
@@ -239,9 +239,9 @@ class SentinalTest < Test::Unit::TestCase
     connections.clear
 
     ex = assert_raise(Redis::CannotConnectError) do
-      RedisMock.start(master, {}, 0) do |master_port|
-        RedisMock.start(handler.call(:s1, master_port), {}, 0) do |s1_port|
-          RedisMock.start(handler.call(:s2, master_port), {}, 0) do |s2_port|
+      RedisMock.start(master) do |master_port|
+        RedisMock.start(handler.call(:s1, master_port)) do |s1_port|
+          RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
             redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 0)
 
             assert redis.ping

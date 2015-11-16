@@ -16,6 +16,13 @@
 
 * Added support for `ZADD` options `NX`, `XX`, `CH`, `INCR`. See #547.
 
+* Added support for sentinel commands. See #556.
+
+* New `:id` option allows you to identify the client against Redis. See #510.
+
+* `Redis::Distributed` will raise when adding two nodes with the same ID.
+  See #354.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.

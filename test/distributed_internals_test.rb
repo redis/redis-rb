@@ -7,16 +7,16 @@ class TestDistributedInternals < Test::Unit::TestCase
   include Helper::Distributed
 
   def test_provides_a_meaningful_inspect
-    nodes = ["redis://127.0.0.1:#{PORT}/15", *NODES]
+    nodes = ["redis://localhost:#{PORT}/15", *NODES]
     redis = Redis::Distributed.new nodes
 
     assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
   end
 
   def test_default_as_urls
-    nodes = ["redis://127.0.0.1:#{PORT}/15", *NODES]
+    nodes = ["redis://localhost:#{PORT}/15", *NODES]
     redis = Redis::Distributed.new nodes
-    assert_equal ["redis://127.0.0.1:#{PORT}/15", *NODES], redis.nodes.map { |node| node.client.id}
+    assert_equal ["redis://localhost:#{PORT}/15", *NODES], redis.nodes.map { |node| node.client.id}
   end
 
   def test_default_as_config_hashes
@@ -67,4 +67,13 @@ class TestDistributedInternals < Test::Unit::TestCase
 
     assert_equal [], r2.sinter("baz:foo", "baz:bar")
   end
+
+  def test_colliding_node_ids
+    nodes = ["redis://localhost:#{PORT}/15", "redis://localhost:#{PORT}/15", *NODES]
+
+    assert_raise(RuntimeError) do
+      redis = Redis::Distributed.new nodes
+    end
+  end
+
 end
