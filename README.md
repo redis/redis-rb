@@ -29,7 +29,7 @@ To install **redis-rb**, run the following command:
   gem install redis
 ```
 
-Or if you are using **bundler**, add 
+Or if you are using **bundler**, add
 
 ```
   gem 'redis', '~>3.2'
@@ -54,8 +54,7 @@ listening on `localhost`, port 6379. If you need to connect to a remote
 server or a different port, try:
 
 ```ruby
-redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15,
-                  :read_timeout => 1, :connect_timeout => 1)
+redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15)
 ```
 
 You can also specify connection options as a [`redis://` URL][redis-url]:
