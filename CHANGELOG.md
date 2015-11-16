@@ -12,7 +12,7 @@
   security updates in June of 2013; continuing to support it would prevent
   the use of newer features of Ruby.
 
-# (unreleased)
+# 3.2.2
 
 * Added support for `ZADD` options `NX`, `XX`, `CH`, `INCR`. See #547.
 
