@@ -11,7 +11,7 @@ class Redis
       :host => "127.0.0.1",
       :port => 6379,
       :path => nil,
-      :timeout => 5.0,
+      :read_timeout => 5.0,
       :connect_timeout => 5.0,
       :write_timeout => nil,
       :password => nil,
@@ -43,8 +43,16 @@ class Redis
       @options[:path]
     end
 
+    def read_timeout
+      @options[:read_timeout]
+    end
+
+    def connect_timeout
+      @options[:connect_timeout]
+    end
+
     def timeout
-      @options[:timeout]
+      @options[:read_timeout]
     end
 
     def password
@@ -427,11 +435,16 @@ class Redis
         options[:port] = options[:port].to_i
       end
 
-      options[:timeout] = options[:timeout].to_f
+      if options.has_key?(:timeout)
+        options[:read_timeout] ||= options[:timeout]
+        options[:connect_timeout] ||= options[:timeout]
+      end
+
+      options[:read_timeout] = options[:read_timeout].to_f
       options[:connect_timeout] = if options[:connect_timeout]
         options[:connect_timeout].to_f
       else
-        options[:timeout]
+        options[:read_timeout]
       end
 
       options[:write_timeout] = options[:write_timeout] ? options[:write_timeout].to_f : options[:timeout]

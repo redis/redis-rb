@@ -81,7 +81,7 @@ class Redis
         raise Errno::ECONNREFUSED if Fiber.yield == :refused
 
         instance = new(conn)
-        instance.timeout = config[:timeout]
+        instance.timeout = config[:read_timeout]
         instance
       end
 

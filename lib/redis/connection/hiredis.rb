@@ -18,7 +18,7 @@ class Redis
         end
 
         instance = new(connection)
-        instance.timeout = config[:timeout]
+        instance.timeout = config[:read_timeout]
         instance
       rescue Errno::ETIMEDOUT
         raise TimeoutError
