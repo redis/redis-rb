@@ -22,9 +22,7 @@ class Redis
       :inherit_socket => false
     }
 
-    def options
-      Marshal.load(Marshal.dump(@options))
-    end
+    attr_reader :options
 
     def scheme
       @options[:scheme]
