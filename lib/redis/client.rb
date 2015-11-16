@@ -11,9 +11,7 @@ class Redis
       :host => "127.0.0.1",
       :port => 6379,
       :path => nil,
-      :read_timeout => 5.0,
-      :connect_timeout => 5.0,
-      :write_timeout => nil,
+      :timeout => 5.0,
       :password => nil,
       :db => 0,
       :driver => nil,
@@ -436,18 +434,14 @@ class Redis
       end
 
       if options.has_key?(:timeout)
-        options[:read_timeout] ||= options[:timeout]
         options[:connect_timeout] ||= options[:timeout]
+        options[:read_timeout]    ||= options[:timeout]
+        options[:write_timeout]   ||= options[:timeout]
       end
 
-      options[:read_timeout] = options[:read_timeout].to_f
-      options[:connect_timeout] = if options[:connect_timeout]
-        options[:connect_timeout].to_f
-      else
-        options[:read_timeout]
-      end
-
-      options[:write_timeout] = options[:write_timeout] ? options[:write_timeout].to_f : options[:timeout]
+      options[:connect_timeout] = Float(options[:connect_timeout])
+      options[:read_timeout]    = Float(options[:read_timeout])
+      options[:write_timeout]   = Float(options[:write_timeout])
 
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
