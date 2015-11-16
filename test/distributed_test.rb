@@ -7,7 +7,7 @@ class TestDistributed < Test::Unit::TestCase
   include Helper::Distributed
 
   def test_handle_multiple_servers
-    @r = Redis::Distributed.new ["redis://127.0.0.1:#{PORT}/15", *NODES]
+    @r = Redis::Distributed.new ["redis://localhost:#{PORT}/15", *NODES]
 
     100.times do |idx|
       @r.set(idx.to_s, "foo#{idx}")
