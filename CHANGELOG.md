@@ -16,6 +16,13 @@
 
 * Added `read_timeout` and `write_timeout` options. See #437, #482.
 
+* Added support for pub/sub with timeouts. See #329.
+
+* Added `Redis#call`, `Redis#queue` and `Redis#commit` as a more minimal API to
+  the client.
+
+* Deprecated `Redis#disconnect!` in favor of `Redis#close`.
+
 # 3.2.2
 
 * Added support for `ZADD` options `NX`, `XX`, `CH`, `INCR`. See #547.
