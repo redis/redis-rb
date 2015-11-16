@@ -223,6 +223,38 @@ end
 See lib/redis/errors.rb for information about what exceptions are possible.
 
 
+## Timeouts
+
+The client allows you to configure connect, read, and write timeouts.
+Passing a single `timeout` option will set all three values:
+
+```ruby
+Redis.new(:timeout => 1)
+```
+
+But you can use specific values for each of them:
+
+```ruby
+Redis.new(
+  :connect_timeout => 0.2,
+  :read_timeout    => 1.0,
+  :write_timeout   => 0.5
+)
+```
+
+When using pub/sub, you can subscribe to a channel using a timeout as well:
+
+```ruby
+redis.subscribe_with_timeout(5, "news") do |on|
+  on.message do |channel, message|
+    # ...
+  end
+end
+```
+
+If no message is received after 5 seconds, the client will unsubscribe.
+
+
 ## Expert-Mode Options
 
  - `inherit_socket: true`: disable safety check that prevents a forked child
