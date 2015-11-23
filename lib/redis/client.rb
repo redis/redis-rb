@@ -18,7 +18,8 @@ class Redis
       :id => nil,
       :tcp_keepalive => 0,
       :reconnect_attempts => 1,
-      :inherit_socket => false
+      :inherit_socket => false,
+      :sentinels => []
     }
 
     def options
@@ -86,7 +87,7 @@ class Redis
 
       @pending_reads = 0
 
-      if options.include?(:sentinels)
+      if options.include?(:sentinels) && options[:sentinels].any?
         @connector = Connector::Sentinel.new(@options)
       else
         @connector = Connector.new(@options)
@@ -445,6 +446,12 @@ class Redis
 
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
+
+      (options[:sentinels] || []).each_with_index do |sentinel, sentinel_index|
+        options[:sentinels][sentinel_index].keys.each do |key|
+          options[:sentinels][sentinel_index][(key.to_sym rescue key) || key] = options[:sentinels][sentinel_index].delete(key)
+        end
+      end
 
       case options[:tcp_keepalive]
       when Hash
