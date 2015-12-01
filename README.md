@@ -242,6 +242,8 @@ Redis.new(
 )
 ```
 
+All timeout values are specified in seconds.
+
 When using pub/sub, you can subscribe to a channel using a timeout as well:
 
 ```ruby
