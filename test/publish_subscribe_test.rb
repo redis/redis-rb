@@ -253,40 +253,30 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_with_timeout
+    received = false
+
     assert_raise Redis::TimeoutError do
-      sleep = %{sleep #{OPTIONS[:timeout] * 2}}
-      publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
-      cmd = [sleep, publish].join("; ")
-
-      IO.popen(cmd, "r+") do |pipe|
-        received = false
-
-        r.subscribe_with_timeout(OPTIONS[:timeout], "foo")  do |on|
-          on.message do |channel, message|
-            received = true
-            r.unsubscribe
-          end
+      r.subscribe_with_timeout(1, "foo")  do |on|
+        on.message do |channel, message|
+          received = true
         end
       end
     end
+
+    assert !received
   end
 
   def test_psubscribe_with_timeout
+    received = false
+
     assert_raise Redis::TimeoutError do
-      sleep = %{sleep #{OPTIONS[:timeout] * 2}}
-      publish = %{echo "publish foo bar\r\n" | nc localhost #{OPTIONS[:port]}}
-      cmd = [sleep, publish].join("; ")
-
-      IO.popen(cmd, "r+") do |pipe|
-        received = false
-
-        r.psubscribe_with_timeout(OPTIONS[:timeout], "f*")  do |on|
-          on.message do |channel, message|
-            received = true
-            r.unsubscribe
-          end
+      r.psubscribe_with_timeout(1, "f*")  do |on|
+        on.message do |channel, message|
+          received = true
         end
       end
     end
+
+    assert !received
   end
 end
