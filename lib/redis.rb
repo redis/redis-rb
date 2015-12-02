@@ -49,6 +49,7 @@ class Redis
   def initialize(options = {})
     @options = options.dup
     @original_client = @client = Client.new(options)
+    @queue = Hash.new { |h, k| h[k] = [] }
 
     super() # Monitor#initialize
   end
@@ -101,7 +102,7 @@ class Redis
   # See http://redis.io/topics/pipelining for more details.
   #
   def queue(*command)
-    _queue << command
+    @queue[Thread.current.object_id] << command
   end
 
   # Sends all commands in the queue.
@@ -111,9 +112,9 @@ class Redis
   def commit
     synchronize do |client|
       begin
-        client.call_pipelined(_queue)
+        client.call_pipelined(@queue[Thread.current.object_id])
       ensure
-        _queue.clear
+        @queue.delete(Thread.current.object_id)
       end
     end
   end
@@ -2776,10 +2777,6 @@ private
     ensure
       @client = original
     end
-  end
-
-  def _queue
-    Thread.current[:redis_queue] ||= []
   end
 
 end
