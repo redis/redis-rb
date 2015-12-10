@@ -33,15 +33,11 @@ class Redis
     end
 
     def add_node(options)
-      options = { :url => options } if options.is_a?(String)
-      options = @default_options.merge(options)
-      @ring.add_node Redis.new( options )
+      @ring.add_node Redis.new( node_options(options) )
     end
 
     def remove_node(options)
-      options = { :url => options } if options.is_a?(String)
-      options = @default_options.merge(options)
-      @ring.remove_node Redis.new( options )
+      @ring.remove_node Redis.new( node_options(options) )
     end
 
     # Change the selected database for the current connection.
@@ -875,5 +871,13 @@ class Redis
 
       yield(node_for(keys.first))
     end
+
+  private
+
+    def node_options(options)
+      options = { :url => options } if options.is_a?(String)
+      options = @default_options.merge(options)
+    end
+
   end
 end
