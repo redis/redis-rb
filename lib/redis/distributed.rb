@@ -38,6 +38,12 @@ class Redis
       @ring.add_node Redis.new( options )
     end
 
+    def remove_node(options)
+      options = { :url => options } if options.is_a?(String)
+      options = @default_options.merge(options)
+      @ring.remove_node Redis.new( options )
+    end
+
     # Change the selected database for the current connection.
     def select(db)
       on_each_node :select, db
