@@ -1485,8 +1485,8 @@ class Redis
         # Variadic: return float if INCR, integer if !INCR
         client.call([:zadd, key] + zadd_options + args[0], &(incr ? _floatify : _identity))
       elsif args.size == 2
-        # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key] + zadd_options + args, &(incr ? _floatify : _boolify))
+        # Single pair: return float if INCR, integer if !INCR
+        client.call([:zadd, key] + zadd_options + args, &(incr ? _floatify : _identity))
       else
         raise ArgumentError, "wrong number of arguments"
       end
