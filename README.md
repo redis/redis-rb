@@ -182,6 +182,25 @@ end
 # => ["OK", 1]
 ```
 
+### Redis: rename-command
+
+Redis allows commands to be renamed, "CONFIG", "FLUSHALL", and "SHUTDOWN" are common commands that are renamed to prevent "accidents".  If you do rename commands, you can use these commands in Redis by adding the following code, during initialization:
+
+```
+  # Redis configuration
+  rename-command CONFIG MY_CONFIG
+  rename-command SHUTDOWN MY_SHUTDOWN
+  rename-command DEBUG MY_DEBUG
+```
+
+```ruby
+    class Redis
+      alias_method :my_config, :config
+      alias_method :my_shutdown, :shutdown
+      alias_method :my_debug, :debug
+    end
+```
+
 ### Futures
 
 Replies to commands in a pipeline can be accessed via the *futures* they
