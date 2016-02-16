@@ -87,7 +87,7 @@ class Redis
 
       @pending_reads = 0
 
-      if options.include?(:sentinels) && options[:sentinels].any?
+      if @options.include?(:sentinels) && @options[:sentinels].any?
         @connector = Connector::Sentinel.new(@options)
       else
         @connector = Connector.new(@options)
