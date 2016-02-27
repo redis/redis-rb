@@ -529,6 +529,10 @@ class Redis
       def check(client); end
 
       class Sentinel < Connector
+        EXPECTED_ROLES = {
+          "nearest_slave" => "slave"
+        }
+
         def initialize(options)
           super(options)
 
@@ -547,12 +551,12 @@ class Redis
             role = client.call([:role])[0]
           rescue Redis::CommandError
             # Assume the test is passed if we can't get a reply from ROLE...
-            role = @role
+            role = EXPECTED_ROLES.fetch(@role, @role)
           end
 
-          if role != @role
+          if role != EXPECTED_ROLES.fetch(@role, @role)
             client.disconnect
-            raise ConnectionError, "Instance role mismatch. Expected #{@role}, got #{role}."
+            raise ConnectionError, "Instance role mismatch. Expected #{EXPECTED_ROLES.fetch(@role, @role)}, got #{role}."
           end
         end
 
@@ -562,6 +566,8 @@ class Redis
             resolve_master
           when "slave"
             resolve_slave
+          when "nearest_slave"
+            resolve_nearest_slave
           else
             raise ArgumentError, "Unknown instance role #{@role}"
           end
@@ -622,6 +628,34 @@ class Redis
             end
           end
         end
+
+        def resolve_nearest_slave
+          sentinel_detect do |client|
+            if reply = client.call(["sentinel", "slaves", @master])
+              ok_slaves = reply.map {|r| Hash[*r] }.select  {|r| r["master-link-status"] == "ok" }
+
+              ok_slaves.each do |slave|
+                client = Client.new @options.merge(
+                  :host => slave["ip"],
+                  :port => slave["port"],
+                  :reconnect_attempts => 0
+                )
+                begin
+                  client.call [:ping]
+                  start = Time.now
+                  client.call [:ping]
+                  slave["response_time"] = (Time.now - start).to_f
+                ensure
+                  client.disconnect
+                end
+              end
+
+              slave = ok_slaves.sort_by {|slave| slave["response_time"] }.first
+              {:host => slave.fetch("ip"), :port => slave.fetch("port")} if slave
+            end
+          end
+        end
+
       end
     end
   end
