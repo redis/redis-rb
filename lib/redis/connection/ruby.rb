@@ -13,7 +13,7 @@ class Redis
         super(*args)
 
         @timeout = nil
-        @buffer = ""
+        @buffer = String.new("")
       end
 
       def timeout=(timeout)
