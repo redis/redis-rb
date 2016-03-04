@@ -29,7 +29,7 @@ To install **redis-rb**, run the following command:
   gem install redis
 ```
 
-Or if you are using **bundler**, add 
+Or if you are using **bundler**, add
 
 ```
   gem 'redis', '~>3.2'
@@ -298,9 +298,11 @@ This library is tested using [Travis][travis-home], where it is tested
 against the following interpreters and drivers:
 
 * MRI 1.8.7 (drivers: ruby, hiredis)
-* MRI 1.9.2 (drivers: ruby, hiredis, synchrony)
 * MRI 1.9.3 (drivers: ruby, hiredis, synchrony)
-* MRI 2.0.0 (drivers: ruby, hiredis, synchrony)
+* MRI 2.0 (drivers: ruby, hiredis, synchrony)
+* MRI 2.1 (drivers: ruby, hiredis, synchrony)
+* MRI 2.2 (drivers: ruby, hiredis, synchrony)
+* MRI 2.3 (drivers: ruby, hiredis, synchrony)
 * JRuby 1.7 (1.8 mode) (drivers: ruby)
 * JRuby 1.7 (1.9 mode) (drivers: ruby)
 
