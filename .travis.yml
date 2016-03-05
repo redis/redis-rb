@@ -62,6 +62,3 @@ matrix:
 notifications:
   irc:
     - irc.freenode.net#redis-rb
-  email:
-    - damian.janowski@gmail.com
-    - pcnoordhuis@gmail.com
