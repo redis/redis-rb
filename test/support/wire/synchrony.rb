@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class Wire < Fiber
   # We cannot run this fiber explicitly because EM schedules it. Resuming the
   # current fiber on the next tick to let the reactor do work.

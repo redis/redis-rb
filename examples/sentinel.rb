@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'redis'
 
 # This example creates a master-slave setup with a sentinel, then connects to

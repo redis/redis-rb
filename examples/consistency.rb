@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 # This file implements a simple consistency test for Redis-rb (or any other
 # Redis environment if you pass a different client object) where a client
 # writes to the database using INCR in order to increment keys, but actively

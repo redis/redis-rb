@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'fileutils'
 
 def run_in_background(command)
