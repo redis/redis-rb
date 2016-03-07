@@ -62,3 +62,4 @@ matrix:
 notifications:
   irc:
     - irc.freenode.net#redis-rb
+  email: false
