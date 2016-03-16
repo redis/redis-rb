@@ -346,4 +346,35 @@ class SentinelTest < Minitest::Test
 
     assert_match(/No sentinels available/, ex.message)
   end
+
+  def test_sentinel_with_string_option_keys
+    commands = []
+
+    master = {
+      role: lambda do
+        ['master']
+      end
+    }
+
+    sentinel = lambda do |port|
+      {
+        sentinel: lambda do |command, *args|
+          commands << [command, *args]
+          ['127.0.0.1', port.to_s]
+        end
+      }
+    end
+
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(sentinel.call(master_port)) do |sen_port|
+        sentinels = [{ 'host' => '127.0.0.1', 'port' => sen_port }]
+
+        redis = Redis.new(url: 'redis://master1', 'sentinels' => sentinels, 'role' => :master)
+
+        assert redis.ping
+      end
+    end
+
+    assert_equal [%w[get-master-addr-by-name master1]], commands
+  end
 end
