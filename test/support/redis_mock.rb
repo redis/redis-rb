@@ -3,8 +3,19 @@ require "socket"
 module RedisMock
   class Server
     def initialize(options = {}, &block)
-      @server = TCPServer.new(options[:host] || "127.0.0.1", 0)
-      @server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+      tcp_server = TCPServer.new(options[:host] || "127.0.0.1", 0)
+      tcp_server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+
+      if options[:ssl]
+        ctx = OpenSSL::SSL::SSLContext.new
+
+        ssl_params = options.fetch(:ssl_params, {})
+        ctx.set_params(ssl_params) unless ssl_params.empty?
+
+        @server = OpenSSL::SSL::SSLServer.new(tcp_server, ctx)
+      else
+        @server = tcp_server
+      end
     end
 
     def port

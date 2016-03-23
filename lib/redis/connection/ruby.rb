@@ -2,12 +2,17 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
+require "openssl"
 
 class Redis
   module Connection
     module SocketMixin
 
       CRLF = "\r\n".freeze
+
+      # Exceptions raised during non-blocking I/O ops that require retrying the op
+      NBIO_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
+      NBIO_EXCEPTIONS << IO::WaitReadable if RUBY_VERSION >= "1.9.3"
 
       def initialize(*args)
         super(*args)
@@ -45,10 +50,11 @@ class Redis
       end
 
       def _read_from_socket(nbytes)
+
         begin
           read_nonblock(nbytes)
 
-        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
+        rescue *NBIO_EXCEPTIONS
           if IO.select([self], nil, nil, @timeout)
             retry
           else
@@ -195,6 +201,25 @@ class Redis
 
     end
 
+    class SSLSocket < ::OpenSSL::SSL::SSLSocket
+      include SocketMixin
+
+      def self.connect(host, port, timeout, ssl_params)
+        # Note: this is using Redis::Connection::TCPSocket
+        tcp_sock = TCPSocket.connect(host, port, timeout)
+
+        ctx = OpenSSL::SSL::SSLContext.new
+        ctx.set_params(ssl_params) if ssl_params && !ssl_params.empty?
+
+        ssl_sock = new(tcp_sock, ctx)
+        ssl_sock.hostname = host
+        ssl_sock.connect
+        ssl_sock.post_connection_check(host)
+
+        ssl_sock
+      end
+    end
+
     class Ruby
       include Redis::Connection::CommandHelper
 
@@ -206,7 +231,10 @@ class Redis
 
       def self.connect(config)
         if config[:scheme] == "unix"
+          raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
+        elsif config[:scheme] == "rediss" || config[:ssl]
+          sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:connect_timeout])
         end
