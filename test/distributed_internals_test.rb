@@ -72,7 +72,7 @@ class TestDistributedInternals < Test::Unit::TestCase
     nodes = ["redis://localhost:#{PORT}/15", "redis://localhost:#{PORT}/15", *NODES]
 
     assert_raise(RuntimeError) do
-      redis = Redis::Distributed.new nodes
+      Redis::Distributed.new nodes
     end
   end
 
