@@ -39,7 +39,7 @@ matrix:
     - rvm: jruby-19mode
       gemfile: .travis/Gemfile
       env: conn=hiredis REDIS_BRANCH=2.8
-    - rvm: jruby-head
+    - rvm: jruby-9.0.5.0
       gemfile: .travis/Gemfile
       env: conn=hiredis REDIS_BRANCH=2.8
 
@@ -53,7 +53,7 @@ matrix:
     - rvm: jruby-19mode
       gemfile: .travis/Gemfile
       env: conn=synchrony REDIS_BRANCH=2.8
-    - rvm: jruby-head
+    - rvm: jruby-9.0.5.0
       gemfile: .travis/Gemfile
       env: conn=synchrony REDIS_BRANCH=2.8
   allow_failures:
