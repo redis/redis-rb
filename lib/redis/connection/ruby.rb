@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
@@ -13,7 +14,7 @@ class Redis
         super(*args)
 
         @timeout = nil
-        @buffer = ""
+        @buffer = String.new("")
       end
 
       def timeout=(timeout)
