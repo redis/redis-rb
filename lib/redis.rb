@@ -2095,7 +2095,14 @@ class Redis
   # Listen for messages published to the given channels.
   def subscribe(*channels, &block)
     synchronize do |client|
-      _subscription(:subscribe, channels, block)
+      _subscription(:subscribe, 0, channels, block)
+    end
+  end
+
+  # Listen for messages published to the given channels. Throw a timeout error if there is no messages for a timeout period.
+  def subscribe_with_timeout(timeout, *channels, &block)
+    synchronize do |client|
+      _subscription(:subscribe_with_timeout, timeout, channels, block)
     end
   end
 
@@ -2110,7 +2117,14 @@ class Redis
   # Listen for messages published to channels matching the given patterns.
   def psubscribe(*channels, &block)
     synchronize do |client|
-      _subscription(:psubscribe, channels, block)
+      _subscription(:psubscribe, 0, channels, block)
+    end
+  end
+
+  # Listen for messages published to channels matching the given patterns. Throw a timeout error if there is no messages for a timeout period.
+  def psubscribe_with_timeout(timeout, *channels, &block)
+    synchronize do |client|
+      _subscription(:psubscribe_with_timeout, timeout, channels, block)
     end
   end
 
@@ -2710,12 +2724,16 @@ private
     }
   end
 
-  def _subscription(method, channels, block)
+  def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
 
     begin
       original, @client = @client, SubscribedClient.new(@client)
-      @client.send(method, *channels, &block)
+      if timeout > 0
+        @client.send(method, timeout, *channels, &block)
+      else
+        @client.send(method, *channels, &block)
+      end
     ensure
       @client = original
     end
