@@ -2,7 +2,12 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
-require "openssl"
+
+begin
+  require "openssl"
+rescue LoadError
+  # Not all systems have OpenSSL support
+end
 
 class Redis
   module Connection
@@ -201,22 +206,24 @@ class Redis
 
     end
 
-    class SSLSocket < ::OpenSSL::SSL::SSLSocket
-      include SocketMixin
+    if defined?(OpenSSL)
+      class SSLSocket < ::OpenSSL::SSL::SSLSocket
+        include SocketMixin
 
-      def self.connect(host, port, timeout, ssl_params)
-        # Note: this is using Redis::Connection::TCPSocket
-        tcp_sock = TCPSocket.connect(host, port, timeout)
+        def self.connect(host, port, timeout, ssl_params)
+          # Note: this is using Redis::Connection::TCPSocket
+          tcp_sock = TCPSocket.connect(host, port, timeout)
 
-        ctx = OpenSSL::SSL::SSLContext.new
-        ctx.set_params(ssl_params) if ssl_params && !ssl_params.empty?
+          ctx = OpenSSL::SSL::SSLContext.new
+          ctx.set_params(ssl_params) if ssl_params && !ssl_params.empty?
 
-        ssl_sock = new(tcp_sock, ctx)
-        ssl_sock.hostname = host
-        ssl_sock.connect
-        ssl_sock.post_connection_check(host)
+          ssl_sock = new(tcp_sock, ctx)
+          ssl_sock.hostname = host
+          ssl_sock.connect
+          ssl_sock.post_connection_check(host)
 
-        ssl_sock
+          ssl_sock
+        end
       end
     end
 
