@@ -884,7 +884,7 @@ class Redis
   # Get the values of all the given keys.
   #
   # @example
-  #   redis.mapped_mget("key1", "key1")
+  #   redis.mapped_mget("key1", "key2")
   #     # => { "key1" => "v1", "key2" => "v2" }
   #
   # @param [Array<String>] keys array of keys
