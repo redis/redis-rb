@@ -162,11 +162,12 @@ class TestInternals < Test::Unit::TestCase
 
   driver(:ruby) do
     def test_write_timeout
-      TCPServer.new("127.0.0.1", 6383)
+      server = TCPServer.new("127.0.0.1", 0)
+      port   = server.addr[1]
 
       assert_raise(Redis::TimeoutError) do
         Timeout.timeout(1) do
-          redis = Redis.new(:port => 6383, :timeout => 5, :write_timeout => 0.2)
+          redis = Redis.new(:port => port, :timeout => 5, :write_timeout => 0.2)
           redis.set("foo", "1" * 1048576)
         end
       end
