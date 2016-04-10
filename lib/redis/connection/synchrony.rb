@@ -68,6 +68,8 @@ class Redis
       def self.connect(config)
         if config[:scheme] == "unix"
           conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
+        elsif config[:scheme] == "rediss" || config[:ssl]
+          raise NotImplementedError, "SSL not supported by synchrony driver"
         else
           conn = EventMachine.connect(config[:host], config[:port], RedisClient) do |c|
             c.pending_connect_timeout = [config[:connect_timeout], 0.1].max

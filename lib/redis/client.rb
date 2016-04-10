@@ -405,7 +405,7 @@ class Redis
 
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
-        elsif uri.scheme == "redis"
+        elsif uri.scheme == "redis" || uri.scheme == "rediss"
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host if uri.host
           defaults[:port]     = uri.port if uri.port
@@ -415,6 +415,8 @@ class Redis
         else
           raise ArgumentError, "invalid uri scheme '#{uri.scheme}'"
         end
+
+        defaults[:ssl] = true if uri.scheme == "rediss"
       end
 
       # Use default when option is not specified or nil
