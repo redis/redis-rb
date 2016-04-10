@@ -11,6 +11,7 @@ env:
   global:
     - VERBOSE=true
     - TIMEOUT=1
+    - TESTOPTS="-v"
   matrix:
     - conn=synchrony REDIS_BRANCH=2.8
 
