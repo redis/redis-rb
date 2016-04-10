@@ -222,6 +222,86 @@ end
 
 See lib/redis/errors.rb for information about what exceptions are possible.
 
+## Timeouts
+
+The client allows you to configure connect, read, and write timeouts.
+Passing a single `timeout` option will set all three values:
+
+```ruby
+Redis.new(:timeout => 1)
+```
+
+But you can use specific values for each of them:
+
+```ruby
+Redis.new(
+  :connect_timeout => 0.2,
+  :read_timeout    => 1.0,
+  :write_timeout   => 0.5
+)
+```
+
+All timeout values are specified in seconds.
+
+When using pub/sub, you can subscribe to a channel using a timeout as well:
+
+```ruby
+redis.subscribe_with_timeout(5, "news") do |on|
+  on.message do |channel, message|
+    # ...
+  end
+end
+```
+
+If no message is received after 5 seconds, the client will unsubscribe.
+
+
+## SSL/TLS Support
+
+This library supports natively terminating client side SSL/TLS connections
+when talking to Redis via a server-side proxy such as [stunnel], [hitch],
+or [ghostunnel].
+
+To enable SSL support, pass the `:ssl => :true` option when configuring the
+Redis client, or pass in `:url => "rediss://..."` (like HTTPS for Redis).
+You will also need to pass in an `:ssl_params => { ... }` hash used to
+configure the `OpenSSL::SSL::SSLContext` object used for the connection:
+
+```ruby
+redis = Redis.new(
+  :url        => "rediss://:p4ssw0rd@10.0.1.1:6381/15",
+  :ssl_params => {
+    :ca_file => "/path/to/ca.crt"
+  }
+)
+```
+
+The options given to `:ssl_params` are passed directly to the
+`OpenSSL::SSL::SSLContext#set_params` method and can be any valid attribute
+of the SSL context. Please see the [OpenSSL::SSL::SSLContext documentation]
+for all of the available attributes.
+
+Here is an example of passing in params that can be used for SSL client
+certificate authentication (a.k.a. mutual TLS):
+
+```ruby
+redis = Redis.new(
+  :url        => "rediss://:p4ssw0rd@10.0.1.1:6381/15",
+  :ssl_params => {
+    :ca_file => "/path/to/ca.crt",
+    :cert    => OpenSSL::X509::Certificate.new(File.read("client.crt")),
+    :key     => OpenSSL::PKey::RSA.new(File.read("client.key"))
+  }
+)
+```
+
+[stunnel]: https://www.stunnel.org/
+[hitch]: https://hitch-tls.org/
+[ghostunnel]: https://github.com/square/ghostunnel
+[OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.3.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
+
+*NOTE:* SSL is only supported by the default "Ruby" driver
+
 
 ## Expert-Mode Options
 

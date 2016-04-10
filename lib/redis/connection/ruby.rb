@@ -2,6 +2,13 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
+require "timeout"
+
+begin
+  require "openssl"
+rescue LoadError
+  # Not all systems have OpenSSL support
+end
 
 class Redis
   module Connection
@@ -9,10 +16,14 @@ class Redis
 
       CRLF = "\r\n".freeze
 
+      # Exceptions raised during non-blocking I/O ops that require retrying the op
+      NBIO_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
+      NBIO_EXCEPTIONS << IO::WaitReadable if RUBY_VERSION >= "1.9.3"
+
       def initialize(*args)
         super(*args)
 
-        @timeout = nil
+        @timeout = @write_timeout = nil
         @buffer = ""
       end
 
@@ -21,6 +32,14 @@ class Redis
           @timeout = timeout
         else
           @timeout = nil
+        end
+      end
+
+      def write_timeout=(timeout)
+        if timeout && timeout > 0
+          @write_timeout = timeout
+        else
+          @write_timeout = nil
         end
       end
 
@@ -45,10 +64,11 @@ class Redis
       end
 
       def _read_from_socket(nbytes)
+
         begin
           read_nonblock(nbytes)
 
-        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
+        rescue *NBIO_EXCEPTIONS
           if IO.select([self], nil, nil, @timeout)
             retry
           else
@@ -58,6 +78,11 @@ class Redis
 
       rescue EOFError
         raise Errno::ECONNRESET
+      end
+
+      # UNIXSocket and TCPSocket don't support write timeouts
+      def write(*args)
+        Timeout.timeout(@write_timeout, TimeoutError) { super }
       end
     end
 
@@ -195,6 +220,27 @@ class Redis
 
     end
 
+    if defined?(OpenSSL)
+      class SSLSocket < ::OpenSSL::SSL::SSLSocket
+        include SocketMixin
+
+        def self.connect(host, port, timeout, ssl_params)
+          # Note: this is using Redis::Connection::TCPSocket
+          tcp_sock = TCPSocket.connect(host, port, timeout)
+
+          ctx = OpenSSL::SSL::SSLContext.new
+          ctx.set_params(ssl_params) if ssl_params && !ssl_params.empty?
+
+          ssl_sock = new(tcp_sock, ctx)
+          ssl_sock.hostname = host
+          ssl_sock.connect
+          ssl_sock.post_connection_check(host)
+
+          ssl_sock
+        end
+      end
+    end
+
     class Ruby
       include Redis::Connection::CommandHelper
 
@@ -206,13 +252,17 @@ class Redis
 
       def self.connect(config)
         if config[:scheme] == "unix"
+          raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
+        elsif config[:scheme] == "rediss" || config[:ssl]
+          sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:connect_timeout])
         end
 
         instance = new(sock)
         instance.timeout = config[:timeout]
+        instance.write_timeout = config[:write_timeout]
         instance.set_tcp_keepalive config[:tcp_keepalive]
         instance
       end
@@ -263,6 +313,10 @@ class Redis
         if @sock.respond_to?(:timeout=)
           @sock.timeout = timeout
         end
+      end
+
+      def write_timeout=(timeout)
+        @sock.write_timeout = timeout
       end
 
       def write(command)

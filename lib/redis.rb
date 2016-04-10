@@ -49,6 +49,7 @@ class Redis
   def initialize(options = {})
     @options = options.dup
     @original_client = @client = Client.new(options)
+    @queue = Hash.new { |h, k| h[k] = [] }
 
     super() # Monitor#initialize
   end
@@ -75,8 +76,47 @@ class Redis
   end
 
   # Disconnect the client as quickly and silently as possible.
-  def disconnect!
+  def close
     @original_client.disconnect
+  end
+  alias disconnect! close
+
+  # Sends a command to Redis and returns its reply.
+  #
+  # Replies are converted to Ruby objects according to the RESP protocol, so
+  # you can expect a Ruby array, integer or nil when Redis sends one. Higher
+  # level transformations, such as converting an array of pairs into a Ruby
+  # hash, are up to consumers.
+  #
+  # Redis error replies are raised as Ruby exceptions.
+  def call(*command)
+    synchronize do |client|
+      client.call(command)
+    end
+  end
+
+  # Queues a command for pipelining.
+  #
+  # Commands in the queue are executed with the Redis#commit method.
+  #
+  # See http://redis.io/topics/pipelining for more details.
+  #
+  def queue(*command)
+    @queue[Thread.current.object_id] << command
+  end
+
+  # Sends all commands in the queue.
+  #
+  # See http://redis.io/topics/pipelining for more details.
+  #
+  def commit
+    synchronize do |client|
+      begin
+        client.call_pipelined(@queue[Thread.current.object_id])
+      ensure
+        @queue.delete(Thread.current.object_id)
+      end
+    end
   end
 
   # Authenticate to the server.
@@ -2095,7 +2135,14 @@ class Redis
   # Listen for messages published to the given channels.
   def subscribe(*channels, &block)
     synchronize do |client|
-      _subscription(:subscribe, channels, block)
+      _subscription(:subscribe, 0, channels, block)
+    end
+  end
+
+  # Listen for messages published to the given channels. Throw a timeout error if there is no messages for a timeout period.
+  def subscribe_with_timeout(timeout, *channels, &block)
+    synchronize do |client|
+      _subscription(:subscribe_with_timeout, timeout, channels, block)
     end
   end
 
@@ -2110,7 +2157,14 @@ class Redis
   # Listen for messages published to channels matching the given patterns.
   def psubscribe(*channels, &block)
     synchronize do |client|
-      _subscription(:psubscribe, channels, block)
+      _subscription(:psubscribe, 0, channels, block)
+    end
+  end
+
+  # Listen for messages published to channels matching the given patterns. Throw a timeout error if there is no messages for a timeout period.
+  def psubscribe_with_timeout(timeout, *channels, &block)
+    synchronize do |client|
+      _subscription(:psubscribe_with_timeout, timeout, channels, block)
     end
   end
 
@@ -2710,12 +2764,16 @@ private
     }
   end
 
-  def _subscription(method, channels, block)
+  def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
 
     begin
       original, @client = @client, SubscribedClient.new(@client)
-      @client.send(method, *channels, &block)
+      if timeout > 0
+        @client.send(method, timeout, *channels, &block)
+      else
+        @client.send(method, *channels, &block)
+      end
     ensure
       @client = original
     end
