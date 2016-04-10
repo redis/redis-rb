@@ -14,6 +14,9 @@
 
 # 3.3.0
 
+* Added support for SSL/TLS. Redis doesn't support SSL natively, so you still
+  need to run a terminating proxy on Redis' side. See #496.
+
 * Added `read_timeout` and `write_timeout` options. See #437, #482.
 
 * Added support for pub/sub with timeouts. See #329.
