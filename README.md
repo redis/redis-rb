@@ -132,7 +132,7 @@ use it for the next requests.
 
 ## Storing objects
 
-Redis only stores strings as values. If you want to store an object, you
+Redis is well known to store strings as values. If you want to store an object, you
 can use a serialization mechanism such as JSON:
 
 ```ruby
@@ -143,6 +143,25 @@ redis.set "foo", [1, 2, 3].to_json
 
 JSON.parse(redis.get("foo"))
 # => [1, 2, 3]
+```
+
+## Storing hashes
+
+Another way to store objects is by using a `Hash` Redis data type.
+Redis Hashes are maps between string fields and string values.
+
+```ruby
+redis.hset("person:444", "name", "Fred")
+# => true
+
+redis.hmset("person:123", "name", "Fred", "age", 34)
+# => OK
+
+redis.hgetall "person:123"
+# => {"name"=>"Fred", "age"=>"34"}
+
+redis.hget "person:123", "age"
+# => "34"
 ```
 
 ## Pipelining
