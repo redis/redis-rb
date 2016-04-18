@@ -21,9 +21,12 @@ env:
     - VERBOSE=true
     - TIMEOUT=1
   matrix:
-    - conn=ruby      REDIS_BRANCH=2.8
-    - conn=hiredis   REDIS_BRANCH=2.8
-    - conn=synchrony REDIS_BRANCH=2.8
+    - conn=ruby      REDIS_BRANCH=3.0
+    - conn=ruby      REDIS_BRANCH=3.2
+    - conn=hiredis   REDIS_BRANCH=3.0
+    - conn=hiredis   REDIS_BRANCH=3.2
+    - conn=synchrony REDIS_BRANCH=3.0
+    - conn=synchrony REDIS_BRANCH=3.2
     - conn=ruby      REDIS_BRANCH=unstable
 
 branches:
