@@ -9,6 +9,8 @@ class Redis
     class RedisClient < EventMachine::Connection
       include EventMachine::Deferrable
 
+      attr_accessor :timeout
+
       def post_init
         @req = nil
         @connected = false
@@ -44,6 +46,9 @@ class Redis
 
       def read
         @req = EventMachine::DefaultDeferrable.new
+        if @timeout > 0
+          @req.timeout(@timeout, :timeout)
+        end
         EventMachine::Synchrony.sync @req
       end
 
@@ -96,7 +101,7 @@ class Redis
       end
 
       def timeout=(timeout)
-        @timeout = timeout
+        @connection.timeout = timeout
       end
 
       def disconnect
@@ -115,6 +120,8 @@ class Redis
           payload
         elsif type == :error
           raise payload
+        elsif type == :timeout
+          raise TimeoutError
         else
           raise "Unknown type #{type.inspect}"
         end
