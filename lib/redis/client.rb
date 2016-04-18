@@ -116,12 +116,12 @@ class Redis
       path || "#{host}:#{port}"
     end
 
-    def call(command, &block)
+    def call(command)
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
 
-      if block
-        block.call(reply)
+      if block_given?
+        yield reply
       else
         reply
       end

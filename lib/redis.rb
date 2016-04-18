@@ -201,7 +201,7 @@ class Redis
     synchronize do |client|
       client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
-          Hash[_pairify(reply)]
+          Hashify.call(reply)
         else
           reply
         end
@@ -360,7 +360,7 @@ class Redis
   # @return [Boolean] whether the timeout was removed or not
   def persist(key)
     synchronize do |client|
-      client.call([:persist, key], &_boolify)
+      client.call([:persist, key], &Boolify)
     end
   end
 
@@ -371,7 +371,7 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
     synchronize do |client|
-      client.call([:expire, key, seconds], &_boolify)
+      client.call([:expire, key, seconds], &Boolify)
     end
   end
 
@@ -382,7 +382,7 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
     synchronize do |client|
-      client.call([:expireat, key, unix_time], &_boolify)
+      client.call([:expireat, key, unix_time], &Boolify)
     end
   end
 
@@ -411,7 +411,7 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def pexpire(key, milliseconds)
     synchronize do |client|
-      client.call([:pexpire, key, milliseconds], &_boolify)
+      client.call([:pexpire, key, milliseconds], &Boolify)
     end
   end
 
@@ -422,7 +422,7 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def pexpireat(key, ms_unix_time)
     synchronize do |client|
-      client.call([:pexpireat, key, ms_unix_time], &_boolify)
+      client.call([:pexpireat, key, ms_unix_time], &Boolify)
     end
   end
 
@@ -501,7 +501,7 @@ class Redis
   # @return [Boolean]
   def exists(key)
     synchronize do |client|
-      client.call([:exists, key], &_boolify)
+      client.call([:exists, key], &Boolify)
     end
   end
 
@@ -542,7 +542,7 @@ class Redis
   # @return [Boolean] whether the key was moved or not
   def move(key, db)
     synchronize do |client|
-      client.call([:move, key, db], &_boolify)
+      client.call([:move, key, db], &Boolify)
     end
   end
 
@@ -579,7 +579,7 @@ class Redis
   # @return [Boolean] whether the key was renamed or not
   def renamenx(old_name, new_name)
     synchronize do |client|
-      client.call([:renamenx, old_name, new_name], &_boolify)
+      client.call([:renamenx, old_name, new_name], &Boolify)
     end
   end
 
@@ -718,7 +718,7 @@ class Redis
   # @return [Float] value after incrementing it
   def incrbyfloat(key, increment)
     synchronize do |client|
-      client.call([:incrbyfloat, key, increment], &_floatify)
+      client.call([:incrbyfloat, key, increment], &Floatify)
     end
   end
 
@@ -749,7 +749,7 @@ class Redis
 
     synchronize do |client|
       if nx || xx
-        client.call([:set, key, value.to_s] + args, &_boolify_set)
+        client.call([:set, key, value.to_s] + args, &BoolifySet)
       else
         client.call([:set, key, value.to_s] + args)
       end
@@ -789,7 +789,7 @@ class Redis
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
     synchronize do |client|
-      client.call([:setnx, key, value.to_s], &_boolify)
+      client.call([:setnx, key, value.to_s], &Boolify)
     end
   end
 
@@ -835,7 +835,7 @@ class Redis
   # @see #mapped_msetnx
   def msetnx(*args)
     synchronize do |client|
-      client.call([:msetnx] + args, &_boolify)
+      client.call([:msetnx] + args, &Boolify)
     end
   end
 
@@ -1308,7 +1308,7 @@ class Redis
           reply
         else
           # Single argument: return boolean
-          _boolify.call(reply)
+          Boolify.call(reply)
         end
       end
     end
@@ -1330,7 +1330,7 @@ class Redis
           reply
         else
           # Single argument: return boolean
-          _boolify.call(reply)
+          Boolify.call(reply)
         end
       end
     end
@@ -1369,7 +1369,7 @@ class Redis
   # @return [Boolean]
   def smove(source, destination, member)
     synchronize do |client|
-      client.call([:smove, source, destination, member], &_boolify)
+      client.call([:smove, source, destination, member], &Boolify)
     end
   end
 
@@ -1380,7 +1380,7 @@ class Redis
   # @return [Boolean]
   def sismember(key, member)
     synchronize do |client|
-      client.call([:sismember, key, member], &_boolify)
+      client.call([:sismember, key, member], &Boolify)
     end
   end
 
@@ -1523,10 +1523,10 @@ class Redis
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
         # Variadic: return float if INCR, integer if !INCR
-        client.call([:zadd, key] + zadd_options + args[0], &(incr ? _floatify : _identity))
+        client.call([:zadd, key] + zadd_options + args[0], &(incr ? Floatify : nil))
       elsif args.size == 2
         # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key] + zadd_options + args, &(incr ? _floatify : _boolify))
+        client.call([:zadd, key] + zadd_options + args, &(incr ? Floatify : Boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
@@ -1545,7 +1545,7 @@ class Redis
   # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
     synchronize do |client|
-      client.call([:zincrby, key, increment, member], &_floatify)
+      client.call([:zincrby, key, increment, member], &Floatify)
     end
   end
 
@@ -1574,7 +1574,7 @@ class Redis
           reply
         else
           # Single argument: return boolean
-          _boolify.call(reply)
+          Boolify.call(reply)
         end
       end
     end
@@ -1591,7 +1591,7 @@ class Redis
   # @return [Float] score of the member
   def zscore(key, member)
     synchronize do |client|
-      client.call([:zscore, key, member], &_floatify)
+      client.call([:zscore, key, member], &Floatify)
     end
   end
 
@@ -1620,7 +1620,7 @@ class Redis
 
     if with_scores
       args << "WITHSCORES"
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     synchronize do |client|
@@ -1646,7 +1646,7 @@ class Redis
 
     if with_scores
       args << "WITHSCORES"
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     synchronize do |client|
@@ -1784,7 +1784,7 @@ class Redis
 
     if with_scores
       args << "WITHSCORES"
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     limit = options[:limit]
@@ -1816,7 +1816,7 @@ class Redis
 
     if with_scores
       args << ["WITHSCORES"]
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     limit = options[:limit]
@@ -1946,7 +1946,7 @@ class Redis
   # @return [Boolean] whether or not the field was **added** to the hash
   def hset(key, field, value)
     synchronize do |client|
-      client.call([:hset, key, field, value], &_boolify)
+      client.call([:hset, key, field, value], &Boolify)
     end
   end
 
@@ -1958,7 +1958,7 @@ class Redis
   # @return [Boolean] whether or not the field was **added** to the hash
   def hsetnx(key, field, value)
     synchronize do |client|
-      client.call([:hsetnx, key, field, value], &_boolify)
+      client.call([:hsetnx, key, field, value], &Boolify)
     end
   end
 
@@ -2061,7 +2061,7 @@ class Redis
   # @return [Boolean] whether or not the field exists in the hash
   def hexists(key, field)
     synchronize do |client|
-      client.call([:hexists, key, field], &_boolify)
+      client.call([:hexists, key, field], &Boolify)
     end
   end
 
@@ -2085,7 +2085,7 @@ class Redis
   # @return [Float] value of the field after incrementing it
   def hincrbyfloat(key, field, increment)
     synchronize do |client|
-      client.call([:hincrbyfloat, key, field, increment], &_floatify)
+      client.call([:hincrbyfloat, key, field, increment], &Floatify)
     end
   end
 
@@ -2115,7 +2115,7 @@ class Redis
   # @return [Hash<String, String>]
   def hgetall(key)
     synchronize do |client|
-      client.call([:hgetall, key], &_hashify)
+      client.call([:hgetall, key], &Hashify)
     end
   end
 
@@ -2366,7 +2366,7 @@ class Redis
         arg = args.first
 
         client.call([:script, :exists, arg]) do |reply|
-          reply = reply.map { |r| _boolify.call(r) }
+          reply = reply.map { |r| Boolify.call(r) }
 
           if arg.is_a?(Array)
             reply
@@ -2520,7 +2520,7 @@ class Redis
   # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
     _scan(:hscan, cursor, [key], options) do |reply|
-      [reply[0], _pairify(reply[1])]
+      [reply[0], reply[1].each_slice(2).to_a]
     end
   end
 
@@ -2559,7 +2559,7 @@ class Redis
   #   members and scores
   def zscan(key, cursor, options={})
     _scan(:zscan, cursor, [key], options) do |reply|
-      [reply[0], _floatify_pairs.call(reply[1])]
+      [reply[0], FloatifyPairs.call(reply[1])]
     end
   end
 
@@ -2627,7 +2627,7 @@ class Redis
   # @return [Boolean] true if at least 1 HyperLogLog internal register was altered. false otherwise.
   def pfadd(key, member)
     synchronize do |client|
-      client.call([:pfadd, key, member], &_boolify)
+      client.call([:pfadd, key, member], &Boolify)
     end
   end
 
@@ -2652,7 +2652,7 @@ class Redis
   # @return [Boolean]
   def pfmerge(dest_key, *source_key)
     synchronize do |client|
-      client.call([:pfmerge, dest_key, *source_key], &_boolify_set)
+      client.call([:pfmerge, dest_key, *source_key], &BoolifySet)
     end
   end
 
@@ -2671,9 +2671,9 @@ class Redis
         else
           if reply.kind_of?(Array)
             if reply[0].kind_of?(Array)
-              reply.map(&_hashify)
+              reply.map(&Hashify)
             else
-              _hashify.call(reply)
+              Hashify.call(reply)
             end
           else
             reply
@@ -2706,13 +2706,12 @@ private
   # Commands returning 1 for true and 0 for false may be executed in a pipeline
   # where the method call will return nil. Propagate the nil instead of falsely
   # returning false.
-  def _boolify
+  Boolify =
     lambda { |value|
       value == 1 if value
     }
-  end
 
-  def _boolify_set
+  BoolifySet =
     lambda { |value|
       if value && "OK" == value
         true
@@ -2720,9 +2719,8 @@ private
         false
       end
     }
-  end
 
-  def _hashify
+  Hashify =
     lambda { |array|
       hash = Hash.new
       array.each_slice(2) do |field, value|
@@ -2730,39 +2728,26 @@ private
       end
       hash
     }
-  end
 
-  def _floatify
+  Floatify =
     lambda { |str|
-      return unless str
-
-      if (inf = str.match(/^(-)?inf/i))
-        (inf[1] ? -1.0 : 1.0) / 0.0
-      else
-        Float(str)
+      if str
+        if (inf = str.match(/^(-)?inf/i))
+          (inf[1] ? -1.0 : 1.0) / 0.0
+        else
+          Float(str)
+        end
       end
     }
-  end
 
-  def _floatify_pairs
+  FloatifyPairs =
     lambda { |array|
-      return unless array
-
-      array.each_slice(2).map do |member, score|
-        [member, _floatify.call(score)]
+      if array
+        array.each_slice(2).map do |member, score|
+          [member, Floatify.call(score)]
+        end
       end
     }
-  end
-
-  def _pairify(array)
-    array.each_slice(2).to_a
-  end
-
-  def _identity
-    lambda { |value|
-      value
-    }
-  end
 
   def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
