@@ -530,7 +530,8 @@ class Redis
 
       class Sentinel < Connector
         EXPECTED_ROLES = {
-          "nearest_slave" => "slave"
+          "nearest_slave" => "slave",
+          "nearest" => "any"
         }
 
         def initialize(options)
@@ -547,14 +548,15 @@ class Redis
           # Check the instance is really of the role we are looking for.
           # We can't assume the command is supported since it was introduced
           # recently and this client should work with old stuff.
+          expected_role = EXPECTED_ROLES.fetch(@role, @role)
           begin
             role = client.call([:role])[0]
           rescue Redis::CommandError
             # Assume the test is passed if we can't get a reply from ROLE...
-            role = EXPECTED_ROLES.fetch(@role, @role)
+            role = expected_role
           end
 
-          if role != EXPECTED_ROLES.fetch(@role, @role)
+          if role != expected_role && "any" != expected_role
             client.disconnect
             raise ConnectionError, "Instance role mismatch. Expected #{EXPECTED_ROLES.fetch(@role, @role)}, got #{role}."
           end
@@ -566,6 +568,8 @@ class Redis
             resolve_master
           when "slave"
             resolve_slave
+          when "nearest"
+            resolve_nearest
           when "nearest_slave"
             resolve_nearest_slave
           else
@@ -629,30 +633,49 @@ class Redis
           end
         end
 
-        def resolve_nearest_slave
-          sentinel_detect do |client|
-            if reply = client.call(["sentinel", "slaves", @master])
-              ok_slaves = reply.map {|r| Hash[*r] }.select  {|r| r["master-link-status"] == "ok" }
+        def resolve_nearest
+          resolve_nearest_for [:master, :slaves]
+        end
 
-              ok_slaves.each do |slave|
-                client = Client.new @options.merge(
-                  :host => slave["ip"],
-                  :port => slave["port"],
-                  :reconnect_attempts => 0
-                )
-                begin
-                  client.call [:ping]
-                  start = Time.now
-                  client.call [:ping]
-                  slave["response_time"] = (Time.now - start).to_f
-                ensure
-                  client.disconnect
+        def resolve_nearest_slave
+          resolve_nearest_for [:slaves]
+        end
+
+        def resolve_nearest_for(types)
+          sentinel_detect do |client|
+            ok_nodes = []
+            types.each do |type|
+              if reply = client.call(["sentinel", type, @master])
+                reply = [reply] if type == :master
+                ok_nodes += reply.map {|r| Hash[*r] }.select do |r|
+                  case type
+                  when :master
+                    r["role-reported"] == "master"
+                  when :slaves
+                    r["master-link-status"] == "ok" && !r.fetch("flags", "").match(/s_down|disconnected/)
+                  end
                 end
               end
-
-              slave = ok_slaves.sort_by {|slave| slave["response_time"] }.first
-              {:host => slave.fetch("ip"), :port => slave.fetch("port")} if slave
             end
+
+            ok_nodes.each do |node|
+              client = Client.new @options.merge(
+                :host => node["ip"],
+                :port => node["port"],
+                :reconnect_attempts => 0
+              )
+              begin
+                client.call [:ping]
+                start = Time.now
+                client.call [:ping]
+                node["response_time"] = (Time.now - start).to_f
+              ensure
+                client.disconnect
+              end
+            end
+
+            node = ok_nodes.sort_by {|node| node["response_time"] }.first
+            {:host => node.fetch("ip"), :port => node.fetch("port")} if node
           end
         end
 

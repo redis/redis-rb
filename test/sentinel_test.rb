@@ -378,13 +378,13 @@ class SentinelTest < Minitest::Test
     assert_equal [%w[get-master-addr-by-name master1]], commands
   end
 
-  def test_sentinel_nearest_slave
+  def test_sentinel_nearest
     sentinels = [{:host => "127.0.0.1", :port => 26381}]
 
-    master = { :role => lambda { ["master"] } }
-    s1 = { :role => lambda { ["slave"] }, :slave_id => lambda { ["1"] }, :ping => lambda { ["OK"] } }
-    s2 = { :role => lambda { ["slave"] }, :slave_id => lambda { ["2"] }, :ping => lambda { sleep 0.1; ["OK"] } }
-    s3 = { :role => lambda { ["slave"] }, :slave_id => lambda { ["3"] }, :ping => lambda { sleep 0.2; ["OK"] } }
+    master = { :role => lambda { ["master"] }, :node_id => lambda { ["master"] }, :ping => lambda { ["OK"] } }
+    s1     = { :role => lambda { ["slave"] }, :node_id => lambda { ["1"] }, :ping => lambda { sleep 0.1; ["OK"] } }
+    s2     = { :role => lambda { ["slave"] }, :node_id => lambda { ["2"] }, :ping => lambda { sleep 0.2; ["OK"] } }
+    s3     = { :role => lambda { ["slave"] }, :node_id => lambda { ["3"] }, :ping => lambda { sleep 0.3; ["OK"] } }
 
     5.times do
       RedisMock.start(master) do |master_port|
@@ -396,6 +396,8 @@ class SentinelTest < Minitest::Test
                 {
                   :sentinel => lambda do |command, *args|
                     case command
+                    when "master"
+                      %W[role-reported master ip 127.0.0.1 port #{master_port}]
                     when "slaves"
                       [
                         %W[master-link-status down ip 127.0.0.1 port #{s1_port}],
@@ -411,14 +413,13 @@ class SentinelTest < Minitest::Test
 
               RedisMock.start(sentinel.call(master_port)) do |sen_port|
                 sentinels[0][:port] = sen_port
-                redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :nearest_slave)
-                assert_equal redis.slave_id, ["2"]
+                redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :nearest)
+                assert_equal ["master"], redis.node_id
               end
             end
           end
         end
       end
     end
-
   end
 end
