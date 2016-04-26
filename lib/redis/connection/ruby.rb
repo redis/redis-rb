@@ -80,9 +80,34 @@ class Redis
         raise Errno::ECONNRESET
       end
 
-      # UNIXSocket and TCPSocket don't support write timeouts
-      def write(*args)
-        Timeout.timeout(@write_timeout, TimeoutError) { super }
+      def _write_to_socket(data)
+        begin
+          write_nonblock(data)
+
+        rescue *NBIO_EXCEPTIONS
+          if IO.select([self], nil, nil, @write_timeout)
+            retry
+          else
+            raise Redis::TimeoutError
+          end
+        end
+
+      rescue EOFError
+        raise Errno::ECONNRESET
+      end
+
+      def write(data)
+        return super(data) unless @write_timeout
+
+        length = data.bytesize
+        total_count = 0
+        loop do
+          count = _write_to_socket(data)
+
+          total_count += count
+          return total_count if total_count >= length
+          data = data.byteslice(count..-1)
+        end
       end
     end
 
