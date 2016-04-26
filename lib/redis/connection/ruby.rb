@@ -2,7 +2,6 @@ require "redis/connection/registry"
 require "redis/connection/command_helper"
 require "redis/errors"
 require "socket"
-require "timeout"
 
 begin
   require "openssl"
@@ -79,11 +78,6 @@ class Redis
       rescue EOFError
         raise Errno::ECONNRESET
       end
-
-      # UNIXSocket and TCPSocket don't support write timeouts
-      def write(*args)
-        Timeout.timeout(@write_timeout, TimeoutError) { super }
-      end
     end
 
     if defined?(RUBY_ENGINE) && RUBY_ENGINE == "jruby"
@@ -139,9 +133,27 @@ class Redis
 
         include SocketMixin
 
-        def self.connect_addrinfo(ai, port, timeout)
+        def self.connect_addrinfo(ai, port, timeouts)
+          timeout       = timeouts[:connect_timeout]
+          read_timeout  = timeouts[:read_timeout]
+          write_timeout = timeouts[:write_timeout]
+
           sock = new(::Socket.const_get(ai[0]), Socket::SOCK_STREAM, 0)
           sockaddr = ::Socket.pack_sockaddr_in(port, ai[3])
+
+          if read_timeout
+            secs = Integer(read_timeout)
+            usecs = Integer((read_timeout - secs) * 1_000_000)
+            optval = [secs, usecs].pack("l_2")
+            sock.setsockopt Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, optval
+          end
+
+          if write_timeout
+            secs = Integer(write_timeout)
+            usecs = Integer((write_timeout - secs) * 1_000_000)
+            optval = [secs, usecs].pack("l_2")
+            sock.setsockopt Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, optval
+          end
 
           begin
             sock.connect_nonblock(sockaddr)
@@ -159,7 +171,7 @@ class Redis
           sock
         end
 
-        def self.connect(host, port, timeout)
+        def self.connect(host, port, timeouts)
           # Don't pass AI_ADDRCONFIG as flag to getaddrinfo(3)
           #
           # From the man page for getaddrinfo(3):
@@ -184,7 +196,7 @@ class Redis
           #
           addrinfo.each_with_index do |ai, i|
             begin
-              return connect_addrinfo(ai, port, timeout)
+              return connect_addrinfo(ai, port, timeouts)
             rescue SystemCallError
               # Raise if this was our last attempt.
               raise if addrinfo.length == i+1
@@ -255,9 +267,9 @@ class Redis
           raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
         elsif config[:scheme] == "rediss" || config[:ssl]
-          sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
+          sock = SSLSocket.connect(config[:host], config[:port], config, config[:ssl_params])
         else
-          sock = TCPSocket.connect(config[:host], config[:port], config[:connect_timeout])
+          sock = TCPSocket.connect(config[:host], config[:port], config)
         end
 
         instance = new(sock)
