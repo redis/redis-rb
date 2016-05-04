@@ -160,6 +160,23 @@ class TestInternals < Test::Unit::TestCase
     assert (Time.now - start_time) <= opts[:timeout]
   end
 
+  driver(:ruby) do
+    def test_write_timeout
+      server = TCPServer.new("127.0.0.1", 0)
+      port   = server.addr[1]
+
+      # Hacky, but we need the buffer size
+      val = TCPSocket.new("127.0.0.1", port).getsockopt(Socket::SOL_SOCKET, Socket::SO_SNDBUF).unpack("i")[0]
+
+      assert_raise(Redis::TimeoutError) do
+        Timeout.timeout(1) do
+          redis = Redis.new(:port => port, :timeout => 5, :write_timeout => 0.1)
+          redis.set("foo", "1" * val*2)
+        end
+      end
+    end
+  end
+
   def close_on_ping(seq, options = {})
     $request = 0
 
