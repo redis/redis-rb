@@ -2,7 +2,7 @@
 
 require File.expand_path("helper", File.dirname(__FILE__))
 
-class SentinalTest < Test::Unit::TestCase
+class SentinelTest < Test::Unit::TestCase
 
   include Helper::Client
 
