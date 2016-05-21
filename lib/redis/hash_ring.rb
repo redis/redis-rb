@@ -75,7 +75,7 @@ class Redis
           int binary_search(VALUE ary, unsigned int r) {
               int upper = RARRAY_LEN(ary) - 1;
               int lower = 0;
-              int idx = 0;
+              int idx;
 
               while (lower <= upper) {
                   idx = (lower + upper) / 2;
@@ -104,9 +104,8 @@ class Redis
         def binary_search(ary, value, &block)
           upper = ary.size - 1
           lower = 0
-          idx = 0
 
-          while(lower <= upper) do
+          while lower <= upper do
             idx = (lower + upper) / 2
             comp = ary[idx] <=> value
 
