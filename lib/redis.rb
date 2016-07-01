@@ -1,5 +1,6 @@
 require "monitor"
 require "redis/errors"
+require 'redis/connection/response_helper'
 
 class Redis
 
@@ -25,6 +26,8 @@ class Redis
   end
 
   include MonitorMixin
+
+  extend Redis::Connection::ResponseHelper
 
   # Create a new client instance
   #
@@ -2722,16 +2725,22 @@ private
 
   Hashify =
     lambda { |array|
-      hash = Hash.new
-      array.each_slice(2) do |field, value|
-        hash[field] = value
+      if command_queued_response?(array) || ! array_expected_response?(array)
+        array
+      else
+        hash = Hash.new
+        array.each_slice(2) do |field, value|
+          hash[field] = value
+        end
+        hash
       end
-      hash
     }
 
   Floatify =
     lambda { |str|
-      if str
+      if command_queued_response?(str) || ! string_expected_response?(str)
+        str
+      else
         if (inf = str.match(/^(-)?inf/i))
           (inf[1] ? -1.0 : 1.0) / 0.0
         else
@@ -2742,7 +2751,9 @@ private
 
   FloatifyPairs =
     lambda { |array|
-      if array
+      if command_queued_response?(array) || ! array_expected_response?(array)
+        array
+      else
         array.each_slice(2).map do |member, score|
           [member, Floatify.call(score)]
         end
