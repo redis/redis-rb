@@ -5,6 +5,7 @@ require File.expand_path("helper", File.dirname(__FILE__))
 class TestInternals < Test::Unit::TestCase
 
   include Helper::Client
+  include Helper::Skipable
 
   def test_logger
     r.ping
@@ -162,6 +163,8 @@ class TestInternals < Test::Unit::TestCase
 
   driver(:ruby) do
     def test_write_timeout
+      return skip("Relies on buffer sizes, might be unreliable")
+
       server = TCPServer.new("127.0.0.1", 0)
       port   = server.addr[1]
 
