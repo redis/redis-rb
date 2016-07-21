@@ -52,6 +52,15 @@ module Lint
       assert_equal nil, r.spop("foo")
     end
 
+    def test_multiple_spop
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "foo", "s3"
+
+      assert_equal 3, r.spop("foo", 3).length
+      assert_equal nil, r.spop("foo")
+    end
+
     def test_scard
       assert_equal 0, r.scard("foo")
 
