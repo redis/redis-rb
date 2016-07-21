@@ -52,6 +52,18 @@ module Lint
       assert_equal nil, r.spop("foo")
     end
 
+    def test_spop_with_positive_count
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "foo", "s3"
+      r.sadd "foo", "s4"
+
+      pops = r.spop("foo", 3)
+      assert !(["s1", "s2", "s3", "s4"] & pops).empty?
+      assert_equal 3, pops.size
+      assert_equal 1, r.scard("foo")
+    end
+
     def test_scard
       assert_equal 0, r.scard("foo")
 
