@@ -86,7 +86,7 @@ class Redis
 
       @pending_reads = 0
 
-      if options.include?(:sentinels)
+      if options.include?(:sentinels) && options[:sentinels].any? { |conf| !conf[:host].nil? && !conf[:port].nil? }
         @connector = Connector::Sentinel.new(@options)
       else
         @connector = Connector.new(@options)
@@ -331,7 +331,7 @@ class Redis
       server = @connector.resolve.dup
 
       @options[:host] = server[:host]
-      @options[:port] = Integer(server[:port]) if server.include?(:port)
+      @options[:port] = Integer(server[:port]) if server.include?(:port) && !server[:port].nil?
 
       @connection = @options[:driver].connect(@options)
       @pending_reads = 0
@@ -435,7 +435,7 @@ class Redis
         options[:port] = options[:port].to_i
       end
 
-      if options.has_key?(:timeout)
+      if options.has_key?(:timeout) && !options[:timeout].nil?
         options[:connect_timeout] ||= options[:timeout]
         options[:read_timeout]    ||= options[:timeout]
         options[:write_timeout]   ||= options[:timeout]
@@ -508,7 +508,7 @@ class Redis
           @options[:db] = DEFAULTS.fetch(:db)
 
           @sentinels = @options.delete(:sentinels).dup
-          @role = @options.fetch(:role, "master").to_s
+          @role = (@options[:role] || "master").to_s
           @master = @options[:host]
         end
 
