@@ -29,6 +29,7 @@ class Redis
       # Exceptions raised during non-blocking I/O ops that require retrying the op
       NBIO_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
       NBIO_EXCEPTIONS << IO::WaitReadable if RUBY_VERSION >= "1.9.3"
+      NBIO_EXCEPTIONS << OpenSSL::SSL::SSLErrorWaitWritable if defined?(OpenSSL)
 
       def initialize(*args)
         super(*args)
