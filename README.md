@@ -23,6 +23,20 @@ most important changes, as well as a full list of changes.
 
 ## Getting started
 
+To install **redis-rb**, run the following command:
+
+```
+  gem install redis
+```
+
+Or if you are using **bundler**, add
+
+```
+  gem 'redis', '~>3.2'
+```
+
+to your `Gemfile`, and run `bundle install`
+
 As of version 2.0 this client only targets Redis version 2.0 and higher.
 You can use an older version of this client if you need to interface
 with a Redis instance older than 2.0, but this is no longer supported.
@@ -208,6 +222,86 @@ end
 
 See lib/redis/errors.rb for information about what exceptions are possible.
 
+## Timeouts
+
+The client allows you to configure connect, read, and write timeouts.
+Passing a single `timeout` option will set all three values:
+
+```ruby
+Redis.new(:timeout => 1)
+```
+
+But you can use specific values for each of them:
+
+```ruby
+Redis.new(
+  :connect_timeout => 0.2,
+  :read_timeout    => 1.0,
+  :write_timeout   => 0.5
+)
+```
+
+All timeout values are specified in seconds.
+
+When using pub/sub, you can subscribe to a channel using a timeout as well:
+
+```ruby
+redis.subscribe_with_timeout(5, "news") do |on|
+  on.message do |channel, message|
+    # ...
+  end
+end
+```
+
+If no message is received after 5 seconds, the client will unsubscribe.
+
+
+## SSL/TLS Support
+
+This library supports natively terminating client side SSL/TLS connections
+when talking to Redis via a server-side proxy such as [stunnel], [hitch],
+or [ghostunnel].
+
+To enable SSL support, pass the `:ssl => :true` option when configuring the
+Redis client, or pass in `:url => "rediss://..."` (like HTTPS for Redis).
+You will also need to pass in an `:ssl_params => { ... }` hash used to
+configure the `OpenSSL::SSL::SSLContext` object used for the connection:
+
+```ruby
+redis = Redis.new(
+  :url        => "rediss://:p4ssw0rd@10.0.1.1:6381/15",
+  :ssl_params => {
+    :ca_file => "/path/to/ca.crt"
+  }
+)
+```
+
+The options given to `:ssl_params` are passed directly to the
+`OpenSSL::SSL::SSLContext#set_params` method and can be any valid attribute
+of the SSL context. Please see the [OpenSSL::SSL::SSLContext documentation]
+for all of the available attributes.
+
+Here is an example of passing in params that can be used for SSL client
+certificate authentication (a.k.a. mutual TLS):
+
+```ruby
+redis = Redis.new(
+  :url        => "rediss://:p4ssw0rd@10.0.1.1:6381/15",
+  :ssl_params => {
+    :ca_file => "/path/to/ca.crt",
+    :cert    => OpenSSL::X509::Certificate.new(File.read("client.crt")),
+    :key     => OpenSSL::PKey::RSA.new(File.read("client.key"))
+  }
+)
+```
+
+[stunnel]: https://www.stunnel.org/
+[hitch]: https://hitch-tls.org/
+[ghostunnel]: https://github.com/square/ghostunnel
+[OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.3.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
+
+*NOTE:* SSL is only supported by the default "Ruby" driver
+
 
 ## Expert-Mode Options
 
@@ -284,9 +378,11 @@ This library is tested using [Travis][travis-home], where it is tested
 against the following interpreters and drivers:
 
 * MRI 1.8.7 (drivers: ruby, hiredis)
-* MRI 1.9.2 (drivers: ruby, hiredis, synchrony)
 * MRI 1.9.3 (drivers: ruby, hiredis, synchrony)
-* MRI 2.0.0 (drivers: ruby, hiredis, synchrony)
+* MRI 2.0 (drivers: ruby, hiredis, synchrony)
+* MRI 2.1 (drivers: ruby, hiredis, synchrony)
+* MRI 2.2 (drivers: ruby, hiredis, synchrony)
+* MRI 2.3 (drivers: ruby, hiredis, synchrony)
 * JRuby 1.7 (1.8 mode) (drivers: ruby)
 * JRuby 1.7 (1.9 mode) (drivers: ruby)
 

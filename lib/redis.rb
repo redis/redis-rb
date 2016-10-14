@@ -15,9 +15,30 @@ class Redis
 
   include MonitorMixin
 
+  # Create a new client instance
+  #
+  # @param [Hash] options
+  # @option options [String] :url (value of the environment variable REDIS_URL) a Redis URL, for a TCP connection: `redis://:[password]@[hostname]:[port]/[db]` (password, port and database are optional), for a unix socket connection: `unix://[path to Redis socket]`. This overrides all other options.
+  # @option options [String] :host ("127.0.0.1") server hostname
+  # @option options [Fixnum] :port (6379) server port
+  # @option options [String] :path path to server socket (overrides host and port)
+  # @option options [Float] :timeout (5.0) timeout in seconds
+  # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
+  # @option options [String] :password Password to authenticate against server
+  # @option options [Fixnum] :db (0) Database to select after initial connect
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
+  # @option options [String] :id ID for the client connection, assigns name to current connection by sending `CLIENT SETNAME`
+  # @option options [Hash, Fixnum] :tcp_keepalive Keepalive values, if Fixnum `intvl` and `probe` are calculated based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Fixnum
+  # @option options [Fixnum] :reconnect_attempts Number of attempts trying to connect
+  # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [Array] :sentinels List of sentinels to contact
+  # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
+  #
+  # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
     @original_client = @client = Client.new(options)
+    @queue = Hash.new { |h, k| h[k] = [] }
 
     super() # Monitor#initialize
   end
@@ -44,8 +65,47 @@ class Redis
   end
 
   # Disconnect the client as quickly and silently as possible.
-  def disconnect!
+  def close
     @original_client.disconnect
+  end
+  alias disconnect! close
+
+  # Sends a command to Redis and returns its reply.
+  #
+  # Replies are converted to Ruby objects according to the RESP protocol, so
+  # you can expect a Ruby array, integer or nil when Redis sends one. Higher
+  # level transformations, such as converting an array of pairs into a Ruby
+  # hash, are up to consumers.
+  #
+  # Redis error replies are raised as Ruby exceptions.
+  def call(*command)
+    synchronize do |client|
+      client.call(command)
+    end
+  end
+
+  # Queues a command for pipelining.
+  #
+  # Commands in the queue are executed with the Redis#commit method.
+  #
+  # See http://redis.io/topics/pipelining for more details.
+  #
+  def queue(*command)
+    @queue[Thread.current.object_id] << command
+  end
+
+  # Sends all commands in the queue.
+  #
+  # See http://redis.io/topics/pipelining for more details.
+  #
+  def commit
+    synchronize do |client|
+      begin
+        client.call_pipelined(@queue[Thread.current.object_id])
+      ensure
+        @queue.delete(Thread.current.object_id)
+      end
+    end
   end
 
   # Authenticate to the server.
@@ -130,7 +190,7 @@ class Redis
     synchronize do |client|
       client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
-          Hash[_pairify(reply)]
+          Hashify.call(reply)
         else
           reply
         end
@@ -289,7 +349,7 @@ class Redis
   # @return [Boolean] whether the timeout was removed or not
   def persist(key)
     synchronize do |client|
-      client.call([:persist, key], &_boolify)
+      client.call([:persist, key], &Boolify)
     end
   end
 
@@ -300,7 +360,7 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
     synchronize do |client|
-      client.call([:expire, key, seconds], &_boolify)
+      client.call([:expire, key, seconds], &Boolify)
     end
   end
 
@@ -311,15 +371,22 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
     synchronize do |client|
-      client.call([:expireat, key, unix_time], &_boolify)
+      client.call([:expireat, key, unix_time], &Boolify)
     end
   end
 
   # Get the time to live (in seconds) for a key.
   #
   # @param [String] key
-  # @return [Fixnum] remaining time to live in seconds, or -1 if the
-  #   key does not exist or does not have a timeout
+  # @return [Fixnum] remaining time to live in seconds.
+  #
+  # In Redis 2.6 or older the command returns -1 if the key does not exist or if
+  # the key exist but has no associated expire.
+  #
+  # Starting with Redis 2.8 the return value in case of error changed:
+  #
+  #     - The command returns -2 if the key does not exist.
+  #     - The command returns -1 if the key exists but has no associated expire.
   def ttl(key)
     synchronize do |client|
       client.call([:ttl, key])
@@ -333,7 +400,7 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def pexpire(key, milliseconds)
     synchronize do |client|
-      client.call([:pexpire, key, milliseconds], &_boolify)
+      client.call([:pexpire, key, milliseconds], &Boolify)
     end
   end
 
@@ -344,15 +411,21 @@ class Redis
   # @return [Boolean] whether the timeout was set or not
   def pexpireat(key, ms_unix_time)
     synchronize do |client|
-      client.call([:pexpireat, key, ms_unix_time], &_boolify)
+      client.call([:pexpireat, key, ms_unix_time], &Boolify)
     end
   end
 
   # Get the time to live (in milliseconds) for a key.
   #
   # @param [String] key
-  # @return [Fixnum] remaining time to live in milliseconds, or -1 if the
-  #   key does not exist or does not have a timeout
+  # @return [Fixnum] remaining time to live in milliseconds
+  # In Redis 2.6 or older the command returns -1 if the key does not exist or if
+  # the key exist but has no associated expire.
+  #
+  # Starting with Redis 2.8 the return value in case of error changed:
+  #
+  #     - The command returns -2 if the key does not exist.
+  #     - The command returns -1 if the key exists but has no associated expire.
   def pttl(key)
     synchronize do |client|
       client.call([:pttl, key])
@@ -374,7 +447,7 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def restore(key, ttl, serialized_value)
     synchronize do |client|
       client.call([:restore, key, ttl, serialized_value])
@@ -417,7 +490,7 @@ class Redis
   # @return [Boolean]
   def exists(key)
     synchronize do |client|
-      client.call([:exists, key], &_boolify)
+      client.call([:exists, key], &Boolify)
     end
   end
 
@@ -458,7 +531,7 @@ class Redis
   # @return [Boolean] whether the key was moved or not
   def move(key, db)
     synchronize do |client|
-      client.call([:move, key, db], &_boolify)
+      client.call([:move, key, db], &Boolify)
     end
   end
 
@@ -495,7 +568,7 @@ class Redis
   # @return [Boolean] whether the key was renamed or not
   def renamenx(old_name, new_name)
     synchronize do |client|
-      client.call([:renamenx, old_name, new_name], &_boolify)
+      client.call([:renamenx, old_name, new_name], &Boolify)
     end
   end
 
@@ -634,7 +707,7 @@ class Redis
   # @return [Float] value after incrementing it
   def incrbyfloat(key, increment)
     synchronize do |client|
-      client.call([:incrbyfloat, key, increment], &_floatify)
+      client.call([:incrbyfloat, key, increment], &Floatify)
     end
   end
 
@@ -665,7 +738,7 @@ class Redis
 
     synchronize do |client|
       if nx || xx
-        client.call([:set, key, value.to_s] + args, &_boolify_set)
+        client.call([:set, key, value.to_s] + args, &BoolifySet)
       else
         client.call([:set, key, value.to_s] + args)
       end
@@ -677,7 +750,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def setex(key, ttl, value)
     synchronize do |client|
       client.call([:setex, key, ttl, value.to_s])
@@ -689,7 +762,7 @@ class Redis
   # @param [String] key
   # @param [Fixnum] ttl
   # @param [String] value
-  # @return `"OK"`
+  # @return [String] `"OK"`
   def psetex(key, ttl, value)
     synchronize do |client|
       client.call([:psetex, key, ttl, value.to_s])
@@ -703,7 +776,7 @@ class Redis
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
     synchronize do |client|
-      client.call([:setnx, key, value.to_s], &_boolify)
+      client.call([:setnx, key, value.to_s], &Boolify)
     end
   end
 
@@ -714,7 +787,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Array<String>] args array of keys and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_mset
   def mset(*args)
@@ -730,7 +803,7 @@ class Redis
   #     # => "OK"
   #
   # @param [Hash] hash keys mapping to values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mset
   def mapped_mset(hash)
@@ -749,7 +822,7 @@ class Redis
   # @see #mapped_msetnx
   def msetnx(*args)
     synchronize do |client|
-      client.call([:msetnx] + args, &_boolify)
+      client.call([:msetnx] + args, &Boolify)
     end
   end
 
@@ -796,7 +869,7 @@ class Redis
   # Get the values of all the given keys.
   #
   # @example
-  #   redis.mapped_mget("key1", "key1")
+  #   redis.mapped_mget("key1", "key2")
   #     # => { "key1" => "v1", "key2" => "v2" }
   #
   # @param [Array<String>] keys array of keys
@@ -953,7 +1026,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String, Array] string value, or array of string values to push
+  # @param [String, Array] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
@@ -1220,7 +1293,7 @@ class Redis
           reply
         else
           # Single argument: return boolean
-          _boolify.call(reply)
+          Boolify.call(reply)
         end
       end
     end
@@ -1242,7 +1315,7 @@ class Redis
           reply
         else
           # Single argument: return boolean
-          _boolify.call(reply)
+          Boolify.call(reply)
         end
       end
     end
@@ -1281,7 +1354,7 @@ class Redis
   # @return [Boolean]
   def smove(source, destination, member)
     synchronize do |client|
-      client.call([:smove, source, destination, member], &_boolify)
+      client.call([:smove, source, destination, member], &Boolify)
     end
   end
 
@@ -1292,7 +1365,7 @@ class Redis
   # @return [Boolean]
   def sismember(key, member)
     synchronize do |client|
-      client.call([:sismember, key, member], &_boolify)
+      client.call([:sismember, key, member], &Boolify)
     end
   end
 
@@ -1395,20 +1468,50 @@ class Redis
   # @param [[Float, String], Array<[Float, String]>] args
   #   - a single `[score, member]` pair
   #   - an array of `[score, member]` pairs
+  # @param [Hash] options
+  #   - `:xx => true`: Only update elements that already exist (never
+  #   add elements)
+  #   - `:nx => true`: Don't update already existing elements (always
+  #   add new elements)
+  #   - `:ch => true`: Modify the return value from the number of new
+  #   elements added, to the total number of elements changed (CH is an
+  #   abbreviation of changed); changed elements are new elements added
+  #   and elements already existing for which the score was updated
+  #   - `:incr => true`: When this option is specified ZADD acts like
+  #   ZINCRBY; only one score-element pair can be specified in this mode
   #
-  # @return [Boolean, Fixnum]
+  # @return [Boolean, Fixnum, Float]
   #   - `Boolean` when a single pair is specified, holding whether or not it was
-  #   **added** to the sorted set
+  #   **added** to the sorted set.
   #   - `Fixnum` when an array of pairs is specified, holding the number of
-  #   pairs that were **added** to the sorted set
-  def zadd(key, *args)
+  #   pairs that were **added** to the sorted set.
+  #   - `Float` when option :incr is specified, holding the score of the member
+  #   after incrementing it.
+  def zadd(key, *args) #, options
+    zadd_options = []
+    if args.last.is_a?(Hash)
+      options = args.pop
+
+      nx = options[:nx]
+      zadd_options << "NX" if nx
+
+      xx = options[:xx]
+      zadd_options << "XX" if xx
+
+      ch = options[:ch]
+      zadd_options << "CH" if ch
+
+      incr = options[:incr]
+      zadd_options << "INCR" if incr
+    end
+
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
-        # Variadic: return integer
-        client.call([:zadd, key] + args[0])
+        # Variadic: return float if INCR, integer if !INCR
+        client.call([:zadd, key] + zadd_options + args[0], &(incr ? Floatify : nil))
       elsif args.size == 2
-        # Single pair: return boolean
-        client.call([:zadd, key, args[0], args[1]], &_boolify)
+        # Single pair: return float if INCR, boolean if !INCR
+        client.call([:zadd, key] + zadd_options + args, &(incr ? Floatify : Boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
@@ -1427,7 +1530,7 @@ class Redis
   # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
     synchronize do |client|
-      client.call([:zincrby, key, increment, member], &_floatify)
+      client.call([:zincrby, key, increment, member], &Floatify)
     end
   end
 
@@ -1456,7 +1559,7 @@ class Redis
           reply
         else
           # Single argument: return boolean
-          _boolify.call(reply)
+          Boolify.call(reply)
         end
       end
     end
@@ -1473,7 +1576,7 @@ class Redis
   # @return [Float] score of the member
   def zscore(key, member)
     synchronize do |client|
-      client.call([:zscore, key, member], &_floatify)
+      client.call([:zscore, key, member], &Floatify)
     end
   end
 
@@ -1502,7 +1605,7 @@ class Redis
 
     if with_scores
       args << "WITHSCORES"
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     synchronize do |client|
@@ -1528,7 +1631,7 @@ class Redis
 
     if with_scores
       args << "WITHSCORES"
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     synchronize do |client|
@@ -1666,7 +1769,7 @@ class Redis
 
     if with_scores
       args << "WITHSCORES"
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     limit = options[:limit]
@@ -1698,7 +1801,7 @@ class Redis
 
     if with_scores
       args << ["WITHSCORES"]
-      block = _floatify_pairs
+      block = FloatifyPairs
     end
 
     limit = options[:limit]
@@ -1828,7 +1931,7 @@ class Redis
   # @return [Boolean] whether or not the field was **added** to the hash
   def hset(key, field, value)
     synchronize do |client|
-      client.call([:hset, key, field, value], &_boolify)
+      client.call([:hset, key, field, value], &Boolify)
     end
   end
 
@@ -1840,7 +1943,7 @@ class Redis
   # @return [Boolean] whether or not the field was **added** to the hash
   def hsetnx(key, field, value)
     synchronize do |client|
-      client.call([:hsetnx, key, field, value], &_boolify)
+      client.call([:hsetnx, key, field, value], &Boolify)
     end
   end
 
@@ -1852,7 +1955,7 @@ class Redis
   #
   # @param [String] key
   # @param [Array<String>] attrs array of fields and values
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
@@ -1868,8 +1971,8 @@ class Redis
   #     # => "OK"
   #
   # @param [String] key
-  # @param [Hash] a non-empty hash with fields mapping to values
-  # @return `"OK"`
+  # @param [Hash] hash a non-empty hash with fields mapping to values
+  # @return [String] `"OK"`
   #
   # @see #hmset
   def mapped_hmset(key, hash)
@@ -1943,7 +2046,7 @@ class Redis
   # @return [Boolean] whether or not the field exists in the hash
   def hexists(key, field)
     synchronize do |client|
-      client.call([:hexists, key, field], &_boolify)
+      client.call([:hexists, key, field], &Boolify)
     end
   end
 
@@ -1967,7 +2070,7 @@ class Redis
   # @return [Float] value of the field after incrementing it
   def hincrbyfloat(key, field, increment)
     synchronize do |client|
-      client.call([:hincrbyfloat, key, field, increment], &_floatify)
+      client.call([:hincrbyfloat, key, field, increment], &Floatify)
     end
   end
 
@@ -1997,7 +2100,7 @@ class Redis
   # @return [Hash<String, String>]
   def hgetall(key)
     synchronize do |client|
-      client.call([:hgetall, key], &_hashify)
+      client.call([:hgetall, key], &Hashify)
     end
   end
 
@@ -2017,7 +2120,14 @@ class Redis
   # Listen for messages published to the given channels.
   def subscribe(*channels, &block)
     synchronize do |client|
-      _subscription(:subscribe, channels, block)
+      _subscription(:subscribe, 0, channels, block)
+    end
+  end
+
+  # Listen for messages published to the given channels. Throw a timeout error if there is no messages for a timeout period.
+  def subscribe_with_timeout(timeout, *channels, &block)
+    synchronize do |client|
+      _subscription(:subscribe_with_timeout, timeout, channels, block)
     end
   end
 
@@ -2032,7 +2142,14 @@ class Redis
   # Listen for messages published to channels matching the given patterns.
   def psubscribe(*channels, &block)
     synchronize do |client|
-      _subscription(:psubscribe, channels, block)
+      _subscription(:psubscribe, 0, channels, block)
+    end
+  end
+
+  # Listen for messages published to channels matching the given patterns. Throw a timeout error if there is no messages for a timeout period.
+  def psubscribe_with_timeout(timeout, *channels, &block)
+    synchronize do |client|
+      _subscription(:psubscribe_with_timeout, timeout, channels, block)
     end
   end
 
@@ -2192,7 +2309,7 @@ class Redis
   #
   # Only call this method when `#multi` was called **without** a block.
   #
-  # @return `"OK"`
+  # @return [String] `"OK"`
   #
   # @see #multi
   # @see #exec
@@ -2234,7 +2351,7 @@ class Redis
         arg = args.first
 
         client.call([:script, :exists, arg]) do |reply|
-          reply = reply.map { |r| _boolify.call(r) }
+          reply = reply.map { |r| Boolify.call(r) }
 
           if arg.is_a?(Array)
             reply
@@ -2340,7 +2457,7 @@ class Redis
   #   redis.scan(4, :match => "key:1?")
   #     # => ["92", ["key:13", "key:18"]]
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2380,7 +2497,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.hscan("hash", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2388,7 +2505,7 @@ class Redis
   # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
     _scan(:hscan, cursor, [key], options) do |reply|
-      [reply[0], _pairify(reply[1])]
+      [reply[0], reply[1].each_slice(2).to_a]
     end
   end
 
@@ -2418,7 +2535,7 @@ class Redis
   # @example Retrieve the first batch of key/value pairs in a hash
   #   redis.zscan("zset", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2427,7 +2544,7 @@ class Redis
   #   members and scores
   def zscan(key, cursor, options={})
     _scan(:zscan, cursor, [key], options) do |reply|
-      [reply[0], _floatify_pairs.call(reply[1])]
+      [reply[0], FloatifyPairs.call(reply[1])]
     end
   end
 
@@ -2457,7 +2574,7 @@ class Redis
   # @example Retrieve the first batch of keys in a set
   #   redis.sscan("set", 0)
   #
-  # @param [String, Integer] cursor: the cursor of the iteration
+  # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
@@ -2495,7 +2612,7 @@ class Redis
   # @return [Boolean] true if at least 1 HyperLogLog internal register was altered. false otherwise.
   def pfadd(key, member)
     synchronize do |client|
-      client.call([:pfadd, key, member], &_boolify)
+      client.call([:pfadd, key, member], &Boolify)
     end
   end
 
@@ -2520,7 +2637,34 @@ class Redis
   # @return [Boolean]
   def pfmerge(dest_key, *source_key)
     synchronize do |client|
-      client.call([:pfmerge, dest_key, *source_key], &_boolify_set)
+      client.call([:pfmerge, dest_key, *source_key], &BoolifySet)
+    end
+  end
+
+  # Interact with the sentinel command (masters, master, slaves, failover)
+  #
+  # @param [String] subcommand e.g. `masters`, `master`, `slaves`
+  # @param [Array<String>] args depends on subcommand
+  # @return [Array<String>, Hash<String, String>, String] depends on subcommand
+  def sentinel(subcommand, *args)
+    subcommand = subcommand.to_s.downcase
+    synchronize do |client|
+      client.call([:sentinel, subcommand] + args) do |reply|
+        case subcommand
+        when "get-master-addr-by-name"
+          reply
+        else
+          if reply.kind_of?(Array)
+            if reply[0].kind_of?(Array)
+              reply.map(&Hashify)
+            else
+              Hashify.call(reply)
+            end
+          else
+            reply
+          end
+        end
+      end
     end
   end
 
@@ -2547,13 +2691,12 @@ private
   # Commands returning 1 for true and 0 for false may be executed in a pipeline
   # where the method call will return nil. Propagate the nil instead of falsely
   # returning false.
-  def _boolify
+  Boolify =
     lambda { |value|
       value == 1 if value
     }
-  end
 
-  def _boolify_set
+  BoolifySet =
     lambda { |value|
       if value && "OK" == value
         true
@@ -2561,9 +2704,8 @@ private
         false
       end
     }
-  end
 
-  def _hashify
+  Hashify =
     lambda { |array|
       hash = Hash.new
       array.each_slice(2) do |field, value|
@@ -2571,40 +2713,37 @@ private
       end
       hash
     }
-  end
 
-  def _floatify
+  Floatify =
     lambda { |str|
-      return unless str
-
-      if (inf = str.match(/^(-)?inf/i))
-        (inf[1] ? -1.0 : 1.0) / 0.0
-      else
-        Float(str)
+      if str
+        if (inf = str.match(/^(-)?inf/i))
+          (inf[1] ? -1.0 : 1.0) / 0.0
+        else
+          Float(str)
+        end
       end
     }
-  end
 
-  def _floatify_pairs
+  FloatifyPairs =
     lambda { |array|
-      return unless array
-
-      array.each_slice(2).map do |member, score|
-        [member, _floatify.call(score)]
+      if array
+        array.each_slice(2).map do |member, score|
+          [member, Floatify.call(score)]
+        end
       end
     }
-  end
 
-  def _pairify(array)
-    array.each_slice(2).to_a
-  end
-
-  def _subscription(method, channels, block)
+  def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
 
     begin
       original, @client = @client, SubscribedClient.new(@client)
-      @client.send(method, *channels, &block)
+      if timeout > 0
+        @client.send(method, timeout, *channels, &block)
+      else
+        @client.send(method, *channels, &block)
+      end
     ensure
       @client = original
     end

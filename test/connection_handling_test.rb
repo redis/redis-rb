@@ -15,6 +15,19 @@ class TestConnectionHandling < Test::Unit::TestCase
     end
   end
 
+  def test_id
+    commands = {
+      :client => lambda { |cmd, name| $name = [cmd, name]; "+OK" },
+      :ping  => lambda { "+PONG" },
+    }
+
+    redis_mock(commands, :id => "client-name") do |redis|
+      assert_equal "PONG", redis.ping
+    end
+
+    assert_equal ["setname","client-name"], $name
+  end
+
   def test_ping
     assert_equal "PONG", r.ping
   end
@@ -34,6 +47,33 @@ class TestConnectionHandling < Test::Unit::TestCase
     r.quit
 
     assert !r.client.connected?
+  end
+
+  def test_close
+    quit = 0
+
+    commands = {
+      :quit => lambda do
+        quit += 1
+        "+OK"
+      end
+    }
+
+    redis_mock(commands) do |redis|
+      assert_equal 0, quit
+
+      redis.quit
+
+      assert_equal 1, quit
+
+      redis.ping
+
+      redis.close
+
+      assert_equal 1, quit
+
+      assert !redis.connected?
+    end
   end
 
   def test_disconnect

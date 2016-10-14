@@ -37,7 +37,7 @@ class TestBlockingCommands < Test::Unit::TestCase
       :brpoplpush => lambda do |*args|
         sleep options[:delay] if options.has_key?(:delay)
         to_protocol(args.last)
-      end,
+      end
     }
 
     redis_mock(commands, &blk)

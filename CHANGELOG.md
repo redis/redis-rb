@@ -6,6 +6,36 @@
 
 * Removed `Redis::Distributed`.
 
+# 3.3.1
+
+* Remove usage of Timeout::timeout, refactor into using low level non-blocking writes.
+  This fixes a memory leak due to Timeout creating threads on each invocation.
+
+# 3.3.0
+
+* Added support for SSL/TLS. Redis doesn't support SSL natively, so you still
+  need to run a terminating proxy on Redis' side. See #496.
+
+* Added `read_timeout` and `write_timeout` options. See #437, #482.
+
+* Added support for pub/sub with timeouts. See #329.
+
+* Added `Redis#call`, `Redis#queue` and `Redis#commit` as a more minimal API to
+  the client.
+
+* Deprecated `Redis#disconnect!` in favor of `Redis#close`.
+
+# 3.2.2
+
+* Added support for `ZADD` options `NX`, `XX`, `CH`, `INCR`. See #547.
+
+* Added support for sentinel commands. See #556.
+
+* New `:id` option allows you to identify the client against Redis. See #510.
+
+* `Redis::Distributed` will raise when adding two nodes with the same ID.
+  See #354.
+
 # 3.2.1
 
 * Added support for `PUBSUB` command.

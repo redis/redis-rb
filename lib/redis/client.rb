@@ -3,28 +3,6 @@ require "socket"
 require "cgi"
 
 class Redis
-  # Redis::Client handles the connection to Redis, sending and receiving commands.
-  #
-  # Usage:
-  #
-  #   client = Redis::Client.new
-  #
-  #   client.call(["PING"])
-  #   => "PONG"
-  #
-  #   client.call(["SET", "key", "value"])
-  #   => "OK"
-  #
-  #   client.call(["INCR", "key"])
-  #   => 1
-  #
-  # It provides an API for command pipelining:
-  #
-  #   client.queue(["SET", "key", "value"])
-  #   client.queue(["GET", "key"])
-  #   client.commit
-  #   => ["OK", "value"]
-  #
   class Client
 
     DEFAULTS = {
@@ -34,7 +12,6 @@ class Redis
       :port => 6379,
       :path => nil,
       :timeout => 5.0,
-      :connect_timeout => 5.0,
       :password => nil,
       :db => 0,
       :driver => nil,
@@ -64,8 +41,16 @@ class Redis
       @options[:path]
     end
 
+    def read_timeout
+      @options[:read_timeout]
+    end
+
+    def connect_timeout
+      @options[:connect_timeout]
+    end
+
     def timeout
-      @options[:timeout]
+      @options[:read_timeout]
     end
 
     def password
@@ -106,47 +91,6 @@ class Redis
       else
         @connector = Connector.new(@options)
       end
-
-      @queue = []
-    end
-
-    # Sends a command to Redis and returns its reply.
-    #
-    # Replies are converted to Ruby objects according to the RESP protocol, so
-    # you can expect a Ruby array, integer or nil when Redis sends one. Higher
-    # level transformations, such as converting an array of pairs into a Ruby
-    # hash, are up to consumers.
-    #
-    # Redis error replies are raised as Ruby exceptions.
-    def call(command, &block)
-      reply = process([command]) { read }
-      raise reply if reply.is_a?(CommandError)
-
-      if block
-        block.call(reply)
-      else
-        reply
-      end
-    end
-
-    # Queues a command for pipelining.
-    #
-    # Commands in the queue are executed with the Redis::Client#commit method.
-    #
-    # See http://redis.io/topics/pipelining for more details.
-    #
-    def queue(command)
-      @queue << command
-    end
-
-    # Sends all commands in the queue.
-    #
-    # See http://redis.io/topics/pipelining for more details.
-    #
-    def commit
-      call_pipelined(@queue)
-    ensure
-      @queue.clear
     end
 
     def connect
@@ -157,6 +101,7 @@ class Redis
         establish_connection
         call [:auth, password] if password
         call [:select, db] if db != 0
+        call [:client, :setname, @options[:id]] if @options[:id]
         @connector.check(self)
       end
 
@@ -171,10 +116,21 @@ class Redis
       path || "#{host}:#{port}"
     end
 
-    def call_loop(command)
+    def call(command)
+      reply = process([command]) { read }
+      raise reply if reply.is_a?(CommandError)
+
+      if block_given?
+        yield reply
+      else
+        reply
+      end
+    end
+
+    def call_loop(command, timeout = 0)
       error = nil
 
-      result = without_socket_timeout do
+      result = with_socket_timeout(timeout) do
         process([command]) do
           loop do
             reply = read
@@ -449,7 +405,7 @@ class Redis
 
         if uri.scheme == "unix"
           defaults[:path]   = uri.path
-        elsif uri.scheme == "redis"
+        elsif uri.scheme == "redis" || uri.scheme == "rediss"
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host if uri.host
           defaults[:port]     = uri.port if uri.port
@@ -459,6 +415,8 @@ class Redis
         else
           raise ArgumentError, "invalid uri scheme '#{uri.scheme}'"
         end
+
+        defaults[:ssl] = true if uri.scheme == "rediss"
       end
 
       # Use default when option is not specified or nil
@@ -477,12 +435,15 @@ class Redis
         options[:port] = options[:port].to_i
       end
 
-      options[:timeout] = options[:timeout].to_f
-      options[:connect_timeout] = if options[:connect_timeout]
-        options[:connect_timeout].to_f
-      else
-        options[:timeout]
+      if options.has_key?(:timeout)
+        options[:connect_timeout] ||= options[:timeout]
+        options[:read_timeout]    ||= options[:timeout]
+        options[:write_timeout]   ||= options[:timeout]
       end
+
+      options[:connect_timeout] = Float(options[:connect_timeout])
+      options[:read_timeout]    = Float(options[:read_timeout])
+      options[:write_timeout]   = Float(options[:write_timeout])
 
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
