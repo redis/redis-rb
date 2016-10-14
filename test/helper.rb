@@ -2,13 +2,6 @@ require "test/unit"
 require "logger"
 require "stringio"
 
-(class Random; def self.rand(*args) super end; end) unless defined?(Random)
-
-begin
-  require "ruby-debug"
-rescue LoadError
-end
-
 $VERBOSE = true
 
 ENV["conn"] ||= "ruby"
@@ -40,11 +33,11 @@ def init(redis)
 
       Try this once:
 
-        $ rake clean
+        $ make clean
 
       Then run the build again:
 
-        $ rake
+        $ make
 
     EOS
     exit 1
