@@ -1340,9 +1340,13 @@ class Redis
   #
   # @param [String] key
   # @return [String]
-  def spop(key)
+  def spop(key, count = nil)
     synchronize do |client|
-      client.call([:spop, key])
+      if count.nil?
+        client.call([:spop, key])
+      else
+        client.call([:spop, key, count])
+      end
     end
   end
 
