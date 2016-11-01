@@ -1336,13 +1336,18 @@ class Redis
     end
   end
 
-  # Remove and return a random member from a set.
+  # Remove and return one or more random member from a set.
   #
   # @param [String] key
   # @return [String]
-  def spop(key)
+  # @param [Fixnum] count
+  def spop(key, count = nil)
     synchronize do |client|
-      client.call([:spop, key])
+      if count.nil?
+        client.call([:spop, key])
+      else
+        client.call([:spop, key, count])
+      end
     end
   end
 
