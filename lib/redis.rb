@@ -143,10 +143,12 @@ class Redis
 
   # Ping the server.
   #
+  # @param [optional, String] message
   # @return [String] `PONG`
-  def ping
+  def ping(message = nil)
+    arguments = [:ping, message].compact
     synchronize do |client|
-      client.call([:ping])
+      client.call(arguments)
     end
   end
 
