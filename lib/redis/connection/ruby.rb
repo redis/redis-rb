@@ -104,14 +104,14 @@ class Redis
         begin
           write_nonblock(data)
 
-        rescue *NBIO_READ_EXCEPTIONS
-          if IO.select([self], nil, nil, @write_timeout)
+        rescue *NBIO_WRITE_EXCEPTIONS
+          if IO.select(nil, [self], nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
           end
-        rescue *NBIO_WRITE_EXCEPTIONS
-          if IO.select(nil, [self], nil, @write_timeout)
+        rescue *NBIO_READ_EXCEPTIONS
+          if IO.select([self], nil, nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
