@@ -27,11 +27,12 @@ class Redis
       CRLF = "\r\n".freeze
 
       # Exceptions raised during non-blocking I/O ops that require retrying the op
-      NBIO_READ_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
-      NBIO_WRITE_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
-      if RUBY_VERSION >= "1.9.3"
-        NBIO_READ_EXCEPTIONS << IO::WaitReadable
-        NBIO_WRITE_EXCEPTIONS << IO::WaitWritable
+      if RUBY_VERSION >= "1.9.0"
+        NBIO_READ_EXCEPTIONS = [IO::WaitReadable]
+        NBIO_WRITE_EXCEPTIONS = [IO::WaitWritable]
+      else
+        NBIO_READ_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
+        NBIO_WRITE_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
       end
 
       def initialize(*args)
@@ -104,14 +105,14 @@ class Redis
         begin
           write_nonblock(data)
 
-        rescue *NBIO_WRITE_EXCEPTIONS
-          if IO.select(nil, [self], nil, @write_timeout)
+        rescue *NBIO_READ_EXCEPTIONS
+          if IO.select([self], nil, nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
           end
-        rescue *NBIO_READ_EXCEPTIONS
-          if IO.select([self], nil, nil, @write_timeout)
+        rescue *NBIO_WRITE_EXCEPTIONS
+          if IO.select(nil, [self], nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
