@@ -306,6 +306,8 @@ class Redis
         if config[:scheme] == "unix"
           raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
+        elsif config[:ssl] && RUBY_VERSION < "1.9.0"
+          raise ArgumentError, "This library does not support SSL on Ruby < 1.9"
         elsif config[:scheme] == "rediss" || config[:ssl]
           sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
         else
