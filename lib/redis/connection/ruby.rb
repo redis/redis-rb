@@ -27,7 +27,7 @@ class Redis
       CRLF = "\r\n".freeze
 
       # Exceptions raised during non-blocking I/O ops that require retrying the op
-      if RUBY_VERSION >= "1.9.0"
+      if RUBY_VERSION >= "1.9.3"
         NBIO_READ_EXCEPTIONS = [IO::WaitReadable]
         NBIO_WRITE_EXCEPTIONS = [IO::WaitWritable]
       else
@@ -105,14 +105,14 @@ class Redis
         begin
           write_nonblock(data)
 
-        rescue *NBIO_READ_EXCEPTIONS
-          if IO.select([self], nil, nil, @write_timeout)
+        rescue *NBIO_WRITE_EXCEPTIONS
+          if IO.select(nil, [self], nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
           end
-        rescue *NBIO_WRITE_EXCEPTIONS
-          if IO.select(nil, [self], nil, @write_timeout)
+        rescue *NBIO_READ_EXCEPTIONS
+          if IO.select([self], nil, nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
@@ -306,7 +306,7 @@ class Redis
         if config[:scheme] == "unix"
           raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
-        elsif config[:ssl] && RUBY_VERSION < "1.9.0"
+        elsif config[:ssl] && RUBY_VERSION < "1.9.3"
           raise ArgumentError, "This library does not support SSL on Ruby < 1.9"
         elsif config[:scheme] == "rediss" || config[:ssl]
           sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
