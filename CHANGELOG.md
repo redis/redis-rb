@@ -6,6 +6,12 @@
 
 * Removed `Redis::Distributed`.
 
+# 3.3.2
+
+* Added support for SPOP with COUNT. See #628.
+
+* Fixed connection glitches when using SSL. See #644.
+
 # 3.3.1
 
 * Remove usage of Timeout::timeout, refactor into using low level non-blocking writes.

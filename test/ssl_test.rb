@@ -25,6 +25,13 @@ if RUBY_VERSION >= "1.9.3"
         end
       end
 
+      def test_ssl_blocking
+        RedisMock.start({}, ssl_server_opts("trusted")) do |port|
+          redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
+          assert_equal redis.set("boom", "a" * 10_000_000), "OK"
+        end
+      end
+
     end
 
     driver(:hiredis, :synchrony) do
