@@ -1,9 +1,5 @@
 require_relative "helper"
 
-unless defined?(Enumerator)
-  Enumerator = Enumerable::Enumerator
-end
-
 class TestBitpos < Test::Unit::TestCase
 
   include Helper::Client
