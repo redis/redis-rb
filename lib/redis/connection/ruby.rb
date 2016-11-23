@@ -10,16 +10,6 @@ rescue LoadError
   # Not all systems have OpenSSL support
 end
 
-if RUBY_VERSION < "1.9.3"
-  class String
-    # Ruby 1.8.7 does not have byteslice, but it handles encodings differently anyway.
-    # We can simply slice the string, which is a byte array there.
-    def byteslice(*args)
-      slice(*args)
-    end
-  end
-end
-
 class Redis
   module Connection
     module SocketMixin
