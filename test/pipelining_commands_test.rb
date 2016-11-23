@@ -134,9 +134,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
     end
 
     assert_equal true, @result.is_a?(Redis::Future)
-    if defined?(::BasicObject)
-      assert_equal true, @result.is_a?(::BasicObject)
-    end
+    assert_equal true, @result.is_a?(::BasicObject)
     assert_equal Redis::Future, @result.class
   end
 

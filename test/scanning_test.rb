@@ -1,9 +1,5 @@
 require_relative "helper"
 
-unless defined?(Enumerator)
-  Enumerator = Enumerable::Enumerator
-end
-
 class TestScanning < Test::Unit::TestCase
 
   include Helper::Client
