@@ -6,9 +6,12 @@
 
 * Removed `Redis::Distributed`.
 
+* Added support for `CLIENT` commands. The lower-level client can be
+  accessed via `Redis#_client`.
+
 # 3.3.2
 
-* Added support for SPOP with COUNT. See #628.
+* Added support for `SPOP` with COUNT. See #628.
 
 * Fixed connection glitches when using SSL. See #644.
 
