@@ -29,7 +29,6 @@ class TestForkSafety < Test::Unit::TestCase
 
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
-      return skip(error.message)
     end
 
     def test_fork_safety_with_enabled_inherited_socket
@@ -56,7 +55,6 @@ class TestForkSafety < Test::Unit::TestCase
 
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
-      return skip(error.message)
     end
   end
 end
