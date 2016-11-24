@@ -1,45 +1,16 @@
 # redis-rb [![Build Status][travis-image]][travis-link] [![Inline docs][inchpages-image]][inchpages-link]
 
-[travis-image]: https://secure.travis-ci.org/redis/redis-rb.png?branch=master
-[travis-link]: http://travis-ci.org/redis/redis-rb
-[travis-home]: http://travis-ci.org/
-[inchpages-image]: http://inch-ci.org/github/redis/redis-rb.png
-[inchpages-link]: http://inch-ci.org/github/redis/redis-rb
+A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still
+providing an idiomatic interface.
 
-A Ruby client library for [Redis][redis-home].
-
-[redis-home]: http://redis.io
-
-A Ruby client that tries to match Redis' API one-to-one, while still
-providing an idiomatic interface. It features thread-safety, client-side
-sharding, pipelining, and an obsession for performance.
-
-## Upgrading from 2.x to 3.0
-
-Please refer to the [CHANGELOG][changelog-3.0.0] for a summary of the
-most important changes, as well as a full list of changes.
-
-[changelog-3.0.0]: https://github.com/redis/redis-rb/blob/master/CHANGELOG.md#300
 
 ## Getting started
 
-To install **redis-rb**, run the following command:
+Install with:
 
 ```
-  gem install redis
+$ gem install redis
 ```
-
-Or if you are using **bundler**, add
-
-```
-  gem 'redis', '~>3.2'
-```
-
-to your `Gemfile`, and run `bundle install`
-
-As of version 2.0 this client only targets Redis version 2.0 and higher.
-You can use an older version of this client if you need to interface
-with a Redis instance older than 2.0, but this is no longer supported.
 
 You can connect to Redis by instantiating the `Redis` class:
 
@@ -54,16 +25,14 @@ listening on `localhost`, port 6379. If you need to connect to a remote
 server or a different port, try:
 
 ```ruby
-redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15)
+redis = Redis.new(host: "10.0.1.1", port: 6380, db: 15)
 ```
 
 You can also specify connection options as a [`redis://` URL][redis-url]:
 
 ```ruby
-redis = Redis.new(:url => "redis://:p4ssw0rd@10.0.1.1:6380/15")
+redis = Redis.new(url: "redis://:p4ssw0rd@10.0.1.1:6380/15")
 ```
-
-[redis-url]: http://www.iana.org/assignments/uri-schemes/prov/redis
 
 By default, the client will try to read the `REDIS_URL` environment variable
 and use that as URL to connect to. The above statement is therefore equivalent
@@ -72,21 +41,19 @@ to setting this environment variable and calling `Redis.new` without arguments.
 To connect to Redis listening on a Unix socket, try:
 
 ```ruby
-redis = Redis.new(:path => "/tmp/redis.sock")
+redis = Redis.new(path: "/tmp/redis.sock")
 ```
 
 To connect to a password protected Redis instance, use:
 
 ```ruby
-redis = Redis.new(:password => "mysecret")
+redis = Redis.new(password: "mysecret")
 ```
 
 The Redis class exports methods that are named identical to the commands
 they execute. The arguments these methods accept are often identical to
 the arguments specified on the [Redis website][redis-commands]. For
 instance, the `SET` and `GET` commands can be called like this:
-
-[redis-commands]: http://redis.io/commands
 
 ```ruby
 redis.set("mykey", "hello world")
@@ -96,24 +63,22 @@ redis.get("mykey")
 # => "hello world"
 ```
 
-All commands, their arguments and return values are documented, and
-available on [rdoc.info][rdoc].
-
-[rdoc]: http://rdoc.info/github/redis/redis-rb/
+All commands, their arguments, and return values are documented and
+available on [RubyDoc.info][rubydoc].
 
 ## Sentinel support
 
-The client is able to perform automatic failovers by using [Redis
+The client is able to perform automatic failover by using [Redis
 Sentinel](http://redis.io/topics/sentinel).  Make sure to run Redis 2.8+
 if you want to use this feature.
 
 To connect using Sentinel, use:
 
 ```ruby
-SENTINELS = [{:host => "127.0.0.1", :port => 26380},
-             {:host => "127.0.0.1", :port => 26381}]
+SENTINELS = [{ host: "127.0.0.1", port: 26380 },
+             { host: "127.0.0.1", port: 26381 }]
 
-redis = Redis.new(:url => "redis://mymaster", :sentinels => SENTINELS, :role => :master)
+redis = Redis.new(url: "redis://mymaster", sentinels: SENTINELS, role: :master)
 ```
 
 * The master name identifies a group of Redis instances composed of a master
@@ -374,37 +339,28 @@ redis = Redis.new(:driver => :synchrony)
 
 ## Testing
 
-This library is tested using [Travis][travis-home], where it is tested
-against the following interpreters and drivers:
-
-* MRI 1.8.7 (drivers: ruby, hiredis)
-* MRI 1.9.3 (drivers: ruby, hiredis, synchrony)
-* MRI 2.0 (drivers: ruby, hiredis, synchrony)
-* MRI 2.1 (drivers: ruby, hiredis, synchrony)
-* MRI 2.2 (drivers: ruby, hiredis, synchrony)
-* MRI 2.3 (drivers: ruby, hiredis, synchrony)
-* JRuby 1.7 (1.8 mode) (drivers: ruby)
-* JRuby 1.7 (1.9 mode) (drivers: ruby)
+This library is tested against recent Ruby and Redis versions.
+Check [Travis][travis-link] for the exact versions supported.
 
 ## Contributors
 
-(ordered chronologically with more than 5 commits, see `git shortlog -sn` for
-all contributors)
-
-* Ezra Zygmuntowicz
-* Taylor Weibley
-* Matthew Clark
-* Brian McKinney
-* Luca Guidi
-* Salvatore Sanfilippo
-* Chris Wanstrath
-* Damian Janowski
-* Michel Martens
-* Nick Quaranto
-* Pieter Noordhuis
-* Ilya Grigorik
+Several people contributed to redis-rb, but we would like to especially
+mention Ezra Zygmuntowicz. Ezra introduced the Ruby community to many
+new cool technologies, like Redis. He wrote the first version of this
+client and evangelized Redis in Rubyland. Thank you, Ezra.
 
 ## Contributing
 
 [Fork the project](https://github.com/redis/redis-rb) and send pull
 requests. You can also ask for help at `#redis-rb` on Freenode.
+
+
+[inchpages-image]: https://inch-ci.org/github/redis/redis-rb.png
+[inchpages-link]:  https://inch-ci.org/github/redis/redis-rb
+[redis-commands]:  http://redis.io/commands
+[redis-home]:      http://redis.io
+[redis-url]:       http://www.iana.org/assignments/uri-schemes/prov/redis
+[travis-home]:     https://travis-ci.org/
+[travis-image]:    https://secure.travis-ci.org/redis/redis-rb.png?branch=master
+[travis-link]:     https://travis-ci.org/redis/redis-rb
+[rubydoc]:         http://www.rubydoc.info/gems/redis
