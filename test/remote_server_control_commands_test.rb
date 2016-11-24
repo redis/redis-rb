@@ -115,7 +115,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_client
-    assert_equal r.instance_variable_get(:@client), r.client
+    assert_equal r.instance_variable_get(:@client), r._client
   end
 
   def test_client_list

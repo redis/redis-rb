@@ -204,8 +204,7 @@ class Redis
   #
   # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
   # @return [String, Hash] depends on subcommand
-  def client(subcommand=nil, *args)
-    return @client if subcommand.nil? # for backward compatibility
+  def client(subcommand = nil, *args)
     synchronize do |client|
       client.call([:client, subcommand] + args) do |reply|
         if subcommand.to_s == "list"
