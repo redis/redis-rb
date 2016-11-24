@@ -38,7 +38,7 @@ class TestConnectionHandling < Test::Unit::TestCase
     r.select 14
     assert_equal nil, r.get("foo")
 
-    r.client.disconnect
+    r._client.disconnect
 
     assert_equal nil, r.get("foo")
   end
@@ -46,7 +46,7 @@ class TestConnectionHandling < Test::Unit::TestCase
   def test_quit
     r.quit
 
-    assert !r.client.connected?
+    assert !r._client.connected?
   end
 
   def test_close
@@ -146,7 +146,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       end
 
       assert_equal nil, result
-      assert !redis.client.connected?
+      assert !redis._client.connected?
     end
   end
 
@@ -186,7 +186,7 @@ class TestConnectionHandling < Test::Unit::TestCase
       end
 
       assert_equal nil, result
-      assert !redis.client.connected?
+      assert !redis._client.connected?
     end
   end
 

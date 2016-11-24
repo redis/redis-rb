@@ -224,8 +224,8 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
       end
       assert ex.message =~ /port not specified/
 
-      default_db = redis.client.db.to_i
-      default_timeout = redis.client.timeout.to_i
+      default_db = redis._client.db.to_i
+      default_timeout = redis._client.timeout.to_i
 
       # Test defaults
       actual = redis.migrate("foo", options)

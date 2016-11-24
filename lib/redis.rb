@@ -3,8 +3,6 @@ require_relative "redis/errors"
 
 class Redis
 
-  attr :client
-
   def self.current
     @current ||= Redis.new
   end
@@ -106,6 +104,10 @@ class Redis
         @queue.delete(Thread.current.object_id)
       end
     end
+  end
+
+  def _client
+    @client
   end
 
   # Authenticate to the server.
@@ -466,8 +468,8 @@ class Redis
   def migrate(key, options)
     host = options[:host] || raise(RuntimeError, ":host not specified")
     port = options[:port] || raise(RuntimeError, ":port not specified")
-    db = (options[:db] || client.db).to_i
-    timeout = (options[:timeout] || client.timeout).to_i
+    db = (options[:db] || @client.db).to_i
+    timeout = (options[:timeout] || @client.timeout).to_i
 
     synchronize do |client|
       client.call([:migrate, host, port, key, db, timeout])

@@ -221,7 +221,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       p2.select 2
     end
 
-    assert_equal 2, r.client.db
+    assert_equal 2, r._client.db
   end
 
   def test_nested_pipeline_select_client_db
@@ -233,6 +233,6 @@ class TestPipeliningCommands < Test::Unit::TestCase
       end
     end
 
-    assert_equal 3, r.client.db
+    assert_equal 3, r._client.db
   end
 end

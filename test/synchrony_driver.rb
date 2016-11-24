@@ -53,7 +53,7 @@ EM.synchrony do
   assert_equal "s2", r.lpop("foo")
   assert_equal "s1", r.lpop("foo")
 
-  assert_equal "OK", r.client.call(:quit)
+  assert_equal "OK", r._client.call(:quit)
   assert_equal "PONG", r.ping
 
 
