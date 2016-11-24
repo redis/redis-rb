@@ -18,13 +18,13 @@ env:
     - VERBOSE=true
     - TIMEOUT=1
   matrix:
-    - conn=ruby      REDIS_BRANCH=3.0
-    - conn=ruby      REDIS_BRANCH=3.2
-    - conn=hiredis   REDIS_BRANCH=3.0
-    - conn=hiredis   REDIS_BRANCH=3.2
-    - conn=synchrony REDIS_BRANCH=3.0
-    - conn=synchrony REDIS_BRANCH=3.2
-    - conn=ruby      REDIS_BRANCH=unstable
+    - DRIVER=ruby      REDIS_BRANCH=3.0
+    - DRIVER=ruby      REDIS_BRANCH=3.2
+    - DRIVER=hiredis   REDIS_BRANCH=3.0
+    - DRIVER=hiredis   REDIS_BRANCH=3.2
+    - DRIVER=synchrony REDIS_BRANCH=3.0
+    - DRIVER=synchrony REDIS_BRANCH=3.2
+    - DRIVER=ruby      REDIS_BRANCH=unstable
 
 branches:
   only:
@@ -35,30 +35,30 @@ matrix:
     # hiredis
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.0
+      env: DRIVER=hiredis REDIS_BRANCH=3.0
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.2
+      env: DRIVER=hiredis REDIS_BRANCH=3.2
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.0
+      env: DRIVER=hiredis REDIS_BRANCH=3.0
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.2
+      env: DRIVER=hiredis REDIS_BRANCH=3.2
 
     # synchrony
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.0
+      env: DRIVER=synchrony REDIS_BRANCH=3.0
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.2
+      env: DRIVER=synchrony REDIS_BRANCH=3.2
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.0
+      env: DRIVER=synchrony REDIS_BRANCH=3.0
     - rvm: jruby-9
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.2
+      env: DRIVER=synchrony REDIS_BRANCH=3.2
   allow_failures:
     - rvm: rbx-3
 

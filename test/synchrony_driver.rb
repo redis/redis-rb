@@ -1,11 +1,10 @@
-require 'em-synchrony'
-require 'em-synchrony/connection_pool'
+require "em-synchrony"
+require "em-synchrony/connection_pool"
 
-require 'redis'
-require 'redis/connection/synchrony'
+require_relative "../lib/redis"
+require_relative "../lib/redis/connection/synchrony"
 
-
-require_relative "./helper"
+require_relative "helper"
 
 PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15}

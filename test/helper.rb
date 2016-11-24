@@ -4,13 +4,13 @@ require "stringio"
 
 $VERBOSE = true
 
-ENV["conn"] ||= "ruby"
+ENV["DRIVER"] ||= "ruby"
 
 require_relative "../lib/redis"
-require_relative "../lib/redis/connection/#{ENV["conn"]}"
+require_relative "../lib/redis/connection/#{ENV["DRIVER"]}"
 
 require_relative "support/redis_mock"
-require_relative "support/connection/#{ENV["conn"]}"
+require_relative "support/connection/#{ENV["DRIVER"]}"
 
 PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1)}
@@ -45,7 +45,7 @@ def init(redis)
 end
 
 def driver(*drivers, &blk)
-  if drivers.map(&:to_s).include?(ENV["conn"])
+  if drivers.map(&:to_s).include?(ENV["DRIVER"])
     class_eval(&blk)
   end
 end
@@ -172,7 +172,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(:driver => ENV["conn"]))
+      Redis.new(_format_options(options).merge(:driver => ENV["DRIVER"]))
     end
   end
 
