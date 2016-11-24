@@ -2,6 +2,9 @@ language: ruby
 
 script: make test
 
+before_install:
+  - rvm get stable
+
 rvm:
   - 2.1
   - 2.2
