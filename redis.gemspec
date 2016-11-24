@@ -1,4 +1,4 @@
-require_relative "lib/redis/version"
+require "./lib/redis/version"
 
 Gem::Specification.new do |s|
   s.name = "redis"
