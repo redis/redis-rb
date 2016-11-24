@@ -200,6 +200,26 @@ class Redis
     end
   end
 
+  # Manage client connections.
+  #
+  # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
+  # @return [String, Hash] depends on subcommand
+  def client(subcommand=nil, *args)
+    return @client if subcommand.nil? # for backward compatibility
+    synchronize do |client|
+      client.call([:client, subcommand] + args) do |reply|
+        if subcommand.to_s == "list"
+          reply.lines.map do |line|
+            entries = line.chomp.split(/[ =]/)
+            Hash[entries.each_slice(2).to_a]
+          end
+        else
+          reply
+        end
+      end
+    end
+  end
+
   # Return the number of keys in the selected database.
   #
   # @return [Fixnum]
