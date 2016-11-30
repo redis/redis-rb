@@ -340,6 +340,7 @@ class Redis
            Errno::EHOSTDOWN,
            Errno::EHOSTUNREACH,
            Errno::ENETUNREACH,
+           Errno::ENOENT,
            Errno::ETIMEDOUT
 
       raise CannotConnectError, "Error connecting to Redis on #{location} (#{$!.class})"
