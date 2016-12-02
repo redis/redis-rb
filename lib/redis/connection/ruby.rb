@@ -33,6 +33,10 @@ class Redis
         NBIO_READ_EXCEPTIONS << IO::WaitReadable
         NBIO_WRITE_EXCEPTIONS << IO::WaitWritable
       end
+      if RUBY_VERSION >= "2.1.0"
+        NBIO_READ_EXCEPTIONS << IO::EAGAINWaitReadable
+        NBIO_WRITE_EXCEPTIONS << IO::EAGAINWaitWritable
+      end
 
       def initialize(*args)
         super(*args)
