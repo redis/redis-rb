@@ -101,7 +101,7 @@ class TestRemoteServerControlCommands < Test::Unit::TestCase
     assert_equal 1, r.object(:refcount, "list")
     encoding = r.object(:encoding, "list")
     assert "ziplist" == encoding || "quicklist" == encoding, "Wrong encoding for list"
-    assert r.object(:idletime, "list").kind_of?(Fixnum)
+    assert r.object(:idletime, "list").kind_of?(Integer)
   end
 
   def test_sync
