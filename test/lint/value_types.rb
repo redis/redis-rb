@@ -95,7 +95,7 @@ module Lint
         assert [0, 1].include? r.ttl("bar")
 
         r.set("bar", "somethingelse")
-        assert_raises(Redis::CommandError) { r.restore("bar", 1000, w, replace: false) }
+        assert_raises(Redis::CommandError) { r.restore("bar", 1000, w, :replace => false) }
         assert_equal "somethingelse", r.get("bar")
       end
     end
