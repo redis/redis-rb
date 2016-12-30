@@ -145,7 +145,6 @@ class Redis
 
     # Create a key using the serialized value, previously obtained using DUMP.
     def restore(key, ttl, serialized_value, options = {})
-      options[:replace] = true unless options.key?(:replace)
       node_for(key).restore(key, ttl, serialized_value, options)
     end
 
