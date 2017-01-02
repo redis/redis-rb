@@ -7,7 +7,10 @@ class Redis
     $stderr.puts "\n#{message} (in #{trace})"
   end
 
+  # Deprecated - Redis.new.client is not supported > 4.0.
+  # Use Redis.new._client to get access to the raw client.
   attr :client
+  alias_method :_client, :client
 
   # @deprecated The preferred way to create a new client object is using `#new`.
   #             This method does not actually establish a connection to Redis,
