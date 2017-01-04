@@ -110,7 +110,10 @@ class Redis
 
     def call(command, &block)
       reply = process([command]) { read }
-      raise reply if reply.is_a?(CommandError)
+      if reply.is_a?(CommandError)
+        @logger.debug("Redis command error. Command was #{command}. Error message was #{reply}")
+        raise reply
+      end
 
       if block
         block.call(reply)
