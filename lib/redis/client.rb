@@ -451,12 +451,12 @@ class Redis
       case options[:tcp_keepalive]
       when Hash
         [:time, :intvl, :probes].each do |key|
-          unless options[:tcp_keepalive][key].is_a?(Fixnum)
-            raise "Expected the #{key.inspect} key in :tcp_keepalive to be a Fixnum"
+          unless options[:tcp_keepalive][key].is_a?(Integer)
+            raise "Expected the #{key.inspect} key in :tcp_keepalive to be an Integer"
           end
         end
 
-      when Fixnum
+      when Integer
         if options[:tcp_keepalive] >= 60
           options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 20, :intvl => 10, :probes => 2}
 
