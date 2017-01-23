@@ -12,6 +12,10 @@
   security updates in June of 2013; continuing to support it would prevent
   the use of newer features of Ruby.
 
+# 3.3.3
+
+* Improved timeout handling after dropping Timeout module.
+
 # 3.3.2
 
 * Added support for SPOP with COUNT. See #628.
