@@ -284,7 +284,7 @@ class Redis
 
       results = Hash[
         m_nodes.flat_map do |node, key_list|
-          values = node.mget(key_list)
+          values = node.mget(*key_list)
           key_list.zip(values)
         end
       ]
