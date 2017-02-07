@@ -295,6 +295,17 @@ redis = Redis.new(
 )
 ```
 
+Turn off hostname verification using `OpenSSL::SSL::SSLContext#verify_mode`, ie:
+
+```ruby
+redis = Redis.new(
+  :url        => "rediss://:p4ssw0rd@10.0.1.1:6381/15",
+  :ssl_params => {
+    :verify_mode => OpenSSL::SSL::VERIFY_NONE
+  }
+)
+```
+
 [stunnel]: https://www.stunnel.org/
 [hitch]: https://hitch-tls.org/
 [ghostunnel]: https://github.com/square/ghostunnel
