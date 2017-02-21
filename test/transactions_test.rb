@@ -262,3 +262,11 @@ class TestTransactions < Test::Unit::TestCase
     assert_equal "s2", r.get("foo")
   end
 end
+
+test "watch_with_multi" do |r|
+  r.watch_with_multi "foo" do |multi|
+    multi.set "foo", "s1"
+  end
+
+  assert "s1" == r.get("foo")
+end
