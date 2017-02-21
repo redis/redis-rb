@@ -403,6 +403,7 @@ all contributors)
 * Nick Quaranto
 * Pieter Noordhuis
 * Ilya Grigorik
+* Ryan Biesemeyer
 
 ## Contributing
 

@@ -30,7 +30,8 @@ Gem::Specification.new do |s|
     "Luca Guidi",
     "Michel Martens",
     "Damian Janowski",
-    "Pieter Noordhuis"
+    "Pieter Noordhuis",
+    "Ryan Biesemeyer"
   ]
 
   s.email = ["redis-db@googlegroups.com"]
