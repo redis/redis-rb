@@ -53,6 +53,10 @@ class Redis
 
     super() # Monitor#initialize
   end
+  
+  def initialize_copy(redis)
+		@client = redis.client.clone
+	end
 
   def synchronize
     mon_synchronize { yield(@client) }
