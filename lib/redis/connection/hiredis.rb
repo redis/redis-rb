@@ -13,12 +13,14 @@ class Redis
 
         if config[:scheme] == "unix"
           connection.connect_unix(config[:path], connect_timeout)
+        elsif config[:scheme] == "rediss" || config[:ssl]
+          raise NotImplementedError, "SSL not supported by hiredis driver"
         else
           connection.connect(config[:host], config[:port], connect_timeout)
         end
 
         instance = new(connection)
-        instance.timeout = config[:timeout]
+        instance.timeout = config[:read_timeout]
         instance
       rescue Errno::ETIMEDOUT
         raise TimeoutError
