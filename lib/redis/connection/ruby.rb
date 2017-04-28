@@ -10,6 +10,16 @@ rescue LoadError
   # Not all systems have OpenSSL support
 end
 
+if RUBY_VERSION < "1.9.3"
+  class String
+    # Ruby 1.8.7 does not have byteslice, but it handles encodings differently anyway.
+    # We can simply slice the string, which is a byte array there.
+    def byteslice(*args)
+      slice(*args)
+    end
+  end
+end
+
 class Redis
   module Connection
     module SocketMixin
@@ -17,8 +27,13 @@ class Redis
       CRLF = "\r\n".freeze
 
       # Exceptions raised during non-blocking I/O ops that require retrying the op
-      NBIO_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
-      NBIO_EXCEPTIONS << IO::WaitReadable if RUBY_VERSION >= "1.9.3"
+      if RUBY_VERSION >= "1.9.3"
+        NBIO_READ_EXCEPTIONS = [IO::WaitReadable]
+        NBIO_WRITE_EXCEPTIONS = [IO::WaitWritable]
+      else
+        NBIO_READ_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
+        NBIO_WRITE_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
+      end
 
       def initialize(*args)
         super(*args)
@@ -68,8 +83,14 @@ class Redis
         begin
           read_nonblock(nbytes)
 
-        rescue *NBIO_EXCEPTIONS
+        rescue *NBIO_READ_EXCEPTIONS
           if IO.select([self], nil, nil, @timeout)
+            retry
+          else
+            raise Redis::TimeoutError
+          end
+        rescue *NBIO_WRITE_EXCEPTIONS
+          if IO.select(nil, [self], nil, @timeout)
             retry
           else
             raise Redis::TimeoutError
@@ -80,9 +101,40 @@ class Redis
         raise Errno::ECONNRESET
       end
 
-      # UNIXSocket and TCPSocket don't support write timeouts
-      def write(*args)
-        Timeout.timeout(@write_timeout, TimeoutError) { super }
+      def _write_to_socket(data)
+        begin
+          write_nonblock(data)
+
+        rescue *NBIO_WRITE_EXCEPTIONS
+          if IO.select(nil, [self], nil, @write_timeout)
+            retry
+          else
+            raise Redis::TimeoutError
+          end
+        rescue *NBIO_READ_EXCEPTIONS
+          if IO.select([self], nil, nil, @write_timeout)
+            retry
+          else
+            raise Redis::TimeoutError
+          end
+        end
+
+      rescue EOFError
+        raise Errno::ECONNRESET
+      end
+
+      def write(data)
+        return super(data) unless @write_timeout
+
+        length = data.bytesize
+        total_count = 0
+        loop do
+          count = _write_to_socket(data)
+
+          total_count += count
+          return total_count if total_count >= length
+          data = data.byteslice(count..-1)
+        end
       end
     end
 
@@ -255,6 +307,7 @@ class Redis
           raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
         elsif config[:scheme] == "rediss" || config[:ssl]
+          raise ArgumentError, "This library does not support SSL on Ruby < 1.9" if RUBY_VERSION < "1.9.3"
           sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:connect_timeout])
