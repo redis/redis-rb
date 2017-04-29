@@ -286,7 +286,10 @@ class Redis
           ssl_sock = new(tcp_sock, ctx)
           ssl_sock.hostname = host
           ssl_sock.connect
-          ssl_sock.post_connection_check(host)
+
+          unless ssl_params.has_key?(:verify_hostname) && ssl_params[:verify_hostname] == false
+            ssl_sock.post_connection_check(host)
+          end
 
           ssl_sock
         end
