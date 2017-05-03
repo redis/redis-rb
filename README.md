@@ -1,9 +1,9 @@
 # redis-rb [![Build Status][travis-image]][travis-link] [![Inline docs][inchpages-image]][inchpages-link]
 
-[travis-image]: https://secure.travis-ci.org/redis/redis-rb.png?branch=master
+[travis-image]: https://secure.travis-ci.org/redis/redis-rb.svg?branch=master
 [travis-link]: http://travis-ci.org/redis/redis-rb
 [travis-home]: http://travis-ci.org/
-[inchpages-image]: http://inch-ci.org/github/redis/redis-rb.png
+[inchpages-image]: http://inch-ci.org/github/redis/redis-rb.svg
 [inchpages-link]: http://inch-ci.org/github/redis/redis-rb
 
 A Ruby client library for [Redis][redis-home].
