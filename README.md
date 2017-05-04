@@ -60,7 +60,7 @@ redis = Redis.new(:host => "10.0.1.1", :port => 6380, :db => 15)
 You can also specify connection options as a [`redis://` URL][redis-url]:
 
 ```ruby
-redis = Redis.new(:url => "redis://:p4ssw0rd@10.0.1.1:6380/15")
+redis = Redis.new(:url => "redis://p4ssw0rd@10.0.1.1:6380/15")
 ```
 
 [redis-url]: http://www.iana.org/assignments/uri-schemes/prov/redis
