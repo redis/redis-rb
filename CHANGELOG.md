@@ -14,6 +14,8 @@
 
 # 3.3.3
 
+* Remove deprecation warnings in Ruby 2.4 related to `Fixnum` vs `Integer`
+
 * Improved timeout handling after dropping Timeout module.
 
 # 3.3.2
