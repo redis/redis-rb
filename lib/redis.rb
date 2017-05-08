@@ -75,6 +75,14 @@ class Redis
     @original_client.connected?
   end
 
+  # Test whether or not the redis server is up
+  def connection_alive?
+    without_reconnect { ping }
+    connected?
+  rescue Redis::CannotConnectError, Redis::ConnectionError
+    false
+  end
+
   # Disconnect the client as quickly and silently as possible.
   def close
     @original_client.disconnect
