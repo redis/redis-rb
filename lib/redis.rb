@@ -250,6 +250,7 @@ class Redis
     synchronize do |client|
       client.call([:info, cmd].compact) do |reply|
         if reply.kind_of?(String)
+          reply.encode!('US-ASCII', invalid: :replace, replace: '') unless reply.valid_encoding?
           reply = Hash[reply.split("\r\n").map do |line|
             line.split(":", 2) unless line =~ /^(#|$)/
           end.compact]
