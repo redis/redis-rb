@@ -34,6 +34,10 @@ class Redis
         NBIO_READ_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
         NBIO_WRITE_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
       end
+      if RUBY_VERSION >= "2.1.0"
+        NBIO_READ_EXCEPTIONS << IO::EAGAINWaitReadable
+        NBIO_WRITE_EXCEPTIONS << IO::EAGAINWaitWritable
+      end
 
       def initialize(*args)
         super(*args)
