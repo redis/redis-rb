@@ -39,7 +39,11 @@ class Redis
 
           break if reply == false
 
-          reply = CommandError.new(reply.message) if reply.is_a?(RuntimeError)
+          if reply.is_a?(RuntimeError)
+            message = reply.message
+            reply_class = reply.class
+            reply = CommandError.new("Found a RuntimeError. #{reply_class}: #{message}")
+          end
           @req.succeed [:reply, reply]
         end
       end
