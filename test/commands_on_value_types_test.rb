@@ -38,6 +38,8 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     assert_equal 2, r.del(["bar", "baz"])
 
     assert_equal [], r.keys("*").sort
+
+    assert_equal 0, r.del([])
   end
 
   def test_randomkey
