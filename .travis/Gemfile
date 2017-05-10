@@ -7,5 +7,5 @@ when "hiredis"
   gem "hiredis"
 when "synchrony"
   gem "hiredis"
-  gem "em-synchrony"
+  gem "em-synchrony", "1.0.4"
 end
