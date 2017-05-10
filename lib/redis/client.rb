@@ -18,7 +18,8 @@ class Redis
       :id => nil,
       :tcp_keepalive => 0,
       :reconnect_attempts => 1,
-      :inherit_socket => false
+      :inherit_socket => false,
+      :sentinels => []
     }
 
     def options
@@ -86,7 +87,7 @@ class Redis
 
       @pending_reads = 0
 
-      if options.include?(:sentinels)
+      if @options.include?(:sentinels) && @options[:sentinels].any?
         @connector = Connector::Sentinel.new(@options)
       else
         @connector = Connector.new(@options)
@@ -545,8 +546,8 @@ class Redis
         def sentinel_detect
           @sentinels.each do |sentinel|
             client = Client.new(@options.merge({
-              :host => sentinel[:host],
-              :port => sentinel[:port],
+              :host => sentinel[:host] || sentinel["host"],
+              :port => sentinel[:port] || sentinel["port"],
               :reconnect_attempts => 0,
             }))
 
