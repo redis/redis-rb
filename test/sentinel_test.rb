@@ -38,6 +38,38 @@ class SentinelTest < Test::Unit::TestCase
     assert_equal commands[:s2], []
   end
 
+  def test_sentinel_connection_with_master_name
+    sentinels = [{:host => "127.0.0.1", :port => 26381},
+                 {:host => "127.0.0.1", :port => 26382}]
+
+    commands = {
+      :s1 => [],
+      :s2 => [],
+    }
+
+    handler = lambda do |id|
+      {
+        :sentinel => lambda do |command, *args|
+          commands[id] << [command, *args]
+          ["127.0.0.1", "6381"]
+        end
+      }
+    end
+
+    RedisMock.start(handler.call(:s1)) do |s1_port|
+      RedisMock.start(handler.call(:s2)) do |s2_port|
+        sentinels[0][:port] = s1_port
+        sentinels[1][:port] = s2_port
+        redis = Redis.new(:url => "redis://master1", :master_name => 'named-master', :sentinels => sentinels, :role => :master)
+
+        assert redis.ping
+      end
+    end
+
+    assert_equal commands[:s1], [%w[get-master-addr-by-name named-master]]
+    assert_equal commands[:s2], []
+  end
+
   def test_sentinel_failover
     sentinels = [{:host => "127.0.0.1", :port => 26381},
                  {:host => "127.0.0.1", :port => 26382}]
