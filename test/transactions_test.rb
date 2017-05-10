@@ -155,6 +155,14 @@ class TestTransactions < Test::Unit::TestCase
     end
   end
 
+  def test_in_multi_inside_and_outside_a_multi_block
+    assert !r.in_multi?
+    r.multi do
+      assert r.in_multi?
+    end
+    assert !r.in_multi?
+  end
+
   def test_watch
     res = r.watch "foo"
 

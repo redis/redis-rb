@@ -2309,6 +2309,19 @@ class Redis
     end
   end
 
+  # Return whether we are in a MULTI block or not.
+  #
+  # @return [true, false]
+  #   - when in a MULTI block, `true`
+  #   - when not in a MULTI block, `false`
+  #
+  # @see #multi
+  # @see #exec
+  # @see #discard
+  def in_multi?
+    @client.is_a?(Pipeline::Multi)
+  end
+
   # Execute all commands issued after MULTI.
   #
   # Only call this method when `#multi` was called **without** a block.
