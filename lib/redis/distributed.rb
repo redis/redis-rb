@@ -255,12 +255,16 @@ class Redis
     end
 
     # Set multiple keys to multiple values.
-    def mset(*args)
-      raise CannotDistribute, :mset
+    def mset(*keys)
+      mapped_mset(Hash[keys.each_slice(2).to_a])
     end
 
     def mapped_mset(hash)
-      raise CannotDistribute, :mapped_mset
+      keys_per_node = hash.group_by { |key, value| node_for(key) }
+
+      keys_per_node.map do |node, mset|
+        node.mapped_mset(Hash[mset])
+      end
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
@@ -279,11 +283,18 @@ class Redis
 
     # Get the values of all the given keys.
     def mget(*keys)
-      raise CannotDistribute, :mget
+      result = mapped_mget(*keys)
+      keys.map { |key| result[key] }
     end
 
-    def mapped_mget(*keys)
-      raise CannotDistribute, :mapped_mget
+    def mapped_mget(*mget_keys)
+      keys_per_node = mget_keys.group_by { |key| node_for(key) }
+
+      result = keys_per_node.inject({}) do |accum, (node, keys)|
+        values = node.mget(*keys)
+        accum.merge!(Hash[keys.zip(values)])
+      end
+      result
     end
 
     # Overwrite part of a string at key starting at the specified offset.
