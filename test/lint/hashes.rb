@@ -147,15 +147,15 @@ module Lint
       target_version "2.5.4" do
         r.hincrbyfloat("foo", "f1", 1.23)
 
-        assert_equal "1.23", r.hget("foo", "f1")
+        assert_equal "1.23", r.hget("foo", "f1").to_f.round(2).to_s
 
         r.hincrbyfloat("foo", "f1", 0.77)
 
-        assert_equal "2", r.hget("foo", "f1")
+        assert_equal "2", r.hget("foo", "f1").to_f.round(0).to_s
 
         r.hincrbyfloat("foo", "f1", -0.1)
 
-        assert_equal "1.9", r.hget("foo", "f1")
+        assert_equal "1.9", r.hget("foo", "f1").to_f.round(1).to_s
       end
     end
   end

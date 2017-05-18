@@ -256,11 +256,15 @@ class Redis
 
     # Set multiple keys to multiple values.
     def mset(*args)
-      raise CannotDistribute, :mset
+      args.flatten!
+      node_args_hash = split_args_for_nodes(args)
+      node_args_hash.each do |node, part_args|
+        node.mset *part_args
+      end
     end
 
     def mapped_mset(hash)
-      raise CannotDistribute, :mapped_mset
+      mset(hash.to_a.flatten)
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
@@ -279,11 +283,25 @@ class Redis
 
     # Get the values of all the given keys.
     def mget(*keys)
-      raise CannotDistribute, :mget
+      # Split keys based on node
+      node_keys_hash = split_keys_for_nodes(keys)
+
+      # mget with node & set value to result
+      result = Array.new keys.size
+      node_keys_hash.each do |node, payload|
+        values = node.mget(*payload[:keys])
+
+        values.each_with_index do |value, index|
+          key_index = payload[:index][index]
+          result[key_index] = value
+        end
+      end
+      result
     end
 
     def mapped_mget(*keys)
-      raise CannotDistribute, :mapped_mget
+      values = mget(*keys)
+      Hash[keys.zip(values)]
     end
 
     # Overwrite part of a string at key starting at the specified offset.
@@ -838,6 +856,34 @@ class Redis
     end
 
   protected
+
+    def split_keys_for_nodes(keys)
+      result = Hash.new
+      keys.each_with_index do |key, index|
+        node = node_for(key)
+        if !(payload = result[node])
+          payload = result[node] = {}
+          payload[:keys] = []
+          payload[:index] = []
+        end
+        payload[:keys] << key
+        payload[:index] << index
+      end
+      result
+    end
+
+    def split_args_for_nodes(args)
+      result = Hash.new
+      args.each_slice(2) do |key, value|
+        node = node_for(key)
+        if !(payload = result[node])
+          payload = result[node] = []
+        end
+        payload << key
+        payload << value
+      end
+      result
+    end
 
     def on_each_node(command, *args)
       nodes.map do |node|
