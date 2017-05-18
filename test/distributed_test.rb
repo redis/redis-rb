@@ -41,6 +41,22 @@ class TestDistributed < Test::Unit::TestCase
     assert_equal logger, @r.nodes[1].client.logger
   end
 
+  def test_remove_nodes
+    logger = Logger.new("/dev/null")
+
+    @r = Redis::Distributed.new NODES, :logger => logger, :timeout => 10
+
+    assert_equal "127.0.0.1", @r.nodes[0].client.host
+    assert_equal PORT, @r.nodes[0].client.port
+    assert_equal 15, @r.nodes[0].client.db
+    assert_equal 10, @r.nodes[0].client.timeout
+    assert_equal logger, @r.nodes[0].client.logger
+
+    @r.remove_node("redis://127.0.0.1:6381/15")
+
+    assert_equal 0, @r.nodes.count
+  end
+
   def test_pipelining_commands_cannot_be_distributed
     assert_raise Redis::Distributed::CannotDistribute do
       r.pipelined do
