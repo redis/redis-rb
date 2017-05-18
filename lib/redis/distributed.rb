@@ -2,8 +2,7 @@ require "redis/hash_ring"
 
 class Redis
   class Distributed
-
-    class CannotDistribute < RuntimeError
+    class CannotDistribute < Error
       def initialize(command)
         @command = command
       end
