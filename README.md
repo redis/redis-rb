@@ -255,6 +255,9 @@ end
 
 If no message is received after 5 seconds, the client will unsubscribe.
 
+**NOTE:** while this library is thread-safe, ruby's Timeout::timeout is NOT
+* **DO NOT** wrap redis calls in a Timeout::timeout -- this will corrupt the connection
+* Practical example can be found [here](http://www.mikeperham.com/2015/05/08/timeout-rubys-most-dangerous-api/)
 
 ## SSL/TLS Support
 
