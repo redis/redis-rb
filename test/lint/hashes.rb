@@ -112,6 +112,10 @@ module Lint
       assert_equal "s2", r.hget("foo", "f2")
     end
 
+    def test_mapped_hmset_with_empty_hash
+      r.mapped_hmset("foo", {})
+    end
+
     def test_hmget
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
