@@ -382,6 +382,14 @@ class TestInternals < Test::Unit::TestCase
     assert_equal "foo", redis.client.options[:scheme]
   end
 
+  def test_client_options_can_contain_unmarshable_data
+    redis = Redis.new(OPTIONS.merge(:logger => Logger.new(STDOUT)))
+    assert_nothing_raised do
+      redis.client.options
+    end
+    assert_instance_of Logger, redis.client.options[:logger]
+  end
+
   def test_resolves_localhost
     assert_nothing_raised do
       Redis.new(OPTIONS.merge(:host => 'localhost')).ping

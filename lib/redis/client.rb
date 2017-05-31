@@ -22,7 +22,7 @@ class Redis
     }
 
     def options
-      Marshal.load(Marshal.dump(@options))
+      _deep_dup(@options)
     end
 
     def scheme
@@ -376,6 +376,25 @@ class Redis
       rescue Exception
         disconnect
         raise
+      end
+    end
+
+    def _deep_dup(object)
+      case object
+      when Hash
+        object.each_with_object(object.dup) do |(key, value), hash|
+          hash[_deep_dup(key)] = _deep_dup(value)
+        end
+      when Array
+        object.map { |item| _deep_dup(item) }
+      when nil, true, false, Symbol, Numeric
+        object
+      else
+        begin
+          object.dup
+        rescue TypeError
+          object
+        end
       end
     end
 
