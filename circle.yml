@@ -1,0 +1,5 @@
+##Start Redis on 6381
+dependencies:
+  pre:
+    - rake start
+    - sleep 5
