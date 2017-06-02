@@ -1038,7 +1038,7 @@ class Redis
     end
   end
 
-  # Prepend one or more values to a list, creating the list if it doesn't exist
+  # Prepend a value to a list, creating the list if it doesn't exist
   #
   # @param [String] key
   # @param [String, Array] value string value, or array of string values to push
