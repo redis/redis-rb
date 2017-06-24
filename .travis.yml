@@ -7,6 +7,7 @@ rvm:
   - 2.1
   - 2.2
   - 2.3.0
+  - 2.4.1
   - jruby-18mode
   - jruby-19mode
   - jruby-9.0.5.0
@@ -15,6 +16,9 @@ rvm:
 gemfile: ".travis/Gemfile"
 
 sudo: false
+
+before_script:
+- if (ruby -e "exit RUBY_VERSION.to_f >= 2.4"); then export RUBYOPT="--enable-frozen-string-literal"; fi; echo $RUBYOPT
 
 env:
   global:
