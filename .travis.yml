@@ -31,6 +31,8 @@ env:
 
 branches:
   only:
+    - staging
+    - trying
     - master
 
 matrix:
