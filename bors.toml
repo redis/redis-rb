@@ -1,0 +1,14 @@
+# Gate on Travis CI
+status = ["continuous-integration/travis-ci/push"]
+
+# Set bors's timeout to 6 hours
+#
+# bors's timeout should always be twice a long as the test suite takes.
+# This is to allow Travis to fast-fail a test; if one of the builders
+# immediately reports a failure, then bors will move on to the next batch,
+# leaving the slower builders to work through the already-doomed run and
+# the next one.
+#
+# At the time it was written, a run had taken 3 hours.
+# bors's default timeout is 4 hours.
+timeout_sec = 14400
