@@ -61,7 +61,7 @@ class Redis
       end
     end
 
-    class << self
+    class BinarySearchImplementation
 
       # gem install RubyInline to use this code
       # Native extension to perform the binary search within the hashring.
@@ -99,9 +99,12 @@ class Redis
           }
           EOM
         end
-      rescue Exception
+      rescue Exception => e
+        $DEBUG and warn "Compilation of native binary search implementation"\
+          " failed with exception #{e.class} #{e.message.inspect}"
+
         # Find the closest index in HashRing with value <= the given value
-        def binary_search(ary, value, &block)
+        def binary_search(ary, value)
           upper = ary.size - 1
           lower = 0
           idx = 0
@@ -128,5 +131,9 @@ class Redis
       end
     end
 
+    def self.binary_search(ary, value)
+      @binary_search ||= BinarySearchImplementation.new
+      @binary_search.binary_search(ary, value)
+    end
   end
 end
