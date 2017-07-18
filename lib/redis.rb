@@ -458,10 +458,16 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
+  # @param [Hash] options
+  #   - `:replace => Boolean`: if false, raises an error if key already exists
+  # @raise [Redis::CommandError]
   # @return [String] `"OK"`
-  def restore(key, ttl, serialized_value)
+  def restore(key, ttl, serialized_value, options = {})
+    args = [:restore, key, ttl, serialized_value]
+    args << 'REPLACE' if options[:replace]
+
     synchronize do |client|
-      client.call([:restore, key, ttl, serialized_value])
+      client.call(args)
     end
   end
 
