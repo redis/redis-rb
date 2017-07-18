@@ -1708,6 +1708,30 @@ class Redis
     end
   end
 
+  # Count the members, with the same score in a sorted set, within the given lexicographical range.
+  #
+  # @example Count members matching a
+  #   redis.zlexcount("zset", "[a", "[a\xff")
+  #     # => 1
+  # @example Count members matching a-z
+  #   redis.zlexcount("zset", "[a", "[z\xff")
+  #     # => 26
+  #
+  # @param [String] key
+  # @param [String] min
+  #   - inclusive minimum is specified by prefixing `(`
+  #   - exclusive minimum is specified by prefixing `[`
+  # @param [String] max
+  #   - inclusive maximum is specified by prefixing `(`
+  #   - exclusive maximum is specified by prefixing `[`
+  #
+  # @return [Fixnum] number of members within the specified lexicographical range
+  def zlexcount(key, min, max)
+    synchronize do |client|
+      client.call([:zlexcount, key, min, max])
+    end
+  end
+
   # Return a range of members with the same score in a sorted set, by lexicographical ordering
   #
   # @example Retrieve members matching a
