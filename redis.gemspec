@@ -40,5 +40,5 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
 
   s.add_development_dependency("rake", "<11.0.0")
-  s.add_development_dependency("test-unit", "3.1.5")
+  s.add_development_dependency("test-unit", ">= 3.1.5")
 end
