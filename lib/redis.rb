@@ -226,19 +226,31 @@ class Redis
 
   # Remove all keys from all databases.
   #
+  # @param [Hash] options
+  #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
-  def flushall
+  def flushall(options = nil)
     synchronize do |client|
-      client.call([:flushall])
+      if options && options[:async]
+        client.call([:flushall, :async])
+      else
+        client.call([:flushall])
+      end
     end
   end
 
   # Remove all keys from the current database.
   #
+  # @param [Hash] options
+  #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
-  def flushdb
+  def flushdb(options = nil)
     synchronize do |client|
-      client.call([:flushdb])
+      if options && options[:async]
+        client.call([:flushdb, :async])
+      else
+        client.call([:flushdb])
+      end
     end
   end
 
