@@ -383,6 +383,7 @@ against the following interpreters and drivers:
 * MRI 2.1 (drivers: ruby, hiredis, synchrony)
 * MRI 2.2 (drivers: ruby, hiredis, synchrony)
 * MRI 2.3 (drivers: ruby, hiredis, synchrony)
+* MRI 2.4 (drivers: ruby, hiredis, synchrony)
 * JRuby 1.7 (1.8 mode) (drivers: ruby)
 * JRuby 1.7 (1.9 mode) (drivers: ruby)
 
