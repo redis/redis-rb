@@ -45,6 +45,28 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal "secr3t:", redis.client.password
   end
 
+  def test_parses_query_string
+    redis = Redis.new(:url => "redis://:secr3t@foo.com:999/2?tcp_keepalive=100&timeout=999&inherit_socket=true")
+
+    assert_equal({ :time => 80, :intvl => 10, :probes => 2 }, redis.client.tcp_keepalive)
+    assert_equal(999, redis.client.timeout)
+    assert_equal(true, redis.client.inherit_socket?)
+  end
+
+  if RUBY_VERSION.start_with?("1.8")
+    def test_parses_query_string_driver
+      assert_raise RuntimeError do
+        Redis.new(:url => "redis://:secr3t@foo.com:999/2?driver=randomdriver")
+      end
+    end
+  else#if RUBY_VERSION.start_with?("1.9")
+    def test_parses_query_string_driver
+      assert_raise RuntimeError, 'Cannot load driver "randomdriver"' do |e|
+        Redis.new(:url => "redis://:secr3t@foo.com:999/2?driver=randomdriver")
+      end
+    end
+  end
+
   def test_does_not_unescape_password_when_explicitly_passed
     redis = Redis.new :url => "redis://:secr3t%3A@foo.com:999/2", :password => "secr3t%3A"
 

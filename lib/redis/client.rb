@@ -73,6 +73,10 @@ class Redis
       @options[:inherit_socket]
     end
 
+    def tcp_keepalive
+      @options[:tcp_keepalive]
+    end
+
     attr_accessor :logger
     attr_reader :connection
     attr_reader :command_map
@@ -412,6 +416,15 @@ class Redis
           defaults[:password] = CGI.unescape(uri.password) if uri.password
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
           defaults[:role] = :master
+
+          # extract options from query string
+          if uri.query
+            params = CGI.parse(uri.query)
+            defaults[:tcp_keepalive]  = params["tcp_keepalive"][0].to_i       unless params["tcp_keepalive"].empty?
+            defaults[:driver]         = params["driver"][0]                   unless params["driver"].empty?
+            defaults[:timeout]        = params["timeout"][0].to_f             unless params["timeout"].empty?
+            defaults[:inherit_socket] = params["inherit_socket"][0] == "true" unless params["inherit_socket"].empty?
+          end
         else
           raise ArgumentError, "invalid uri scheme '#{uri.scheme}'"
         end
