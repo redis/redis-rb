@@ -255,6 +255,26 @@ end
 
 If no message is received after 5 seconds, the client will unsubscribe.
 
+## Reconnections
+
+The client allows you to configure how many `reconnect_attempts` it should
+complete before declaring a connection as failed. Furthermore, you may
+control the maximum duration between reconnection attempts with
+`reconnect_max_timeout`.
+
+
+```ruby
+Redis.new(
+  :reconnect_attempts => 10,
+  :reconnect_max_timeout => 2
+)
+```
+
+The max timeout value is specified in seconds. With the above configuration, the
+client would attempt 10 reconnections, exponentially increasing the duration
+between each attempt until it reaches the specified 2 second limit. The default
+max timeout is 12.8 seconds.
+
 
 ## SSL/TLS Support
 

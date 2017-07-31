@@ -110,6 +110,12 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
+  def test_reconnect_max_timeout
+    assert_nothing_raised do
+      Redis.new(OPTIONS.merge(:reconnect_max_timeout => 0))
+    end
+  end
+
   def test_id_inside_multi
     redis = Redis.new(OPTIONS)
     id = nil
