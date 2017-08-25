@@ -34,6 +34,8 @@ Gem::Specification.new do |s|
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
 
+  s.required_ruby_version = '>= 2.2.2'
+
   s.add_development_dependency("test-unit", ">= 3.1.5")
   s.add_development_dependency("hiredis")
   s.add_development_dependency("em-synchrony")

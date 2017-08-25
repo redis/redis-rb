@@ -7,6 +7,8 @@
 * Added support for `CLIENT` commands. The lower-level client can be
   accessed via `Redis#_client`.
 
+* Dropped official support for Ruby < 2.2.2.
+
 # 3.3.3
 
 * Improved timeout handling after dropping Timeout module.
