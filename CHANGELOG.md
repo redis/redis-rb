@@ -1,4 +1,9 @@
-# 4.0 (unreleased)
+# (unreleased)
+
+* `Redis::Distributed` now supports `mget` and `mapped_mget`. See #687.
+
+
+# 4.0
 
 * Removed `Redis.connect`. Use `Redis.new`.
 
