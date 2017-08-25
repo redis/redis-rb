@@ -512,6 +512,16 @@ class Redis
       node_for(key).smembers(key)
     end
 
+    # Scan a set
+    def sscan(key, cursor, options={})
+      node_for(key).sscan(key, cursor, options)
+    end
+
+    # Scan a set and return an enumerator
+    def sscan_each(key, options={}, &block)
+      node_for(key).sscan_each(key, options, &block)
+    end
+
     # Subtract multiple sets.
     def sdiff(*keys)
       ensure_same_node(:sdiff, keys) do |node|
