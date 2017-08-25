@@ -4,8 +4,6 @@
 
 * Removed `Redis#[]` and `Redis#[]=` aliases.
 
-* Removed `Redis::Distributed`.
-
 * Added support for `CLIENT` commands. The lower-level client can be
   accessed via `Redis#_client`.
 
