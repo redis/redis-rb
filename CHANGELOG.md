@@ -2,6 +2,8 @@
 
 * `Redis::Distributed` now supports `mget` and `mapped_mget`. See #687.
 
+* `Redis::Distributed` now supports `sscan` and `sscan_each`. See #572.
+
 
 # 4.0
 
