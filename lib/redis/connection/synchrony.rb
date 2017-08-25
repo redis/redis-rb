@@ -72,7 +72,15 @@ class Redis
 
       def self.connect(config)
         if config[:scheme] == "unix"
-          conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
+          begin
+            conn = EventMachine.connect_unix_domain(config[:path], RedisClient)
+          rescue RuntimeError => e
+            if e.message == "no connection"
+              raise Errno::ECONNREFUSED
+            else
+              raise e
+            end
+          end
         elsif config[:scheme] == "rediss" || config[:ssl]
           raise NotImplementedError, "SSL not supported by synchrony driver"
         else
