@@ -25,7 +25,6 @@ class Redis
       @nodes << node
       @replicas.times do |i|
         key = Zlib.crc32("#{node.id}:#{i}")
-        raise "Node ID collision" if @ring.has_key?(key)
         @ring[key] = node
         @sorted_keys << key
       end
@@ -61,72 +60,29 @@ class Redis
       end
     end
 
-    class << self
+    # Find the closest index in HashRing with value <= the given value
+    def self.binary_search(ary, value, &block)
+      upper = ary.size - 1
+      lower = 0
+      idx = 0
 
-      # gem install RubyInline to use this code
-      # Native extension to perform the binary search within the hashring.
-      # There's a pure ruby version below so this is purely optional
-      # for performance.  In testing 20k gets and sets, the native
-      # binary search shaved about 12% off the runtime (9sec -> 8sec).
-      begin
-        require 'inline'
-        inline do |builder|
-          builder.c <<-EOM
-          int binary_search(VALUE ary, unsigned int r) {
-              int upper = RARRAY_LEN(ary) - 1;
-              int lower = 0;
-              int idx = 0;
+      while(lower <= upper) do
+        idx = (lower + upper) / 2
+        comp = ary[idx] <=> value
 
-              while (lower <= upper) {
-                  idx = (lower + upper) / 2;
-
-                  VALUE continuumValue = RARRAY_PTR(ary)[idx];
-                  unsigned int l = NUM2UINT(continuumValue);
-                  if (l == r) {
-                      return idx;
-                  }
-                  else if (l > r) {
-                      upper = idx - 1;
-                  }
-                  else {
-                      lower = idx + 1;
-                  }
-              }
-              if (upper < 0) {
-                upper = RARRAY_LEN(ary) - 1;
-              }
-              return upper;
-          }
-          EOM
+        if comp == 0
+          return idx
+        elsif comp > 0
+          upper = idx - 1
+        else
+          lower = idx + 1
         end
-      rescue Exception
-        # Find the closest index in HashRing with value <= the given value
-        def binary_search(ary, value, &block)
-          upper = ary.size - 1
-          lower = 0
-          idx = 0
-
-          while(lower <= upper) do
-            idx = (lower + upper) / 2
-            comp = ary[idx] <=> value
-
-            if comp == 0
-              return idx
-            elsif comp > 0
-              upper = idx - 1
-            else
-              lower = idx + 1
-            end
-          end
-
-          if upper < 0
-            upper = ary.size - 1
-          end
-          return upper
-        end
-
       end
-    end
 
+      if upper < 0
+        upper = ary.size - 1
+      end
+      return upper
+    end
   end
 end

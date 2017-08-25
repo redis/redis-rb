@@ -1,20 +1,7 @@
 require "monitor"
-require "redis/errors"
+require_relative "redis/errors"
 
 class Redis
-
-  def self.deprecate(message, trace = caller[0])
-    $stderr.puts "\n#{message} (in #{trace})"
-  end
-
-  attr :client
-
-  # @deprecated The preferred way to create a new client object is using `#new`.
-  #             This method does not actually establish a connection to Redis,
-  #             in contrary to what you might expect.
-  def self.connect(options = {})
-    new(options)
-  end
 
   def self.current
     @current ||= Redis.new
@@ -119,6 +106,10 @@ class Redis
     end
   end
 
+  def _client
+    @client
+  end
+
   # Authenticate to the server.
   #
   # @param [String] password must match the password specified in the
@@ -203,6 +194,25 @@ class Redis
       client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
           Hashify.call(reply)
+        else
+          reply
+        end
+      end
+    end
+  end
+
+  # Manage client connections.
+  #
+  # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
+  # @return [String, Hash] depends on subcommand
+  def client(subcommand = nil, *args)
+    synchronize do |client|
+      client.call([:client, subcommand] + args) do |reply|
+        if subcommand.to_s == "list"
+          reply.lines.map do |line|
+            entries = line.chomp.split(/[ =]/)
+            Hash[entries.each_slice(2).to_a]
+          end
         else
           reply
         end
@@ -484,8 +494,8 @@ class Redis
   def migrate(key, options)
     host = options[:host] || raise(RuntimeError, ":host not specified")
     port = options[:port] || raise(RuntimeError, ":port not specified")
-    db = (options[:db] || client.db).to_i
-    timeout = (options[:timeout] || client.timeout).to_i
+    db = (options[:db] || @client.db).to_i
+    timeout = (options[:timeout] || @client.timeout).to_i
 
     synchronize do |client|
       client.call([:migrate, host, port, key, db, timeout])
@@ -763,8 +773,6 @@ class Redis
     end
   end
 
-  alias :[]= :set
-
   # Set the time to live in seconds of a key.
   #
   # @param [String] key
@@ -869,8 +877,6 @@ class Redis
       client.call([:get, key])
     end
   end
-
-  alias :[] :get
 
   # Get the values of all the given keys.
   #
@@ -2802,8 +2808,8 @@ private
 
 end
 
-require "redis/version"
-require "redis/connection"
-require "redis/client"
-require "redis/pipeline"
-require "redis/subscribe"
+require_relative "redis/version"
+require_relative "redis/connection"
+require_relative "redis/client"
+require_relative "redis/pipeline"
+require_relative "redis/subscribe"

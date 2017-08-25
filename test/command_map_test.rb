@@ -1,6 +1,4 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
+require_relative "helper"
 
 class TestCommandMap < Test::Unit::TestCase
 
@@ -11,7 +9,7 @@ class TestCommandMap < Test::Unit::TestCase
 
     assert_equal 2, r.incr("counter")
 
-    r.client.command_map[:incr] = :decr
+    r._client.command_map[:incr] = :decr
 
     assert_equal 1, r.incr("counter")
   end
@@ -23,7 +21,7 @@ class TestCommandMap < Test::Unit::TestCase
       r.idontexist("key")
     end
 
-    r.client.command_map[:idontexist] = :get
+    r._client.command_map[:idontexist] = :get
 
     assert_equal "value", r.idontexist("key")
   end

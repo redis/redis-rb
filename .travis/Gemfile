@@ -2,7 +2,7 @@ source "https://rubygems.org"
 
 gemspec :path => "../"
 
-case ENV["conn"]
+case ENV["DRIVER"]
 when "hiredis"
   gem "hiredis"
 when "synchrony"
@@ -10,8 +10,4 @@ when "synchrony"
   gem "em-synchrony"
 end
 
-if RUBY_VERSION.to_f < 1.9
-  gem 'test-unit', '3.1.5'
-else
-  gem 'test-unit', '>= 3.2.5'
-end
+gem 'test-unit', '>= 3.2.5'

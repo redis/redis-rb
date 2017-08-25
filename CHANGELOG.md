@@ -1,16 +1,13 @@
-# 4.x (unreleased)
+# 4.0 (unreleased)
 
-## Planned breaking changes:
-* `Redis#client` will no longer expose the underlying `Redis::Client`;
-  it has not yet been determined how 4.0 will expose the underlying
-  functionality, but we will make every attempt to provide a final minor
-  release of 3.x that provides the new interfaces in order to facilitate
-  a smooth transition.
+* Removed `Redis.connect`. Use `Redis.new`.
 
-* Ruby 1.8.7 (and the 1.8 modes of JRuby and Rubinius) will no longer be
-  supported; 1.8.x entered end-of-life in June of 2012 and stopped receiving
-  security updates in June of 2013; continuing to support it would prevent
-  the use of newer features of Ruby.
+* Removed `Redis#[]` and `Redis#[]=` aliases.
+
+* Added support for `CLIENT` commands. The lower-level client can be
+  accessed via `Redis#_client`.
+
+* Dropped official support for Ruby < 2.2.2.
 
 # 3.3.3
 
@@ -18,7 +15,7 @@
 
 # 3.3.2
 
-* Added support for SPOP with COUNT. See #628.
+* Added support for `SPOP` with COUNT. See #628.
 
 * Fixed connection glitches when using SSL. See #644.
 

@@ -1,6 +1,4 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
+require_relative "helper"
 
 class TestPipeliningCommands < Test::Unit::TestCase
 
@@ -136,9 +134,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
     end
 
     assert_equal true, @result.is_a?(Redis::Future)
-    if defined?(::BasicObject)
-      assert_equal true, @result.is_a?(::BasicObject)
-    end
+    assert_equal true, @result.is_a?(::BasicObject)
     assert_equal Redis::Future, @result.class
   end
 
@@ -225,7 +221,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
       p2.select 2
     end
 
-    assert_equal 2, r.client.db
+    assert_equal 2, r._client.db
   end
 
   def test_nested_pipeline_select_client_db
@@ -237,6 +233,6 @@ class TestPipeliningCommands < Test::Unit::TestCase
       end
     end
 
-    assert_equal 3, r.client.db
+    assert_equal 3, r._client.db
   end
 end

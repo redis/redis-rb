@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/strings"
+require_relative "helper"
+require_relative "lint/strings"
 
 class TestCommandsOnStrings < Test::Unit::TestCase
 
@@ -82,7 +80,7 @@ class TestCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_bitop
-    try_encoding("UTF-8") do
+    with_external_encoding("UTF-8") do
       target_version "2.5.10" do
         r.set("foo", "a")
         r.set("bar", "b")

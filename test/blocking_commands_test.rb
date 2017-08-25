@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/blocking_commands"
+require_relative "helper"
+require_relative "lint/blocking_commands"
 
 class TestBlockingCommands < Test::Unit::TestCase
 
@@ -17,7 +15,7 @@ class TestBlockingCommands < Test::Unit::TestCase
       yield(r)
       t2 = Time.now
 
-      assert timeout == r.client.timeout
+      assert timeout == r._client.timeout
       assert delay <= (t2 - t1)
     end
   end

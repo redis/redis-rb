@@ -1,10 +1,4 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-
-unless defined?(Enumerator)
-  Enumerator = Enumerable::Enumerator
-end
+require_relative "helper"
 
 class TestScanning < Test::Unit::TestCase
 

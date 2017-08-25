@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/value_types"
+require_relative "helper"
+require_relative "lint/value_types"
 
 class TestCommandsOnValueTypes < Test::Unit::TestCase
 
@@ -111,8 +109,8 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
       end
       assert ex.message =~ /port not specified/
 
-      default_db = redis.client.db.to_i
-      default_timeout = redis.client.timeout.to_i
+      default_db = redis._client.db.to_i
+      default_timeout = redis._client.timeout.to_i
 
       # Test defaults
       actual = redis.migrate("foo", options)

@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/strings"
+require_relative "helper"
+require_relative "lint/strings"
 
 class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
