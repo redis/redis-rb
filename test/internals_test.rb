@@ -354,19 +354,6 @@ class TestInternals < Test::Unit::TestCase
     assert_equal "foo", redis._client.options[:scheme]
   end
 
-  def test_does_not_change_self_client_options
-    redis = Redis.new(OPTIONS.merge(:host => "host", :port => 1234, :db => 1, :scheme => "foo"))
-    options = redis._client.options
-
-    options[:host] << "new_host"
-    options[:scheme] << "bar"
-    options.merge!(:db => 0)
-
-    assert_equal "host", redis._client.options[:host]
-    assert_equal 1, redis._client.options[:db]
-    assert_equal "foo", redis._client.options[:scheme]
-  end
-
   def test_resolves_localhost
     assert_nothing_raised do
       Redis.new(OPTIONS.merge(:host => 'localhost')).ping
