@@ -278,8 +278,18 @@ class Redis
     end
 
     # Get the values of all the given keys.
+    #
     def mget(*keys)
-      raise CannotDistribute, :mget
+      m_nodes = keys.group_by { |key| node_for(key) }
+
+      results = Hash[
+        m_nodes.flat_map do |node, key_list|
+          values = node.mget(*key_list)
+          key_list.zip(values)
+        end
+      ]
+
+      keys.map { |key| results[key] }
     end
 
     def mapped_mget(*keys)
