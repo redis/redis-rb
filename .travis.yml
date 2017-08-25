@@ -6,12 +6,16 @@ rvm:
   - 2.1
   - 2.2
   - 2.3.3
+  - 2.4.1
   - jruby-9
   - rbx-3
 
 gemfile: ".travis/Gemfile"
 
 sudo: false
+
+before_script:
+- if (ruby -e "exit RUBY_VERSION.to_f >= 2.4"); then export RUBYOPT="--enable-frozen-string-literal"; fi; echo $RUBYOPT
 
 env:
   global:
@@ -28,6 +32,8 @@ env:
 
 branches:
   only:
+    - staging
+    - trying
     - master
 
 matrix:

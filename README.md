@@ -355,12 +355,12 @@ client and evangelized Redis in Rubyland. Thank you, Ezra.
 requests. You can also ask for help at `#redis-rb` on Freenode.
 
 
-[inchpages-image]: https://inch-ci.org/github/redis/redis-rb.png
+[inchpages-image]: https://inch-ci.org/github/redis/redis-rb.svg
 [inchpages-link]:  https://inch-ci.org/github/redis/redis-rb
-[redis-commands]:  http://redis.io/commands
-[redis-home]:      http://redis.io
+[redis-commands]:  https://redis.io/commands
+[redis-home]:      https://redis.io
 [redis-url]:       http://www.iana.org/assignments/uri-schemes/prov/redis
 [travis-home]:     https://travis-ci.org/
-[travis-image]:    https://secure.travis-ci.org/redis/redis-rb.png?branch=master
+[travis-image]:    https://secure.travis-ci.org/redis/redis-rb.svg?branch=master
 [travis-link]:     https://travis-ci.org/redis/redis-rb
-[rubydoc]:         http://www.rubydoc.info/gems/redis
+[rubydoc]:         https://www.rubydoc.info/gems/redis

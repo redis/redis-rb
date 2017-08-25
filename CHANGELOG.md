@@ -7,6 +7,10 @@
 * Added support for `CLIENT` commands. The lower-level client can be
   accessed via `Redis#_client`.
 
+# 3.3.3
+
+* Improved timeout handling after dropping Timeout module.
+
 # 3.3.2
 
 * Added support for `SPOP` with COUNT. See #628.

@@ -20,7 +20,7 @@ class Redis
         super(*args)
 
         @timeout = @write_timeout = nil
-        @buffer = ""
+        @buffer = "".dup
       end
 
       def timeout=(timeout)

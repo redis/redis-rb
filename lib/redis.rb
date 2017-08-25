@@ -134,10 +134,11 @@ class Redis
 
   # Ping the server.
   #
+  # @param [optional, String] message
   # @return [String] `PONG`
-  def ping
+  def ping(message = nil)
     synchronize do |client|
-      client.call([:ping])
+      client.call([:ping, message].compact)
     end
   end
 
@@ -468,10 +469,16 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
+  # @param [Hash] options
+  #   - `:replace => Boolean`: if false, raises an error if key already exists
+  # @raise [Redis::CommandError]
   # @return [String] `"OK"`
-  def restore(key, ttl, serialized_value)
+  def restore(key, ttl, serialized_value, options = {})
+    args = [:restore, key, ttl, serialized_value]
+    args << 'REPLACE' if options[:replace]
+
     synchronize do |client|
-      client.call([:restore, key, ttl, serialized_value])
+      client.call(args)
     end
   end
 
@@ -1047,7 +1054,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String, Array] value string value, or array of string values to push
+  # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
@@ -1069,7 +1076,7 @@ class Redis
   # Append one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String] value
+  # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def rpush(key, value)
     synchronize do |client|
@@ -1704,6 +1711,30 @@ class Redis
   def zremrangebyrank(key, start, stop)
     synchronize do |client|
       client.call([:zremrangebyrank, key, start, stop])
+    end
+  end
+
+  # Count the members, with the same score in a sorted set, within the given lexicographical range.
+  #
+  # @example Count members matching a
+  #   redis.zlexcount("zset", "[a", "[a\xff")
+  #     # => 1
+  # @example Count members matching a-z
+  #   redis.zlexcount("zset", "[a", "[z\xff")
+  #     # => 26
+  #
+  # @param [String] key
+  # @param [String] min
+  #   - inclusive minimum is specified by prefixing `(`
+  #   - exclusive minimum is specified by prefixing `[`
+  # @param [String] max
+  #   - inclusive maximum is specified by prefixing `(`
+  #   - exclusive maximum is specified by prefixing `[`
+  #
+  # @return [Fixnum] number of members within the specified lexicographical range
+  def zlexcount(key, min, max)
+    synchronize do |client|
+      client.call([:zlexcount, key, min, max])
     end
   end
 
