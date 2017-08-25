@@ -158,6 +158,13 @@ class TestInternals < Test::Unit::TestCase
     assert (Time.now - start_time) <= opts[:timeout]
   end
 
+  def test_missing_socket
+    opts = { :path => '/missing.sock' }
+    assert_raise Redis::CannotConnectError do
+      Redis.new(opts).ping
+    end
+  end
+
   def close_on_ping(seq, options = {})
     $request = 0
 
