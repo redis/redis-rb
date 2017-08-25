@@ -277,13 +277,16 @@ class Redis
       node_for(key).get(key)
     end
 
-    # Get the values of all the given keys.
+    # Get the values of all the given keys as an Array.
     def mget(*keys)
-      raise CannotDistribute, :mget
+      mapped_mget(*keys).values_at(*keys)
     end
 
+    # Get the values of all the given keys as a Hash.
     def mapped_mget(*keys)
-      raise CannotDistribute, :mapped_mget
+      keys.group_by { |k| node_for k }.inject({}) do |results, (node, subkeys)|
+        results.merge! node.mapped_mget(*subkeys)
+      end
     end
 
     # Overwrite part of a string at key starting at the specified offset.
