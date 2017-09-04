@@ -287,7 +287,7 @@ class Redis
           ssl_sock.hostname = host
           ssl_sock.connect
 
-          unless ssl_params.has_key?(:verify_hostname) && ssl_params[:verify_hostname] == false
+          unless ssl_params && ssl_params[:verify_hostname] == false
             ssl_sock.post_connection_check(host)
           end
 
