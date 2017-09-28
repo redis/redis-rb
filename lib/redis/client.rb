@@ -368,6 +368,13 @@ class Redis
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
+          wait_time = 2**[attempts, 7].min * 0.1
+
+          if @options[:reconnect_max_timeout]
+            wait_time = [@options[:reconnect_max_timeout], wait_time].min
+          end
+
+          sleep wait_time
           retry
         else
           raise
