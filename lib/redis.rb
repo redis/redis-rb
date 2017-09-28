@@ -2702,11 +2702,11 @@ class Redis
 
   def connection
     {
-      host:     @original_client.host,
-      port:     @original_client.port,
-      db:       @original_client.db,
-      id:       @original_client.id,
-      location: @original_client.location
+      :host     => @original_client.host,
+      :port     => @original_client.port,
+      :db       => @original_client.db,
+      :id       => @original_client.id,
+      :location => @original_client.location
     }
   end
 
