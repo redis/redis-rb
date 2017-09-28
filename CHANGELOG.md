@@ -1,4 +1,4 @@
-# (unreleased)
+# 4.0.1
 
 * `Redis::Distributed` now supports `mget` and `mapped_mget`. See #687.
 
