@@ -397,7 +397,7 @@ class Redis
       url = options[:url] || defaults[:url]
 
       # Override defaults from URL if given
-      if url
+      if url && !url.empty?
         require "uri"
 
         uri = URI(url)

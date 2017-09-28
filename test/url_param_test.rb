@@ -133,4 +133,10 @@ class TestUrlParam < Test::Unit::TestCase
 
     assert_equal "127.0.0.1", redis._client.host
   end
+
+  def test_defaults_to_localhost_when_url_is_empty
+    redis = Redis.new(:url => "")
+
+    assert_equal "127.0.0.1", redis.client.host
+  end
 end
