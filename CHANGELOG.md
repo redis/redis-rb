@@ -7,6 +7,8 @@
 * `Redis#connection` returns a hash with connection information.
   You shouldn't need to call `Redis#_client`, ever.
 
+* `Redis#flushdb` and `Redis#flushall` now support the `:async` option. See #706.
+
 
 # 4.0
 
