@@ -31,6 +31,7 @@ class Redis
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
   # @option options [Array] :sentinels List of sentinels to contact
   # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
+  # @option options [String] :master_name Master group name according to the `monitor` line in Sentinel config
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
