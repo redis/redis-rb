@@ -4,6 +4,9 @@
 
 * `Redis::Distributed` now supports `sscan` and `sscan_each`. See #572.
 
+* `Redis#connection` returns a hash with connection information.
+  You shouldn't need to call `Redis#_client`, ever.
+
 
 # 4.0
 
