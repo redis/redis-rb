@@ -363,4 +363,4 @@ requests. You can also ask for help at `#redis-rb` on Freenode.
 [travis-home]:     https://travis-ci.org/
 [travis-image]:    https://secure.travis-ci.org/redis/redis-rb.svg?branch=master
 [travis-link]:     https://travis-ci.org/redis/redis-rb
-[rubydoc]:         https://www.rubydoc.info/gems/redis
+[rubydoc]:         http://www.rubydoc.info/gems/redis
