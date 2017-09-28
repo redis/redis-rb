@@ -1,3 +1,7 @@
+# 3.3.5
+
+* Fixed Ruby 1.8 compatibility after backporting `Redis#connection`. See #719.
+
 # 3.3.4
 
 * `Redis#connection` returns a hash with connection information.
