@@ -176,7 +176,7 @@ it can't connect to the server a `Redis::CannotConnectError` error will be raise
 ```ruby
 begin
   redis.ping
-rescue Exception => e
+rescue StandardError => e
   e.inspect
 # => #<Redis::CannotConnectError: Timed out connecting to Redis on 10.0.1.1:6380>
 
