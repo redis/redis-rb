@@ -133,4 +133,14 @@ class TestUrlParam < Test::Unit::TestCase
 
     assert_equal "127.0.0.1", redis._client.host
   end
+
+  def test_allows_db_with_unix_url
+    redis = Redis.new(:url => "unix:///var/run/redis.sock?db=2")
+
+    assert_equal nil, redis._client.host
+    assert_equal nil, redis._client.port
+    assert_equal "/var/run/redis.sock", redis._client.path
+    assert_equal 2, redis._client.db
+    assert_equal nil, redis._client.password
+  end
 end

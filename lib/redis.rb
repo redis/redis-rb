@@ -2741,8 +2741,12 @@ class Redis
     @original_client.id
   end
 
+  def url
+    @original_client.url
+  end
+
   def inspect
-    "#<Redis client v#{Redis::VERSION} for #{id}>"
+    "#<Redis client v#{Redis::VERSION} for #{url}>"
   end
 
   def dup

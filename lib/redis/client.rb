@@ -114,6 +114,40 @@ class Redis
       path || "#{host}:#{port}"
     end
 
+    def url
+      query = {}
+      @options.each do |(key, value)|
+        # don't include configuration in the query string
+        # that's already in other parts of the URL;
+        # also don't include driver, because it has weird, non-repeatable defaulting semantics
+        next if [:url, :scheme, :ssl, :host, :port, :path, :password, :_parsed, :driver].include?(key)
+        # these options default to the same as timeout
+        next if [:connect_timeout, :read_timeout, :write_timeout].include?(key) && value == @options[:timeout]
+        # don't include values that are already defaulted
+        next if value == DEFAULTS[key]
+        # this is only a semi-default - it's handled by this gem, but
+        # isn't in the DEFAULTS hash
+        next if key == :role && value.to_s == 'master'
+        # don't bother including values that we can't properly serialize to a string
+        next unless value.is_a?(String) ||
+            value.is_a?(Symbol) ||
+            value.is_a?(Numeric) ||
+            value.is_a?(TrueClass) ||
+            value.is_a?(FalseClass)
+        query[key] = value
+      end
+      querystring = "?#{URI.encode_www_form(query)}" unless query.empty?
+
+      if path
+        "unix://#{path}#{querystring}"
+      else
+        h = host.include?(':') ? "[#{host}]" : host
+        scheme = @options[:ssl] ? 'rediss' : 'redis'
+        port = ":#{self.port}" unless self.port == DEFAULTS[:port]
+        "#{scheme}://#{h}#{port}#{querystring}"
+      end
+    end
+
     def call(command)
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
@@ -416,6 +450,13 @@ class Redis
         end
 
         defaults[:ssl] = true if uri.scheme == "rediss"
+
+        if uri.query
+          query = Hash[URI.decode_www_form(uri.query)]
+          query.each do |(key, value)|
+            defaults[key.to_sym] = value
+          end
+        end
       end
 
       # Use default when option is not specified or nil
