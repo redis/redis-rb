@@ -530,6 +530,10 @@ class Redis
   # @return [Boolean]
   def exists(key)
     synchronize do |client|
+      if key.is_a?(Enumerable)
+        return client.call([:exists, key], &BoolifyExistEnum)
+      end
+
       client.call([:exists, key], &Boolify)
     end
   end
@@ -2773,6 +2777,15 @@ private
   Boolify =
     lambda { |value|
       value == 1 if value
+    }
+
+  BoolifyExistEnum =
+    lambda { |value|
+      if value == 0
+        nil
+      else
+        value
+      end
     }
 
   BoolifySet =

@@ -8,6 +8,12 @@ module Lint
       r.set("foo", "s1")
 
       assert_equal true,  r.exists("foo")
+
+      r.set("foo1", "s2")
+
+      assert_equal 2,  r.exists(["foo", "foo1"])
+      assert_equal 1,  r.exists(["foo", "foo5"])
+      assert_equal nil,  r.exists(["foo7", "foo5"])
     end
 
     def test_type
