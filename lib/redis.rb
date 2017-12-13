@@ -2710,6 +2710,40 @@ class Redis
     end
   end
 
+  # Query a sorted set representing a geospatial index to fetch members matching a
+  # given maximum distance from a point
+  #
+  # @param [Array] args key, longitude, latitude, radius, unit(m|km|ft|mi)
+  # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest to the nearest relative to the center
+  # @param [Integer] count limit the results to the first N matching items
+  # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
+  # @return [Array<String>] may be changed with `options`
+
+  def georadius(*args, **geoptions)
+    geoarguments = _geoarguments(*args, **geoptions)
+
+    synchronize do |client|
+      client.call([:georadius, *geoarguments])
+    end
+  end
+
+  # Query a sorted set representing a geospatial index to fetch members matching a
+  # given maximum distance from an already existing member
+  #
+  # @param [Array] args key, member, radius, unit(m|km|ft|mi)
+  # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest to the nearest relative to the center
+  # @param [Integer] count limit the results to the first N matching items
+  # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
+  # @return [Array<String>] may be changed with `options`
+
+  def georadiusbymember(*args, **geoptions)
+    geoarguments = _geoarguments(*args, **geoptions)
+
+    synchronize do |client|
+      client.call([:georadiusbymember, *geoarguments])
+    end
+  end
+
   # Interact with the sentinel command (masters, master, slaves, failover)
   #
   # @param [String] subcommand e.g. `masters`, `master`, `slaves`
@@ -2812,6 +2846,14 @@ private
         end
       end
     }
+
+  def _geoarguments(*args, options: nil, sort: nil, count: nil)
+    args.push sort if sort
+    args.push 'count', count if count
+    args.push options if options
+
+    args.uniq
+  end
 
   def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
