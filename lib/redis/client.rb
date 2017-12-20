@@ -53,6 +53,10 @@ class Redis
       @options[:read_timeout]
     end
 
+    def bpop_read_timeout
+      @options[:bpop_read_timeout]
+    end
+
     def password
       @options[:password]
     end
@@ -436,14 +440,16 @@ class Redis
       end
 
       if options.has_key?(:timeout)
-        options[:connect_timeout] ||= options[:timeout]
-        options[:read_timeout]    ||= options[:timeout]
-        options[:write_timeout]   ||= options[:timeout]
+        options[:connect_timeout]   ||= options[:timeout]
+        options[:read_timeout]      ||= options[:timeout]
+        options[:write_timeout]     ||= options[:timeout]
+        options[:bpop_read_timeout] ||= options[:read_timeout]
       end
 
-      options[:connect_timeout] = Float(options[:connect_timeout])
-      options[:read_timeout]    = Float(options[:read_timeout])
-      options[:write_timeout]   = Float(options[:write_timeout])
+      options[:connect_timeout]   = Float(options[:connect_timeout])
+      options[:read_timeout]      = Float(options[:read_timeout])
+      options[:write_timeout]     = Float(options[:write_timeout])
+      options[:bpop_read_timeout] = Float(options[:bpop_read_timeout])
 
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last

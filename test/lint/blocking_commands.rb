@@ -122,25 +122,49 @@ module Lint
     end
 
     driver(:ruby, :hiredis) do
-      def test_blpop_socket_timeout
-        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+      def test_blpop_bpop_read_timeout
+        mock(:delay => 1 + OPTIONS[:bpop_read_timeout] * 2) do |r|
           assert_raises(Redis::TimeoutError) do
             r.blpop("{zap}foo", :timeout => 1)
           end
         end
       end
 
-      def test_brpop_socket_timeout
+      def test_blpop_socket_timeout
         mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+          assert_nothing_raised do
+            r.blpop("{zap}foo", :timeout => 1)
+          end
+        end
+      end
+
+      def test_brpop_bpop_read_timeout
+        mock(:delay => 1 + OPTIONS[:bpop_read_timeout] * 2) do |r|
           assert_raises(Redis::TimeoutError) do
             r.brpop("{zap}foo", :timeout => 1)
           end
         end
       end
 
+      def test_brpop_socket_timeout
+        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+          assert_nothing_raised do
+            r.brpop("{zap}foo", :timeout => 1)
+          end
+        end
+      end
+
+      def test_brpoplpush_bpop_read_timeout
+        mock(:delay => 1 + OPTIONS[:bpop_read_timeout] * 2) do |r|
+          assert_raises(Redis::TimeoutError) do
+            r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
+          end
+        end
+      end
+
       def test_brpoplpush_socket_timeout
         mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
-          assert_raises(Redis::TimeoutError) do
+          assert_nothing_raised do
             r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
           end
         end
