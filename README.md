@@ -224,8 +224,8 @@ See lib/redis/errors.rb for information about what exceptions are possible.
 
 ## Timeouts
 
-The client allows you to configure connect, read, and write timeouts.
-Passing a single `timeout` option will set all three values:
+The client allows you to configure connect, read, _`bpop`_ read, and write timeouts. 
+Passing a single `timeout` option will set all four values:
 
 ```ruby
 Redis.new(:timeout => 1)
@@ -235,13 +235,24 @@ But you can use specific values for each of them:
 
 ```ruby
 Redis.new(
-  :connect_timeout => 0.2,
-  :read_timeout    => 1.0,
-  :write_timeout   => 0.5
+  :connect_timeout   => 0.2,
+  :read_timeout      => 1.0,
+  :write_timeout     => 0.5,
+  :bpop_read_timeout => 2.0
 )
 ```
 
 All timeout values are specified in seconds.
+
+`bpop_read_timeout` works exactly like `read_timeout`, 
+but for blocking operations only: `brpop`, `blpop`, `brpoplpush`.
+
+\* A separate _blocking call_ timeout was introduced because Redis server (versions < 4.0) 
+often returns responses with significant delay (~1.0 second +/- 0.2) when you perform 
+a blocking pop operation on an empty list that stays empty within the timeout param 
+passed to a `b*pop` call (e.g. `brpop('asdf', timeout: 2)` might return a response in 3.1 seconds 
+if `asdf` stays empty within that time window).
+ 
 
 When using pub/sub, you can subscribe to a channel using a timeout as well:
 

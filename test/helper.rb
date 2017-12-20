@@ -24,7 +24,12 @@ require "support/redis_mock"
 require "support/connection/#{ENV["conn"]}"
 
 PORT    = 6381
-OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1)}
+OPTIONS = {
+  :port => PORT,
+  :db => 15,
+  :timeout => Float(ENV["TIMEOUT"] || 0.2),
+  :bpop_read_timeout => Float(ENV["BPOP_READ_TIMEOUT"] || 0.6)
+}
 NODES   = ["redis://127.0.0.1:#{PORT}/15"]
 
 def init(redis)
@@ -208,6 +213,7 @@ module Helper
     def _format_options(options)
       {
         :timeout => OPTIONS[:timeout],
+        :bpop_read_timeout => OPTIONS[:bpop_read_timeout],
         :logger => ::Logger.new(@log),
       }.merge(options)
     end

@@ -35,6 +35,7 @@ class Redis
   # @option options [String] :path path to server socket (overrides host and port)
   # @option options [Float] :timeout (5.0) timeout in seconds
   # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
+  # @option options [Float] :bpop_read_timeout read timeout for blocking commands: `brpop`, `blpop`, `brpoplpush`
   # @option options [String] :password Password to authenticate against server
   # @option options [Fixnum] :db (0) Database to select after initial connect
   # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
@@ -1133,7 +1134,7 @@ class Redis
 
     synchronize do |client|
       command = [cmd, keys, timeout]
-      timeout += client.timeout if timeout > 0
+      timeout += client.bpop_read_timeout if timeout > 0
       client.call_with_timeout(command, timeout)
     end
   end
@@ -1201,7 +1202,7 @@ class Redis
 
     synchronize do |client|
       command = [:brpoplpush, source, destination, timeout]
-      timeout += client.timeout if timeout > 0
+      timeout += client.bpop_read_timeout if timeout > 0
       client.call_with_timeout(command, timeout)
     end
   end
