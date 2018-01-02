@@ -7,11 +7,12 @@ BINARY       := ${BUILD_DIR}/src/redis-server
 PID_PATH     := ${BUILD_DIR}/redis.pid
 SOCKET_PATH  := ${BUILD_DIR}/redis.sock
 PORT         := 6381
+RUBYOPT      := -vw
 
 test: ${TEST_FILES}
 	make start
 	env SOCKET_PATH=${SOCKET_PATH} \
-		ruby -v $$(echo $? | tr ' ' '\n' | awk '{ print "-r./" $$0 }') -e ''
+		ruby ${RUBYOPT} $$(echo $? | tr ' ' '\n' | awk '{ print "-r./" $$0 }') -e ''
 	make stop
 
 ${TMP}:
