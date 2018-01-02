@@ -128,6 +128,14 @@ class TestPipeliningCommands < Test::Unit::TestCase
     end
   end
 
+  def test_futures_raise_when_command_errors_and_needs_transformation
+    assert_raise(Redis::CommandError) do
+      r.pipelined do
+        @result = r.zrange("a", "b", 5, :with_scores => true)
+      end
+    end
+  end
+
   def test_futures_can_be_identified
     r.pipelined do
       @result = r.sadd("foo", 1)
