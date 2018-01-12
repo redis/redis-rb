@@ -5,7 +5,9 @@ class TestCommandsGeo < Test::Unit::TestCase
 
   def setup
     super
-    r.geoadd("Sicily", 13.361389, 38.115556, "Palermo", 15.087269, 37.502669, "Catania")
+
+    added_items_count = r.geoadd("Sicily", 13.361389, 38.115556, "Palermo", 15.087269, 37.502669, "Catania")
+    assert_equal 2, added_items_count
   end
 
   def test_georadius_with_sort

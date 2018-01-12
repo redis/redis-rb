@@ -2710,6 +2710,17 @@ class Redis
     end
   end
 
+  # Adds the specified geospatial items (latitude, longitude, name) to the specified key
+  #
+  # @param [String] key
+  # @param [Array] member arguemnts for member or members: longitude, latitude, name
+  # @return [Intger] number of elements added to the sorted set
+  def geoadd(key, *member)
+    synchronize do |client|
+      client.call([:geoadd, key, member])
+    end
+  end
+
   # Query a sorted set representing a geospatial index to fetch members matching a
   # given maximum distance from a point
   #
