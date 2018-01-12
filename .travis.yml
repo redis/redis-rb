@@ -42,30 +42,30 @@ branches:
 matrix:
   exclude:
     # hiredis
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=hiredis REDIS_BRANCH=3.0
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=hiredis REDIS_BRANCH=3.2
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=hiredis REDIS_BRANCH=3.0
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=hiredis REDIS_BRANCH=3.2
 
     # synchrony
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.0
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.2
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.0
-    - rvm: jruby-9
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.2
   allow_failures:
