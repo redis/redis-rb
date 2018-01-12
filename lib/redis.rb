@@ -2771,7 +2771,7 @@ class Redis
   #
   # @param [String] key
   # @param [String, Array<String>] member one member or array of members
-  # @return [Array<Array<String>, null>] returns array of elements, where each element is either array of longitude and latitude or nil
+  # @return [Array<Array<String>, nil>] returns array of elements, where each element is either array of longitude and latitude or nil
   def geopos(key, member)
     synchronize do |client|
       client.call([:geopos, key, member])
