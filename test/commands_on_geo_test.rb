@@ -74,4 +74,17 @@ class TestCommandsGeo < Test::Unit::TestCase
     distination = r.geodist("Sicily", "Palermo", "Rome")
     assert_equal nil, distination
   end
+
+  def test_geohash
+    geohash = r.geohash("Sicily", "Palermo")
+    assert_equal ["sqc8b49rny0"], geohash
+
+    geohashes = r.geohash("Sicily", ["Palermo", "Catania"])
+    assert_equal %w(sqc8b49rny0 sqdtr74hyu0), geohashes
+  end
+
+  def test_geohash_with_nonexistant_location
+    geohashes = r.geohash("Sicily", ["Palermo", "Rome"])
+    assert_equal ["sqc8b49rny0", nil], geohashes
+  end
 end

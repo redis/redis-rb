@@ -2721,6 +2721,18 @@ class Redis
     end
   end
 
+  # Returns geohash string representing position for specified members of the specified key.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member or array of members
+  # @return [Array<String, nil>] returns array containg geohash string if member is present, nil otherwise
+  def geohash(key, member)
+    synchronize do |client|
+      client.call([:geohash, key, member])
+    end
+  end
+
+
   # Query a sorted set representing a geospatial index to fetch members matching a
   # given maximum distance from a point
   #
