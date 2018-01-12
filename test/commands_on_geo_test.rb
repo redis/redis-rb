@@ -59,4 +59,17 @@ class TestCommandsGeo < Test::Unit::TestCase
     locations = r.geopos("Sicily", ["Rome", "Catania"])
     assert_equal [nil, ["15.08726745843887329", "37.50266842333162032"]], locations
   end
+
+  def test_geodist
+    distination_in_meters = r.geodist("Sicily", "Palermo", "Catania")
+    assert_equal "166274.1516", distination_in_meters
+
+    distination_in_feet = r.geodist("Sicily", "Palermo", "Catania", 'ft')
+    assert_equal "545518.8700", distination_in_feet
+  end
+
+  def test_geodist_with_nonexistant_location
+    distination = r.geodist("Sicily", "Palermo", "Rome")
+    assert_equal nil, distination
+  end
 end

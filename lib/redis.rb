@@ -2755,6 +2755,18 @@ class Redis
     end
   end
 
+  # Returns the distance between two members of a geospatial index
+  #
+  # @param [String ]key
+  # @param [Array<String>] members
+  # @param ['m', 'km', 'mi', 'ft'] unit
+  # @return [String, nil] returns distance in spefied unit if both members present, nil otherwise.
+  def geodist(key, member1, member2, unit = 'm')
+    synchronize do |client|
+      client.call([:geodist, key, member1, member2, unit])
+    end
+  end
+
   # Interact with the sentinel command (masters, master, slaves, failover)
   #
   # @param [String] subcommand e.g. `masters`, `master`, `slaves`
