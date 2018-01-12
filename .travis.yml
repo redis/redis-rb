@@ -1,5 +1,9 @@
 language: ruby
 
+before_install:
+  - gem update --system 2.6.14
+  - gem --version
+
 script: make test
 
 rvm:
