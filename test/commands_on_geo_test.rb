@@ -43,4 +43,20 @@ class TestCommandsGeo < Test::Unit::TestCase
     city = r.georadiusbymember("Sicily", "Catania", 200, 'km', sort: :desc, options: :WITHDIST, count: 1)
     assert_equal [["Palermo", "166.2742"]], city
   end
+
+  def test_geopos
+    location = r.geopos("Sicily", "Catania")
+    assert_equal [["15.08726745843887329", "37.50266842333162032"]], location
+
+    locations = r.geopos("Sicily", ["Palermo", "Catania"])
+    assert_equal [["13.36138933897018433", "38.11555639549629859"], ["15.08726745843887329", "37.50266842333162032"]], locations
+  end
+
+  def test_geopos_nonexistant_location
+    location = r.geopos("Sicily", "Rome")
+    assert_equal [nil], location
+
+    locations = r.geopos("Sicily", ["Rome", "Catania"])
+    assert_equal [nil, ["15.08726745843887329", "37.50266842333162032"]], locations
+  end
 end

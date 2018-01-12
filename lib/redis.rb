@@ -2744,6 +2744,17 @@ class Redis
     end
   end
 
+  # Returns longitude and latitude of members of a geospatial index
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member or array of members
+  # @return [Array<Array<String>, null>] returns array of elements, where each element is either array of longitude and latitude or nil
+  def geopos(key, member)
+    synchronize do |client|
+      client.call([:geopos, key, member])
+    end
+  end
+
   # Interact with the sentinel command (masters, master, slaves, failover)
   #
   # @param [String] subcommand e.g. `masters`, `master`, `slaves`
