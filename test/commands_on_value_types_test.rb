@@ -6,6 +6,17 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
   include Helper::Client
   include Lint::ValueTypes
 
+  def test_exists
+    assert_equal false, r.exists("foo")
+
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+
+    assert_equal true, r.exists("foo")
+    assert_equal true, r.exists("foo", "bar")
+    assert_equal false, r.exists("foo", "bar", "car")
+  end
+
   def test_del
     r.set "foo", "s1"
     r.set "bar", "s2"
