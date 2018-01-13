@@ -2710,6 +2710,86 @@ class Redis
     end
   end
 
+  # Adds the specified geospatial items (latitude, longitude, name) to the specified key
+  #
+  # @param [String] key
+  # @param [Array] member arguemnts for member or members: longitude, latitude, name
+  # @return [Intger] number of elements added to the sorted set
+  def geoadd(key, *member)
+    synchronize do |client|
+      client.call([:geoadd, key, member])
+    end
+  end
+
+  # Returns geohash string representing position for specified members of the specified key.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member or array of members
+  # @return [Array<String, nil>] returns array containg geohash string if member is present, nil otherwise
+  def geohash(key, member)
+    synchronize do |client|
+      client.call([:geohash, key, member])
+    end
+  end
+
+
+  # Query a sorted set representing a geospatial index to fetch members matching a
+  # given maximum distance from a point
+  #
+  # @param [Array] args key, longitude, latitude, radius, unit(m|km|ft|mi)
+  # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest to the nearest relative to the center
+  # @param [Integer] count limit the results to the first N matching items
+  # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
+  # @return [Array<String>] may be changed with `options`
+
+  def georadius(*args, **geoptions)
+    geoarguments = _geoarguments(*args, **geoptions)
+
+    synchronize do |client|
+      client.call([:georadius, *geoarguments])
+    end
+  end
+
+  # Query a sorted set representing a geospatial index to fetch members matching a
+  # given maximum distance from an already existing member
+  #
+  # @param [Array] args key, member, radius, unit(m|km|ft|mi)
+  # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest to the nearest relative to the center
+  # @param [Integer] count limit the results to the first N matching items
+  # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
+  # @return [Array<String>] may be changed with `options`
+
+  def georadiusbymember(*args, **geoptions)
+    geoarguments = _geoarguments(*args, **geoptions)
+
+    synchronize do |client|
+      client.call([:georadiusbymember, *geoarguments])
+    end
+  end
+
+  # Returns longitude and latitude of members of a geospatial index
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member or array of members
+  # @return [Array<Array<String>, nil>] returns array of elements, where each element is either array of longitude and latitude or nil
+  def geopos(key, member)
+    synchronize do |client|
+      client.call([:geopos, key, member])
+    end
+  end
+
+  # Returns the distance between two members of a geospatial index
+  #
+  # @param [String ]key
+  # @param [Array<String>] members
+  # @param ['m', 'km', 'mi', 'ft'] unit
+  # @return [String, nil] returns distance in spefied unit if both members present, nil otherwise.
+  def geodist(key, member1, member2, unit = 'm')
+    synchronize do |client|
+      client.call([:geodist, key, member1, member2, unit])
+    end
+  end
+
   # Interact with the sentinel command (masters, master, slaves, failover)
   #
   # @param [String] subcommand e.g. `masters`, `master`, `slaves`
@@ -2812,6 +2892,14 @@ private
         end
       end
     }
+
+  def _geoarguments(*args, options: nil, sort: nil, count: nil)
+    args.push sort if sort
+    args.push 'count', count if count
+    args.push options if options
+
+    args.uniq
+  end
 
   def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
