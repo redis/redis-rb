@@ -334,7 +334,13 @@ class TestInternals < Test::Unit::TestCase
           begin
             sa = Socket.pack_sockaddr_in(1024 + Random.rand(63076), hosts[af])
             s.bind(sa)
-          rescue Errno::EADDRINUSE
+          rescue Errno::EADDRINUSE => e
+            # On JRuby (9.1.15.0), if IPv6 is globally disabled on the system,
+            # we get an EADDRINUSE with belows message.
+            if e.message =~ /Protocol family unavailable/
+              return
+            end
+
             tries -= 1
             retry if tries > 0
 
