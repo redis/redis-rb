@@ -17,7 +17,7 @@ class Redis
 
     def initialize(node_configs, options = {})
       @tag = options[:tag] || /^\{(.+?)\}/
-      @ring = options[:ring] || HashRing.new
+      @ring = options[:ring] || HashRing.new([], options[:replicas], options[:digest])
       @node_configs = node_configs.dup
       @default_options = options.dup
       node_configs.each { |node_config| add_node(node_config) }
