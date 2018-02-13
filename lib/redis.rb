@@ -540,7 +540,7 @@ class Redis
   # @return [Fixnum]
   def exists_count(*keys)
     synchronize do |client|
-      client.call([:exists + keys])
+      client.call([:exists] + keys)
     end
   end
 
