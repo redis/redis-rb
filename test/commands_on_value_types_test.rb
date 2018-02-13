@@ -8,9 +8,9 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
 
   def test_exists_count
     target_version "3.0.3" do
-      assert_qual false, r.exists("foo")
-      assert_qual false, r.exists("bar")
-      assert_qual false, r.exists("baz")
+      assert_equal false, r.exists("foo")
+      assert_equal false, r.exists("bar")
+      assert_equal false, r.exists("baz")
 
       r.set "foo", "s1"
       r.set "bar", "s2"
