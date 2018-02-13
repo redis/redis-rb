@@ -6,6 +6,23 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
   include Helper::Client
   include Lint::ValueTypes
 
+  def test_exists_count
+    target_version "3.0.3" do
+      assert_qual false, r.exists("foo", "bar", "baz")
+
+      r.set "foo", "s1"
+      r.set "bar", "s2"
+
+      assert_equal 1, r.exists_count("foo")
+
+      assert_equal 2, r.exists_count("foo", "bar")
+
+      assert_equal 0, r.exists_count("baz")
+
+      assert_equal 2, r.exists_count("foo", "bar", "baz")
+    end
+  end
+
   def test_del
     r.set "foo", "s1"
     r.set "bar", "s2"

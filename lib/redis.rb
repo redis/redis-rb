@@ -534,6 +534,16 @@ class Redis
     end
   end
 
+  # Count existing keys.
+  #
+  # @param [Array<String>] key
+  # @return [Fixnum]
+  def exists_count(*keys)
+    synchronize do |client|
+      client.call([:exists + keys])
+    end
+  end
+
   # Find all keys matching the given pattern.
   #
   # @param [String] pattern
