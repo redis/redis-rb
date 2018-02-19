@@ -444,6 +444,8 @@ class Redis
       options[:read_timeout]    = Float(options[:read_timeout])
       options[:write_timeout]   = Float(options[:write_timeout])
 
+      options[:reconnect_attempts] = options[:reconnect_attempts].to_i
+
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
 
