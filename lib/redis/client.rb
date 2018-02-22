@@ -1,4 +1,4 @@
-require "redis/errors"
+require_relative "errors"
 require "socket"
 require "cgi"
 
@@ -21,9 +21,7 @@ class Redis
       :inherit_socket => false
     }
 
-    def options
-      Marshal.load(Marshal.dump(@options))
-    end
+    attr_reader :options
 
     def scheme
       @options[:scheme]
@@ -340,6 +338,7 @@ class Redis
            Errno::EHOSTDOWN,
            Errno::EHOSTUNREACH,
            Errno::ENETUNREACH,
+           Errno::ENOENT,
            Errno::ETIMEDOUT
 
       raise CannotConnectError, "Error connecting to Redis on #{location} (#{$!.class})"
@@ -445,6 +444,8 @@ class Redis
       options[:read_timeout]    = Float(options[:read_timeout])
       options[:write_timeout]   = Float(options[:write_timeout])
 
+      options[:reconnect_attempts] = options[:reconnect_attempts].to_i
+
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
 
@@ -478,11 +479,16 @@ class Redis
 
       if driver.kind_of?(String)
         begin
-          require "redis/connection/#{driver}"
-          driver = Connection.const_get(driver.capitalize)
-        rescue LoadError, NameError
-          raise RuntimeError, "Cannot load driver #{driver.inspect}"
+          require_relative "connection/#{driver}"
+        rescue LoadError, NameError => e
+          begin
+            require "connection/#{driver}"
+          rescue LoadError, NameError => e
+            raise RuntimeError, "Cannot load driver #{driver.inspect}: #{e.message}"
+          end
         end
+
+        driver = Connection.const_get(driver.capitalize)
       end
 
       driver

@@ -2,10 +2,12 @@ source "https://rubygems.org"
 
 gemspec :path => "../"
 
-case ENV["conn"]
+case ENV["DRIVER"]
 when "hiredis"
   gem "hiredis"
 when "synchrony"
   gem "hiredis"
   gem "em-synchrony"
 end
+
+gem 'test-unit', '>= 3.2.5'

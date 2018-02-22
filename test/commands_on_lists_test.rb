@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/lists"
+require_relative "helper"
+require_relative "lint/lists"
 
 class TestCommandsOnLists < Test::Unit::TestCase
 

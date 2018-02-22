@@ -1,20 +1,7 @@
 require "monitor"
-require "redis/errors"
+require_relative "redis/errors"
 
 class Redis
-
-  def self.deprecate(message, trace = caller[0])
-    $stderr.puts "\n#{message} (in #{trace})"
-  end
-
-  attr :client
-
-  # @deprecated The preferred way to create a new client object is using `#new`.
-  #             This method does not actually establish a connection to Redis,
-  #             in contrary to what you might expect.
-  def self.connect(options = {})
-    new(options)
-  end
 
   def self.current
     @current ||= Redis.new
@@ -119,6 +106,10 @@ class Redis
     end
   end
 
+  def _client
+    @client
+  end
+
   # Authenticate to the server.
   #
   # @param [String] password must match the password specified in the
@@ -143,10 +134,11 @@ class Redis
 
   # Ping the server.
   #
+  # @param [optional, String] message
   # @return [String] `PONG`
-  def ping
+  def ping(message = nil)
     synchronize do |client|
-      client.call([:ping])
+      client.call([:ping, message].compact)
     end
   end
 
@@ -209,6 +201,25 @@ class Redis
     end
   end
 
+  # Manage client connections.
+  #
+  # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
+  # @return [String, Hash] depends on subcommand
+  def client(subcommand = nil, *args)
+    synchronize do |client|
+      client.call([:client, subcommand] + args) do |reply|
+        if subcommand.to_s == "list"
+          reply.lines.map do |line|
+            entries = line.chomp.split(/[ =]/)
+            Hash[entries.each_slice(2).to_a]
+          end
+        else
+          reply
+        end
+      end
+    end
+  end
+
   # Return the number of keys in the selected database.
   #
   # @return [Fixnum]
@@ -226,19 +237,31 @@ class Redis
 
   # Remove all keys from all databases.
   #
+  # @param [Hash] options
+  #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
-  def flushall
+  def flushall(options = nil)
     synchronize do |client|
-      client.call([:flushall])
+      if options && options[:async]
+        client.call([:flushall, :async])
+      else
+        client.call([:flushall])
+      end
     end
   end
 
   # Remove all keys from the current database.
   #
+  # @param [Hash] options
+  #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
-  def flushdb
+  def flushdb(options = nil)
     synchronize do |client|
-      client.call([:flushdb])
+      if options && options[:async]
+        client.call([:flushdb, :async])
+      else
+        client.call([:flushdb])
+      end
     end
   end
 
@@ -458,10 +481,16 @@ class Redis
   # @param [String] key
   # @param [String] ttl
   # @param [String] serialized_value
+  # @param [Hash] options
+  #   - `:replace => Boolean`: if false, raises an error if key already exists
+  # @raise [Redis::CommandError]
   # @return [String] `"OK"`
-  def restore(key, ttl, serialized_value)
+  def restore(key, ttl, serialized_value, options = {})
+    args = [:restore, key, ttl, serialized_value]
+    args << 'REPLACE' if options[:replace]
+
     synchronize do |client|
-      client.call([:restore, key, ttl, serialized_value])
+      client.call(args)
     end
   end
 
@@ -477,8 +506,8 @@ class Redis
   def migrate(key, options)
     host = options[:host] || raise(RuntimeError, ":host not specified")
     port = options[:port] || raise(RuntimeError, ":port not specified")
-    db = (options[:db] || client.db).to_i
-    timeout = (options[:timeout] || client.timeout).to_i
+    db = (options[:db] || @client.db).to_i
+    timeout = (options[:timeout] || @client.timeout).to_i
 
     synchronize do |client|
       client.call([:migrate, host, port, key, db, timeout])
@@ -756,8 +785,6 @@ class Redis
     end
   end
 
-  alias :[]= :set
-
   # Set the time to live in seconds of a key.
   #
   # @param [String] key
@@ -862,8 +889,6 @@ class Redis
       client.call([:get, key])
     end
   end
-
-  alias :[] :get
 
   # Get the values of all the given keys.
   #
@@ -1041,7 +1066,7 @@ class Redis
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String, Array] value string value, or array of string values to push
+  # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
     synchronize do |client|
@@ -1063,7 +1088,7 @@ class Redis
   # Append one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
-  # @param [String] value
+  # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def rpush(key, value)
     synchronize do |client|
@@ -1698,6 +1723,30 @@ class Redis
   def zremrangebyrank(key, start, stop)
     synchronize do |client|
       client.call([:zremrangebyrank, key, start, stop])
+    end
+  end
+
+  # Count the members, with the same score in a sorted set, within the given lexicographical range.
+  #
+  # @example Count members matching a
+  #   redis.zlexcount("zset", "[a", "[a\xff")
+  #     # => 1
+  # @example Count members matching a-z
+  #   redis.zlexcount("zset", "[a", "[z\xff")
+  #     # => 26
+  #
+  # @param [String] key
+  # @param [String] min
+  #   - inclusive minimum is specified by prefixing `(`
+  #   - exclusive minimum is specified by prefixing `[`
+  # @param [String] max
+  #   - inclusive maximum is specified by prefixing `(`
+  #   - exclusive maximum is specified by prefixing `[`
+  #
+  # @return [Fixnum] number of members within the specified lexicographical range
+  def zlexcount(key, min, max)
+    synchronize do |client|
+      client.call([:zlexcount, key, min, max])
     end
   end
 
@@ -2661,6 +2710,86 @@ class Redis
     end
   end
 
+  # Adds the specified geospatial items (latitude, longitude, name) to the specified key
+  #
+  # @param [String] key
+  # @param [Array] member arguemnts for member or members: longitude, latitude, name
+  # @return [Intger] number of elements added to the sorted set
+  def geoadd(key, *member)
+    synchronize do |client|
+      client.call([:geoadd, key, member])
+    end
+  end
+
+  # Returns geohash string representing position for specified members of the specified key.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member or array of members
+  # @return [Array<String, nil>] returns array containg geohash string if member is present, nil otherwise
+  def geohash(key, member)
+    synchronize do |client|
+      client.call([:geohash, key, member])
+    end
+  end
+
+
+  # Query a sorted set representing a geospatial index to fetch members matching a
+  # given maximum distance from a point
+  #
+  # @param [Array] args key, longitude, latitude, radius, unit(m|km|ft|mi)
+  # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest to the nearest relative to the center
+  # @param [Integer] count limit the results to the first N matching items
+  # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
+  # @return [Array<String>] may be changed with `options`
+
+  def georadius(*args, **geoptions)
+    geoarguments = _geoarguments(*args, **geoptions)
+
+    synchronize do |client|
+      client.call([:georadius, *geoarguments])
+    end
+  end
+
+  # Query a sorted set representing a geospatial index to fetch members matching a
+  # given maximum distance from an already existing member
+  #
+  # @param [Array] args key, member, radius, unit(m|km|ft|mi)
+  # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest to the nearest relative to the center
+  # @param [Integer] count limit the results to the first N matching items
+  # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
+  # @return [Array<String>] may be changed with `options`
+
+  def georadiusbymember(*args, **geoptions)
+    geoarguments = _geoarguments(*args, **geoptions)
+
+    synchronize do |client|
+      client.call([:georadiusbymember, *geoarguments])
+    end
+  end
+
+  # Returns longitude and latitude of members of a geospatial index
+  #
+  # @param [String] key
+  # @param [String, Array<String>] member one member or array of members
+  # @return [Array<Array<String>, nil>] returns array of elements, where each element is either array of longitude and latitude or nil
+  def geopos(key, member)
+    synchronize do |client|
+      client.call([:geopos, key, member])
+    end
+  end
+
+  # Returns the distance between two members of a geospatial index
+  #
+  # @param [String ]key
+  # @param [Array<String>] members
+  # @param ['m', 'km', 'mi', 'ft'] unit
+  # @return [String, nil] returns distance in spefied unit if both members present, nil otherwise.
+  def geodist(key, member1, member2, unit = 'm')
+    synchronize do |client|
+      client.call([:geodist, key, member1, member2, unit])
+    end
+  end
+
   # Interact with the sentinel command (masters, master, slaves, failover)
   #
   # @param [String] subcommand e.g. `masters`, `master`, `slaves`
@@ -2698,6 +2827,16 @@ class Redis
 
   def dup
     self.class.new(@options)
+  end
+
+  def connection
+    {
+      host:     @original_client.host,
+      port:     @original_client.port,
+      db:       @original_client.db,
+      id:       @original_client.id,
+      location: @original_client.location
+    }
   end
 
   def method_missing(command, *args)
@@ -2746,13 +2885,23 @@ private
     }
 
   FloatifyPairs =
-    lambda { |array|
-      if array
-        array.each_slice(2).map do |member, score|
+    lambda { |result|
+      if result.respond_to?(:each_slice)
+        result.each_slice(2).map do |member, score|
           [member, Floatify.call(score)]
         end
+      else
+        result
       end
     }
+
+  def _geoarguments(*args, options: nil, sort: nil, count: nil)
+    args.push sort if sort
+    args.push 'count', count if count
+    args.push options if options
+
+    args.uniq
+  end
 
   def _subscription(method, timeout, channels, block)
     return @client.call([method] + channels) if subscribed?
@@ -2771,8 +2920,8 @@ private
 
 end
 
-require "redis/version"
-require "redis/connection"
-require "redis/client"
-require "redis/pipeline"
-require "redis/subscribe"
+require_relative "redis/version"
+require_relative "redis/connection"
+require_relative "redis/client"
+require_relative "redis/pipeline"
+require_relative "redis/subscribe"

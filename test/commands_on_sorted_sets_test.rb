@@ -1,12 +1,25 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/sorted_sets"
+require_relative "helper"
+require_relative "lint/sorted_sets"
 
 class TestCommandsOnSortedSets < Test::Unit::TestCase
 
   include Helper::Client
   include Lint::SortedSets
+
+  def test_zlexcount
+    target_version "2.8.9" do
+      r.zadd "foo", 0, "aaren"
+      r.zadd "foo", 0, "abagael"
+      r.zadd "foo", 0, "abby"
+      r.zadd "foo", 0, "abbygail"
+
+      assert_equal 4, r.zlexcount("foo", "[a", "[a\xff")
+      assert_equal 4, r.zlexcount("foo", "[aa", "[ab\xff")
+      assert_equal 3, r.zlexcount("foo", "(aaren", "[ab\xff")
+      assert_equal 2, r.zlexcount("foo", "[aba", "(abbygail")
+      assert_equal 1, r.zlexcount("foo", "(aaren", "(abby")
+    end
+  end
 
   def test_zrangebylex
     target_version "2.8.9" do

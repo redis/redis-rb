@@ -1,6 +1,6 @@
-require "redis/connection/registry"
-require "redis/connection/command_helper"
-require "redis/errors"
+require_relative "registry"
+require_relative "command_helper"
+require_relative "../errors"
 require "socket"
 require "timeout"
 
@@ -10,36 +10,17 @@ rescue LoadError
   # Not all systems have OpenSSL support
 end
 
-if RUBY_VERSION < "1.9.3"
-  class String
-    # Ruby 1.8.7 does not have byteslice, but it handles encodings differently anyway.
-    # We can simply slice the string, which is a byte array there.
-    def byteslice(*args)
-      slice(*args)
-    end
-  end
-end
-
 class Redis
   module Connection
     module SocketMixin
 
       CRLF = "\r\n".freeze
 
-      # Exceptions raised during non-blocking I/O ops that require retrying the op
-      if RUBY_VERSION >= "1.9.3"
-        NBIO_READ_EXCEPTIONS = [IO::WaitReadable]
-        NBIO_WRITE_EXCEPTIONS = [IO::WaitWritable]
-      else
-        NBIO_READ_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
-        NBIO_WRITE_EXCEPTIONS = [Errno::EWOULDBLOCK, Errno::EAGAIN]
-      end
-
       def initialize(*args)
         super(*args)
 
         @timeout = @write_timeout = nil
-        @buffer = ""
+        @buffer = "".dup
       end
 
       def timeout=(timeout)
@@ -83,13 +64,13 @@ class Redis
         begin
           read_nonblock(nbytes)
 
-        rescue *NBIO_READ_EXCEPTIONS
+        rescue IO::WaitReadable
           if IO.select([self], nil, nil, @timeout)
             retry
           else
             raise Redis::TimeoutError
           end
-        rescue *NBIO_WRITE_EXCEPTIONS
+        rescue IO::WaitWritable
           if IO.select(nil, [self], nil, @timeout)
             retry
           else
@@ -105,13 +86,13 @@ class Redis
         begin
           write_nonblock(data)
 
-        rescue *NBIO_WRITE_EXCEPTIONS
+        rescue IO::WaitWritable
           if IO.select(nil, [self], nil, @write_timeout)
             retry
           else
             raise Redis::TimeoutError
           end
-        rescue *NBIO_READ_EXCEPTIONS
+        rescue IO::WaitReadable
           if IO.select([self], nil, nil, @write_timeout)
             retry
           else
@@ -307,7 +288,6 @@ class Redis
           raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
         elsif config[:scheme] == "rediss" || config[:ssl]
-          raise ArgumentError, "This library does not support SSL on Ruby < 1.9" if RUBY_VERSION < "1.9.3"
           sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
         else
           sock = TCPSocket.connect(config[:host], config[:port], config[:connect_timeout])

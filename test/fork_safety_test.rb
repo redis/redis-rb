@@ -1,11 +1,8 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
+require_relative "helper"
 
 class TestForkSafety < Test::Unit::TestCase
 
   include Helper::Client
-  include Helper::Skipable
 
   driver(:ruby, :hiredis) do
     def test_fork_safety
@@ -32,7 +29,6 @@ class TestForkSafety < Test::Unit::TestCase
 
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
-      return skip(error.message)
     end
 
     def test_fork_safety_with_enabled_inherited_socket
@@ -59,7 +55,6 @@ class TestForkSafety < Test::Unit::TestCase
 
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
-      return skip(error.message)
     end
   end
 end

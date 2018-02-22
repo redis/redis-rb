@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/value_types"
+require_relative "helper"
+require_relative "lint/value_types"
 
 class TestCommandsOnValueTypes < Test::Unit::TestCase
 
@@ -81,6 +79,7 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
   end
 
   def test_flushdb
+    # Test defaults
     r.set("foo", "s1")
     r.set("bar", "s2")
 
@@ -89,11 +88,50 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     r.flushdb
 
     assert_equal 0, r.dbsize
+
+    # Test sync
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    assert_equal 2, r.dbsize
+
+    r.flushdb(:async => false)
+
+    assert_equal 0, r.dbsize
+
+    # Test async
+    target_version "3.9.101" do
+      r.set("foo", "s1")
+      r.set("bar", "s2")
+
+      assert_equal 2, r.dbsize
+
+      r.flushdb(:async => true)
+
+      assert_equal 0, r.dbsize
+
+      redis_mock(:flushdb => lambda { |args| "+FLUSHDB #{args.upcase}" }) do |redis|
+        assert_equal "FLUSHDB ASYNC", redis.flushdb(:async => true)
+      end
+    end
   end
 
   def test_flushall
+    # Test defaults
     redis_mock(:flushall => lambda { "+FLUSHALL" }) do |redis|
       assert_equal "FLUSHALL", redis.flushall
+    end
+
+    # Test sync
+    redis_mock(:flushall => lambda { "+FLUSHALL" }) do |redis|
+      assert_equal "FLUSHALL", redis.flushall(:async => false)
+    end
+
+    # Test async
+    target_version "3.9.101" do
+      redis_mock(:flushall => lambda { |args| "+FLUSHALL #{args.upcase}" }) do |redis|
+        assert_equal "FLUSHALL ASYNC", redis.flushall(:async => true)
+      end
     end
   end
 
@@ -111,8 +149,8 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
       end
       assert ex.message =~ /port not specified/
 
-      default_db = redis.client.db.to_i
-      default_timeout = redis.client.timeout.to_i
+      default_db = redis._client.db.to_i
+      default_timeout = redis._client.timeout.to_i
 
       # Test defaults
       actual = redis.migrate("foo", options)

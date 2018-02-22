@@ -8,18 +8,6 @@ module Lint
       assert_equal "s1", r.get("foo")
     end
 
-    def test_set_and_get_with_brackets
-      r["foo"] = "s1"
-
-      assert_equal "s1", r["foo"]
-    end
-
-    def test_set_and_get_with_brackets_and_symbol
-      r[:foo] = "s1"
-
-      assert_equal "s1", r[:foo]
-    end
-
     def test_set_and_get_with_newline_characters
       r.set("foo", "1\n")
 
@@ -35,14 +23,12 @@ module Lint
     end
 
     def test_set_and_get_with_ascii_characters
-      if defined?(Encoding)
-        with_external_encoding("ASCII-8BIT") do
-          (0..255).each do |i|
-            str = "#{i.chr}---#{i.chr}"
-            r.set("foo", str)
+      with_external_encoding("ASCII-8BIT") do
+        (0..255).each do |i|
+          str = "#{i.chr}---#{i.chr}"
+          r.set("foo", str)
 
-            assert_equal str, r.get("foo")
-          end
+          assert_equal str, r.get("foo")
         end
       end
     end

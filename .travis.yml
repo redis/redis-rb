@@ -1,87 +1,75 @@
 language: ruby
 
+before_install:
+  - gem update --system 2.6.14
+  - gem --version
+
+script: make test
+
 rvm:
-  - 1.8.7
-  - 1.9.3
-  - 2.0
-  - 2.1
-  - 2.2
-  - 2.3.0
-  - jruby-18mode
-  - jruby-19mode
-  - jruby-9.0.5.0
-  - rbx-2
+  - 2.2.2
+  - 2.3.3
+  - 2.4.1
+  - jruby-9.1.15.0
+  - rbx-3
 
 gemfile: ".travis/Gemfile"
 
 sudo: false
+
+before_script:
+- if (ruby -e "exit RUBY_VERSION.to_f >= 2.4"); then export RUBYOPT="--enable-frozen-string-literal"; fi; echo $RUBYOPT
 
 env:
   global:
     - VERBOSE=true
     - TIMEOUT=1
   matrix:
-    - conn=ruby      REDIS_BRANCH=3.0
-    - conn=ruby      REDIS_BRANCH=3.2
-    - conn=hiredis   REDIS_BRANCH=3.0
-    - conn=hiredis   REDIS_BRANCH=3.2
-    - conn=synchrony REDIS_BRANCH=3.0
-    - conn=synchrony REDIS_BRANCH=3.2
-    - conn=ruby      REDIS_BRANCH=unstable
+    - DRIVER=ruby      REDIS_BRANCH=3.0
+    - DRIVER=ruby      REDIS_BRANCH=3.2
+    - DRIVER=hiredis   REDIS_BRANCH=3.0
+    - DRIVER=hiredis   REDIS_BRANCH=3.2
+    - DRIVER=synchrony REDIS_BRANCH=3.0
+    - DRIVER=synchrony REDIS_BRANCH=3.2
+    - DRIVER=ruby      REDIS_BRANCH=unstable
 
 branches:
   only:
+    - staging
+    - trying
     - master
 
 matrix:
   exclude:
     # hiredis
-    - rvm: jruby-18mode
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.0
-    - rvm: jruby-18mode
+      env: DRIVER=hiredis REDIS_BRANCH=3.0
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.2
-    - rvm: jruby-19mode
+      env: DRIVER=hiredis REDIS_BRANCH=3.2
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.0
-    - rvm: jruby-19mode
+      env: DRIVER=hiredis REDIS_BRANCH=3.0
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.2
-    - rvm: jruby-9.0.5.0
-      gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.0
-    - rvm: jruby-9.0.5.0
-      gemfile: .travis/Gemfile
-      env: conn=hiredis REDIS_BRANCH=3.2
+      env: DRIVER=hiredis REDIS_BRANCH=3.2
 
     # synchrony
-    - rvm: 1.8.7
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.0
-    - rvm: 1.8.7
+      env: DRIVER=synchrony REDIS_BRANCH=3.0
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.2
-    - rvm: jruby-18mode
+      env: DRIVER=synchrony REDIS_BRANCH=3.2
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.0
-    - rvm: jruby-18mode
+      env: DRIVER=synchrony REDIS_BRANCH=3.0
+    - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.2
-    - rvm: jruby-19mode
-      gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.0
-    - rvm: jruby-19mode
-      gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.2
-    - rvm: jruby-9.0.5.0
-      gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.0
-    - rvm: jruby-9.0.5.0
-      gemfile: .travis/Gemfile
-      env: conn=synchrony REDIS_BRANCH=3.2
+      env: DRIVER=synchrony REDIS_BRANCH=3.2
   allow_failures:
-    - rvm: rbx-2
+    - rvm: rbx-3
 
 notifications:
   irc:

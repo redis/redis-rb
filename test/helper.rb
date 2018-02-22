@@ -1,27 +1,17 @@
-$:.unshift File.expand_path("../lib", File.dirname(__FILE__))
-$:.unshift File.expand_path(File.dirname(__FILE__))
-
 require "test/unit"
 require "logger"
 require "stringio"
 
-(class Random; def self.rand(*args) super end; end) unless defined?(Random)
-
-begin
-  require "ruby-debug"
-rescue LoadError
-end
-
 $VERBOSE = true
 
-ENV["conn"] ||= "ruby"
+ENV["DRIVER"] ||= "ruby"
 
-require "redis"
-require "redis/distributed"
-require "redis/connection/#{ENV["conn"]}"
+require_relative "../lib/redis"
+require_relative "../lib/redis/distributed"
+require_relative "../lib/redis/connection/#{ENV["DRIVER"]}"
 
-require "support/redis_mock"
-require "support/connection/#{ENV["conn"]}"
+require_relative "support/redis_mock"
+require_relative "support/connection/#{ENV["DRIVER"]}"
 
 PORT    = 6381
 OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1)}
@@ -44,11 +34,11 @@ def init(redis)
 
       Try this once:
 
-        $ rake clean
+        $ make clean
 
       Then run the build again:
 
-        $ rake
+        $ make
 
     EOS
     exit 1
@@ -56,7 +46,7 @@ def init(redis)
 end
 
 def driver(*drivers, &blk)
-  if drivers.map(&:to_s).include?(ENV["conn"])
+  if drivers.map(&:to_s).include?(ENV["DRIVER"])
     class_eval(&blk)
   end
 end
@@ -89,14 +79,6 @@ module Helper
       yield
     ensure
       silent { Encoding.default_external = original_encoding }
-    end
-  end
-
-  def try_encoding(encoding, &block)
-    if defined?(Encoding)
-      with_external_encoding(encoding, &block)
-    else
-      yield
     end
   end
 
@@ -191,7 +173,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(:driver => ENV["conn"]))
+      Redis.new(_format_options(options).merge(:driver => ENV["DRIVER"]))
     end
   end
 
@@ -214,19 +196,6 @@ module Helper
 
     def _new_client(options = {})
       Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
-    end
-  end
-
-  # Basic support for `skip` in 1.8.x
-  # Note: YOU MUST use `return skip(message)` in order to appropriately bail
-  # from a running test.
-  module Skipable
-    Skipped = Class.new(RuntimeError)
-
-    def skip(message = nil, bt = caller)
-      return super if defined?(super)
-
-      $stderr.puts("SKIPPED: #{self} #{message || 'no reason given'}")
     end
   end
 end

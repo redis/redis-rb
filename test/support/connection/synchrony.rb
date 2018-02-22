@@ -1,4 +1,4 @@
-require "support/wire/synchrony"
+require_relative "../wire/synchrony"
 
 module Helper
   def around

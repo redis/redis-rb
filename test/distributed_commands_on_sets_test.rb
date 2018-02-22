@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/sets"
+require_relative "helper"
+require_relative "lint/sets"
 
 class TestDistributedCommandsOnSets < Test::Unit::TestCase
 
@@ -78,6 +76,31 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
       r.sadd "bar", "s3"
 
       r.sdiffstore("baz", "foo", "bar")
+    end
+  end
+
+  def test_sscan
+    assert_nothing_raised do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
+      r.sadd "bar", "s3"
+
+      cursor, vals = r.sscan "foo", 0
+      assert_equal '0', cursor
+      assert_equal %w(s1 s2), vals.sort
+    end
+  end
+
+  def test_sscan_each
+    assert_nothing_raised do
+      r.sadd "foo", "s1"
+      r.sadd "foo", "s2"
+      r.sadd "bar", "s2"
+      r.sadd "bar", "s3"
+
+      vals = r.sscan_each("foo").to_a
+      assert_equal %w(s1 s2), vals.sort
     end
   end
 end

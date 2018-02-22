@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/sorted_sets"
+require_relative "helper"
+require_relative "lint/sorted_sets"
 
 class TestDistributedCommandsOnSortedSets < Test::Unit::TestCase
 

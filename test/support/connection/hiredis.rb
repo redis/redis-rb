@@ -1,1 +1,1 @@
-require "support/wire/thread"
+require_relative "../wire/thread"

@@ -1,4 +1,4 @@
-require "redis/hash_ring"
+require_relative "hash_ring"
 
 class Redis
   class Distributed
@@ -144,8 +144,8 @@ class Redis
     end
 
     # Create a key using the serialized value, previously obtained using DUMP.
-    def restore(key, ttl, serialized_value)
-      node_for(key).restore(key, ttl, serialized_value)
+    def restore(key, ttl, serialized_value, options = {})
+      node_for(key).restore(key, ttl, serialized_value, options)
     end
 
     # Transfer a key from the connected instance to another instance.
@@ -277,13 +277,16 @@ class Redis
       node_for(key).get(key)
     end
 
-    # Get the values of all the given keys.
+    # Get the values of all the given keys as an Array.
     def mget(*keys)
-      raise CannotDistribute, :mget
+      mapped_mget(*keys).values_at(*keys)
     end
 
+    # Get the values of all the given keys as a Hash.
     def mapped_mget(*keys)
-      raise CannotDistribute, :mapped_mget
+      keys.group_by { |k| node_for k }.inject({}) do |results, (node, subkeys)|
+        results.merge! node.mapped_mget(*subkeys)
+      end
     end
 
     # Overwrite part of a string at key starting at the specified offset.
@@ -507,6 +510,16 @@ class Redis
     # Get all the members in a set.
     def smembers(key)
       node_for(key).smembers(key)
+    end
+
+    # Scan a set
+    def sscan(key, cursor, options={})
+      node_for(key).sscan(key, cursor, options)
+    end
+
+    # Scan a set and return an enumerator
+    def sscan_each(key, options={}, &block)
+      node_for(key).sscan_each(key, options, &block)
     end
 
     # Subtract multiple sets.

@@ -1,8 +1,4 @@
-# -*- encoding: utf-8 -*-
-
-$:.unshift File.expand_path("../lib", __FILE__)
-
-require "redis/version"
+require "./lib/redis/version"
 
 Gem::Specification.new do |s|
   s.name = "redis"
@@ -15,8 +11,7 @@ Gem::Specification.new do |s|
 
   s.description = <<-EOS
     A Ruby client that tries to match Redis' API one-to-one, while still
-    providing an idiomatic interface. It features thread-safety,
-    client-side sharding, pipelining, and an obsession for performance.
+    providing an idiomatic interface.
   EOS
 
   s.license = "MIT"
@@ -39,6 +34,9 @@ Gem::Specification.new do |s|
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
 
-  s.add_development_dependency("rake", "<11.0.0")
-  s.add_development_dependency("test-unit", "3.1.5")
+  s.required_ruby_version = '>= 2.2.2'
+
+  s.add_development_dependency("test-unit", ">= 3.1.5")
+  s.add_development_dependency("hiredis")
+  s.add_development_dependency("em-synchrony")
 end

@@ -1,7 +1,5 @@
-# encoding: UTF-8
-
-require File.expand_path("helper", File.dirname(__FILE__))
-require "lint/strings"
+require_relative "helper"
+require_relative "lint/strings"
 
 class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
@@ -9,15 +7,27 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   include Lint::Strings
 
   def test_mget
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mget("foo", "bar")
-    end
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    assert_equal ["s1", "s2"]     , r.mget("foo", "bar")
+    assert_equal ["s1", "s2", nil], r.mget("foo", "bar", "baz")
   end
 
   def test_mget_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.mapped_mget("foo", "bar")
-    end
+    r.set("foo", "s1")
+    r.set("bar", "s2")
+
+    response = r.mapped_mget("foo", "bar")
+
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
+
+    response = r.mapped_mget("foo", "bar", "baz")
+
+    assert_equal "s1", response["foo"]
+    assert_equal "s2", response["bar"]
+    assert_equal nil , response["baz"]
   end
 
   def test_mset
