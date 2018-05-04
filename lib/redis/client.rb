@@ -334,6 +334,7 @@ class Redis
       @connection = @options[:driver].connect(@options)
       @pending_reads = 0
     rescue TimeoutError,
+           SocketError,
            Errno::ECONNREFUSED,
            Errno::EHOSTDOWN,
            Errno::EHOSTUNREACH,
