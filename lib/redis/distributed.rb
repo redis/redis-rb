@@ -148,7 +148,7 @@ class Redis
       node_for(key).restore(key, ttl, serialized_value, options)
     end
 
-    # Transfer a key from §the connected instance to another instance.
+    # Transfer a key from the connected instance to another instance.
     def migrate(key, options)
       raise CannotDistribute, :migrate
     end
