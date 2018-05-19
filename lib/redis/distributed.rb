@@ -170,7 +170,7 @@ class Redis
     def mexists(*args)
       keys_per_node = args.group_by { |key| node_for(key) }
       keys_per_node.inject(0) do |sum, (node, keys)|
-        sum + node.exists_count(*keys)
+        sum + node.mexists(*keys)
       end
     end
 
