@@ -192,11 +192,7 @@ class Redis
   def config(action, *args)
     synchronize do |client|
       client.call([:config, action] + args) do |reply|
-        if reply.kind_of?(Array) && action == :get
-          Hashify.call(reply)
-        else
-          reply
-        end
+        action == :get ? Hashify.call(reply) : reply
       end
     end
   end
@@ -2852,46 +2848,49 @@ private
   # returning false.
   Boolify =
     lambda { |value|
-      value == 1 if value
+      case value
+      when 1 then true
+      when 0 then false
+      else value
+      end
     }
 
   BoolifySet =
     lambda { |value|
-      if value && "OK" == value
-        true
-      else
-        false
+      case value
+      when "OK" then true
+      when nil then false
+      else value
       end
     }
 
   Hashify =
-    lambda { |array|
+    lambda { |value|
+      return value unless value.respond_to?(:each_slice)
+
       hash = Hash.new
-      array.each_slice(2) do |field, value|
-        hash[field] = value
+      value.each_slice(2) do |key, val|
+        hash[key] = val
       end
       hash
     }
 
   Floatify =
-    lambda { |str|
-      if str
-        if (inf = str.match(/^(-)?inf/i))
-          (inf[1] ? -1.0 : 1.0) / 0.0
-        else
-          Float(str)
-        end
+    lambda { |value|
+      case value
+      when "inf" then Float::INFINITY
+      when "-inf" then -Float::INFINITY
+      when String then Float(value)
+      else value
       end
     }
 
   FloatifyPairs =
-    lambda { |result|
-      if result.respond_to?(:each_slice)
-        result.each_slice(2).map do |member, score|
-          [member, Floatify.call(score)]
-        end
-      else
-        result
+    lambda { |value|
+      return value unless value.respond_to?(:each_slice)
+
+      value.each_slice(2).map do |member, score|
+        [member, Floatify.call(score)]
       end
     }
 

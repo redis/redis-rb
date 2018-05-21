@@ -102,7 +102,7 @@ class TestTransactions < Test::Unit::TestCase
     assert @info.value.kind_of?(Hash)
   end
 
-  def test_raise_command_errors_in_multi_exec
+  def test_raise_command_errors_when_reply_is_not_transformed
     assert_raise(Redis::CommandError) do
       r.multi do |m|
         m.set("foo", "s1")
@@ -122,6 +122,49 @@ class TestTransactions < Test::Unit::TestCase
     end
 
     assert_equal [], result
+  end
+
+  def test_raise_command_errors_when_reply_is_transformed_from_int_to_boolean
+    assert_raise(Redis::CommandError) do
+      r.multi do |m|
+        m.set("foo", 1)
+        m.sadd("foo", 2)
+      end
+    end
+  end
+
+  def test_raise_command_errors_when_reply_is_transformed_from_ok_to_boolean
+    assert_raise(Redis::CommandError) do
+      r.multi do |m|
+        m.set("foo", 1, ex: 0, nx: true)
+      end
+    end
+  end
+
+  def test_raise_command_errors_when_reply_is_transformed_to_float
+    assert_raise(Redis::CommandError) do
+      r.multi do |m|
+        m.set("foo", 1)
+        m.zscore("foo", "b")
+      end
+    end
+  end
+
+  def test_raise_command_errors_when_reply_is_transformed_to_floats
+    assert_raise(Redis::CommandError) do
+      r.multi do |m|
+        m.zrange("a", "b", 5, :with_scores => true)
+      end
+    end
+  end
+
+  def test_raise_command_errors_when_reply_is_transformed_to_hash
+    assert_raise(Redis::CommandError) do
+      r.multi do |m|
+        m.set("foo", 1)
+        m.hgetall("foo")
+      end
+    end
   end
 
   def test_raise_command_errors_when_accessing_futures_after_multi_exec
