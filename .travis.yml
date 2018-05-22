@@ -1,5 +1,7 @@
 language: ruby
-
+cache:
+    directories:
+      - tmp/cache
 before_install:
   - gem update --system 2.6.14
   - gem --version

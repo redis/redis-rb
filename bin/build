@@ -1,0 +1,71 @@
+#!/usr/bin/env ruby
+
+TARBALL = ARGV[0]
+
+require 'digest/sha1'
+require 'fileutils'
+
+class Builder
+  def initialize(redis_branch, tmp_dir)
+    @redis_branch = redis_branch
+    @tmp_dir = tmp_dir
+    @build_dir = File.join(@tmp_dir, "cache", "redis-#{redis_branch}")
+  end
+
+  def run
+    download_tarball
+    if old_checkum != checksum
+      build
+      update_checksum
+    end
+    0
+  end
+
+  def download_tarball
+    command!('wget', tarball_url, '-O', tarball_path)
+  end
+
+  def tarball_path
+    File.join(@tmp_dir, "redis-#{@redis_branch}.tar.gz")
+  end
+
+  def tarball_url
+    "https://github.com/antirez/redis/archive/#{@redis_branch}.tar.gz"
+  end
+
+  def build
+    FileUtils.rm_rf(@build_dir)
+    FileUtils.mkdir_p(@build_dir)
+    command!('tar', 'xf', tarball_path, '-C', File.expand_path('../', @build_dir))
+    Dir.chdir(@build_dir) do
+      command!('make')
+    end
+  end
+
+  def update_checksum
+    File.write(checksum_path, checksum)
+  end
+
+  def old_checkum
+    File.read(checksum_path)
+  rescue Errno::ENOENT
+    nil
+  end
+
+  def checksum_path
+    File.join(@build_dir, 'build.checksum')
+  end
+
+  def checksum
+    @checksum ||= Digest::SHA1.file(tarball_path).hexdigest
+  end
+
+  def command!(*args)
+    puts "$ #{args.join(' ')}"
+    unless system(*args)
+      raise "Command failed with status #{$?.exitstatus}"
+    end
+  end
+end
+
+exit Builder.new(ARGV[0], ARGV[1]).run
