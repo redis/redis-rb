@@ -21,6 +21,15 @@
 
 * Dropped official support for Ruby < 2.2.2.
 
+# 3.3.5
+
+* Fixed Ruby 1.8 compatibility after backporting `Redis#connection`. See #719.
+
+# 3.3.4 (yanked)
+
+* `Redis#connection` returns a hash with connection information.
+  You shouldn't need to call `Redis#_client`, ever.
+
 # 3.3.3
 
 * Improved timeout handling after dropping Timeout module.
