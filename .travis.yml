@@ -12,7 +12,6 @@ rvm:
   - 2.4.1
   - 2.5.0
   - jruby-9.1.15.0
-  - rbx-3
 
 gemfile: ".travis/Gemfile"
 
@@ -69,8 +68,6 @@ matrix:
     - rvm: jruby-9.1.15.0
       gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.2
-  allow_failures:
-    - rvm: rbx-3
 
 notifications:
   irc:
