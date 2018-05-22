@@ -114,6 +114,16 @@ class TestTransactions < Test::Unit::TestCase
     assert_equal "s1", r.get("foo")
   end
 
+  def test_empty_multi_exec
+    result = nil
+
+    redis_mock(:exec => lambda { |*_| "-ERROR" }) do |redis|
+      result = redis.multi {}
+    end
+
+    assert_equal [], result
+  end
+
   def test_raise_command_errors_when_accessing_futures_after_multi_exec
     begin
       r.multi do |m|
