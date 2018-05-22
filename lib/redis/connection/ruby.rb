@@ -297,7 +297,7 @@ class Redis
         end
 
         instance = new(sock)
-        instance.timeout = config[:timeout]
+        instance.timeout = config[:read_timeout]
         instance.write_timeout = config[:write_timeout]
         instance.set_tcp_keepalive config[:tcp_keepalive]
         instance
