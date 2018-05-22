@@ -2102,9 +2102,9 @@ class Redis
   # @param [String] key
   # @param [String, Array<String>] field
   # @return [Fixnum] the number of fields that were removed from the hash
-  def hdel(key, field)
+  def hdel(key, *fields)
     synchronize do |client|
-      client.call([:hdel, key, field])
+      client.call([:hdel, key, *fields])
     end
   end
 
