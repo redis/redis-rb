@@ -692,8 +692,8 @@ class Redis
     end
 
     # Delete one or more hash fields.
-    def hdel(key, field)
-      node_for(key).hdel(key, field)
+    def hdel(key, *fields)
+      node_for(key).hdel(key, *fields)
     end
 
     # Determine if a hash field exists.
