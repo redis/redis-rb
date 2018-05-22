@@ -150,9 +150,12 @@ class Redis
     end
 
     def call_pipeline(pipeline)
+      commands = pipeline.commands
+      return [] if commands.empty?
+
       with_reconnect pipeline.with_reconnect? do
         begin
-          pipeline.finish(call_pipelined(pipeline.commands)).tap do
+          pipeline.finish(call_pipelined(commands)).tap do
             self.db = pipeline.db if pipeline.db
           end
         rescue ConnectionError => e

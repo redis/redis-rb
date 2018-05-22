@@ -22,6 +22,10 @@ class Redis
       @shutdown
     end
 
+    def empty?
+      @futures.empty?
+    end
+
     def call(command, &block)
       # A pipeline that contains a shutdown should not raise ECONNRESET when
       # the connection is gone.
@@ -86,7 +90,11 @@ class Redis
       end
 
       def commands
-        [[:multi]] + super + [[:exec]]
+        if empty?
+          []
+        else
+          [[:multi]] + super + [[:exec]]
+        end
       end
     end
   end
