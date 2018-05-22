@@ -267,7 +267,16 @@ class Redis
           ssl_sock = new(tcp_sock, ctx)
           ssl_sock.hostname = host
           ssl_sock.connect
-          ssl_sock.post_connection_check(host)
+          
+          #
+          # Enable skipping hostname verification 
+          # if verify mode is set to OpenSSL::SSL::VERIFY_NONE.
+          #
+          # CAUTION: use at own risk!!!
+          #
+          unless ctx.verify_mode == OpenSSL::SSL::VERIFY_NONE
+            ssl_sock.post_connection_check(host) 
+          end
 
           ssl_sock
         end
