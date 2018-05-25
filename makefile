@@ -1,5 +1,5 @@
 TEST_FILES   := $(shell find test -name *_test.rb -type f)
-REDIS_BRANCH := unstable
+REDIS_BRANCH ?= unstable
 TMP          := tmp
 BUILD_DIR    := ${TMP}/cache/redis-${REDIS_BRANCH}
 TARBALL      := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
@@ -24,7 +24,6 @@ stop:
 	(test -f ${PID_PATH} && (kill $$(cat ${PID_PATH}) || true) && rm -f ${PID_PATH}) || true
 
 start: ${BINARY}
-	echo ${BINARY}
 	${BINARY}                     \
 		--daemonize  yes            \
 		--pidfile    ${PID_PATH}    \
