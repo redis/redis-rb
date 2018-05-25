@@ -33,7 +33,7 @@ env:
     - DRIVER=hiredis   REDIS_BRANCH=3.2
     - DRIVER=synchrony REDIS_BRANCH=3.0
     - DRIVER=synchrony REDIS_BRANCH=3.2
-    - DRIVER=ruby      REDIS_BRANCH=unstable
+    - DRIVER=ruby      REDIS_BRANCH=4.0
 
 branches:
   only:
@@ -45,18 +45,14 @@ matrix:
   exclude:
     # hiredis
     - rvm: jruby-9.1.17.0
-      gemfile: .travis/Gemfile
       env: DRIVER=hiredis   REDIS_BRANCH=3.0
     - rvm: jruby-9.1.17.0
-      gemfile: .travis/Gemfile
       env: DRIVER=hiredis   REDIS_BRANCH=3.2
 
     # synchrony
     - rvm: jruby-9.1.17.0
-      gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.0
     - rvm: jruby-9.1.17.0
-      gemfile: .travis/Gemfile
       env: DRIVER=synchrony REDIS_BRANCH=3.2
 
 notifications:
