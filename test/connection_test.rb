@@ -22,8 +22,8 @@ class TestConnection < Test::Unit::TestCase
   end
 
   def test_default_id_with_host_and_port_and_explicit_scheme
-    redis = Redis.new(OPTIONS.merge(:host => "host", :port => "1234", :db => 0, :scheme => "foo"))
-    assert_equal "redis://host:1234/0", redis.connection.fetch(:id)
+    redis = Redis.new(OPTIONS.merge(:host => "host", :port => "1234", :db => 0, :scheme => "rediss"))
+    assert_equal "rediss://host:1234/0", redis.connection.fetch(:id)
   end
 
   def test_default_id_with_path
