@@ -84,11 +84,14 @@ class Redis
 
       @pending_reads = 0
 
-      if options.include?(:sentinels)
-        @connector = Connector::Sentinel.new(@options)
-      else
-        @connector = Connector.new(@options)
-      end
+      @connector =
+        if options.include?(:sentinels)
+          Connector::Sentinel.new(@options)
+        elsif options.include?(:connector) && options[:connector].respond_to?(:new)
+          options.delete(:connector).new(@options)
+        else
+          Connector.new(@options)
+        end
     end
 
     def connect

@@ -56,4 +56,21 @@ class TestClient < Test::Unit::TestCase
 
     assert_equal result, ["OK", 1]
   end
+
+  def test_client_with_custom_connector
+    custom_connector = Class.new(Redis::Client::Connector) do
+      def resolve
+        @options[:host] = '127.0.0.5'
+        @options[:port] = '999'
+        @options
+      end
+    end
+
+    assert_raise_message(
+      'Error connecting to Redis on 127.0.0.5:999 (Errno::ECONNREFUSED)'
+    ) do
+      new_redis = _new_client(connector: custom_connector)
+      new_redis.ping
+    end
+  end
 end
