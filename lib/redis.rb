@@ -525,6 +525,16 @@ class Redis
     end
   end
 
+  # Unlink one or more keys.
+  #
+  # @param [String, Array<String>] keys
+  # @return [Fixnum] number of keys that were unlinked
+  def unlink(*keys)
+    synchronize do |client|
+      client.call([:unlink] + keys)
+    end
+  end
+
   # Determine if a key exists.
   #
   # @param [String] key
