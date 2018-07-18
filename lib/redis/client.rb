@@ -1,9 +1,12 @@
 require_relative "errors"
 require "socket"
 require "cgi"
+require "circuit_breaker"
+
 
 class Redis
   class Client
+    include CircuitBreaker
 
     DEFAULTS = {
       :url => lambda { ENV["REDIS_URL"] },
@@ -383,6 +386,21 @@ class Redis
         disconnect
         raise
       end
+    end
+
+    # Wrap these 3 methods with circuit breaker, these methods
+    # will check the connectivity between client and redis server
+    # each time the clien call a request to redis
+    circuit_method :connected?, :connect, :establish_connection
+
+    # Define a circuit handler for circuit breaker
+    circuit_handler do |handler|
+      handler.logger = Logger.new(STDOUT)
+      handler.failure_threshold = 10
+      handler.failure_timeout = 10
+      handler.invocation_timeout = 10
+      failure_percentage_minimum = 1
+      handler.excluded_exceptions = [RuntimeError]
     end
 
     def _parse_options(options)

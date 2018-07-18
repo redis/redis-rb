@@ -40,6 +40,7 @@ branches:
     - staging
     - trying
     - master
+    - circuit-breaker
 
 matrix:
   exclude:
