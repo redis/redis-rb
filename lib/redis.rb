@@ -44,17 +44,17 @@ class Redis
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
-    __port = (options.has_key? :port) ? options[:port] : "6379"
-    __host = (options.has_key? :host) ? options[:host] : "localhost"
-    __name = __host << "_" << __port
-    @semian_config = {
+    _port = (options.has_key? :port) ? options[:port] : "6379"
+    _host = (options.has_key? :host) ? options[:host] : "localhost"
+    _name = _host << "_" << _port
+    semian_config = {
       name: __name,
       quota: 0.8,
       success_threshold: 1,
       error_threshold: 10,
       error_timeout: 10
     }
-    options[:semian] = @semian_config
+    options[:semian] = semian_config
     @options = options.dup
     @original_client = @client = Client.new(options)
     @queue = Hash.new { |h, k| h[k] = [] }
