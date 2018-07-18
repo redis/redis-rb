@@ -2,7 +2,7 @@ require "test/unit"
 require "logger"
 require "stringio"
 
-$VERBOSE = true
+$VERBOSE = false
 
 ENV["DRIVER"] ||= "ruby"
 

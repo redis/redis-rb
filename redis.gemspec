@@ -39,5 +39,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency("test-unit", ">= 3.1.5")
   s.add_development_dependency("hiredis")
   s.add_development_dependency("em-synchrony")
-  s.add_development_dependency("semian")
+  s.add_development_dependency("circuit_breaker")
 end

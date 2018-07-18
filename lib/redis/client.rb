@@ -1,12 +1,12 @@
 require_relative "errors"
 require "socket"
 require "cgi"
-# require "circuit_breaker"
+require "circuit_breaker"
 
 
 class Redis
   class Client
-    # include CircuitBreaker
+    include CircuitBreaker
 
     DEFAULTS = {
       :url => lambda { ENV["REDIS_URL"] },
@@ -240,16 +240,6 @@ class Redis
       end
     end
 
-    # circuit_method :call
-
-    # circuit_handler do |handler|
-    #   handler.logger = Logger.new(STDOUT)
-    #   handler.failure_threshold = 10
-    #   handler.failure_timeout = 1
-    #   handler.invocation_timeout = 5
-    #   handler.excluded_exceptions = [RuntimeError]
-    # end
-
     def connected?
       !! (connection && connection.connected?)
     end
@@ -398,6 +388,16 @@ class Redis
       end
     end
 
+
+    circuit_method :connected?, :connect
+
+    circuit_handler do |handler|
+      handler.logger = Logger.new(STDOUT)
+      handler.failure_threshold = 10
+      handler.failure_timeout = 1
+      handler.invocation_timeout = 5
+      handler.excluded_exceptions = [RuntimeError]
+    end
     def _parse_options(options)
       return options if options[:_parsed]
 

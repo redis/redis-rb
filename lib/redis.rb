@@ -1,19 +1,10 @@
 require "monitor"
 require_relative "redis/errors"
-# require "semian"
-# require "semian/redis"
 
 class Redis
 
   def self.current
-    # @current ||= Redis.new
-    @current ||= Redis.new(semian: {
-      name: __name,
-      quota: 0.8,
-      success_threshold: 1,
-      error_threshold: 10,
-      error_timeout: 10
-    })
+    @current ||= Redis.new
   end
 
   def self.current=(redis)
@@ -44,17 +35,6 @@ class Redis
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
-    _port = (options.has_key? :port) ? options[:port] : "6379"
-    _host = (options.has_key? :host) ? options[:host] : "localhost"
-    _name = _host << "_" << _port
-    semian_config = {
-      name: __name,
-      quota: 0.8,
-      success_threshold: 1,
-      error_threshold: 10,
-      error_timeout: 10
-    }
-    options[:semian] = semian_config
     @options = options.dup
     @original_client = @client = Client.new(options)
     @queue = Hash.new { |h, k| h[k] = [] }
@@ -1349,7 +1329,6 @@ class Redis
   def sadd(key, member)
     synchronize do |client|
       client.call([:sadd, key, member]) do |reply|
-        # puts reply
         if member.is_a? Array
           # Variadic: return integer
           reply
