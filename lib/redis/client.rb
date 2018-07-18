@@ -387,14 +387,14 @@ class Redis
         raise
       end
     end
-    
+
     circuit_method :connected?, :connect, :establish_connection
 
     circuit_handler do |handler|
       handler.logger = Logger.new(STDOUT)
       handler.failure_threshold = 10
-      handler.failure_timeout = 1
-      handler.invocation_timeout = 5
+      handler.failure_timeout = 10
+      handler.invocation_timeout = 10
       handler.excluded_exceptions = [RuntimeError]
     end
     def _parse_options(options)
