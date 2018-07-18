@@ -387,9 +387,8 @@ class Redis
         raise
       end
     end
-
-
-    circuit_method :connected?, :connect
+    
+    circuit_method :connected?, :connect, :establish_connection
 
     circuit_handler do |handler|
       handler.logger = Logger.new(STDOUT)
