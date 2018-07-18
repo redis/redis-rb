@@ -2,6 +2,7 @@ require "test/unit"
 require "logger"
 require "stringio"
 require "logger"
+require "circuit_breaker"
 
 $VERBOSE = false
 
