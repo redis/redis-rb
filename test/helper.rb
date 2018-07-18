@@ -216,7 +216,7 @@ class Redis
     end
     circuit_method :fails
     logger = Logger.new(STDOUT)
-    logger.level = Logger::WARN
+    # logger.level = Logger::WARN
     circuit_handler do |handler|
       handler.logger = logger
       handler.failure_threshold = 10

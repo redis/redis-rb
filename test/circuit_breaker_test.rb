@@ -20,13 +20,14 @@ class TestCircuit < Test::Unit::TestCase
   		end
   	end
 
-  	assert_raises CircuitBreaker::CircuitBrokenException do
+  	exception = assert_raise("CircuitBreaker::CircuitBrokenException") {
   		r.call("PING")
-  	end
+  	}
+  	assert_equal exception.message, "Circuit broken, please wait for timeout"
+  	sleep 11
   end
 
 	def test_success
-  	sleep 11
   	(0..90).each do |i|
   		r.call("PING")
   	end
