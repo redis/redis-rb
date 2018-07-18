@@ -1,6 +1,7 @@
 require "test/unit"
 require "logger"
 require "stringio"
+require "logger"
 
 $VERBOSE = false
 
@@ -213,5 +214,14 @@ class Redis
       raise RedisError, "redis error"
     end
     circuit_method :fails
+    logger = Logger.new(STDOUT)
+    logger.level = Logger::WARN
+    circuit_handler do |handler|
+      handler.logger = logger
+      handler.failure_threshold = 10
+      handler.failure_timeout = 10
+      handler.invocation_timeout = 10
+      handler.excluded_exceptions = [RuntimeError]
+    end
   end
 end
