@@ -376,7 +376,6 @@ class Redis
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
           sleep_time = (2**(attempts-1))*@options[:timeout]
-          puts sleep_time
           sleep sleep_time <= 60? sleep_time:60
           retry
         else
