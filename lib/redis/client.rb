@@ -20,7 +20,7 @@ class Redis
       :driver => nil,
       :id => nil,
       :tcp_keepalive => 0,
-      :reconnect_attempts => 1,
+      :reconnect_attempts => 3,
       :inherit_socket => false
     }
 
