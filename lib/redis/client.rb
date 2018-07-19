@@ -20,7 +20,7 @@ class Redis
       :driver => nil,
       :id => nil,
       :tcp_keepalive => 0,
-      :reconnect_attempts => 1,
+      :reconnect_attempts => 2,
       :inherit_socket => false
     }
 
@@ -378,6 +378,8 @@ class Redis
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
+          sleep_time = 2**attempts
+          sleep sleep_time <= 60? sleep_time:60
           retry
         else
           raise
@@ -390,7 +392,7 @@ class Redis
 
     # Wrap these 3 methods with circuit breaker, these methods
     # will check the connectivity between client and redis server
-    # each time the clien call a request to redis
+    # each time the client call a request to redis
     circuit_method :connected?, :connect, :establish_connection
 
     # Define a circuit handler for circuit breaker
