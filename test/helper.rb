@@ -221,7 +221,7 @@ class Redis
       handler.logger = logger
       handler.failure_threshold = 10
       handler.failure_timeout = 10
-      handler.invocation_timeout = 10
+      handler.invocation_timeout = 61
       handler.excluded_exceptions = [RuntimeError]
     end
   end

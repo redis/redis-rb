@@ -20,7 +20,7 @@ class Redis
       :driver => nil,
       :id => nil,
       :tcp_keepalive => 0,
-      :reconnect_attempts => 2,
+      :reconnect_attempts => 1,
       :inherit_socket => false
     }
 
@@ -358,10 +358,8 @@ class Redis
       disconnect if @pending_reads > 0
 
       attempts = 0
-
       begin
         attempts += 1
-
         if connected?
           unless inherit_socket? || Process.pid == @pid
             raise InheritedError,
@@ -372,13 +370,13 @@ class Redis
         else
           connect
         end
-
         yield
       rescue BaseConnectionError
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
-          sleep_time = 2**attempts
+          sleep_time = (2**(attempts-1))*@options[:timeout]
+          puts sleep_time
           sleep sleep_time <= 60? sleep_time:60
           retry
         else
@@ -400,7 +398,7 @@ class Redis
       handler.logger = Logger.new(STDOUT)
       handler.failure_threshold = 10
       handler.failure_timeout = 10
-      handler.invocation_timeout = 10
+      handler.invocation_timeout = 61
       failure_percentage_minimum = 1
       handler.excluded_exceptions = [RuntimeError]
     end
