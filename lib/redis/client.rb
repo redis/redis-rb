@@ -21,7 +21,9 @@ class Redis
       :id => nil,
       :tcp_keepalive => 0,
       :reconnect_attempts => 3,
-      :inherit_socket => false
+      :inherit_socket => false,
+      :retry_base => 2,
+      :retry_max_time => 60,
     }
 
     attr_reader :options
@@ -375,8 +377,8 @@ class Redis
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
-          sleep_time = (2**(attempts-1))*@options[:timeout]
-          sleep sleep_time <= 60? sleep_time:60
+          sleep_time = (@options[:retry_base]**(attempts-1))*@options[:timeout]
+          sleep sleep_time <= @options[:retry_max_time]? sleep_time:@options[:retry_max_time]
           retry
         else
           raise
