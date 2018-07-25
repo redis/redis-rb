@@ -87,8 +87,9 @@ redis = Redis.new(
 For more detailed explanation what each parameter does, checkout the documentation.
 
 ## Retry with Backoff
-
-`wait time = base^{attempts} \times timeout`
+```
+wait time = base^attempts * timeout
+```
 The default confguration for retry and backoff that's implemented in the client is :
 ```ruby
 redis = Redis.new(
@@ -101,7 +102,7 @@ redis = Redis.new(
 
 - `timeout: 5.0` timeout in seconds. Written  as float.
 - `reconnect_attempts : 3` is how many times the client can retry the connection to redis-server before it returns an error. Do note however every attempt in the process does counted as failure for circuit breaker.
-- `retry_base : 2` this means for every attempt failure the client must wait for `2^{attempts} \times timeout` before it is allowed to make another attempt.
+- `retry_base : 2` this means for every attempt failure the client must wait for `2^attempts * timeout` before it is allowed to make another attempt.
 - `retry_max_time: 60` the maximum time allowed for client to wait. 
 
 ## Sentinel support
