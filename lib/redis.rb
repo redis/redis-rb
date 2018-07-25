@@ -32,6 +32,11 @@ class Redis
   # @option options [Array] :sentinels List of sentinels to contact
   # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
   # @option options [Class] :connector Class of custom connector
+  # @option options [Class] : circuit_logger (STDOUT) Class of logger
+  # @option options [Fixnum] : failure_threshold (10) number of total failure allowed for client before circuit opened
+  # @option options [Fixnum] : failure_timeout (10) timeout for circuit breaker before the circuit is closed again in seconds
+  # @option options [Fixnum] : invocation_timeout (10) time out for function call before the invocation is considered as failed in seconds
+  # @option options [Array] : excluded_exceptions ([RuntimeError]) error or exception to be excluded from circuit breaker
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
@@ -2820,6 +2825,18 @@ class Redis
 
   def id
     @original_client.id
+  end
+
+  def metrics
+    synchronize do |client|
+      client.metrics
+    end
+  end
+
+  def prometheus
+    synchronize do |client|
+      client.prometheus
+    end    
   end
 
   def inspect

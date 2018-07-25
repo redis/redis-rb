@@ -66,6 +66,45 @@ redis.get("mykey")
 All commands, their arguments, and return values are documented and
 available on [RubyDoc.info][rubydoc].
 
+## Circuit Breaker
+
+The client by default already implement circuit breaker with the default parameters. To change these parameters, you need to declare it at the beginning :
+```ruby
+redis = Redis.new(
+    circuit_logger: Logger.new(STDOUT)
+    failure_threshold: 10,
+    failure_timeout: 10,
+    invocation_timeout: 10,
+    excluded_exceptions: [RuntimeException],
+  )
+```
+- `circuit_logger :  Logger.new(STDOUT)` : Class of logger
+- `failure_threshold : 10` : number of total failure allowed for client before circuit opened
+- `failure_timeout : 10` : timeout for circuit breaker before the circuit is closed again in seconds
+- `invocation_timeout : 10` : time out for function call before the invocation is considered as failed in seconds
+- `excluded_exceptions : [RuntimeError]` : error or exception to be excluded from circuit breaker
+
+For more detailed explanation what each parameter does, checkout the documentation.
+
+## Retry with Backoff
+```
+wait time = base^attempts * timeout
+```
+The default confguration for retry and backoff that's implemented in the client is :
+```ruby
+redis = Redis.new(
+    timeout: 5.0,
+    reconnect_attempts: 3,
+    retry_base: 2,
+    retry_max_time: 60,
+  )
+```
+
+- `timeout: 5.0` timeout in seconds. Written  as float.
+- `reconnect_attempts : 3` is how many times the client can retry the connection to redis-server before it returns an error. Do note however every attempt in the process does counted as failure for circuit breaker.
+- `retry_base : 2` this means for every attempt failure the client must wait for `2^attempts * timeout` before it is allowed to make another attempt.
+- `retry_max_time: 60` the maximum time allowed for client to wait. 
+
 ## Sentinel support
 
 The client is able to perform automatic failover by using [Redis
@@ -362,5 +401,5 @@ requests. You can also ask for help at `#redis-rb` on Freenode.
 [redis-url]:       http://www.iana.org/assignments/uri-schemes/prov/redis
 [travis-home]:     https://travis-ci.org/
 [travis-image]:    https://secure.travis-ci.org/redis/redis-rb.svg?branch=master
-[travis-link]:     https://travis-ci.org/redis/redis-rb
+[travis-link]:     https://travis-ci.org/bukalapak/redis-rb
 [rubydoc]:         http://www.rubydoc.info/gems/redis

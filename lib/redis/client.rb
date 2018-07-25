@@ -1,9 +1,13 @@
 require_relative "errors"
 require "socket"
 require "cgi"
+require "circuit_breaker"
+require 'prometheus/client'
+
 
 class Redis
   class Client
+    include CircuitBreaker
 
     DEFAULTS = {
       :url => lambda { ENV["REDIS_URL"] },
@@ -17,8 +21,17 @@ class Redis
       :driver => nil,
       :id => nil,
       :tcp_keepalive => 0,
-      :reconnect_attempts => 1,
-      :inherit_socket => false
+      :reconnect_attempts => 3,
+      :inherit_socket => false,
+      :retry_base => 2,
+      :retry_max_time => 60,
+      :circuit_logger => Logger.new(STDOUT),
+      :failure_threshold => 10,
+      :failure_timeout => 10,
+      :invocation_timeout => 10,
+      :failure_percentage_minimum => 1,
+      :excluded_exceptions => [RuntimeError],
+      :service_name => "unknown service"
     }
 
     attr_reader :options
@@ -74,6 +87,8 @@ class Redis
     attr_accessor :logger
     attr_reader :connection
     attr_reader :command_map
+    attr_accessor :metric
+    attr_accessor :prometheus
 
     def initialize(options = {})
       @options = _parse_options(options)
@@ -92,6 +107,9 @@ class Redis
         else
           Connector.new(@options)
         end
+      
+      init_circuit_breaker(@options)
+      register_prom
     end
 
     def connect
@@ -111,6 +129,14 @@ class Redis
 
     def id
       @options[:id] || "redis://#{location}/#{db}"
+    end
+
+    def metrics
+      @metric
+    end
+
+    def prometheus
+      @prometheus
     end
 
     def location
@@ -355,10 +381,8 @@ class Redis
       disconnect if @pending_reads > 0
 
       attempts = 0
-
       begin
         attempts += 1
-
         if connected?
           unless inherit_socket? || Process.pid == @pid
             raise InheritedError,
@@ -368,20 +392,42 @@ class Redis
           end
         else
           connect
+          contact_prom(true)
         end
-
         yield
       rescue BaseConnectionError
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
+          sleep_time = (@options[:retry_base]**(attempts-1))*@options[:timeout]
+          sleep sleep_time <= @options[:retry_max_time]? sleep_time:@options[:retry_max_time]
           retry
         else
           raise
         end
+      rescue CircuitBreaker::CircuitBrokenException
+        contact_prom(false)
+        disconnect
+        raise
       rescue Exception
         disconnect
         raise
+      end
+    end
+
+    def register_prom 
+      @prometheus = Prometheus::Client.registry
+      @prometheus.unregister(:redis_circuit_breaker_trips_total) if @prometheus.exist?(:redis_circuit_breaker_trips_total)
+      @metric = Prometheus::Client::Counter.new(:redis_circuit_breaker_trips_total, "Counter for the amount of circuit breaker trips")
+      prometheus.register(@metric)
+    end
+
+    def contact_prom(condition)
+      case condition
+      when true
+        @metric.increment({service: @options[:service_name], status: "open"})
+      when false
+        @metric.increment({service: @options[:service_name], status: "closed"})
       end
     end
 
@@ -479,6 +525,23 @@ class Redis
       options[:_parsed] = true
 
       options
+    end
+
+    # Wrap these 3 methods with circuit breaker, these methods
+    # will check the connectivity between client and redis server
+    # each time the clien call a request to redis
+    circuit_method :connected?, :connect, :establish_connection
+
+    # Initialize parameter for circuit breaker
+    def init_circuit_breaker(options)  
+      # Define a circuit handler for circuit breaker
+      ::Redis::Client.circuit_handler do |handler|
+        handler.logger = options[:circuit_logger]
+        handler.failure_threshold = options[:failure_threshold]
+        handler.failure_timeout = options[:failure_timeout]
+        handler.invocation_timeout = options[:invocation_timeout]
+        handler.excluded_exceptions = options[:excluded_exceptions]
+      end
     end
 
     def _parse_driver(driver)
