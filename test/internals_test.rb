@@ -110,12 +110,12 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_connection_timeout
-    opts = OPTIONS.merge(:host => "10.255.255.254", :connect_timeout => 0.1, :timeout => 5.0)
+    opts = OPTIONS.merge(:host => "10.255.255.254", :connect_timeout => 0.1, :timeout => 1.0)
     start_time = Time.now
     assert_raise Redis::CannotConnectError do
       Redis.new(opts).ping
     end
-    assert (Time.now - start_time) <= opts[:timeout]
+    assert (Time.now - start_time) <= 7*opts[:timeout]+1
   end
 
   def test_missing_socket
@@ -176,8 +176,8 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
-  def test_retry_only_once_when_read_raises_econnreset
-    close_on_ping([0, 1]) do |redis|
+  def test_retry_only_trice_when_read_raises_econnreset
+    close_on_ping([0, 1, 2, 3]) do |redis|
       assert_raise Redis::ConnectionError do
         redis.ping
       end
