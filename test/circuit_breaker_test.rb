@@ -4,7 +4,8 @@ class TestCircuit < Test::Unit::TestCase
 
   include Helper::Client
 
-  def test_call    result = r.call('PING')
+  def test_call
+    result = r.call('PING')
     assert_equal result, 'PONG'
   end
 
