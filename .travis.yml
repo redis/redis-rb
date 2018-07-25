@@ -41,7 +41,6 @@ branches:
     - trying
     - master
     - circuit-breaker
-    - retry
 
 matrix:
   exclude:
