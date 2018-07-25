@@ -1,8 +1,10 @@
 require "test/unit"
 require "logger"
 require "stringio"
+require "logger"
+require "circuit_breaker"
 
-$VERBOSE = true
+$VERBOSE = false
 
 ENV["DRIVER"] ||= "ruby"
 
@@ -196,6 +198,40 @@ module Helper
 
     def _new_client(options = {})
       Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
+    end
+  end
+end
+
+class RedisError < StandardError  
+end
+
+class Redis
+  
+  def fails
+    @client.fails
+  end
+end
+
+class Redis
+  class Client
+    include CircuitBreaker
+    
+    def fails
+      raise RedisError, 'redis error'
+    end
+
+    circuit_method :fails
+
+    def init_circuit_breaker(options)
+      logger = Logger.new(STDOUT)
+      logger.level = Logger::WARN
+      ::Redis::Client.circuit_handler do |handler|
+        handler.logger = logger
+        handler.failure_threshold = 10
+        handler.failure_timeout = 1
+        handler.invocation_timeout = 10
+        handler.excluded_exceptions = [RuntimeError]
+      end
     end
   end
 end
