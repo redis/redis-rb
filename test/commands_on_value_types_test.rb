@@ -38,6 +38,42 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     assert_equal [], r.keys("*").sort
   end
 
+  def test_unlink
+    target_version "4.0.0" do
+      r.set "foo", "s1"
+      r.set "bar", "s2"
+      r.set "baz", "s3"
+
+      assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+
+      assert_equal 1, r.unlink("foo")
+
+      assert_equal ["bar", "baz"], r.keys("*").sort
+
+      assert_equal 2, r.unlink("bar", "baz")
+
+      assert_equal [], r.keys("*").sort
+    end
+  end
+
+  def test_unlink_with_array_argument
+    target_version "4.0.0" do
+      r.set "foo", "s1"
+      r.set "bar", "s2"
+      r.set "baz", "s3"
+
+      assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+
+      assert_equal 1, r.unlink(["foo"])
+
+      assert_equal ["bar", "baz"], r.keys("*").sort
+
+      assert_equal 2, r.unlink(["bar", "baz"])
+
+      assert_equal [], r.keys("*").sort
+    end
+  end
+
   def test_randomkey
     assert r.randomkey.to_s.empty?
 

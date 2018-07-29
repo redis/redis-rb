@@ -161,6 +161,14 @@ class Redis
       end
     end
 
+    # Unlink keys.
+    def unlink(*args)
+      keys_per_node = args.group_by { |key| node_for(key) }
+      keys_per_node.inject(0) do |sum, (node, keys)|
+        sum + node.unlink(*keys)
+      end
+    end
+
     # Determine if a key exists.
     def exists(key)
       node_for(key).exists(key)
