@@ -144,6 +144,17 @@ module Lint
       assert({"f1" => "s1", "f2" => "s2"} == r.mapped_hmget("foo", "f1", "f2"))
     end
 
+    def test_mapped_hmget_in_a_pipeline_returns_hash
+      r.hset("foo", "f1", "s1")
+      r.hset("foo", "f2", "s2")
+
+      result = r.pipelined do
+        r.mapped_hmget("foo", "f1", "f2")
+      end
+
+      assert_equal result[0], { "f1" => "s1", "f2" => "s2" }
+    end
+
     def test_hincrby
       r.hincrby("foo", "f1", 1)
 
@@ -172,6 +183,21 @@ module Lint
 
         assert_equal "1.9", r.hget("foo", "f1")
       end
+    end
+
+    def test_hstrlen
+      target_version('3.2.0') do
+        redis.hmset('foo', 'f1', 'HelloWorld', 'f2', 99, 'f3', -256)
+        assert_equal 10, r.hstrlen('foo', 'f1')
+        assert_equal 2, r.hstrlen('foo', 'f2')
+        assert_equal 4, r.hstrlen('foo', 'f3')
+      end
+    end
+
+    def test_hscan
+      redis.hmset('foo', 'f1', 'Jack', 'f2', 33)
+      expected = ['0', [%w[f1 Jack], %w[f2 33]]]
+      assert_equal expected, redis.hscan('foo', 0)
     end
   end
 end
