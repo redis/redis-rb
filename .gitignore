@@ -5,6 +5,7 @@ Gemfile.lock
 /tmp/
 /.idea
 /.yardoc
+/.bundle
 /coverage/*
 /doc/
 /examples/sentinel/sentinel.conf
@@ -14,3 +15,5 @@ Gemfile.lock
 /redis/*
 /test/db
 /test/test.conf
+appendonly.aof
+temp-rewriteaof-*.aof

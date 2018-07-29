@@ -55,6 +55,20 @@ module Lint
       end
     end
 
-  end
+    def test_pfmerge
+      target_version '2.8.9' do
+        r.pfadd 'foo', 's1'
+        r.pfadd 'bar', 's2'
 
+        assert_equal true, r.pfmerge('res', 'foo', 'bar')
+        assert_equal 2, r.pfcount('res')
+      end
+    end
+
+    def test_variadic_pfmerge_expanded
+      redis.pfadd('{1}foo', %w[foo bar zap a])
+      redis.pfadd('{1}bar', %w[a b c foo])
+      assert_equal true, redis.pfmerge('{1}baz', '{1}foo', '{1}bar')
+    end
+  end
 end

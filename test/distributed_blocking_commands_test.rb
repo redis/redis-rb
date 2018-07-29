@@ -41,4 +41,12 @@ class TestDistributedBlockingCommands < Test::Unit::TestCase
       r.brpoplpush("foo", "bar", 0)
     end
   end
+
+  def test_bzpopmin
+    # Not implemented yet
+  end
+
+  def test_bzpopmax
+    # Not implemented yet
+  end
 end

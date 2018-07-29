@@ -1,14 +1,15 @@
 module Lint
-
   module BlockingCommands
-
     def setup
       super
 
-      r.rpush("{zap}foo", "s1")
-      r.rpush("{zap}foo", "s2")
-      r.rpush("{zap}bar", "s1")
-      r.rpush("{zap}bar", "s2")
+      r.rpush('{zap}foo', 's1')
+      r.rpush('{zap}foo', 's2')
+      r.rpush('{zap}bar', 's1')
+      r.rpush('{zap}bar', 's2')
+
+      r.zadd('{szap}foo', %w[0 a 1 b 2 c])
+      r.zadd('{szap}bar', %w[0 c 1 d 2 e])
     end
 
     def to_protocol(obj)
@@ -18,27 +19,38 @@ module Lint
       when Array
         "*#{obj.length}\r\n" + obj.map { |e| to_protocol(e) }.join
       else
-        fail
+        raise
       end
     end
 
     def mock(options = {}, &blk)
-      commands = {
-        :blpop => lambda do |*args|
-          sleep options[:delay] if options.has_key?(:delay)
+      commands = build_mock_commands(options)
+      redis_mock(commands, &blk)
+    end
+
+    def build_mock_commands(options = {})
+      {
+        blpop: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
           to_protocol([args.first, args.last])
         end,
-        :brpop => lambda do |*args|
-          sleep options[:delay] if options.has_key?(:delay)
+        brpop: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
           to_protocol([args.first, args.last])
         end,
-        :brpoplpush => lambda do |*args|
-          sleep options[:delay] if options.has_key?(:delay)
+        brpoplpush: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
           to_protocol(args.last)
+        end,
+        bzpopmax: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
+          to_protocol([args.first, args.last])
+        end,
+        bzpopmin: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
+          to_protocol([args.first, args.last])
         end
       }
-
-      redis_mock(commands, &blk)
     end
 
     def test_blpop
@@ -118,6 +130,18 @@ module Lint
       mock do |r|
         assert_equal "0", r.brpoplpush("{zap}foo", "{zap}bar", 0)
         assert_equal "1", r.brpoplpush("{zap}foo", "{zap}bar", 1)
+      end
+    end
+
+    def test_bzpopmin
+      target_version('4.9.0') do
+        assert_equal %w[{szap}foo a 0], r.bzpopmin('{szap}foo', '{szap}bar', 0)
+      end
+    end
+
+    def test_bzpopmax
+      target_version('4.9.0') do
+        assert_equal %w[{szap}foo c 2], r.bzpopmax('{szap}foo', '{szap}bar', 0)
       end
     end
 

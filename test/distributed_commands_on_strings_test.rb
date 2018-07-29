@@ -66,4 +66,14 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
       end
     end
   end
+
+  def test_mapped_mget_in_a_pipeline_returns_hash
+    assert_raise Redis::Distributed::CannotDistribute do
+      super
+    end
+  end
+
+  def test_bitfield
+    # Not implemented yet
+  end
 end
