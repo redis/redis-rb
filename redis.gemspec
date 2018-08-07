@@ -41,4 +41,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency("em-synchrony")
   s.add_development_dependency("circuit_breaker")
   s.add_development_dependency("prometheus-client")
+  s.add_development_dependency("opentracing")
+  s.add_development_dependency("jaeger-client")
 end
+

@@ -1,5 +1,7 @@
 require "monitor"
 require_relative "redis/errors"
+require 'opentracing'
+require 'jaeger/client'
 
 class Redis
 
@@ -44,11 +46,15 @@ class Redis
     @original_client = @client = Client.new(options)
     @queue = Hash.new { |h, k| h[k] = [] }
 
+    OpenTracing.global_tracer = Jaeger::Client.build(host: 'localhost', port: 6831, service_name: 'echo')
+
+    scope = OpenTracing.start_active_span('redis')
+    
     super() # Monitor#initialize
   end
 
   def synchronize
-    mon_synchronize { yield(@client) }
+    mon_synchronize { yield(@client)}
   end
 
   # Run code with the client reconnecting
@@ -83,9 +89,16 @@ class Redis
   #
   # Redis error replies are raised as Ruby exceptions.
   def call(*command)
+    scope = OpenTracing.scope_manager.active
+    a = nil
     synchronize do |client|
-      client.call(command)
+      a = client.call(command)
     end
+    if scope
+      scope.span.set_tag('redis', command)
+      scope.close
+    end
+    return a
   end
 
   # Queues a command for pipelining.
