@@ -40,8 +40,7 @@ branches:
     - staging
     - trying
     - master
-    - circuit-breaker
-    - retry
+    - tracing
 
 matrix:
   exclude:
