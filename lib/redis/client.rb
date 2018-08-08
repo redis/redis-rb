@@ -4,7 +4,6 @@ require "cgi"
 require "circuit_breaker"
 require 'prometheus/client'
 require 'opentracing'
-require 'jaeger/client'
 
 
 class Redis
