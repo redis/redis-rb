@@ -46,9 +46,7 @@ class Redis
     @original_client = @client = Client.new(options)
     @queue = Hash.new { |h, k| h[k] = [] }
 
-    OpenTracing.global_tracer = Jaeger::Client.build(host: 'localhost', port: 6831, service_name: 'echo')
-
-    scope = OpenTracing.start_active_span('redis')
+    OpenTracing.global_tracer = Jaeger::Client.build(host: 'localhost', port: 6831, service_name: 'redis')
     
     super() # Monitor#initialize
   end
@@ -89,16 +87,12 @@ class Redis
   #
   # Redis error replies are raised as Ruby exceptions.
   def call(*command)
-    scope = OpenTracing.scope_manager.active
-    a = nil
+    scope = OpenTracing.start_active_span('call')
     synchronize do |client|
-      a = client.call(command)
+      client.call(command)
     end
-    if scope
-      scope.span.set_tag('redis', command)
-      scope.close
-    end
-    return a
+  ensure
+    scope.close
   end
 
   # Queues a command for pipelining.
@@ -135,9 +129,12 @@ class Redis
   #   `requirepass` directive in the configuration file
   # @return [String] `OK`
   def auth(password)
+    scope = OpenTracing.start_active_span('auth')
     synchronize do |client|
       client.call([:auth, password])
     end
+  ensure
+    scope.close    
   end
 
   # Change the selected database for the current connection.
@@ -156,9 +153,12 @@ class Redis
   # @param [optional, String] message
   # @return [String] `PONG`
   def ping(message = nil)
+    scope = OpenTracing.start_active_span('ping')
     synchronize do |client|
       client.call([:ping, message].compact)
     end
+  ensure
+    scope.close
   end
 
   # Echo the given string.
@@ -166,15 +166,19 @@ class Redis
   # @param [String] value
   # @return [String]
   def echo(value)
+    scope = OpenTracing.start_active_span('echo')
     synchronize do |client|
       client.call([:echo, value])
     end
+  ensure
+    scope.close
   end
 
   # Close the connection.
   #
   # @return [String] `OK`
   def quit
+    scope = OpenTracing.start_active_span('quit')
     synchronize do |client|
       begin
         client.call([:quit])
@@ -183,24 +187,32 @@ class Redis
         client.disconnect
       end
     end
+  ensure
+    scope.close
   end
 
   # Asynchronously rewrite the append-only file.
   #
   # @return [String] `OK`
   def bgrewriteaof
+    scope = OpenTracing.start_active_span('bgrewriteaof')
     synchronize do |client|
       client.call([:bgrewriteaof])
     end
+  ensure
+    scope.close
   end
 
   # Asynchronously save the dataset to disk.
   #
   # @return [String] `OK`
   def bgsave
+    scope = OpenTracing.start_active_span('bgsave')
     synchronize do |client|
       client.call([:bgsave])
     end
+  ensure
+    scope.close
   end
 
   # Get or set server configuration parameters.
@@ -209,6 +221,7 @@ class Redis
   # @return [String, Hash] string reply, or hash when retrieving more than one
   #   property with `CONFIG GET`
   def config(action, *args)
+    scope = OpenTracing.start_active_span('config')
     synchronize do |client|
       client.call([:config, action] + args) do |reply|
         if reply.kind_of?(Array) && action == :get
@@ -218,6 +231,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Manage client connections.
@@ -225,6 +240,7 @@ class Redis
   # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
   # @return [String, Hash] depends on subcommand
   def client(subcommand = nil, *args)
+    scope = OpenTracing.start_active_span('client')
     synchronize do |client|
       client.call([:client, subcommand] + args) do |reply|
         if subcommand.to_s == "list"
@@ -237,21 +253,29 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Return the number of keys in the selected database.
   #
   # @return [Fixnum]
   def dbsize
+    scope = OpenTracing.start_active_span('dbsize')
     synchronize do |client|
       client.call([:dbsize])
     end
+  ensure
+    scope.close
   end
 
   def debug(*args)
+    scope = OpenTracing.start_active_span('debug')
     synchronize do |client|
       client.call([:debug] + args)
     end
+  ensure
+    scope.close
   end
 
   # Remove all keys from all databases.
@@ -260,6 +284,7 @@ class Redis
   #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
   def flushall(options = nil)
+    scope = OpenTracing.start_active_span('flushall')
     synchronize do |client|
       if options && options[:async]
         client.call([:flushall, :async])
@@ -267,6 +292,8 @@ class Redis
         client.call([:flushall])
       end
     end
+  ensure
+    scope.close
   end
 
   # Remove all keys from the current database.
@@ -275,12 +302,17 @@ class Redis
   #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
   def flushdb(options = nil)
+    scope = OpenTracing.start_active_span('flushdb')
     synchronize do |client|
       if options && options[:async]
         client.call([:flushdb, :async])
       else
         client.call([:flushdb])
       end
+    end
+  ensure
+    if scope
+      scope.close
     end
   end
 
@@ -289,6 +321,7 @@ class Redis
   # @param [String, Symbol] cmd e.g. "commandstats"
   # @return [Hash<String, String>]
   def info(cmd = nil)
+    scope = OpenTracing.start_active_span('info')
     synchronize do |client|
       client.call([:info, cmd].compact) do |reply|
         if reply.kind_of?(String)
@@ -308,15 +341,20 @@ class Redis
         reply
       end
     end
+  ensure
+    scope.close
   end
 
   # Get the UNIX time stamp of the last successful save to disk.
   #
   # @return [Fixnum]
   def lastsave
+    scope = OpenTracing.start_active_span('lastsave')
     synchronize do |client|
       client.call([:lastsave])
     end
+  ensure
+    scope.close
   end
 
   # Listen for all requests received by the server in real time.
@@ -326,22 +364,29 @@ class Redis
   # @yield a block to be called for every line of output
   # @yieldparam [String] line timestamp and command that was executed
   def monitor(&block)
+    scope = OpenTracing.start_active_span('monitor')
     synchronize do |client|
       client.call_loop([:monitor], &block)
     end
+  ensure
+    scope.close
   end
 
   # Synchronously save the dataset to disk.
   #
   # @return [String]
   def save
+    scope = OpenTracing.start_active_span('save')
     synchronize do |client|
       client.call([:save])
     end
+  ensure
+    scope.close
   end
 
   # Synchronously save the dataset to disk and then shut down the server.
   def shutdown
+    scope = OpenTracing.start_active_span('shutdown')
     synchronize do |client|
       client.with_reconnect(false) do
         begin
@@ -352,13 +397,18 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Make the server a slave of another instance, or promote it as master.
   def slaveof(host, port)
+    scope = OpenTracing.start_active_span('slaveof')
     synchronize do |client|
       client.call([:slaveof, host, port])
     end
+  ensure
+    scope.close
   end
 
   # Interact with the slowlog (get, len, reset)
@@ -367,11 +417,14 @@ class Redis
   # @param [Fixnum] length maximum number of entries to return
   # @return [Array<String>, Fixnum, String] depends on subcommand
   def slowlog(subcommand, length=nil)
+    scope = OpenTracing.start_active_span('slowlog')
     synchronize do |client|
       args = [:slowlog, subcommand]
       args << length if length
       client.call args
     end
+  ensure
+    scope.close
   end
 
   # Internal command used for replication.
@@ -389,11 +442,14 @@ class Redis
   # @return [Array<Fixnum>] tuple of seconds since UNIX epoch and
   #   microseconds in the current second
   def time
+    scope = OpenTracing.start_active_span('time')
     synchronize do |client|
       client.call([:time]) do |reply|
         reply.map(&:to_i) if reply
       end
     end
+  ensure
+    scope.close
   end
 
   # Remove the expiration from a key.
@@ -401,9 +457,12 @@ class Redis
   # @param [String] key
   # @return [Boolean] whether the timeout was removed or not
   def persist(key)
+    scope = OpenTracing.start_active_span('persist')
     synchronize do |client|
       client.call([:persist, key], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set a key's time to live in seconds.
@@ -412,9 +471,12 @@ class Redis
   # @param [Fixnum] seconds time to live
   # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
+    scope = OpenTracing.start_active_span('expire')
     synchronize do |client|
       client.call([:expire, key, seconds], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set the expiration for a key as a UNIX timestamp.
@@ -423,9 +485,12 @@ class Redis
   # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
   # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
+    scope = OpenTracing.start_active_span('expireat')
     synchronize do |client|
       client.call([:expireat, key, unix_time], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Get the time to live (in seconds) for a key.
@@ -441,9 +506,12 @@ class Redis
   #     - The command returns -2 if the key does not exist.
   #     - The command returns -1 if the key exists but has no associated expire.
   def ttl(key)
+    scope = OpenTracing.start_active_span('ttl')
     synchronize do |client|
       client.call([:ttl, key])
     end
+  ensure
+    scope.close
   end
 
   # Set a key's time to live in milliseconds.
@@ -452,9 +520,12 @@ class Redis
   # @param [Fixnum] milliseconds time to live
   # @return [Boolean] whether the timeout was set or not
   def pexpire(key, milliseconds)
+    scope = OpenTracing.start_active_span('pexpire')
     synchronize do |client|
       client.call([:pexpire, key, milliseconds], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set the expiration for a key as number of milliseconds from UNIX Epoch.
@@ -463,9 +534,12 @@ class Redis
   # @param [Fixnum] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
   # @return [Boolean] whether the timeout was set or not
   def pexpireat(key, ms_unix_time)
+    scope = OpenTracing.start_active_span('pexpireat')
     synchronize do |client|
       client.call([:pexpireat, key, ms_unix_time], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Get the time to live (in milliseconds) for a key.
@@ -480,9 +554,12 @@ class Redis
   #     - The command returns -2 if the key does not exist.
   #     - The command returns -1 if the key exists but has no associated expire.
   def pttl(key)
+    scope = OpenTracing.start_active_span('pttl')
     synchronize do |client|
       client.call([:pttl, key])
     end
+  ensure
+    scope.close
   end
 
   # Return a serialized version of the value stored at a key.
@@ -490,9 +567,12 @@ class Redis
   # @param [String] key
   # @return [String] serialized_value
   def dump(key)
+    scope = OpenTracing.start_active_span('dump')
     synchronize do |client|
       client.call([:dump, key])
     end
+  ensure
+    scope.close
   end
 
   # Create a key using the serialized value, previously obtained using DUMP.
@@ -505,12 +585,15 @@ class Redis
   # @raise [Redis::CommandError]
   # @return [String] `"OK"`
   def restore(key, ttl, serialized_value, options = {})
+    scope = OpenTracing.start_active_span('restore')
     args = [:restore, key, ttl, serialized_value]
     args << 'REPLACE' if options[:replace]
 
     synchronize do |client|
       client.call(args)
     end
+  ensure
+    scope.close
   end
 
   # Transfer a key from the connected instance to another instance.
@@ -523,6 +606,7 @@ class Redis
   #   - `:timeout => Integer`: timeout (default: same as connection timeout)
   # @return [String] `"OK"`
   def migrate(key, options)
+    scope = OpenTracing.start_active_span('migrate')
     host = options[:host] || raise(RuntimeError, ":host not specified")
     port = options[:port] || raise(RuntimeError, ":port not specified")
     db = (options[:db] || @client.db).to_i
@@ -531,6 +615,8 @@ class Redis
     synchronize do |client|
       client.call([:migrate, host, port, key, db, timeout])
     end
+  ensure
+    scope.close
   end
 
   # Delete one or more keys.
@@ -538,9 +624,12 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Fixnum] number of keys that were deleted
   def del(*keys)
+    scope = OpenTracing.start_active_span('del')
     synchronize do |client|
       client.call([:del] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Determine if a key exists.
@@ -548,9 +637,12 @@ class Redis
   # @param [String] key
   # @return [Boolean]
   def exists(key)
+    scope = OpenTracing.start_active_span('exists')
     synchronize do |client|
       client.call([:exists, key], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Find all keys matching the given pattern.
@@ -558,6 +650,7 @@ class Redis
   # @param [String] pattern
   # @return [Array<String>]
   def keys(pattern = "*")
+    scope = OpenTracing.start_active_span('keys')
     synchronize do |client|
       client.call([:keys, pattern]) do |reply|
         if reply.kind_of?(String)
@@ -567,6 +660,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Move a key to another database.
@@ -589,24 +684,33 @@ class Redis
   # @param [Fixnum] db
   # @return [Boolean] whether the key was moved or not
   def move(key, db)
+    scope = OpenTracing.start_active_span('move')
     synchronize do |client|
       client.call([:move, key, db], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   def object(*args)
+    scope = OpenTracing.start_active_span('object')
     synchronize do |client|
       client.call([:object] + args)
     end
+  ensure
+    scope.close
   end
 
   # Return a random key from the keyspace.
   #
   # @return [String]
   def randomkey
+    scope = OpenTracing.start_active_span('randomkey')
     synchronize do |client|
       client.call([:randomkey])
     end
+  ensure
+    scope.close
   end
 
   # Rename a key. If the new key already exists it is overwritten.
@@ -615,9 +719,12 @@ class Redis
   # @param [String] new_name
   # @return [String] `OK`
   def rename(old_name, new_name)
+    scope = OpenTracing.start_active_span('rename')
     synchronize do |client|
       client.call([:rename, old_name, new_name])
     end
+  ensure
+    scope.close
   end
 
   # Rename a key, only if the new key does not exist.
@@ -626,9 +733,12 @@ class Redis
   # @param [String] new_name
   # @return [Boolean] whether the key was renamed or not
   def renamenx(old_name, new_name)
+    scope = OpenTracing.start_active_span('renamenx')
     synchronize do |client|
       client.call([:renamenx, old_name, new_name], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Sort the elements in a list, set or sorted set.
@@ -657,6 +767,7 @@ class Redis
   #   element specified in `:get`
   #   - when `:store` is specified, the number of elements in the stored result
   def sort(key, options = {})
+    scope = OpenTracing.start_active_span('sort')
     args = []
 
     by = options[:by]
@@ -685,6 +796,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Determine the type stored at key.
@@ -692,9 +805,12 @@ class Redis
   # @param [String] key
   # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
   def type(key)
+    scope = OpenTracing.start_active_span('type')
     synchronize do |client|
       client.call([:type, key])
     end
+  ensure
+    scope.close
   end
 
   # Decrement the integer value of a key by one.
@@ -706,9 +822,12 @@ class Redis
   # @param [String] key
   # @return [Fixnum] value after decrementing it
   def decr(key)
+    scope = OpenTracing.start_active_span('decr')
     synchronize do |client|
       client.call([:decr, key])
     end
+  ensure
+    scope.close
   end
 
   # Decrement the integer value of a key by the given number.
@@ -721,9 +840,12 @@ class Redis
   # @param [Fixnum] decrement
   # @return [Fixnum] value after decrementing it
   def decrby(key, decrement)
+    scope = OpenTracing.start_active_span('decrby')
     synchronize do |client|
       client.call([:decrby, key, decrement])
     end
+  ensure
+    scope.close
   end
 
   # Increment the integer value of a key by one.
@@ -735,9 +857,12 @@ class Redis
   # @param [String] key
   # @return [Fixnum] value after incrementing it
   def incr(key)
+    scope = OpenTracing.start_active_span('incr')
     synchronize do |client|
       client.call([:incr, key])
     end
+  ensure
+    scope.close
   end
 
   # Increment the integer value of a key by the given integer number.
@@ -750,9 +875,12 @@ class Redis
   # @param [Fixnum] increment
   # @return [Fixnum] value after incrementing it
   def incrby(key, increment)
+    scope = OpenTracing.start_active_span('incrby')
     synchronize do |client|
       client.call([:incrby, key, increment])
     end
+  ensure
+    scope.close
   end
 
   # Increment the numeric value of a key by the given float number.
@@ -765,9 +893,12 @@ class Redis
   # @param [Float] increment
   # @return [Float] value after incrementing it
   def incrbyfloat(key, increment)
+    scope = OpenTracing.start_active_span('incrbyfloat')
     synchronize do |client|
       client.call([:incrbyfloat, key, increment], &Floatify)
     end
+  ensure
+    scope.close
   end
 
   # Set the string value of a key.
@@ -781,6 +912,7 @@ class Redis
   #   - `:xx => true`: Only set the key if it already exist.
   # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
   def set(key, value, options = {})
+    scope = OpenTracing.start_active_span('set')
     args = []
 
     ex = options[:ex]
@@ -802,6 +934,8 @@ class Redis
         client.call([:set, key, value.to_s] + args)
       end
     end
+  ensure
+    scope.close
   end
 
   # Set the time to live in seconds of a key.
@@ -811,9 +945,12 @@ class Redis
   # @param [String] value
   # @return [String] `"OK"`
   def setex(key, ttl, value)
+    scope = OpenTracing.start_active_span('setex')
     synchronize do |client|
       client.call([:setex, key, ttl, value.to_s])
     end
+  ensure
+    scope.close
   end
 
   # Set the time to live in milliseconds of a key.
@@ -823,9 +960,12 @@ class Redis
   # @param [String] value
   # @return [String] `"OK"`
   def psetex(key, ttl, value)
+    scope = OpenTracing.start_active_span('psetex')
     synchronize do |client|
       client.call([:psetex, key, ttl, value.to_s])
     end
+  ensure
+    scope.close
   end
 
   # Set the value of a key, only if the key does not exist.
@@ -834,9 +974,12 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
+    scope = OpenTracing.start_active_span('setnx')
     synchronize do |client|
       client.call([:setnx, key, value.to_s], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set one or more values.
@@ -850,9 +993,12 @@ class Redis
   #
   # @see #mapped_mset
   def mset(*args)
+    scope = OpenTracing.start_active_span('mset')
     synchronize do |client|
       client.call([:mset] + args)
     end
+  ensure
+    scope.close
   end
 
   # Set one or more values.
@@ -866,7 +1012,10 @@ class Redis
   #
   # @see #mset
   def mapped_mset(hash)
+    scope = OpenTracing.start_active_span('mapped_mset')
     mset(hash.to_a.flatten)
+  ensure
+    scope.close
   end
 
   # Set one or more values, only if none of the keys exist.
@@ -880,9 +1029,12 @@ class Redis
   #
   # @see #mapped_msetnx
   def msetnx(*args)
+    scope = OpenTracing.start_active_span('msetnx')
     synchronize do |client|
       client.call([:msetnx] + args, &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set one or more values, only if none of the keys exist.
@@ -896,7 +1048,10 @@ class Redis
   #
   # @see #msetnx
   def mapped_msetnx(hash)
+    scope = OpenTracing.start_active_span('mapped_msetnx')
     msetnx(hash.to_a.flatten)
+  ensure
+    scope.close
   end
 
   # Get the value of a key.
@@ -904,9 +1059,12 @@ class Redis
   # @param [String] key
   # @return [String]
   def get(key)
+    scope = OpenTracing.start_active_span('get')
     synchronize do |client|
       client.call([:get, key])
     end
+  ensure
+    scope.close
   end
 
   # Get the values of all the given keys.
@@ -920,9 +1078,12 @@ class Redis
   #
   # @see #mapped_mget
   def mget(*keys, &blk)
+    scope = OpenTracing.start_active_span('mget')
     synchronize do |client|
       client.call([:mget] + keys, &blk)
     end
+  ensure
+    scope.close
   end
 
   # Get the values of all the given keys.
@@ -936,6 +1097,7 @@ class Redis
   #
   # @see #mget
   def mapped_mget(*keys)
+    scope = OpenTracing.start_active_span('mapped_mget')
     mget(*keys) do |reply|
       if reply.kind_of?(Array)
         Hash[keys.zip(reply)]
@@ -943,6 +1105,8 @@ class Redis
         reply
       end
     end
+  ensure
+    scope.close
   end
 
   # Overwrite part of a string at key starting at the specified offset.
@@ -952,9 +1116,12 @@ class Redis
   # @param [String] value
   # @return [Fixnum] length of the string after it was modified
   def setrange(key, offset, value)
+    scope = OpenTracing.start_active_span('setrange')
     synchronize do |client|
       client.call([:setrange, key, offset, value.to_s])
     end
+  ensure
+    scope.close
   end
 
   # Get a substring of the string stored at a key.
@@ -965,9 +1132,12 @@ class Redis
   #   the end of the string
   # @return [Fixnum] `0` or `1`
   def getrange(key, start, stop)
+    scope = OpenTracing.start_active_span('getrange')
     synchronize do |client|
       client.call([:getrange, key, start, stop])
     end
+  ensure
+    scope.close
   end
 
   # Sets or clears the bit at offset in the string value stored at key.
@@ -977,9 +1147,12 @@ class Redis
   # @param [Fixnum] value bit value `0` or `1`
   # @return [Fixnum] the original bit value stored at `offset`
   def setbit(key, offset, value)
+    scope = OpenTracing.start_active_span('setbit')
     synchronize do |client|
       client.call([:setbit, key, offset, value])
     end
+  ensure
+    scope.close
   end
 
   # Returns the bit value at offset in the string value stored at key.
@@ -988,9 +1161,12 @@ class Redis
   # @param [Fixnum] offset bit offset
   # @return [Fixnum] `0` or `1`
   def getbit(key, offset)
+    scope = OpenTracing.start_active_span('getbit')
     synchronize do |client|
       client.call([:getbit, key, offset])
     end
+  ensure
+    scope.close
   end
 
   # Append a value to a key.
@@ -999,9 +1175,12 @@ class Redis
   # @param [String] value value to append
   # @return [Fixnum] length of the string after appending
   def append(key, value)
+    scope = OpenTracing.start_active_span('append')
     synchronize do |client|
       client.call([:append, key, value])
     end
+  ensure
+    scope.close
   end
 
   # Count the number of set bits in a range of the string value stored at key.
@@ -1011,9 +1190,12 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [Fixnum] the number of bits set to 1
   def bitcount(key, start = 0, stop = -1)
+    scope = OpenTracing.start_active_span('bitcount')
     synchronize do |client|
       client.call([:bitcount, key, start, stop])
     end
+  ensure
+    scope.close
   end
 
   # Perform a bitwise operation between strings and store the resulting string in a key.
@@ -1023,9 +1205,12 @@ class Redis
   # @param [String, Array<String>] keys one or more source keys to perform `operation`
   # @return [Fixnum] the length of the string stored in `destkey`
   def bitop(operation, destkey, *keys)
+    scope = OpenTracing.start_active_span('bitop')
     synchronize do |client|
       client.call([:bitop, operation, destkey] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Return the position of the first bit set to 1 or 0 in a string.
@@ -1037,6 +1222,7 @@ class Redis
   # @return [Fixnum] the position of the first 1/0 bit.
   #                  -1 if looking for 1 and it is not found or start and stop are given.
   def bitpos(key, bit, start=nil, stop=nil)
+    scope = OpenTracing.start_active_span('bitpos')
     if stop and not start
       raise(ArgumentError, 'stop parameter specified without start parameter')
     end
@@ -1047,6 +1233,8 @@ class Redis
       command << stop if stop
       client.call(command)
     end
+  ensure
+    scope.close
   end
 
   # Set the string value of a key and return its old value.
@@ -1056,9 +1244,12 @@ class Redis
   # @return [String] the old value stored in the key, or `nil` if the key
   #   did not exist
   def getset(key, value)
+    scope = OpenTracing.start_active_span('getset')
     synchronize do |client|
       client.call([:getset, key, value.to_s])
     end
+  ensure
+    scope.close
   end
 
   # Get the length of the value stored in a key.
@@ -1067,9 +1258,12 @@ class Redis
   # @return [Fixnum] the length of the value stored in the key, or 0
   #   if the key does not exist
   def strlen(key)
+    scope = OpenTracing.start_active_span('strlen')
     synchronize do |client|
       client.call([:strlen, key])
     end
+  ensure
+    scope.close
   end
 
   # Get the length of a list.
@@ -1077,9 +1271,12 @@ class Redis
   # @param [String] key
   # @return [Fixnum]
   def llen(key)
+    scope = OpenTracing.start_active_span('llen')
     synchronize do |client|
       client.call([:llen, key])
     end
+  ensure
+    scope.close
   end
 
   # Prepend one or more values to a list, creating the list if it doesn't exist
@@ -1088,9 +1285,12 @@ class Redis
   # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
+    scope = OpenTracing.start_active_span('lpush')
     synchronize do |client|
       client.call([:lpush, key, value])
     end
+  ensure
+    scope.close
   end
 
   # Prepend a value to a list, only if the list exists.
@@ -1099,9 +1299,12 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def lpushx(key, value)
+    scope = OpenTracing.start_active_span('lpushx')
     synchronize do |client|
       client.call([:lpushx, key, value])
     end
+  ensure
+    scope.close
   end
 
   # Append one or more values to a list, creating the list if it doesn't exist
@@ -1110,9 +1313,12 @@ class Redis
   # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def rpush(key, value)
+    scope = OpenTracing.start_active_span('rpush')
     synchronize do |client|
       client.call([:rpush, key, value])
     end
+  ensure
+    scope.close
   end
 
   # Append a value to a list, only if the list exists.
@@ -1121,9 +1327,12 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def rpushx(key, value)
+    scope = OpenTracing.start_active_span('rpushx')
     synchronize do |client|
       client.call([:rpushx, key, value])
     end
+  ensure
+    scope.close
   end
 
   # Remove and get the first element in a list.
@@ -1131,9 +1340,12 @@ class Redis
   # @param [String] key
   # @return [String]
   def lpop(key)
+    scope = OpenTracing.start_active_span('lpop')
     synchronize do |client|
       client.call([:lpop, key])
     end
+  ensure
+    scope.close
   end
 
   # Remove and get the last element in a list.
@@ -1141,9 +1353,12 @@ class Redis
   # @param [String] key
   # @return [String]
   def rpop(key)
+    scope = OpenTracing.start_active_span('rpop')
     synchronize do |client|
       client.call([:rpop, key])
     end
+  ensure
+    scope.close
   end
 
   # Remove the last element in a list, append it to another list and return it.
@@ -1152,9 +1367,12 @@ class Redis
   # @param [String] destination destination key
   # @return [nil, String] the element, or nil when the source key does not exist
   def rpoplpush(source, destination)
+    scope = OpenTracing.start_active_span('rpoplpush')
     synchronize do |client|
       client.call([:rpoplpush, source, destination])
     end
+  ensure
+    scope.close
   end
 
   def _bpop(cmd, args)
@@ -1204,7 +1422,10 @@ class Redis
   #   - `nil` when the operation timed out
   #   - tuple of the list that was popped from and element was popped otherwise
   def blpop(*args)
+    scope = OpenTracing.start_active_span('blpop')
     _bpop(:blpop, args)
+  ensure
+    scope.close
   end
 
   # Remove and get the last element in a list, or block until one is available.
@@ -1220,7 +1441,10 @@ class Redis
   #
   # @see #blpop
   def brpop(*args)
+    scope = OpenTracing.start_active_span('brpop')
     _bpop(:brpop, args)
+  ensure
+    scope.close
   end
 
   # Pop a value from a list, push it to another list and return it; or block
@@ -1235,6 +1459,7 @@ class Redis
   #   - `nil` when the operation timed out
   #   - the element was popped and pushed otherwise
   def brpoplpush(source, destination, options = {})
+    scope = OpenTracing.start_active_span('brpoplpush')
     case options
     when Integer
       # Issue deprecation notice in obnoxious mode...
@@ -1248,6 +1473,8 @@ class Redis
       timeout += client.timeout if timeout > 0
       client.call_with_timeout(command, timeout)
     end
+  ensure
+    scope.close
   end
 
   # Get an element from a list by its index.
@@ -1256,9 +1483,12 @@ class Redis
   # @param [Fixnum] index
   # @return [String]
   def lindex(key, index)
+    scope = OpenTracing.start_active_span('lindex')
     synchronize do |client|
       client.call([:lindex, key, index])
     end
+  ensure
+    scope.close
   end
 
   # Insert an element before or after another element in a list.
@@ -1270,9 +1500,12 @@ class Redis
   # @return [Fixnum] length of the list after the insert operation, or `-1`
   #   when the element `pivot` was not found
   def linsert(key, where, pivot, value)
+    scope = OpenTracing.start_active_span('linsert')
     synchronize do |client|
       client.call([:linsert, key, where, pivot, value])
     end
+  ensure
+    scope.close
   end
 
   # Get a range of elements from a list.
@@ -1282,9 +1515,12 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [Array<String>]
   def lrange(key, start, stop)
+    scope = OpenTracing.start_active_span('lrange')
     synchronize do |client|
       client.call([:lrange, key, start, stop])
     end
+  ensure
+    scope.close
   end
 
   # Remove elements from a list.
@@ -1297,9 +1533,12 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the number of removed elements
   def lrem(key, count, value)
+    scope = OpenTracing.start_active_span('lrem')
     synchronize do |client|
       client.call([:lrem, key, count, value])
     end
+  ensure
+    scope.close
   end
 
   # Set the value of an element in a list by its index.
@@ -1309,9 +1548,12 @@ class Redis
   # @param [String] value
   # @return [String] `OK`
   def lset(key, index, value)
+    scope = OpenTracing.start_active_span('lset')
     synchronize do |client|
       client.call([:lset, key, index, value])
     end
+  ensure
+    scope.close
   end
 
   # Trim a list to the specified range.
@@ -1321,9 +1563,12 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [String] `OK`
   def ltrim(key, start, stop)
+    scope = OpenTracing.start_active_span('ltrim')
     synchronize do |client|
       client.call([:ltrim, key, start, stop])
     end
+  ensure
+    scope.close
   end
 
   # Get the number of members in a set.
@@ -1331,9 +1576,12 @@ class Redis
   # @param [String] key
   # @return [Fixnum]
   def scard(key)
+    scope = OpenTracing.start_active_span('scard')
     synchronize do |client|
       client.call([:scard, key])
     end
+  ensure
+    scope.close
   end
 
   # Add one or more members to a set.
@@ -1345,6 +1593,7 @@ class Redis
   #   array of members is specified, holding the number of members that were
   #   successfully added
   def sadd(key, member)
+    scope = OpenTracing.start_active_span('sadd')
     synchronize do |client|
       client.call([:sadd, key, member]) do |reply|
         if member.is_a? Array
@@ -1356,6 +1605,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Remove one or more members from a set.
@@ -1367,6 +1618,7 @@ class Redis
   #   array of members is specified, holding the number of members that were
   #   successfully removed
   def srem(key, member)
+    scope = OpenTracing.start_active_span('srem')
     synchronize do |client|
       client.call([:srem, key, member]) do |reply|
         if member.is_a? Array
@@ -1378,6 +1630,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Remove and return one or more random member from a set.
@@ -1386,6 +1640,7 @@ class Redis
   # @return [String]
   # @param [Fixnum] count
   def spop(key, count = nil)
+    scope = OpenTracing.start_active_span('spop')
     synchronize do |client|
       if count.nil?
         client.call([:spop, key])
@@ -1393,6 +1648,8 @@ class Redis
         client.call([:spop, key, count])
       end
     end
+  ensure
+    scope.close
   end
 
   # Get one or more random members from a set.
@@ -1401,6 +1658,7 @@ class Redis
   # @param [Fixnum] count
   # @return [String]
   def srandmember(key, count = nil)
+    scope = OpenTracing.start_active_span('srandmember')
     synchronize do |client|
       if count.nil?
         client.call([:srandmember, key])
@@ -1408,6 +1666,8 @@ class Redis
         client.call([:srandmember, key, count])
       end
     end
+  ensure
+    scope.close
   end
 
   # Move a member from one set to another.
@@ -1417,9 +1677,12 @@ class Redis
   # @param [String] member member to move from `source` to `destination`
   # @return [Boolean]
   def smove(source, destination, member)
+    scope = OpenTracing.start_active_span('smove')
     synchronize do |client|
       client.call([:smove, source, destination, member], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Determine if a given value is a member of a set.
@@ -1428,9 +1691,12 @@ class Redis
   # @param [String] member
   # @return [Boolean]
   def sismember(key, member)
+    scope = OpenTracing.start_active_span('sismember')
     synchronize do |client|
       client.call([:sismember, key, member], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Get all the members in a set.
@@ -1438,9 +1704,12 @@ class Redis
   # @param [String] key
   # @return [Array<String>]
   def smembers(key)
+    scope = OpenTracing.start_active_span('smembers')
     synchronize do |client|
       client.call([:smembers, key])
     end
+  ensure
+    scope.close
   end
 
   # Subtract multiple sets.
@@ -1448,9 +1717,12 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to subtract
   # @return [Array<String>] members in the difference
   def sdiff(*keys)
+    scope = OpenTracing.start_active_span('sdiff')
     synchronize do |client|
       client.call([:sdiff] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Subtract multiple sets and store the resulting set in a key.
@@ -1459,9 +1731,12 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to subtract
   # @return [Fixnum] number of elements in the resulting set
   def sdiffstore(destination, *keys)
+    scope = OpenTracing.start_active_span('sdiffstore')
     synchronize do |client|
       client.call([:sdiffstore, destination] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Intersect multiple sets.
@@ -1469,9 +1744,12 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to intersect
   # @return [Array<String>] members in the intersection
   def sinter(*keys)
+    scope = OpenTracing.start_active_span('sinter')
     synchronize do |client|
       client.call([:sinter] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Intersect multiple sets and store the resulting set in a key.
@@ -1480,6 +1758,7 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to intersect
   # @return [Fixnum] number of elements in the resulting set
   def sinterstore(destination, *keys)
+    scope = OpenTracing.start_active_span('sinterstore')
     synchronize do |client|
       client.call([:sinterstore, destination] + keys)
     end
@@ -1490,9 +1769,12 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to unify
   # @return [Array<String>] members in the union
   def sunion(*keys)
+    scope = OpenTracing.start_active_span('sunion')
     synchronize do |client|
       client.call([:sunion] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Add multiple sets and store the resulting set in a key.
@@ -1501,9 +1783,12 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to unify
   # @return [Fixnum] number of elements in the resulting set
   def sunionstore(destination, *keys)
+    scope = OpenTracing.start_active_span('sunionstore')
     synchronize do |client|
       client.call([:sunionstore, destination] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Get the number of members in a sorted set.
@@ -1515,9 +1800,12 @@ class Redis
   # @param [String] key
   # @return [Fixnum]
   def zcard(key)
+    scope = OpenTracing.start_active_span('zcard')
     synchronize do |client|
       client.call([:zcard, key])
     end
+  ensure
+    scope.close
   end
 
   # Add one or more members to a sorted set, or update the score for members
@@ -1552,6 +1840,7 @@ class Redis
   #   - `Float` when option :incr is specified, holding the score of the member
   #   after incrementing it.
   def zadd(key, *args) #, options
+    scope = OpenTracing.start_active_span('zadd')
     zadd_options = []
     if args.last.is_a?(Hash)
       options = args.pop
@@ -1580,6 +1869,8 @@ class Redis
         raise ArgumentError, "wrong number of arguments"
       end
     end
+  ensure
+    scope.close
   end
 
   # Increment the score of a member in a sorted set.
@@ -1593,9 +1884,12 @@ class Redis
   # @param [String] member
   # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
+    scope = OpenTracing.start_active_span('zincrby')
     synchronize do |client|
       client.call([:zincrby, key, increment, member], &Floatify)
     end
+  ensure
+    scope.close
   end
 
   # Remove one or more members from a sorted set.
@@ -1616,6 +1910,7 @@ class Redis
   #   - `Fixnum` when an array of pairs is specified, holding the number of
   #   members that were removed to the sorted set
   def zrem(key, member)
+    scope = OpenTracing.start_active_span('zrem')
     synchronize do |client|
       client.call([:zrem, key, member]) do |reply|
         if member.is_a? Array
@@ -1627,6 +1922,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Get the score associated with the given member in a sorted set.
@@ -1639,9 +1936,12 @@ class Redis
   # @param [String] member
   # @return [Float] score of the member
   def zscore(key, member)
+    scope = OpenTracing.start_active_span('zscore')
     synchronize do |client|
       client.call([:zscore, key, member], &Floatify)
     end
+  ensure
+    scope.close
   end
 
   # Return a range of members in a sorted set, by index.
@@ -1663,6 +1963,7 @@ class Redis
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
   def zrange(key, start, stop, options = {})
+    scope = OpenTracing.start_active_span('zrange')
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
@@ -1675,6 +1976,8 @@ class Redis
     synchronize do |client|
       client.call([:zrange, key, start, stop] + args, &block)
     end
+  ensure
+    scope.close
   end
 
   # Return a range of members in a sorted set, by index, with scores ordered
@@ -1689,6 +1992,7 @@ class Redis
   #
   # @see #zrange
   def zrevrange(key, start, stop, options = {})
+    scope = OpenTracing.start_active_span('zrevrange')
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
@@ -1701,6 +2005,8 @@ class Redis
     synchronize do |client|
       client.call([:zrevrange, key, start, stop] + args, &block)
     end
+  ensure
+    scope.close
   end
 
   # Determine the index of a member in a sorted set.
@@ -1709,9 +2015,12 @@ class Redis
   # @param [String] member
   # @return [Fixnum]
   def zrank(key, member)
+    scope = OpenTracing.start_active_span('zrank')
     synchronize do |client|
       client.call([:zrank, key, member])
     end
+  ensure
+    scope.close
   end
 
   # Determine the index of a member in a sorted set, with scores ordered from
@@ -1721,9 +2030,12 @@ class Redis
   # @param [String] member
   # @return [Fixnum]
   def zrevrank(key, member)
+    scope = OpenTracing.start_active_span('zrevrank')
     synchronize do |client|
       client.call([:zrevrank, key, member])
     end
+  ensure
+    scope.close
   end
 
   # Remove all members in a sorted set within the given indexes.
@@ -1740,9 +2052,12 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [Fixnum] number of members that were removed
   def zremrangebyrank(key, start, stop)
+    scope = OpenTracing.start_active_span('zremrangebyrank')
     synchronize do |client|
       client.call([:zremrangebyrank, key, start, stop])
     end
+  ensure
+    scope.close
   end
 
   # Count the members, with the same score in a sorted set, within the given lexicographical range.
@@ -1764,9 +2079,12 @@ class Redis
   #
   # @return [Fixnum] number of members within the specified lexicographical range
   def zlexcount(key, min, max)
+    scope = OpenTracing.start_active_span('zlexcount')
     synchronize do |client|
       client.call([:zlexcount, key, min, max])
     end
+  ensure
+    scope.close
   end
 
   # Return a range of members with the same score in a sorted set, by lexicographical ordering
@@ -1791,6 +2109,7 @@ class Redis
   #
   # @return [Array<String>, Array<[String, Float]>]
   def zrangebylex(key, min, max, options = {})
+    scope = OpenTracing.start_active_span('zrangebylex')
     args = []
 
     limit = options[:limit]
@@ -1799,6 +2118,8 @@ class Redis
     synchronize do |client|
       client.call([:zrangebylex, key, min, max] + args)
     end
+  ensure
+    scope.close
   end
 
   # Return a range of members with the same score in a sorted set, by reversed lexicographical ordering.
@@ -1813,6 +2134,7 @@ class Redis
   #
   # @see #zrangebylex
   def zrevrangebylex(key, max, min, options = {})
+    scope = OpenTracing.start_active_span('zrevrangebylex')
     args = []
 
     limit = options[:limit]
@@ -1821,6 +2143,8 @@ class Redis
     synchronize do |client|
       client.call([:zrevrangebylex, key, max, min] + args)
     end
+  ensure
+    scope.close
   end
 
   # Return a range of members in a sorted set, by score.
@@ -1851,6 +2175,7 @@ class Redis
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
   def zrangebyscore(key, min, max, options = {})
+    scope = OpenTracing.start_active_span('zrangebyscore')
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
@@ -1866,6 +2191,8 @@ class Redis
     synchronize do |client|
       client.call([:zrangebyscore, key, min, max] + args, &block)
     end
+  ensure
+    scope.close
   end
 
   # Return a range of members in a sorted set, by score, with scores ordered
@@ -1883,6 +2210,7 @@ class Redis
   #
   # @see #zrangebyscore
   def zrevrangebyscore(key, max, min, options = {})
+    scope = OpenTracing.start_active_span('zrevrangebyscore')
     args = []
 
     with_scores = options[:with_scores] || options[:withscores]
@@ -1898,6 +2226,8 @@ class Redis
     synchronize do |client|
       client.call([:zrevrangebyscore, key, max, min] + args, &block)
     end
+  ensure
+    scope.close
   end
 
   # Remove all members in a sorted set within the given scores.
@@ -1918,9 +2248,12 @@ class Redis
   #   - exclusive maximum score is specified by prefixing `(`
   # @return [Fixnum] number of members that were removed
   def zremrangebyscore(key, min, max)
+    scope = OpenTracing.start_active_span('zremrangebyscore')
     synchronize do |client|
       client.call([:zremrangebyscore, key, min, max])
     end
+  ensure
+    scope.close
   end
 
   # Count the members in a sorted set with scores within the given values.
@@ -1941,9 +2274,12 @@ class Redis
   #   - exclusive maximum score is specified by prefixing `(`
   # @return [Fixnum] number of members in within the specified range
   def zcount(key, min, max)
+    scope = OpenTracing.start_active_span('zcount')
     synchronize do |client|
       client.call([:zcount, key, min, max])
     end
+  ensure
+    scope.close
   end
 
   # Intersect multiple sorted sets and store the resulting sorted set in a new
@@ -1961,6 +2297,7 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zinterstore(destination, keys, options = {})
+    scope = OpenTracing.start_active_span('zinterstore')
     args = []
 
     weights = options[:weights]
@@ -1972,6 +2309,8 @@ class Redis
     synchronize do |client|
       client.call([:zinterstore, destination, keys.size] + keys + args)
     end
+  ensure
+    scope.close
   end
 
   # Add multiple sorted sets and store the resulting sorted set in a new key.
@@ -1988,6 +2327,7 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zunionstore(destination, keys, options = {})
+    scope = OpenTracing.start_active_span('zunionstore')
     args = []
 
     weights = options[:weights]
@@ -1999,6 +2339,8 @@ class Redis
     synchronize do |client|
       client.call([:zunionstore, destination, keys.size] + keys + args)
     end
+  ensure
+    scope.close
   end
 
   # Get the number of fields in a hash.
@@ -2006,9 +2348,12 @@ class Redis
   # @param [String] key
   # @return [Fixnum] number of fields in the hash
   def hlen(key)
+    scope = OpenTracing.start_active_span('hlen')
     synchronize do |client|
       client.call([:hlen, key])
     end
+  ensure
+    scope.close
   end
 
   # Set the string value of a hash field.
@@ -2018,9 +2363,12 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether or not the field was **added** to the hash
   def hset(key, field, value)
+    scope = OpenTracing.start_active_span('hset')
     synchronize do |client|
       client.call([:hset, key, field, value], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set the value of a hash field, only if the field does not exist.
@@ -2030,9 +2378,12 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether or not the field was **added** to the hash
   def hsetnx(key, field, value)
+    scope = OpenTracing.start_active_span('hsetnx')
     synchronize do |client|
       client.call([:hsetnx, key, field, value], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Set one or more hash values.
@@ -2047,9 +2398,12 @@ class Redis
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
+    scope = OpenTracing.start_active_span('hmset')
     synchronize do |client|
       client.call([:hmset, key] + attrs)
     end
+  ensure
+    scope.close
   end
 
   # Set one or more hash values.
@@ -2064,7 +2418,10 @@ class Redis
   #
   # @see #hmset
   def mapped_hmset(key, hash)
+    scope = OpenTracing.start_active_span('mapped_hmset')
     hmset(key, hash.to_a.flatten)
+  ensure
+    scope.close
   end
 
   # Get the value of a hash field.
@@ -2073,9 +2430,12 @@ class Redis
   # @param [String] field
   # @return [String]
   def hget(key, field)
+    scope = OpenTracing.start_active_span('hget')
     synchronize do |client|
       client.call([:hget, key, field])
     end
+  ensure
+    scope.close
   end
 
   # Get the values of all the given hash fields.
@@ -2090,9 +2450,12 @@ class Redis
   #
   # @see #mapped_hmget
   def hmget(key, *fields, &blk)
+    scope = OpenTracing.start_active_span('hmget')
     synchronize do |client|
       client.call([:hmget, key] + fields, &blk)
     end
+  ensure
+    scope.close
   end
 
   # Get the values of all the given hash fields.
@@ -2107,6 +2470,7 @@ class Redis
   #
   # @see #hmget
   def mapped_hmget(key, *fields)
+    scope = OpenTracing.start_active_span('mapped_hmget')
     hmget(key, *fields) do |reply|
       if reply.kind_of?(Array)
         Hash[fields.zip(reply)]
@@ -2114,6 +2478,8 @@ class Redis
         reply
       end
     end
+  ensure
+    scope.close
   end
 
   # Delete one or more hash fields.
@@ -2122,9 +2488,12 @@ class Redis
   # @param [String, Array<String>] field
   # @return [Fixnum] the number of fields that were removed from the hash
   def hdel(key, *fields)
+    scope = OpenTracing.start_active_span('hdel')
     synchronize do |client|
       client.call([:hdel, key, *fields])
     end
+  ensure
+    scope.close
   end
 
   # Determine if a hash field exists.
@@ -2133,9 +2502,12 @@ class Redis
   # @param [String] field
   # @return [Boolean] whether or not the field exists in the hash
   def hexists(key, field)
+    scope = OpenTracing.start_active_span('hexists')
     synchronize do |client|
       client.call([:hexists, key, field], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Increment the integer value of a hash field by the given integer number.
@@ -2145,9 +2517,12 @@ class Redis
   # @param [Fixnum] increment
   # @return [Fixnum] value of the field after incrementing it
   def hincrby(key, field, increment)
+    scope = OpenTracing.start_active_span('hincrby')
     synchronize do |client|
       client.call([:hincrby, key, field, increment])
     end
+  ensure
+    scope.close
   end
 
   # Increment the numeric value of a hash field by the given float number.
@@ -2157,9 +2532,12 @@ class Redis
   # @param [Float] increment
   # @return [Float] value of the field after incrementing it
   def hincrbyfloat(key, field, increment)
+    scope = OpenTracing.start_active_span('hincrbyfloat')
     synchronize do |client|
       client.call([:hincrbyfloat, key, field, increment], &Floatify)
     end
+  ensure
+    scope.close
   end
 
   # Get all the fields in a hash.
@@ -2167,9 +2545,12 @@ class Redis
   # @param [String] key
   # @return [Array<String>]
   def hkeys(key)
+    scope = OpenTracing.start_active_span('hkeys')
     synchronize do |client|
       client.call([:hkeys, key])
     end
+  ensure
+    scope.close
   end
 
   # Get all the values in a hash.
@@ -2177,9 +2558,12 @@ class Redis
   # @param [String] key
   # @return [Array<String>]
   def hvals(key)
+    scope = OpenTracing.start_active_span('hvals')
     synchronize do |client|
       client.call([:hvals, key])
     end
+  ensure
+    scope.close
   end
 
   # Get all the fields and values in a hash.
@@ -2187,16 +2571,22 @@ class Redis
   # @param [String] key
   # @return [Hash<String, String>]
   def hgetall(key)
+    scope = OpenTracing.start_active_span('hgetall')
     synchronize do |client|
       client.call([:hgetall, key], &Hashify)
     end
+  ensure
+    scope.close
   end
 
   # Post a message to a channel.
   def publish(channel, message)
+    scope = OpenTracing.start_active_span('publish')
     synchronize do |client|
       client.call([:publish, channel, message])
     end
+  ensure
+    scope.close
   end
 
   def subscribed?
@@ -2207,54 +2597,75 @@ class Redis
 
   # Listen for messages published to the given channels.
   def subscribe(*channels, &block)
+    scope = OpenTracing.start_active_span('subscribed')
     synchronize do |client|
       _subscription(:subscribe, 0, channels, block)
     end
+  ensure
+    scope.close
   end
 
   # Listen for messages published to the given channels. Throw a timeout error if there is no messages for a timeout period.
   def subscribe_with_timeout(timeout, *channels, &block)
+    scope = OpenTracing.start_active_span('subscribe_with_timeout')
     synchronize do |client|
       _subscription(:subscribe_with_timeout, timeout, channels, block)
     end
+  ensure
+    scope.close
   end
 
   # Stop listening for messages posted to the given channels.
   def unsubscribe(*channels)
+    scope = OpenTracing.start_active_span('unsubscribe')
     synchronize do |client|
       raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
       client.unsubscribe(*channels)
     end
+  ensure
+    scope.close
   end
 
   # Listen for messages published to channels matching the given patterns.
   def psubscribe(*channels, &block)
+    scope = OpenTracing.start_active_span('psubscribe')
     synchronize do |client|
       _subscription(:psubscribe, 0, channels, block)
     end
+  ensure
+    scope.close
   end
 
   # Listen for messages published to channels matching the given patterns. Throw a timeout error if there is no messages for a timeout period.
   def psubscribe_with_timeout(timeout, *channels, &block)
+    scope = OpenTracing.start_active_span('psubscribe_with_timeout')
     synchronize do |client|
       _subscription(:psubscribe_with_timeout, timeout, channels, block)
     end
+  ensure
+    scope.close
   end
 
   # Stop listening for messages posted to channels matching the given patterns.
   def punsubscribe(*channels)
+    scope = OpenTracing.start_active_span('punsubscribe')
     synchronize do |client|
       raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
       client.punsubscribe(*channels)
     end
+  ensure
+    scope.close
   end
 
   # Inspect the state of the Pub/Sub subsystem.
   # Possible subcommands: channels, numsub, numpat.
   def pubsub(subcommand, *args)
+    scope = OpenTracing.start_active_span('pubsub')
     synchronize do |client|
       client.call([:pubsub, subcommand] + args)
     end
+  ensure
+    scope.close
   end
 
   # Watch the given keys to determine execution of the MULTI/EXEC block.
@@ -2288,6 +2699,7 @@ class Redis
   # @see #unwatch
   # @see #multi
   def watch(*keys)
+    scope = OpenTracing.start_active_span('watch')
     synchronize do |client|
       res = client.call([:watch] + keys)
 
@@ -2304,6 +2716,8 @@ class Redis
         res
       end
     end
+  ensure
+    scope.close
   end
 
   # Forget about all watched keys.
@@ -2313,9 +2727,12 @@ class Redis
   # @see #watch
   # @see #multi
   def unwatch
+    scope = OpenTracing.start_active_span('unwatch')
     synchronize do |client|
       client.call([:unwatch])
     end
+  ensure
+    scope.close
   end
 
   def pipelined
@@ -2361,6 +2778,7 @@ class Redis
   # @see #watch
   # @see #unwatch
   def multi
+    scope = OpenTracing.start_active_span('multi')
     synchronize do |client|
       if !block_given?
         client.call([:multi])
@@ -2375,6 +2793,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   # Execute all commands issued after MULTI.
@@ -2388,9 +2808,12 @@ class Redis
   # @see #multi
   # @see #discard
   def exec
+    scope = OpenTracing.start_active_span('exec')
     synchronize do |client|
       client.call([:exec])
     end
+  ensure
+    scope.close
   end
 
   # Discard all commands issued after MULTI.
@@ -2402,9 +2825,12 @@ class Redis
   # @see #multi
   # @see #exec
   def discard
+    scope = OpenTracing.start_active_span('discard')
     synchronize do |client|
       client.call([:discard])
     end
+  ensure
+    scope.close
   end
 
   # Control remote script registry.
@@ -2432,6 +2858,7 @@ class Redis
   # @see #eval
   # @see #evalsha
   def script(subcommand, *args)
+    scope = OpenTracing.start_active_span('script')
     subcommand = subcommand.to_s.downcase
 
     if subcommand == "exists"
@@ -2453,6 +2880,8 @@ class Redis
         client.call([:script, subcommand] + args)
       end
     end
+  ensure
+    scope.close
   end
 
   def _eval(cmd, args)
@@ -2490,7 +2919,10 @@ class Redis
   # @see #script
   # @see #evalsha
   def eval(*args)
+    scope = OpenTracing.start_active_span('eval')
     _eval(:eval, args)
+  ensure
+    scope.close
   end
 
   # Evaluate Lua script by its SHA.
@@ -2515,7 +2947,10 @@ class Redis
   # @see #script
   # @see #eval
   def evalsha(*args)
+    scope = OpenTracing.start_active_span('evalsha')
     _eval(:evalsha, args)
+  ensure
+    scope.close
   end
 
   def _scan(command, cursor, args, options = {}, &block)
@@ -2552,7 +2987,10 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found keys
   def scan(cursor, options={})
+    scope = OpenTracing.start_active_span('scan')
     _scan(:scan, cursor, [], options)
+  ensure
+    scope.close
   end
 
   # Scan the keyspace
@@ -2571,6 +3009,7 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all found keys
   def scan_each(options={}, &block)
+    scope = OpenTracing.start_active_span('scan_each')
     return to_enum(:scan_each, options) unless block_given?
     cursor = 0
     loop do
@@ -2578,6 +3017,8 @@ class Redis
       keys.each(&block)
       break if cursor == "0"
     end
+  ensure
+    scope.close
   end
 
   # Scan a hash
@@ -2592,9 +3033,12 @@ class Redis
   #
   # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
+    scope = OpenTracing.start_active_span('hscan')
     _scan(:hscan, cursor, [key], options) do |reply|
       [reply[0], reply[1].each_slice(2).to_a]
     end
+  ensure
+    scope.close
   end
 
   # Scan a hash
@@ -2609,6 +3053,7 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all found keys
   def hscan_each(key, options={}, &block)
+    scope = OpenTracing.start_active_span('hscan_each')
     return to_enum(:hscan_each, key, options) unless block_given?
     cursor = 0
     loop do
@@ -2616,6 +3061,8 @@ class Redis
       values.each(&block)
       break if cursor == "0"
     end
+  ensure
+    scope.close
   end
 
   # Scan a sorted set
@@ -2631,9 +3078,12 @@ class Redis
   # @return [String, Array<[String, Float]>] the next cursor and all found
   #   members and scores
   def zscan(key, cursor, options={})
+    scope = OpenTracing.start_active_span('zscan')
     _scan(:zscan, cursor, [key], options) do |reply|
       [reply[0], FloatifyPairs.call(reply[1])]
     end
+  ensure
+    scope.close
   end
 
   # Scan a sorted set
@@ -2648,6 +3098,7 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all found scores and members
   def zscan_each(key, options={}, &block)
+    scope = OpenTracing.start_active_span('zscan_each')
     return to_enum(:zscan_each, key, options) unless block_given?
     cursor = 0
     loop do
@@ -2655,6 +3106,8 @@ class Redis
       values.each(&block)
       break if cursor == "0"
     end
+  ensure
+    scope.close
   end
 
   # Scan a set
@@ -2669,7 +3122,10 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found members
   def sscan(key, cursor, options={})
+    scope = OpenTracing.start_active_span('sscan')
     _scan(:sscan, cursor, [key], options)
+  ensure
+    scope.close
   end
 
   # Scan a set
@@ -2684,6 +3140,7 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all keys in the set
   def sscan_each(key, options={}, &block)
+    scope = OpenTracing.start_active_span('sscan_each')
     return to_enum(:sscan_each, key, options) unless block_given?
     cursor = 0
     loop do
@@ -2691,6 +3148,8 @@ class Redis
       keys.each(&block)
       break if cursor == "0"
     end
+  ensure
+    scope.close
   end
 
   # Add one or more members to a HyperLogLog structure.
@@ -2699,9 +3158,12 @@ class Redis
   # @param [String, Array<String>] member one member, or array of members
   # @return [Boolean] true if at least 1 HyperLogLog internal register was altered. false otherwise.
   def pfadd(key, member)
+    scope = OpenTracing.start_active_span('pfadd')
     synchronize do |client|
       client.call([:pfadd, key, member], &Boolify)
     end
+  ensure
+    scope.close
   end
 
   # Get the approximate cardinality of members added to HyperLogLog structure.
@@ -2712,9 +3174,12 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Fixnum]
   def pfcount(*keys)
+    scope = OpenTracing.start_active_span('pfcount')
     synchronize do |client|
       client.call([:pfcount] + keys)
     end
+  ensure
+    scope.close
   end
 
   # Merge multiple HyperLogLog values into an unique value that will approximate the cardinality of the union of
@@ -2724,9 +3189,12 @@ class Redis
   # @param [String, Array<String>] source_key source key, or array of keys
   # @return [Boolean]
   def pfmerge(dest_key, *source_key)
+    scope = OpenTracing.start_active_span('pfmerge')
     synchronize do |client|
       client.call([:pfmerge, dest_key, *source_key], &BoolifySet)
     end
+  ensure
+    scope.close
   end
 
   # Adds the specified geospatial items (latitude, longitude, name) to the specified key
@@ -2735,9 +3203,12 @@ class Redis
   # @param [Array] member arguemnts for member or members: longitude, latitude, name
   # @return [Intger] number of elements added to the sorted set
   def geoadd(key, *member)
+    scope = OpenTracing.start_active_span('geoadd')
     synchronize do |client|
       client.call([:geoadd, key, member])
     end
+  ensure
+    scope.close
   end
 
   # Returns geohash string representing position for specified members of the specified key.
@@ -2746,9 +3217,12 @@ class Redis
   # @param [String, Array<String>] member one member or array of members
   # @return [Array<String, nil>] returns array containg geohash string if member is present, nil otherwise
   def geohash(key, member)
+    scope = OpenTracing.start_active_span('geohash')
     synchronize do |client|
       client.call([:geohash, key, member])
     end
+  ensure
+    scope.close
   end
 
 
@@ -2762,11 +3236,14 @@ class Redis
   # @return [Array<String>] may be changed with `options`
 
   def georadius(*args, **geoptions)
+    scope = OpenTracing.start_active_span('georadius')
     geoarguments = _geoarguments(*args, **geoptions)
 
     synchronize do |client|
       client.call([:georadius, *geoarguments])
     end
+  ensure
+    scope.close
   end
 
   # Query a sorted set representing a geospatial index to fetch members matching a
@@ -2779,11 +3256,14 @@ class Redis
   # @return [Array<String>] may be changed with `options`
 
   def georadiusbymember(*args, **geoptions)
+    scope = OpenTracing.start_active_span('georadiusbymember')
     geoarguments = _geoarguments(*args, **geoptions)
 
     synchronize do |client|
       client.call([:georadiusbymember, *geoarguments])
     end
+  ensure
+    scope.close
   end
 
   # Returns longitude and latitude of members of a geospatial index
@@ -2792,9 +3272,12 @@ class Redis
   # @param [String, Array<String>] member one member or array of members
   # @return [Array<Array<String>, nil>] returns array of elements, where each element is either array of longitude and latitude or nil
   def geopos(key, member)
+    scope = OpenTracing.start_active_span('geopos')
     synchronize do |client|
       client.call([:geopos, key, member])
     end
+  ensure
+    scope.close
   end
 
   # Returns the distance between two members of a geospatial index
@@ -2804,9 +3287,12 @@ class Redis
   # @param ['m', 'km', 'mi', 'ft'] unit
   # @return [String, nil] returns distance in spefied unit if both members present, nil otherwise.
   def geodist(key, member1, member2, unit = 'm')
+    scope = OpenTracing.start_active_span('geodist')
     synchronize do |client|
       client.call([:geodist, key, member1, member2, unit])
     end
+  ensure
+    scope.close
   end
 
   # Interact with the sentinel command (masters, master, slaves, failover)
@@ -2815,6 +3301,7 @@ class Redis
   # @param [Array<String>] args depends on subcommand
   # @return [Array<String>, Hash<String, String>, String] depends on subcommand
   def sentinel(subcommand, *args)
+    scope = OpenTracing.start_active_span('sentinel')
     subcommand = subcommand.to_s.downcase
     synchronize do |client|
       client.call([:sentinel, subcommand] + args) do |reply|
@@ -2834,6 +3321,8 @@ class Redis
         end
       end
     end
+  ensure
+    scope.close
   end
 
   def id

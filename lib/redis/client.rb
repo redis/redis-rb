@@ -112,10 +112,6 @@ class Redis
       
       init_circuit_breaker(@options)
       register_prom
-      parent = OpenTracing.scope_manager.active
-      if parent
-        OpenTracing.start_active_span('client', child_of: parent.span, ignore_active_scope: true)
-      end
     end
 
     def connect
@@ -150,24 +146,23 @@ class Redis
     end
 
     def call(command)
-      scope = OpenTracing.scope_manager.active
-      if scope
-        scope.span.set_tag('call', command)
+      parent = OpenTracing.scope_manager.active
+      if parent
+        scope = OpenTracing.start_active_span('client-call', child_of: parent.span)
+      else
+        scope = OpenTracing.start_active_span('client-calls')
       end
 
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
-      
-      scope = OpenTracing.scope_manager.active
-      if scope
-        scope.close
-      end
 
       if block_given?
         yield reply
       else
         reply
       end
+    ensure
+      scope.close
     end
 
     def call_loop(command, timeout = 0)
@@ -263,10 +258,6 @@ class Redis
     end
 
     def process(commands)
-      scope = OpenTracing.scope_manager.active
-      if scope
-        scope.span.set_tag('process', commands)
-      end
       logging(commands) do
         ensure_connected do
           commands.each do |command|
