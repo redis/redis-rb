@@ -105,6 +105,19 @@ redis = Redis.new(
 - `retry_base : 2` this means for every attempt failure the client must wait for `2^attempts * timeout` before it is allowed to make another attempt.
 - `retry_max_time: 60` the maximum time allowed for client to wait. 
 
+## Tracing
+
+To take advantage of tracing with this library, implement Redis with :
+```ruby
+redis = Redis.new(
+    tracer: TracerImplementation,
+  )
+```
+- `tracer: OpenTracing::Tracer` your implementation of tracer. Your implementation of tracer must be compatible with OpenTracing.
+
+This library supports all tracer implementation that is compatible with OpenTracing.
+If you already define a global tracing and have an active span, for every new span created by Redis will be a child of your span.
+
 ## Sentinel support
 
 The client is able to perform automatic failover by using [Redis
