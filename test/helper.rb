@@ -17,11 +17,7 @@ require_relative "support/redis_mock"
 require_relative "support/connection/#{ENV["DRIVER"]}"
 
 PORT    = 6381
-OPTIONS = {
-  :port => PORT, 
-  :db => 15, 
-  :timeout => Float(ENV["TIMEOUT"] || 0.1),
-}
+OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1), :tracer => Jaeger::Client.build(host: 'localhost', port: 6831, service_name: 'redis')}
 NODES   = ["redis://127.0.0.1:#{PORT}/15"]
 
 def init(redis)
@@ -198,7 +194,6 @@ module Helper
       {
         :timeout => OPTIONS[:timeout],
         :logger => ::Logger.new(@log),
-        :tracer => Jaeger::Client.build(host: 'localhost', port: 6831, service_name: 'redis'),
       }.merge(options)
     end
 
