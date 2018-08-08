@@ -116,7 +116,7 @@ redis = Redis.new(
 - `tracer: OpenTracing::Tracer` your implementation of tracer. Your implementation of tracer must be compatible with OpenTracing.
 
 This library supports all tracer implementation that is compatible with OpenTracing.
-If you already define a global tracing and have an active span, for every new span created by Redis will be a child of your span.
+If you already define a global tracing and have an active span, every new span created by Redis will be a child of your span.
 
 ## Sentinel support
 

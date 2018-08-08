@@ -145,14 +145,22 @@ class Redis
       path || "#{host}:#{port}"
     end
 
-    def call(command)
+    # Create tracing object
+    #
+    # @param options [String] :name (redis) name for the span created by this function
+    #
+    # @return [OpenTracing] OpenTracing object in the form of scope
+    def tracing(span_name='redis')
       parent = OpenTracing.scope_manager.active
       if parent
-        scope = OpenTracing.start_active_span('client-call', child_of: parent.span)
+        scope = OpenTracing.start_active_span(span_name, child_of: parent.span)
       else
-        scope = OpenTracing.start_active_span('client-calls')
+        scope = OpenTracing.start_active_span(span_name)
       end
+    end
 
+    def call(command)
+      scope = tracing('client-call')
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
 
