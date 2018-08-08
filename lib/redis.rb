@@ -1,7 +1,6 @@
 require "monitor"
 require_relative "redis/errors"
 require 'opentracing'
-require 'jaeger/client'
 
 class Redis
 
@@ -48,11 +47,16 @@ class Redis
     if options[:tracer]
       OpenTracing.global_tracer = options[:tracer]
     else
-      OpenTracing.global_tracer = Jaeger::Client.build(host: 'localhost', port: 6831, service_name: 'redis')
+      OpenTracing.global_tracer = OpenTracing::Tracer.new
     end
     super() # Monitor#initialize
   end
 
+  # Create tracing object
+  #
+  # @param options [String] :name (redis) name for the span created by this function
+  #
+  # @return [OpenTracing] OpenTracing object in the form of scope
   def tracing(span_name='redis')
     parent = OpenTracing.scope_manager.active
     if parent
