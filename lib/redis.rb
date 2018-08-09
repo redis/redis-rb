@@ -49,21 +49,20 @@ class Redis
     else
       OpenTracing.global_tracer = OpenTracing::Tracer.new
     end
+    @parent_active_span = nil
+    if options[:active_span]
+      @parent_active_span = options[:active_span]
+    end
     super() # Monitor#initialize
   end
 
   # Create tracing object
   #
   # @param options [String] :name (redis) name for the span created by this function
-  #
+  # @param options [OpenTracing] :parent (OpenTracing.scope_manager.active) a scope acting as parent for this tracer
   # @return [OpenTracing] OpenTracing object in the form of scope
   def tracing(span_name='redis')
-    parent = OpenTracing.scope_manager.active
-    if parent
-      scope = OpenTracing.start_active_span(span_name, child_of: parent.span)
-    else
-      scope = OpenTracing.start_active_span(span_name)
-    end
+    scope = OpenTracing.start_active_span(span_name, child_of: @parent_active_span)
   end
 
   def synchronize
