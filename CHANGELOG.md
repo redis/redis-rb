@@ -1,3 +1,17 @@
+# 4.0.2
+
+* Added `Redis#unlink`. See #766.
+
+* `Redis.new` now accept a custom connector via `:connector`. See #591.
+
+* `Redis#multi` no longer perform empty transactions. See #747.
+
+* `Redis#hdel` now accepts hash keys as multiple arguments like `#del`. See #755.
+
+* Allow to skip SSL verification. See #745.
+
+* Add Geo commands: `geoadd`, `geohash`, `georadius`, `georadiusbymember`, `geopos`, `geodist`. See #730.
+
 # 4.0.1
 
 * `Redis::Distributed` now supports `mget` and `mapped_mget`. See #687.
