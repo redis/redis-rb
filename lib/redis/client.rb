@@ -144,10 +144,6 @@ class Redis
       path || "#{host}:#{port}"
     end
 
-    def set_parent_span(span)
-      @parent_span = span
-    end
-
     def call(command)
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
