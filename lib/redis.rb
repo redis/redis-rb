@@ -38,7 +38,8 @@ class Redis
   # @option options [Fixnum] : failure_timeout (10) timeout for circuit breaker before the circuit is closed again in seconds
   # @option options [Fixnum] : invocation_timeout (10) time out for function call before the invocation is considered as failed in seconds
   # @option options [Array] : excluded_exceptions ([RuntimeError]) error or exception to be excluded from circuit breaker
-  #
+  # @option options [OpenTracing] : active_span a span that will be used as parent for all span from this library
+  # 
   # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
