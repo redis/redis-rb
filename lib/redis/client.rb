@@ -3,7 +3,6 @@ require "socket"
 require "cgi"
 require "circuit_breaker"
 require 'prometheus/client'
-require 'opentracing'
 
 
 class Redis
