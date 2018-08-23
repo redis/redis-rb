@@ -62,8 +62,20 @@ class Redis
   # @param options [String] :name (redis) name for the span created by this function
   # @param options [OpenTracing] :parent (OpenTracing.scope_manager.active) a scope acting as parent for this tracer
   # @return [OpenTracing] OpenTracing object in the form of scope
-  def tracing(span_name='redis')
+  def with_tracing(span_name='redis', *args)
     scope = OpenTracing.start_active_span(span_name, child_of: @parent_active_span)
+    scope.span.set_tag("component", "Redis-rb")
+    scope.span.set_tag("db.type", "redis")
+    scope.span.set_tag("db.statement", span_name)
+    scope.span.set_tag("db.args", args)
+    
+    yield if block_given?
+  rescue Exception => e
+    scope.span.set_tag("error", true)
+    scope.span.log_kv({event: "error", error: {king: e.class, stacktrace: e.backtrace.inspect}})
+    raise e
+  ensure
+    scope.close
   end
 
   def synchronize
@@ -102,12 +114,11 @@ class Redis
   #
   # Redis error replies are raised as Ruby exceptions.
   def call(*command)
-    scope = tracing('call')
-    synchronize do |client|
-      client.call(command)
+    with_tracing('call', command) do
+      synchronize do |client|
+        client.call(command)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Queues a command for pipelining.
@@ -144,13 +155,12 @@ class Redis
   #   `requirepass` directive in the configuration file
   # @return [String] `OK`
   def auth(password)
-    scope = tracing('auth')
-    
-    synchronize do |client|
-      client.call([:auth, password])
-    end
-  ensure
-    scope.close    
+    with_tracing('auth', password) do
+      
+      synchronize do |client|
+        client.call([:auth, password])
+      end
+    end 
   end
 
   # Change the selected database for the current connection.
@@ -169,12 +179,11 @@ class Redis
   # @param [optional, String] message
   # @return [String] `PONG`
   def ping(message = nil)
-    scope = tracing('ping')
-    synchronize do |client|
-      client.call([:ping, message].compact)
+    with_tracing('ping', message) do
+      synchronize do |client|
+        client.call([:ping, message].compact)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Echo the given string.
@@ -182,53 +191,49 @@ class Redis
   # @param [String] value
   # @return [String]
   def echo(value)
-    scope = tracing('echo')
-    synchronize do |client|
-      client.call([:echo, value])
+    with_tracing('echo', value) do
+      synchronize do |client|
+        client.call([:echo, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Close the connection.
   #
   # @return [String] `OK`
   def quit
-    scope = tracing('quit')
-    synchronize do |client|
-      begin
-        client.call([:quit])
-      rescue ConnectionError
-      ensure
-        client.disconnect
+    with_tracing('quit') do
+      synchronize do |client|
+        begin
+          client.call([:quit])
+        rescue ConnectionError
+        ensure
+          client.disconnect
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Asynchronously rewrite the append-only file.
   #
   # @return [String] `OK`
   def bgrewriteaof
-    scope = tracing('bgrewriteaof')
-    synchronize do |client|
-      client.call([:bgrewriteaof])
+    with_tracing('bgrewriteaof') do
+      synchronize do |client|
+        client.call([:bgrewriteaof])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Asynchronously save the dataset to disk.
   #
   # @return [String] `OK`
   def bgsave
-    scope = tracing('bgsave')
-    synchronize do |client|
-      client.call([:bgsave])
+    with_tracing('bgsave') do
+      synchronize do |client|
+        client.call([:bgsave])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get or set server configuration parameters.
@@ -237,18 +242,17 @@ class Redis
   # @return [String, Hash] string reply, or hash when retrieving more than one
   #   property with `CONFIG GET`
   def config(action, *args)
-    scope = tracing('config')
-    synchronize do |client|
-      client.call([:config, action] + args) do |reply|
-        if reply.kind_of?(Array) && action == :get
-          Hashify.call(reply)
-        else
-          reply
+    with_tracing('config', action, args) do
+      synchronize do |client|
+        client.call([:config, action] + args) do |reply|
+          if reply.kind_of?(Array) && action == :get
+            Hashify.call(reply)
+          else
+            reply
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Manage client connections.
@@ -256,42 +260,39 @@ class Redis
   # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
   # @return [String, Hash] depends on subcommand
   def client(subcommand = nil, *args)
-    scope = tracing('client')
-    synchronize do |client|
-      client.call([:client, subcommand] + args) do |reply|
-        if subcommand.to_s == "list"
-          reply.lines.map do |line|
-            entries = line.chomp.split(/[ =]/)
-            Hash[entries.each_slice(2).to_a]
+    with_tracing('client', subcommand, args) do
+      synchronize do |client|
+        client.call([:client, subcommand] + args) do |reply|
+          if subcommand.to_s == "list"
+            reply.lines.map do |line|
+              entries = line.chomp.split(/[ =]/)
+              Hash[entries.each_slice(2).to_a]
+            end
+          else
+            reply
           end
-        else
-          reply
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Return the number of keys in the selected database.
   #
   # @return [Fixnum]
   def dbsize
-    scope = tracing('dbsize')
-    synchronize do |client|
-      client.call([:dbsize])
+    with_tracing('dbsize') do
+      synchronize do |client|
+        client.call([:dbsize])
+      end
     end
-  ensure
-    scope.close
   end
 
   def debug(*args)
-    scope = tracing('debug')
-    synchronize do |client|
-      client.call([:debug] + args)
+    with_tracing('debug', args) do
+      synchronize do |client|
+        client.call([:debug] + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove all keys from all databases.
@@ -300,16 +301,15 @@ class Redis
   #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
   def flushall(options = nil)
-    scope = tracing('flushall')
-    synchronize do |client|
-      if options && options[:async]
-        client.call([:flushall, :async])
-      else
-        client.call([:flushall])
+    with_tracing('flushall', options) do
+      synchronize do |client|
+        if options && options[:async]
+          client.call([:flushall, :async])
+        else
+          client.call([:flushall])
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Remove all keys from the current database.
@@ -318,17 +318,14 @@ class Redis
   #   - `:async => Boolean`: async flush (default: false)
   # @return [String] `OK`
   def flushdb(options = nil)
-    scope = tracing('flushdb')
-    synchronize do |client|
-      if options && options[:async]
-        client.call([:flushdb, :async])
-      else
-        client.call([:flushdb])
+    with_tracing('flushdb', options) do
+      synchronize do |client|
+        if options && options[:async]
+          client.call([:flushdb, :async])
+        else
+          client.call([:flushdb])
+        end
       end
-    end
-  ensure
-    if scope
-      scope.close
     end
   end
 
@@ -337,40 +334,38 @@ class Redis
   # @param [String, Symbol] cmd e.g. "commandstats"
   # @return [Hash<String, String>]
   def info(cmd = nil)
-    scope = tracing('info')
-    synchronize do |client|
-      client.call([:info, cmd].compact) do |reply|
-        if reply.kind_of?(String)
-          reply = Hash[reply.split("\r\n").map do |line|
-            line.split(":", 2) unless line =~ /^(#|$)/
-          end.compact]
+    with_tracing('info', cmd) do
+      synchronize do |client|
+        client.call([:info, cmd].compact) do |reply|
+          if reply.kind_of?(String)
+            reply = Hash[reply.split("\r\n").map do |line|
+              line.split(":", 2) unless line =~ /^(#|$)/
+            end.compact]
 
-          if cmd && cmd.to_s == "commandstats"
-            # Extract nested hashes for INFO COMMANDSTATS
-            reply = Hash[reply.map do |k, v|
-              v = v.split(",").map { |e| e.split("=") }
-              [k[/^cmdstat_(.*)$/, 1], Hash[v]]
-            end]
+            if cmd && cmd.to_s == "commandstats"
+              # Extract nested hashes for INFO COMMANDSTATS
+              reply = Hash[reply.map do |k, v|
+                v = v.split(",").map { |e| e.split("=") }
+                [k[/^cmdstat_(.*)$/, 1], Hash[v]]
+              end]
+            end
           end
-        end
 
-        reply
+          reply
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Get the UNIX time stamp of the last successful save to disk.
   #
   # @return [Fixnum]
   def lastsave
-    scope = tracing('lastsave')
-    synchronize do |client|
-      client.call([:lastsave])
+    with_tracing('lastsave') do
+      synchronize do |client|
+        client.call([:lastsave])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Listen for all requests received by the server in real time.
@@ -380,51 +375,47 @@ class Redis
   # @yield a block to be called for every line of output
   # @yieldparam [String] line timestamp and command that was executed
   def monitor(&block)
-    scope = tracing('monitor')
-    synchronize do |client|
-      client.call_loop([:monitor], &block)
+    with_tracing('monitor') do
+      synchronize do |client|
+        client.call_loop([:monitor], &block)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Synchronously save the dataset to disk.
   #
   # @return [String]
   def save
-    scope = tracing('save')
-    synchronize do |client|
-      client.call([:save])
+    with_tracing('save') do
+      synchronize do |client|
+        client.call([:save])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Synchronously save the dataset to disk and then shut down the server.
   def shutdown
-    scope = tracing('shutdown')
-    synchronize do |client|
-      client.with_reconnect(false) do
-        begin
-          client.call([:shutdown])
-        rescue ConnectionError
-          # This means Redis has probably exited.
-          nil
+    with_tracing('shutdown') do
+      synchronize do |client|
+        client.with_reconnect(false) do
+          begin
+            client.call([:shutdown])
+          rescue ConnectionError
+            # This means Redis has probably exited.
+            nil
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Make the server a slave of another instance, or promote it as master.
   def slaveof(host, port)
-    scope = tracing('slaveof')
-    synchronize do |client|
-      client.call([:slaveof, host, port])
+    with_tracing('slaveof', host, port) do
+      synchronize do |client|
+        client.call([:slaveof, host, port])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Interact with the slowlog (get, len, reset)
@@ -433,14 +424,13 @@ class Redis
   # @param [Fixnum] length maximum number of entries to return
   # @return [Array<String>, Fixnum, String] depends on subcommand
   def slowlog(subcommand, length=nil)
-    scope = tracing('ping')
-    synchronize do |client|
-      args = [:slowlog, subcommand]
-      args << length if length
-      client.call args
+    with_tracing('ping', subcommand, length) do
+      synchronize do |client|
+        args = [:slowlog, subcommand]
+        args << length if length
+        client.call args
+      end
     end
-  ensure
-    scope.close
   end
 
   # Internal command used for replication.
@@ -458,14 +448,13 @@ class Redis
   # @return [Array<Fixnum>] tuple of seconds since UNIX epoch and
   #   microseconds in the current second
   def time
-    scope = tracing('time')
-    synchronize do |client|
-      client.call([:time]) do |reply|
-        reply.map(&:to_i) if reply
+    with_tracing('time') do
+      synchronize do |client|
+        client.call([:time]) do |reply|
+          reply.map(&:to_i) if reply
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Remove the expiration from a key.
@@ -473,12 +462,11 @@ class Redis
   # @param [String] key
   # @return [Boolean] whether the timeout was removed or not
   def persist(key)
-    scope = tracing('persist')
-    synchronize do |client|
-      client.call([:persist, key], &Boolify)
+    with_tracing('persist', key) do
+      synchronize do |client|
+        client.call([:persist, key], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set a key's time to live in seconds.
@@ -487,12 +475,11 @@ class Redis
   # @param [Fixnum] seconds time to live
   # @return [Boolean] whether the timeout was set or not
   def expire(key, seconds)
-    scope = tracing('expire')
-    synchronize do |client|
-      client.call([:expire, key, seconds], &Boolify)
+    with_tracing('expire', key, seconds) do
+      synchronize do |client|
+        client.call([:expire, key, seconds], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the expiration for a key as a UNIX timestamp.
@@ -501,12 +488,11 @@ class Redis
   # @param [Fixnum] unix_time expiry time specified as a UNIX timestamp
   # @return [Boolean] whether the timeout was set or not
   def expireat(key, unix_time)
-    scope = tracing('expireat')
-    synchronize do |client|
-      client.call([:expireat, key, unix_time], &Boolify)
+    with_tracing('expireat', key, unix_time) do
+      synchronize do |client|
+        client.call([:expireat, key, unix_time], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the time to live (in seconds) for a key.
@@ -522,12 +508,11 @@ class Redis
   #     - The command returns -2 if the key does not exist.
   #     - The command returns -1 if the key exists but has no associated expire.
   def ttl(key)
-    scope = tracing('ttl')
-    synchronize do |client|
-      client.call([:ttl, key])
+    with_tracing('ttl', key) do
+      synchronize do |client|
+        client.call([:ttl, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set a key's time to live in milliseconds.
@@ -536,12 +521,11 @@ class Redis
   # @param [Fixnum] milliseconds time to live
   # @return [Boolean] whether the timeout was set or not
   def pexpire(key, milliseconds)
-    scope = tracing('pexpire')
-    synchronize do |client|
-      client.call([:pexpire, key, milliseconds], &Boolify)
+    with_tracing('pexpire', key, milliseconds) do
+      synchronize do |client|
+        client.call([:pexpire, key, milliseconds], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the expiration for a key as number of milliseconds from UNIX Epoch.
@@ -550,12 +534,11 @@ class Redis
   # @param [Fixnum] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
   # @return [Boolean] whether the timeout was set or not
   def pexpireat(key, ms_unix_time)
-    scope = tracing('pexpireat')
-    synchronize do |client|
-      client.call([:pexpireat, key, ms_unix_time], &Boolify)
+    with_tracing('pexpireat', key, ms_unix_time) do
+      synchronize do |client|
+        client.call([:pexpireat, key, ms_unix_time], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the time to live (in milliseconds) for a key.
@@ -570,12 +553,11 @@ class Redis
   #     - The command returns -2 if the key does not exist.
   #     - The command returns -1 if the key exists but has no associated expire.
   def pttl(key)
-    scope = tracing('pttl')
-    synchronize do |client|
-      client.call([:pttl, key])
+    with_tracing('pttl', key) do
+      synchronize do |client|
+        client.call([:pttl, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return a serialized version of the value stored at a key.
@@ -583,12 +565,11 @@ class Redis
   # @param [String] key
   # @return [String] serialized_value
   def dump(key)
-    scope = tracing('dump')
-    synchronize do |client|
-      client.call([:dump, key])
+    with_tracing('dump', key) do
+      synchronize do |client|
+        client.call([:dump, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Create a key using the serialized value, previously obtained using DUMP.
@@ -601,15 +582,14 @@ class Redis
   # @raise [Redis::CommandError]
   # @return [String] `"OK"`
   def restore(key, ttl, serialized_value, options = {})
-    scope = tracing('restore')
-    args = [:restore, key, ttl, serialized_value]
-    args << 'REPLACE' if options[:replace]
+    with_tracing('restore', key, ttl, serialized_value, options) do
+      args = [:restore, key, ttl, serialized_value]
+      args << 'REPLACE' if options[:replace]
 
-    synchronize do |client|
-      client.call(args)
+      synchronize do |client|
+        client.call(args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Transfer a key from the connected instance to another instance.
@@ -622,17 +602,16 @@ class Redis
   #   - `:timeout => Integer`: timeout (default: same as connection timeout)
   # @return [String] `"OK"`
   def migrate(key, options)
-    scope = tracing('migrate')
-    host = options[:host] || raise(RuntimeError, ":host not specified")
-    port = options[:port] || raise(RuntimeError, ":port not specified")
-    db = (options[:db] || @client.db).to_i
-    timeout = (options[:timeout] || @client.timeout).to_i
+    with_tracing('migrate', key, options) do
+      host = options[:host] || raise(RuntimeError, ":host not specified")
+      port = options[:port] || raise(RuntimeError, ":port not specified")
+      db = (options[:db] || @client.db).to_i
+      timeout = (options[:timeout] || @client.timeout).to_i
 
-    synchronize do |client|
-      client.call([:migrate, host, port, key, db, timeout])
+      synchronize do |client|
+        client.call([:migrate, host, port, key, db, timeout])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Delete one or more keys.
@@ -640,12 +619,11 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Fixnum] number of keys that were deleted
   def del(*keys)
-    scope = tracing('del')
-    synchronize do |client|
-      client.call([:del] + keys)
+    with_tracing('del', keys) do
+      synchronize do |client|
+        client.call([:del] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Determine if a key exists.
@@ -653,12 +631,11 @@ class Redis
   # @param [String] key
   # @return [Boolean]
   def exists(key)
-    scope = tracing('exists')
-    synchronize do |client|
-      client.call([:exists, key], &Boolify)
+    with_tracing('exists', key) do
+      synchronize do |client|
+        client.call([:exists, key], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Find all keys matching the given pattern.
@@ -666,18 +643,17 @@ class Redis
   # @param [String] pattern
   # @return [Array<String>]
   def keys(pattern = "*")
-    scope = tracing('keys')
-    synchronize do |client|
-      client.call([:keys, pattern]) do |reply|
-        if reply.kind_of?(String)
-          reply.split(" ")
-        else
-          reply
+    with_tracing('keys', pattern) do
+      synchronize do |client|
+        client.call([:keys, pattern]) do |reply|
+          if reply.kind_of?(String)
+            reply.split(" ")
+          else
+            reply
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Move a key to another database.
@@ -700,33 +676,30 @@ class Redis
   # @param [Fixnum] db
   # @return [Boolean] whether the key was moved or not
   def move(key, db)
-    scope = tracing('move')
-    synchronize do |client|
-      client.call([:move, key, db], &Boolify)
+    with_tracing('move', key, db) do
+      synchronize do |client|
+        client.call([:move, key, db], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   def object(*args)
-    scope = tracing('object')
-    synchronize do |client|
-      client.call([:object] + args)
+    with_tracing('object', args) do
+      synchronize do |client|
+        client.call([:object] + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return a random key from the keyspace.
   #
   # @return [String]
   def randomkey
-    scope = tracing('randomkey')
-    synchronize do |client|
-      client.call([:randomkey])
+    with_tracing('randomkey') do
+      synchronize do |client|
+        client.call([:randomkey])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Rename a key. If the new key already exists it is overwritten.
@@ -735,12 +708,11 @@ class Redis
   # @param [String] new_name
   # @return [String] `OK`
   def rename(old_name, new_name)
-    scope = tracing('rename')
-    synchronize do |client|
-      client.call([:rename, old_name, new_name])
+    with_tracing('rename', old_name, new_name) do
+      synchronize do |client|
+        client.call([:rename, old_name, new_name])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Rename a key, only if the new key does not exist.
@@ -749,12 +721,11 @@ class Redis
   # @param [String] new_name
   # @return [Boolean] whether the key was renamed or not
   def renamenx(old_name, new_name)
-    scope = tracing('renamenx')
-    synchronize do |client|
-      client.call([:renamenx, old_name, new_name], &Boolify)
+    with_tracing('renamenx', old_name, new_name) do
+      synchronize do |client|
+        client.call([:renamenx, old_name, new_name], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Sort the elements in a list, set or sorted set.
@@ -783,37 +754,36 @@ class Redis
   #   element specified in `:get`
   #   - when `:store` is specified, the number of elements in the stored result
   def sort(key, options = {})
-    scope = tracing('sort')
-    args = []
+    with_tracing('sort', key, options) do
+      args = []
 
-    by = options[:by]
-    args.concat(["BY", by]) if by
+      by = options[:by]
+      args.concat(["BY", by]) if by
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+      limit = options[:limit]
+      args.concat(["LIMIT"] + limit) if limit
 
-    get = Array(options[:get])
-    args.concat(["GET"].product(get).flatten) unless get.empty?
+      get = Array(options[:get])
+      args.concat(["GET"].product(get).flatten) unless get.empty?
 
-    order = options[:order]
-    args.concat(order.split(" ")) if order
+      order = options[:order]
+      args.concat(order.split(" ")) if order
 
-    store = options[:store]
-    args.concat(["STORE", store]) if store
+      store = options[:store]
+      args.concat(["STORE", store]) if store
 
-    synchronize do |client|
-      client.call([:sort, key] + args) do |reply|
-        if get.size > 1 && !store
-          if reply
-            reply.each_slice(get.size).to_a
+      synchronize do |client|
+        client.call([:sort, key] + args) do |reply|
+          if get.size > 1 && !store
+            if reply
+              reply.each_slice(get.size).to_a
+            end
+          else
+            reply
           end
-        else
-          reply
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Determine the type stored at key.
@@ -821,12 +791,11 @@ class Redis
   # @param [String] key
   # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
   def type(key)
-    scope = tracing('type')
-    synchronize do |client|
-      client.call([:type, key])
+    with_tracing('type', key) do
+      synchronize do |client|
+        client.call([:type, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Decrement the integer value of a key by one.
@@ -838,12 +807,11 @@ class Redis
   # @param [String] key
   # @return [Fixnum] value after decrementing it
   def decr(key)
-    scope = tracing('decr')
-    synchronize do |client|
-      client.call([:decr, key])
+    with_tracing('decr', key) do
+      synchronize do |client|
+        client.call([:decr, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Decrement the integer value of a key by the given number.
@@ -856,12 +824,11 @@ class Redis
   # @param [Fixnum] decrement
   # @return [Fixnum] value after decrementing it
   def decrby(key, decrement)
-    scope = tracing('decrby')
-    synchronize do |client|
-      client.call([:decrby, key, decrement])
+    with_tracing('decrby', key, decrement) do
+      synchronize do |client|
+        client.call([:decrby, key, decrement])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Increment the integer value of a key by one.
@@ -873,12 +840,11 @@ class Redis
   # @param [String] key
   # @return [Fixnum] value after incrementing it
   def incr(key)
-    scope = tracing('incr')
-    synchronize do |client|
-      client.call([:incr, key])
+    with_tracing('incr', key) do
+      synchronize do |client|
+        client.call([:incr, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Increment the integer value of a key by the given integer number.
@@ -891,12 +857,11 @@ class Redis
   # @param [Fixnum] increment
   # @return [Fixnum] value after incrementing it
   def incrby(key, increment)
-    scope = tracing('incrby')
-    synchronize do |client|
-      client.call([:incrby, key, increment])
+    with_tracing('incrby', key, increment) do
+      synchronize do |client|
+        client.call([:incrby, key, increment])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Increment the numeric value of a key by the given float number.
@@ -909,12 +874,11 @@ class Redis
   # @param [Float] increment
   # @return [Float] value after incrementing it
   def incrbyfloat(key, increment)
-    scope = tracing('incrbyfloat')
-    synchronize do |client|
-      client.call([:incrbyfloat, key, increment], &Floatify)
+    with_tracing('incrbyfloat', key, increment) do
+      synchronize do |client|
+        client.call([:incrbyfloat, key, increment], &Floatify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the string value of a key.
@@ -928,30 +892,29 @@ class Redis
   #   - `:xx => true`: Only set the key if it already exist.
   # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
   def set(key, value, options = {})
-    scope = tracing('set')
-    args = []
+    with_tracing('set', key, value, options) do
+      args = []
 
-    ex = options[:ex]
-    args.concat(["EX", ex]) if ex
+      ex = options[:ex]
+      args.concat(["EX", ex]) if ex
 
-    px = options[:px]
-    args.concat(["PX", px]) if px
+      px = options[:px]
+      args.concat(["PX", px]) if px
 
-    nx = options[:nx]
-    args.concat(["NX"]) if nx
+      nx = options[:nx]
+      args.concat(["NX"]) if nx
 
-    xx = options[:xx]
-    args.concat(["XX"]) if xx
+      xx = options[:xx]
+      args.concat(["XX"]) if xx
 
-    synchronize do |client|
-      if nx || xx
-        client.call([:set, key, value.to_s] + args, &BoolifySet)
-      else
-        client.call([:set, key, value.to_s] + args)
+      synchronize do |client|
+        if nx || xx
+          client.call([:set, key, value.to_s] + args, &BoolifySet)
+        else
+          client.call([:set, key, value.to_s] + args)
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Set the time to live in seconds of a key.
@@ -961,12 +924,11 @@ class Redis
   # @param [String] value
   # @return [String] `"OK"`
   def setex(key, ttl, value)
-    scope = tracing('setex')
-    synchronize do |client|
-      client.call([:setex, key, ttl, value.to_s])
+    with_tracing('setex', key, ttl, value) do
+      synchronize do |client|
+        client.call([:setex, key, ttl, value.to_s])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the time to live in milliseconds of a key.
@@ -976,12 +938,11 @@ class Redis
   # @param [String] value
   # @return [String] `"OK"`
   def psetex(key, ttl, value)
-    scope = tracing('psetex')
-    synchronize do |client|
-      client.call([:psetex, key, ttl, value.to_s])
+    with_tracing('psetex', key, ttl, value) do
+      synchronize do |client|
+        client.call([:psetex, key, ttl, value.to_s])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the value of a key, only if the key does not exist.
@@ -990,12 +951,11 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether the key was set or not
   def setnx(key, value)
-    scope = tracing('setnx')
-    synchronize do |client|
-      client.call([:setnx, key, value.to_s], &Boolify)
+    with_tracing('setnx', key, value) do
+      synchronize do |client|
+        client.call([:setnx, key, value.to_s], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set one or more values.
@@ -1009,12 +969,11 @@ class Redis
   #
   # @see #mapped_mset
   def mset(*args)
-    scope = tracing('mset')
-    synchronize do |client|
-      client.call([:mset] + args)
+    with_tracing('mset', args) do
+      synchronize do |client|
+        client.call([:mset] + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set one or more values.
@@ -1028,10 +987,9 @@ class Redis
   #
   # @see #mset
   def mapped_mset(hash)
-    scope = tracing('mapped_mset')
-    mset(hash.to_a.flatten)
-  ensure
-    scope.close
+    with_tracing('mapped_mset', hash) do
+      mset(hash.to_a.flatten)
+    end
   end
 
   # Set one or more values, only if none of the keys exist.
@@ -1045,12 +1003,11 @@ class Redis
   #
   # @see #mapped_msetnx
   def msetnx(*args)
-    scope = tracing('msetnx')
-    synchronize do |client|
-      client.call([:msetnx] + args, &Boolify)
+    with_tracing('msetnx', args) do
+      synchronize do |client|
+        client.call([:msetnx] + args, &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set one or more values, only if none of the keys exist.
@@ -1064,10 +1021,9 @@ class Redis
   #
   # @see #msetnx
   def mapped_msetnx(hash)
-    scope = tracing('mapped_msetnx')
-    msetnx(hash.to_a.flatten)
-  ensure
-    scope.close
+    with_tracing('mapped_msetnx', hash) do
+      msetnx(hash.to_a.flatten)
+    end
   end
 
   # Get the value of a key.
@@ -1075,12 +1031,11 @@ class Redis
   # @param [String] key
   # @return [String]
   def get(key)
-    scope = tracing('get')
-    synchronize do |client|
-      client.call([:get, key])
+    with_tracing('get', key) do
+      synchronize do |client|
+        client.call([:get, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the values of all the given keys.
@@ -1094,12 +1049,11 @@ class Redis
   #
   # @see #mapped_mget
   def mget(*keys, &blk)
-    scope = tracing('mget')
-    synchronize do |client|
-      client.call([:mget] + keys, &blk)
+    with_tracing('mget', keys) do
+      synchronize do |client|
+        client.call([:mget] + keys, &blk)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the values of all the given keys.
@@ -1113,16 +1067,15 @@ class Redis
   #
   # @see #mget
   def mapped_mget(*keys)
-    scope = tracing('mapped_mget')
-    mget(*keys) do |reply|
-      if reply.kind_of?(Array)
-        Hash[keys.zip(reply)]
-      else
-        reply
+    with_tracing('mapped_mget', keys) do
+      mget(*keys) do |reply|
+        if reply.kind_of?(Array)
+          Hash[keys.zip(reply)]
+        else
+          reply
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Overwrite part of a string at key starting at the specified offset.
@@ -1132,12 +1085,11 @@ class Redis
   # @param [String] value
   # @return [Fixnum] length of the string after it was modified
   def setrange(key, offset, value)
-    scope = tracing('setrange')
-    synchronize do |client|
-      client.call([:setrange, key, offset, value.to_s])
+    with_tracing('setrange', key, offset, value) do
+      synchronize do |client|
+        client.call([:setrange, key, offset, value.to_s])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get a substring of the string stored at a key.
@@ -1148,12 +1100,11 @@ class Redis
   #   the end of the string
   # @return [Fixnum] `0` or `1`
   def getrange(key, start, stop)
-    scope = tracing('getrange')
-    synchronize do |client|
-      client.call([:getrange, key, start, stop])
+    with_tracing('getrange', key, start, stop) do
+      synchronize do |client|
+        client.call([:getrange, key, start, stop])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Sets or clears the bit at offset in the string value stored at key.
@@ -1163,12 +1114,11 @@ class Redis
   # @param [Fixnum] value bit value `0` or `1`
   # @return [Fixnum] the original bit value stored at `offset`
   def setbit(key, offset, value)
-    scope = tracing('setbit')
-    synchronize do |client|
-      client.call([:setbit, key, offset, value])
+    with_tracing('setbit', key, offset, value) do
+      synchronize do |client|
+        client.call([:setbit, key, offset, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Returns the bit value at offset in the string value stored at key.
@@ -1177,12 +1127,11 @@ class Redis
   # @param [Fixnum] offset bit offset
   # @return [Fixnum] `0` or `1`
   def getbit(key, offset)
-    scope = tracing('getbit')
-    synchronize do |client|
-      client.call([:getbit, key, offset])
+    with_tracing('getbit', key, offset) do
+      synchronize do |client|
+        client.call([:getbit, key, offset])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Append a value to a key.
@@ -1191,12 +1140,11 @@ class Redis
   # @param [String] value value to append
   # @return [Fixnum] length of the string after appending
   def append(key, value)
-    scope = tracing('append')
-    synchronize do |client|
-      client.call([:append, key, value])
+    with_tracing('append', key, value) do
+      synchronize do |client|
+        client.call([:append, key, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Count the number of set bits in a range of the string value stored at key.
@@ -1206,12 +1154,11 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [Fixnum] the number of bits set to 1
   def bitcount(key, start = 0, stop = -1)
-    scope = tracing('bitcount')
-    synchronize do |client|
-      client.call([:bitcount, key, start, stop])
+    with_tracing('bitcount', key, start, stop) do
+      synchronize do |client|
+        client.call([:bitcount, key, start, stop])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Perform a bitwise operation between strings and store the resulting string in a key.
@@ -1221,12 +1168,11 @@ class Redis
   # @param [String, Array<String>] keys one or more source keys to perform `operation`
   # @return [Fixnum] the length of the string stored in `destkey`
   def bitop(operation, destkey, *keys)
-    scope = tracing('bitop')
-    synchronize do |client|
-      client.call([:bitop, operation, destkey] + keys)
+    with_tracing('bitop', operation, destkey, keys) do
+      synchronize do |client|
+        client.call([:bitop, operation, destkey] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return the position of the first bit set to 1 or 0 in a string.
@@ -1238,19 +1184,18 @@ class Redis
   # @return [Fixnum] the position of the first 1/0 bit.
   #                  -1 if looking for 1 and it is not found or start and stop are given.
   def bitpos(key, bit, start=nil, stop=nil)
-    scope = tracing('bitpos')
-    if stop and not start
-      raise(ArgumentError, 'stop parameter specified without start parameter')
-    end
+    with_tracing('bitpos', key, bit, start, stop) do
+      if stop and not start
+        raise(ArgumentError, 'stop parameter specified without start parameter')
+      end
 
-    synchronize do |client|
-      command = [:bitpos, key, bit]
-      command << start if start
-      command << stop if stop
-      client.call(command)
+      synchronize do |client|
+        command = [:bitpos, key, bit]
+        command << start if start
+        command << stop if stop
+        client.call(command)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the string value of a key and return its old value.
@@ -1260,12 +1205,11 @@ class Redis
   # @return [String] the old value stored in the key, or `nil` if the key
   #   did not exist
   def getset(key, value)
-    scope = tracing('getset')
-    synchronize do |client|
-      client.call([:getset, key, value.to_s])
+    with_tracing('getset', key, value) do
+      synchronize do |client|
+        client.call([:getset, key, value.to_s])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the length of the value stored in a key.
@@ -1274,12 +1218,11 @@ class Redis
   # @return [Fixnum] the length of the value stored in the key, or 0
   #   if the key does not exist
   def strlen(key)
-    scope = tracing('strlen')
-    synchronize do |client|
-      client.call([:strlen, key])
+    with_tracing('strlen', key) do
+      synchronize do |client|
+        client.call([:strlen, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the length of a list.
@@ -1287,12 +1230,11 @@ class Redis
   # @param [String] key
   # @return [Fixnum]
   def llen(key)
-    scope = tracing('llen')
-    synchronize do |client|
-      client.call([:llen, key])
+    with_tracing('llen', key) do
+      synchronize do |client|
+        client.call([:llen, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Prepend one or more values to a list, creating the list if it doesn't exist
@@ -1301,12 +1243,11 @@ class Redis
   # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def lpush(key, value)
-    scope = tracing('lpush')
-    synchronize do |client|
-      client.call([:lpush, key, value])
+    with_tracing('lpush', key, value) do
+      synchronize do |client|
+        client.call([:lpush, key, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Prepend a value to a list, only if the list exists.
@@ -1315,12 +1256,11 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def lpushx(key, value)
-    scope = tracing('lpushx')
-    synchronize do |client|
-      client.call([:lpushx, key, value])
+    with_tracing('lpushx', key, value) do
+      synchronize do |client|
+        client.call([:lpushx, key, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Append one or more values to a list, creating the list if it doesn't exist
@@ -1329,12 +1269,11 @@ class Redis
   # @param [String, Array<String>] value string value, or array of string values to push
   # @return [Fixnum] the length of the list after the push operation
   def rpush(key, value)
-    scope = tracing('rpush')
-    synchronize do |client|
-      client.call([:rpush, key, value])
+    with_tracing('rpush', key, value) do
+      synchronize do |client|
+        client.call([:rpush, key, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Append a value to a list, only if the list exists.
@@ -1343,12 +1282,11 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the length of the list after the push operation
   def rpushx(key, value)
-    scope = tracing('rpushx')
-    synchronize do |client|
-      client.call([:rpushx, key, value])
+    with_tracing('rpushx', key, value) do
+      synchronize do |client|
+        client.call([:rpushx, key, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove and get the first element in a list.
@@ -1356,12 +1294,11 @@ class Redis
   # @param [String] key
   # @return [String]
   def lpop(key)
-    scope = tracing('lpop')
-    synchronize do |client|
-      client.call([:lpop, key])
+    with_tracing('lpop', key) do
+      synchronize do |client|
+        client.call([:lpop, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove and get the last element in a list.
@@ -1369,12 +1306,11 @@ class Redis
   # @param [String] key
   # @return [String]
   def rpop(key)
-    scope = tracing('rpop')
-    synchronize do |client|
-      client.call([:rpop, key])
+    with_tracing('rpop', key) do
+      synchronize do |client|
+        client.call([:rpop, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove the last element in a list, append it to another list and return it.
@@ -1383,12 +1319,11 @@ class Redis
   # @param [String] destination destination key
   # @return [nil, String] the element, or nil when the source key does not exist
   def rpoplpush(source, destination)
-    scope = tracing('rpoplpush')
-    synchronize do |client|
-      client.call([:rpoplpush, source, destination])
+    with_tracing('rpoplpush', source, destination) do
+      synchronize do |client|
+        client.call([:rpoplpush, source, destination])
+      end
     end
-  ensure
-    scope.close
   end
 
   def _bpop(cmd, args)
@@ -1438,10 +1373,9 @@ class Redis
   #   - `nil` when the operation timed out
   #   - tuple of the list that was popped from and element was popped otherwise
   def blpop(*args)
-    scope = tracing('blpop')
-    _bpop(:blpop, args)
-  ensure
-    scope.close
+    with_tracing('blpop', args) do
+      _bpop(:blpop, args)
+    end
   end
 
   # Remove and get the last element in a list, or block until one is available.
@@ -1457,10 +1391,9 @@ class Redis
   #
   # @see #blpop
   def brpop(*args)
-    scope = tracing('brpop')
-    _bpop(:brpop, args)
-  ensure
-    scope.close
+    with_tracing('brpop', args) do
+      _bpop(:brpop, args)
+    end
   end
 
   # Pop a value from a list, push it to another list and return it; or block
@@ -1475,22 +1408,21 @@ class Redis
   #   - `nil` when the operation timed out
   #   - the element was popped and pushed otherwise
   def brpoplpush(source, destination, options = {})
-    scope = tracing('brpoplpush')
-    case options
-    when Integer
-      # Issue deprecation notice in obnoxious mode...
-      options = { :timeout => options }
-    end
+    with_tracing('brpoplpush', source, destination, options) do
+      case options
+      when Integer
+        # Issue deprecation notice in obnoxious mode...
+        options = { :timeout => options }
+      end
 
-    timeout = options[:timeout] || 0
+      timeout = options[:timeout] || 0
 
-    synchronize do |client|
-      command = [:brpoplpush, source, destination, timeout]
-      timeout += client.timeout if timeout > 0
-      client.call_with_timeout(command, timeout)
+      synchronize do |client|
+        command = [:brpoplpush, source, destination, timeout]
+        timeout += client.timeout if timeout > 0
+        client.call_with_timeout(command, timeout)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get an element from a list by its index.
@@ -1499,12 +1431,11 @@ class Redis
   # @param [Fixnum] index
   # @return [String]
   def lindex(key, index)
-    scope = tracing('lindex')
-    synchronize do |client|
-      client.call([:lindex, key, index])
+    with_tracing('lindex', key, index) do
+      synchronize do |client|
+        client.call([:lindex, key, index])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Insert an element before or after another element in a list.
@@ -1516,12 +1447,11 @@ class Redis
   # @return [Fixnum] length of the list after the insert operation, or `-1`
   #   when the element `pivot` was not found
   def linsert(key, where, pivot, value)
-    scope = tracing('linsert')
-    synchronize do |client|
-      client.call([:linsert, key, where, pivot, value])
+    with_tracing('linsert', key, where, pivot, value) do
+      synchronize do |client|
+        client.call([:linsert, key, where, pivot, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get a range of elements from a list.
@@ -1531,12 +1461,11 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [Array<String>]
   def lrange(key, start, stop)
-    scope = tracing('lrange')
-    synchronize do |client|
-      client.call([:lrange, key, start, stop])
+    with_tracing('lrange', key, start, stop) do
+      synchronize do |client|
+        client.call([:lrange, key, start, stop])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove elements from a list.
@@ -1549,12 +1478,11 @@ class Redis
   # @param [String] value
   # @return [Fixnum] the number of removed elements
   def lrem(key, count, value)
-    scope = tracing('lrem')
-    synchronize do |client|
-      client.call([:lrem, key, count, value])
+    with_tracing('lrem', key, count, value) do
+      synchronize do |client|
+        client.call([:lrem, key, count, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the value of an element in a list by its index.
@@ -1564,12 +1492,11 @@ class Redis
   # @param [String] value
   # @return [String] `OK`
   def lset(key, index, value)
-    scope = tracing('lset')
-    synchronize do |client|
-      client.call([:lset, key, index, value])
+    with_tracing('lset', key, index, value) do
+      synchronize do |client|
+        client.call([:lset, key, index, value])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Trim a list to the specified range.
@@ -1579,12 +1506,11 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [String] `OK`
   def ltrim(key, start, stop)
-    scope = tracing('ltrim')
-    synchronize do |client|
-      client.call([:ltrim, key, start, stop])
+    with_tracing('ltrim', key, start, stop) do
+      synchronize do |client|
+        client.call([:ltrim, key, start, stop])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the number of members in a set.
@@ -1592,12 +1518,11 @@ class Redis
   # @param [String] key
   # @return [Fixnum]
   def scard(key)
-    scope = tracing('scard')
-    synchronize do |client|
-      client.call([:scard, key])
+    with_tracing('scard', key) do
+      synchronize do |client|
+        client.call([:scard, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Add one or more members to a set.
@@ -1609,20 +1534,19 @@ class Redis
   #   array of members is specified, holding the number of members that were
   #   successfully added
   def sadd(key, member)
-    scope = tracing('sadd')
-    synchronize do |client|
-      client.call([:sadd, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          Boolify.call(reply)
+    with_tracing('sadd', key, member) do
+      synchronize do |client|
+        client.call([:sadd, key, member]) do |reply|
+          if member.is_a? Array
+            # Variadic: return integer
+            reply
+          else
+            # Single argument: return boolean
+            Boolify.call(reply)
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Remove one or more members from a set.
@@ -1634,20 +1558,19 @@ class Redis
   #   array of members is specified, holding the number of members that were
   #   successfully removed
   def srem(key, member)
-    scope = tracing('srem')
-    synchronize do |client|
-      client.call([:srem, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          Boolify.call(reply)
+    with_tracing('srem', key, member) do
+      synchronize do |client|
+        client.call([:srem, key, member]) do |reply|
+          if member.is_a? Array
+            # Variadic: return integer
+            reply
+          else
+            # Single argument: return boolean
+            Boolify.call(reply)
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Remove and return one or more random member from a set.
@@ -1656,16 +1579,15 @@ class Redis
   # @return [String]
   # @param [Fixnum] count
   def spop(key, count = nil)
-    scope = tracing('spop')
-    synchronize do |client|
-      if count.nil?
-        client.call([:spop, key])
-      else
-        client.call([:spop, key, count])
+    with_tracing('spop', key, count) do
+      synchronize do |client|
+        if count.nil?
+          client.call([:spop, key])
+        else
+          client.call([:spop, key, count])
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Get one or more random members from a set.
@@ -1674,16 +1596,15 @@ class Redis
   # @param [Fixnum] count
   # @return [String]
   def srandmember(key, count = nil)
-    scope = tracing('srandmember')
-    synchronize do |client|
-      if count.nil?
-        client.call([:srandmember, key])
-      else
-        client.call([:srandmember, key, count])
+    with_tracing('srandmember', key, count) do
+      synchronize do |client|
+        if count.nil?
+          client.call([:srandmember, key])
+        else
+          client.call([:srandmember, key, count])
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Move a member from one set to another.
@@ -1693,12 +1614,11 @@ class Redis
   # @param [String] member member to move from `source` to `destination`
   # @return [Boolean]
   def smove(source, destination, member)
-    scope = tracing('smove')
-    synchronize do |client|
-      client.call([:smove, source, destination, member], &Boolify)
+    with_tracing('smove', source, destination, member) do
+      synchronize do |client|
+        client.call([:smove, source, destination, member], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Determine if a given value is a member of a set.
@@ -1707,12 +1627,11 @@ class Redis
   # @param [String] member
   # @return [Boolean]
   def sismember(key, member)
-    scope = tracing('sismember')
-    synchronize do |client|
-      client.call([:sismember, key, member], &Boolify)
+    with_tracing('sismember', key, member) do
+      synchronize do |client|
+        client.call([:sismember, key, member], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get all the members in a set.
@@ -1720,12 +1639,11 @@ class Redis
   # @param [String] key
   # @return [Array<String>]
   def smembers(key)
-    scope = tracing('smembers')
-    synchronize do |client|
-      client.call([:smembers, key])
+    with_tracing('smembers', key) do
+      synchronize do |client|
+        client.call([:smembers, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Subtract multiple sets.
@@ -1733,12 +1651,11 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to subtract
   # @return [Array<String>] members in the difference
   def sdiff(*keys)
-    scope = tracing('sdiff')
-    synchronize do |client|
-      client.call([:sdiff] + keys)
+    with_tracing('sdiff', keys) do
+      synchronize do |client|
+        client.call([:sdiff] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Subtract multiple sets and store the resulting set in a key.
@@ -1747,12 +1664,11 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to subtract
   # @return [Fixnum] number of elements in the resulting set
   def sdiffstore(destination, *keys)
-    scope = tracing('sdiffstore')
-    synchronize do |client|
-      client.call([:sdiffstore, destination] + keys)
+    with_tracing('sdiffstore', destination, keys) do
+      synchronize do |client|
+        client.call([:sdiffstore, destination] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Intersect multiple sets.
@@ -1760,12 +1676,11 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to intersect
   # @return [Array<String>] members in the intersection
   def sinter(*keys)
-    scope = tracing('sinter')
-    synchronize do |client|
-      client.call([:sinter] + keys)
+    with_tracing('sinter', keys) do
+      synchronize do |client|
+        client.call([:sinter] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Intersect multiple sets and store the resulting set in a key.
@@ -1774,9 +1689,10 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to intersect
   # @return [Fixnum] number of elements in the resulting set
   def sinterstore(destination, *keys)
-    scope = tracing('sinterstore')
+    with_tracing('sinterstore', destination, keys) do
     synchronize do |client|
       client.call([:sinterstore, destination] + keys)
+    end
     end
   end
 
@@ -1785,12 +1701,11 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to unify
   # @return [Array<String>] members in the union
   def sunion(*keys)
-    scope = tracing('sunion')
-    synchronize do |client|
-      client.call([:sunion] + keys)
+    with_tracing('sunion', keys) do
+      synchronize do |client|
+        client.call([:sunion] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Add multiple sets and store the resulting set in a key.
@@ -1799,12 +1714,11 @@ class Redis
   # @param [String, Array<String>] keys keys pointing to sets to unify
   # @return [Fixnum] number of elements in the resulting set
   def sunionstore(destination, *keys)
-    scope = tracing('sunionstore')
-    synchronize do |client|
-      client.call([:sunionstore, destination] + keys)
+    with_tracing('sunionstore', destination, keys) do
+      synchronize do |client|
+        client.call([:sunionstore, destination] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the number of members in a sorted set.
@@ -1816,12 +1730,11 @@ class Redis
   # @param [String] key
   # @return [Fixnum]
   def zcard(key)
-    scope = tracing('zcard')
-    synchronize do |client|
-      client.call([:zcard, key])
+    with_tracing('zcard', key) do
+      synchronize do |client|
+        client.call([:zcard, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Add one or more members to a sorted set, or update the score for members
@@ -1856,37 +1769,36 @@ class Redis
   #   - `Float` when option :incr is specified, holding the score of the member
   #   after incrementing it.
   def zadd(key, *args) #, options
-    scope = tracing('zadd')
-    zadd_options = []
-    if args.last.is_a?(Hash)
-      options = args.pop
+    with_tracing('zadd', key, args) do
+      zadd_options = []
+      if args.last.is_a?(Hash)
+        options = args.pop
 
-      nx = options[:nx]
-      zadd_options << "NX" if nx
+        nx = options[:nx]
+        zadd_options << "NX" if nx
 
-      xx = options[:xx]
-      zadd_options << "XX" if xx
+        xx = options[:xx]
+        zadd_options << "XX" if xx
 
-      ch = options[:ch]
-      zadd_options << "CH" if ch
+        ch = options[:ch]
+        zadd_options << "CH" if ch
 
-      incr = options[:incr]
-      zadd_options << "INCR" if incr
-    end
+        incr = options[:incr]
+        zadd_options << "INCR" if incr
+      end
 
-    synchronize do |client|
-      if args.size == 1 && args[0].is_a?(Array)
-        # Variadic: return float if INCR, integer if !INCR
-        client.call([:zadd, key] + zadd_options + args[0], &(incr ? Floatify : nil))
-      elsif args.size == 2
-        # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key] + zadd_options + args, &(incr ? Floatify : Boolify))
-      else
-        raise ArgumentError, "wrong number of arguments"
+      synchronize do |client|
+        if args.size == 1 && args[0].is_a?(Array)
+          # Variadic: return float if INCR, integer if !INCR
+          client.call([:zadd, key] + zadd_options + args[0], &(incr ? Floatify : nil))
+        elsif args.size == 2
+          # Single pair: return float if INCR, boolean if !INCR
+          client.call([:zadd, key] + zadd_options + args, &(incr ? Floatify : Boolify))
+        else
+          raise ArgumentError, "wrong number of arguments"
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Increment the score of a member in a sorted set.
@@ -1900,12 +1812,11 @@ class Redis
   # @param [String] member
   # @return [Float] score of the member after incrementing it
   def zincrby(key, increment, member)
-    scope = tracing('zincrby')
-    synchronize do |client|
-      client.call([:zincrby, key, increment, member], &Floatify)
+    with_tracing('zincrby', key, increment, member) do
+      synchronize do |client|
+        client.call([:zincrby, key, increment, member], &Floatify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove one or more members from a sorted set.
@@ -1926,20 +1837,19 @@ class Redis
   #   - `Fixnum` when an array of pairs is specified, holding the number of
   #   members that were removed to the sorted set
   def zrem(key, member)
-    scope = tracing('zrem')
-    synchronize do |client|
-      client.call([:zrem, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          Boolify.call(reply)
+    with_tracing('zrem', key, member) do
+      synchronize do |client|
+        client.call([:zrem, key, member]) do |reply|
+          if member.is_a? Array
+            # Variadic: return integer
+            reply
+          else
+            # Single argument: return boolean
+            Boolify.call(reply)
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Get the score associated with the given member in a sorted set.
@@ -1952,12 +1862,11 @@ class Redis
   # @param [String] member
   # @return [Float] score of the member
   def zscore(key, member)
-    scope = tracing('zscore')
-    synchronize do |client|
-      client.call([:zscore, key, member], &Floatify)
+    with_tracing('zscore', key, member) do
+      synchronize do |client|
+        client.call([:zscore, key, member], &Floatify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return a range of members in a sorted set, by index.
@@ -1979,21 +1888,20 @@ class Redis
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
   def zrange(key, start, stop, options = {})
-    scope = tracing('zrange')
-    args = []
+    with_tracing('zrange', key, start, stop, options) do
+      args = []
 
-    with_scores = options[:with_scores] || options[:withscores]
+      with_scores = options[:with_scores] || options[:withscores]
 
-    if with_scores
-      args << "WITHSCORES"
-      block = FloatifyPairs
+      if with_scores
+        args << "WITHSCORES"
+        block = FloatifyPairs
+      end
+
+      synchronize do |client|
+        client.call([:zrange, key, start, stop] + args, &block)
+      end
     end
-
-    synchronize do |client|
-      client.call([:zrange, key, start, stop] + args, &block)
-    end
-  ensure
-    scope.close
   end
 
   # Return a range of members in a sorted set, by index, with scores ordered
@@ -2008,21 +1916,20 @@ class Redis
   #
   # @see #zrange
   def zrevrange(key, start, stop, options = {})
-    scope = tracing('zrevrange')
-    args = []
+    with_tracing('zrevrange', key, start, stop, options) do
+      args = []
 
-    with_scores = options[:with_scores] || options[:withscores]
+      with_scores = options[:with_scores] || options[:withscores]
 
-    if with_scores
-      args << "WITHSCORES"
-      block = FloatifyPairs
+      if with_scores
+        args << "WITHSCORES"
+        block = FloatifyPairs
+      end
+
+      synchronize do |client|
+        client.call([:zrevrange, key, start, stop] + args, &block)
+      end
     end
-
-    synchronize do |client|
-      client.call([:zrevrange, key, start, stop] + args, &block)
-    end
-  ensure
-    scope.close
   end
 
   # Determine the index of a member in a sorted set.
@@ -2031,12 +1938,11 @@ class Redis
   # @param [String] member
   # @return [Fixnum]
   def zrank(key, member)
-    scope = tracing('zrank')
-    synchronize do |client|
-      client.call([:zrank, key, member])
+    with_tracing('zrank', key, member) do
+      synchronize do |client|
+        client.call([:zrank, key, member])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Determine the index of a member in a sorted set, with scores ordered from
@@ -2046,12 +1952,11 @@ class Redis
   # @param [String] member
   # @return [Fixnum]
   def zrevrank(key, member)
-    scope = tracing('zrevrank')
-    synchronize do |client|
-      client.call([:zrevrank, key, member])
+    with_tracing('zrevrank', key, member) do
+      synchronize do |client|
+        client.call([:zrevrank, key, member])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Remove all members in a sorted set within the given indexes.
@@ -2068,12 +1973,11 @@ class Redis
   # @param [Fixnum] stop stop index
   # @return [Fixnum] number of members that were removed
   def zremrangebyrank(key, start, stop)
-    scope = tracing('zremrangebyrank')
-    synchronize do |client|
-      client.call([:zremrangebyrank, key, start, stop])
+    with_tracing('zremrangebyrank', key, start, stop) do
+      synchronize do |client|
+        client.call([:zremrangebyrank, key, start, stop])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Count the members, with the same score in a sorted set, within the given lexicographical range.
@@ -2095,12 +1999,11 @@ class Redis
   #
   # @return [Fixnum] number of members within the specified lexicographical range
   def zlexcount(key, min, max)
-    scope = tracing('zlexcount')
-    synchronize do |client|
-      client.call([:zlexcount, key, min, max])
+    with_tracing('zlexcount', key, min, max) do
+      synchronize do |client|
+        client.call([:zlexcount, key, min, max])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return a range of members with the same score in a sorted set, by lexicographical ordering
@@ -2125,17 +2028,16 @@ class Redis
   #
   # @return [Array<String>, Array<[String, Float]>]
   def zrangebylex(key, min, max, options = {})
-    scope = tracing('zrangebylex')
-    args = []
+    with_tracing('zrangebylex', key, min, max, options) do
+      args = []
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+      limit = options[:limit]
+      args.concat(["LIMIT"] + limit) if limit
 
-    synchronize do |client|
-      client.call([:zrangebylex, key, min, max] + args)
+      synchronize do |client|
+        client.call([:zrangebylex, key, min, max] + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return a range of members with the same score in a sorted set, by reversed lexicographical ordering.
@@ -2150,17 +2052,16 @@ class Redis
   #
   # @see #zrangebylex
   def zrevrangebylex(key, max, min, options = {})
-    scope = tracing('zrevrangebylex')
-    args = []
+    with_tracing('zrevrangebylex', key, max, min, options) do
+      args = []
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+      limit = options[:limit]
+      args.concat(["LIMIT"] + limit) if limit
 
-    synchronize do |client|
-      client.call([:zrevrangebylex, key, max, min] + args)
+      synchronize do |client|
+        client.call([:zrevrangebylex, key, max, min] + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Return a range of members in a sorted set, by score.
@@ -2191,24 +2092,23 @@ class Redis
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
   def zrangebyscore(key, min, max, options = {})
-    scope = tracing('zrangebyscore')
-    args = []
+    with_tracing('zrangebyscore', key, min, max, options) do
+      args = []
 
-    with_scores = options[:with_scores] || options[:withscores]
+      with_scores = options[:with_scores] || options[:withscores]
 
-    if with_scores
-      args << "WITHSCORES"
-      block = FloatifyPairs
+      if with_scores
+        args << "WITHSCORES"
+        block = FloatifyPairs
+      end
+
+      limit = options[:limit]
+      args.concat(["LIMIT"] + limit) if limit
+
+      synchronize do |client|
+        client.call([:zrangebyscore, key, min, max] + args, &block)
+      end
     end
-
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
-
-    synchronize do |client|
-      client.call([:zrangebyscore, key, min, max] + args, &block)
-    end
-  ensure
-    scope.close
   end
 
   # Return a range of members in a sorted set, by score, with scores ordered
@@ -2226,24 +2126,23 @@ class Redis
   #
   # @see #zrangebyscore
   def zrevrangebyscore(key, max, min, options = {})
-    scope = tracing('zrevrangebyscore')
-    args = []
+    with_tracing('zrevrangebyscore', key, max, min, options) do
+      args = []
 
-    with_scores = options[:with_scores] || options[:withscores]
+      with_scores = options[:with_scores] || options[:withscores]
 
-    if with_scores
-      args << ["WITHSCORES"]
-      block = FloatifyPairs
+      if with_scores
+        args << ["WITHSCORES"]
+        block = FloatifyPairs
+      end
+
+      limit = options[:limit]
+      args.concat(["LIMIT"] + limit) if limit
+
+      synchronize do |client|
+        client.call([:zrevrangebyscore, key, max, min] + args, &block)
+      end
     end
-
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
-
-    synchronize do |client|
-      client.call([:zrevrangebyscore, key, max, min] + args, &block)
-    end
-  ensure
-    scope.close
   end
 
   # Remove all members in a sorted set within the given scores.
@@ -2264,12 +2163,11 @@ class Redis
   #   - exclusive maximum score is specified by prefixing `(`
   # @return [Fixnum] number of members that were removed
   def zremrangebyscore(key, min, max)
-    scope = tracing('zremrangebyscore')
-    synchronize do |client|
-      client.call([:zremrangebyscore, key, min, max])
+    with_tracing('zremrangebyscore', key, min, max) do
+      synchronize do |client|
+        client.call([:zremrangebyscore, key, min, max])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Count the members in a sorted set with scores within the given values.
@@ -2290,12 +2188,11 @@ class Redis
   #   - exclusive maximum score is specified by prefixing `(`
   # @return [Fixnum] number of members in within the specified range
   def zcount(key, min, max)
-    scope = tracing('zcount')
-    synchronize do |client|
-      client.call([:zcount, key, min, max])
+    with_tracing('zcount', key, min, max) do
+      synchronize do |client|
+        client.call([:zcount, key, min, max])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Intersect multiple sorted sets and store the resulting sorted set in a new
@@ -2313,20 +2210,19 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zinterstore(destination, keys, options = {})
-    scope = tracing('zinterstore')
-    args = []
+    with_tracing('zinterstore', destination, keys, options) do
+      args = []
 
-    weights = options[:weights]
-    args.concat(["WEIGHTS"] + weights) if weights
+      weights = options[:weights]
+      args.concat(["WEIGHTS"] + weights) if weights
 
-    aggregate = options[:aggregate]
-    args.concat(["AGGREGATE", aggregate]) if aggregate
+      aggregate = options[:aggregate]
+      args.concat(["AGGREGATE", aggregate]) if aggregate
 
-    synchronize do |client|
-      client.call([:zinterstore, destination, keys.size] + keys + args)
+      synchronize do |client|
+        client.call([:zinterstore, destination, keys.size] + keys + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Add multiple sorted sets and store the resulting sorted set in a new key.
@@ -2343,20 +2239,19 @@ class Redis
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Fixnum] number of elements in the resulting sorted set
   def zunionstore(destination, keys, options = {})
-    scope = tracing('zunionstore')
-    args = []
+    with_tracing('zunionstore', destination, keys, options) do
+      args = []
 
-    weights = options[:weights]
-    args.concat(["WEIGHTS"] + weights) if weights
+      weights = options[:weights]
+      args.concat(["WEIGHTS"] + weights) if weights
 
-    aggregate = options[:aggregate]
-    args.concat(["AGGREGATE", aggregate]) if aggregate
+      aggregate = options[:aggregate]
+      args.concat(["AGGREGATE", aggregate]) if aggregate
 
-    synchronize do |client|
-      client.call([:zunionstore, destination, keys.size] + keys + args)
+      synchronize do |client|
+        client.call([:zunionstore, destination, keys.size] + keys + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the number of fields in a hash.
@@ -2364,12 +2259,11 @@ class Redis
   # @param [String] key
   # @return [Fixnum] number of fields in the hash
   def hlen(key)
-    scope = tracing('hlen')
-    synchronize do |client|
-      client.call([:hlen, key])
+    with_tracing('hlen', key) do
+      synchronize do |client|
+        client.call([:hlen, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the string value of a hash field.
@@ -2379,12 +2273,11 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether or not the field was **added** to the hash
   def hset(key, field, value)
-    scope = tracing('hset')
-    synchronize do |client|
-      client.call([:hset, key, field, value], &Boolify)
+    with_tracing('hset', key, field, value) do
+      synchronize do |client|
+        client.call([:hset, key, field, value], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set the value of a hash field, only if the field does not exist.
@@ -2394,12 +2287,11 @@ class Redis
   # @param [String] value
   # @return [Boolean] whether or not the field was **added** to the hash
   def hsetnx(key, field, value)
-    scope = tracing('hsetnx')
-    synchronize do |client|
-      client.call([:hsetnx, key, field, value], &Boolify)
+    with_tracing('hsetnx', key, field, value) do
+      synchronize do |client|
+        client.call([:hsetnx, key, field, value], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set one or more hash values.
@@ -2414,12 +2306,11 @@ class Redis
   #
   # @see #mapped_hmset
   def hmset(key, *attrs)
-    scope = tracing('hmset')
-    synchronize do |client|
-      client.call([:hmset, key] + attrs)
+    with_tracing('hmset', key, attrs) do
+      synchronize do |client|
+        client.call([:hmset, key] + attrs)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Set one or more hash values.
@@ -2434,10 +2325,9 @@ class Redis
   #
   # @see #hmset
   def mapped_hmset(key, hash)
-    scope = tracing('mapped_hmset')
-    hmset(key, hash.to_a.flatten)
-  ensure
-    scope.close
+    with_tracing('mapped_hmset', key, hash) do
+      hmset(key, hash.to_a.flatten)
+    end
   end
 
   # Get the value of a hash field.
@@ -2446,12 +2336,11 @@ class Redis
   # @param [String] field
   # @return [String]
   def hget(key, field)
-    scope = tracing('hget')
-    synchronize do |client|
-      client.call([:hget, key, field])
+    with_tracing('hget', key, field) do
+      synchronize do |client|
+        client.call([:hget, key, field])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the values of all the given hash fields.
@@ -2466,12 +2355,11 @@ class Redis
   #
   # @see #mapped_hmget
   def hmget(key, *fields, &blk)
-    scope = tracing('hmget')
-    synchronize do |client|
-      client.call([:hmget, key] + fields, &blk)
+    with_tracing('hmget', key, fields) do
+      synchronize do |client|
+        client.call([:hmget, key] + fields, &blk)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the values of all the given hash fields.
@@ -2486,16 +2374,15 @@ class Redis
   #
   # @see #hmget
   def mapped_hmget(key, *fields)
-    scope = tracing('mapped_hmget')
-    hmget(key, *fields) do |reply|
-      if reply.kind_of?(Array)
-        Hash[fields.zip(reply)]
-      else
-        reply
+    with_tracing('mapped_hmget', key, fields) do
+      hmget(key, *fields) do |reply|
+        if reply.kind_of?(Array)
+          Hash[fields.zip(reply)]
+        else
+          reply
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   # Delete one or more hash fields.
@@ -2504,12 +2391,11 @@ class Redis
   # @param [String, Array<String>] field
   # @return [Fixnum] the number of fields that were removed from the hash
   def hdel(key, *fields)
-    scope = tracing('hdel')
-    synchronize do |client|
-      client.call([:hdel, key, *fields])
+    with_tracing('hdel', key, fields) do
+      synchronize do |client|
+        client.call([:hdel, key, *fields])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Determine if a hash field exists.
@@ -2518,12 +2404,11 @@ class Redis
   # @param [String] field
   # @return [Boolean] whether or not the field exists in the hash
   def hexists(key, field)
-    scope = tracing('hexists')
-    synchronize do |client|
-      client.call([:hexists, key, field], &Boolify)
+    with_tracing('hexists', key, field) do
+      synchronize do |client|
+        client.call([:hexists, key, field], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Increment the integer value of a hash field by the given integer number.
@@ -2533,12 +2418,11 @@ class Redis
   # @param [Fixnum] increment
   # @return [Fixnum] value of the field after incrementing it
   def hincrby(key, field, increment)
-    scope = tracing('hincrby')
-    synchronize do |client|
-      client.call([:hincrby, key, field, increment])
+    with_tracing('hincrby', key, field, increment) do
+      synchronize do |client|
+        client.call([:hincrby, key, field, increment])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Increment the numeric value of a hash field by the given float number.
@@ -2548,12 +2432,11 @@ class Redis
   # @param [Float] increment
   # @return [Float] value of the field after incrementing it
   def hincrbyfloat(key, field, increment)
-    scope = tracing('hincrbyfloat')
-    synchronize do |client|
-      client.call([:hincrbyfloat, key, field, increment], &Floatify)
+    with_tracing('hincrbyfloat', key, field, increment) do
+      synchronize do |client|
+        client.call([:hincrbyfloat, key, field, increment], &Floatify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get all the fields in a hash.
@@ -2561,12 +2444,11 @@ class Redis
   # @param [String] key
   # @return [Array<String>]
   def hkeys(key)
-    scope = tracing('hkeys')
-    synchronize do |client|
-      client.call([:hkeys, key])
+    with_tracing('hkeys', key) do
+      synchronize do |client|
+        client.call([:hkeys, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get all the values in a hash.
@@ -2574,12 +2456,11 @@ class Redis
   # @param [String] key
   # @return [Array<String>]
   def hvals(key)
-    scope = tracing('hvals')
-    synchronize do |client|
-      client.call([:hvals, key])
+    with_tracing('hvals', key) do
+      synchronize do |client|
+        client.call([:hvals, key])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get all the fields and values in a hash.
@@ -2587,22 +2468,20 @@ class Redis
   # @param [String] key
   # @return [Hash<String, String>]
   def hgetall(key)
-    scope = tracing('hgetall')
-    synchronize do |client|
-      client.call([:hgetall, key], &Hashify)
+    with_tracing('hgetall', key) do
+      synchronize do |client|
+        client.call([:hgetall, key], &Hashify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Post a message to a channel.
   def publish(channel, message)
-    scope = tracing('publish')
-    synchronize do |client|
-      client.call([:publish, channel, message])
+    with_tracing('publish', channel, message) do
+      synchronize do |client|
+        client.call([:publish, channel, message])
+      end
     end
-  ensure
-    scope.close
   end
 
   def subscribed?
@@ -2613,75 +2492,68 @@ class Redis
 
   # Listen for messages published to the given channels.
   def subscribe(*channels, &block)
-    scope = tracing('subsribe')
-    synchronize do |client|
-      _subscription(:subscribe, 0, channels, block)
+    with_tracing('subsribe', channels) do
+      synchronize do |client|
+        _subscription(:subscribe, 0, channels, block)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Listen for messages published to the given channels. Throw a timeout error if there is no messages for a timeout period.
   def subscribe_with_timeout(timeout, *channels, &block)
-    scope = tracing('subscribe_with_timeout')
-    synchronize do |client|
-      _subscription(:subscribe_with_timeout, timeout, channels, block)
+    with_tracing('subscribe_with_timeout', timeout, channels) do
+      synchronize do |client|
+        _subscription(:subscribe_with_timeout, timeout, channels, block)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Stop listening for messages posted to the given channels.
   def unsubscribe(*channels)
-    scope = tracing('unsubscribe')
-    synchronize do |client|
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
-      client.unsubscribe(*channels)
+    with_tracing('unsubscribe', channels) do
+      synchronize do |client|
+        raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+        client.unsubscribe(*channels)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Listen for messages published to channels matching the given patterns.
   def psubscribe(*channels, &block)
-    scope = tracing('psubscribe')
-    synchronize do |client|
-      _subscription(:psubscribe, 0, channels, block)
+    with_tracing('psubscribe', channels) do
+      synchronize do |client|
+        _subscription(:psubscribe, 0, channels, block)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Listen for messages published to channels matching the given patterns. Throw a timeout error if there is no messages for a timeout period.
   def psubscribe_with_timeout(timeout, *channels, &block)
-    scope = tracing('psubscribe_with_timeout')
-    synchronize do |client|
-      _subscription(:psubscribe_with_timeout, timeout, channels, block)
+    with_tracing('psubscribe_with_timeout', timeout, channels) do
+      synchronize do |client|
+        _subscription(:psubscribe_with_timeout, timeout, channels, block)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Stop listening for messages posted to channels matching the given patterns.
   def punsubscribe(*channels)
-    scope = tracing('punsubscribe')
-    synchronize do |client|
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
-      client.punsubscribe(*channels)
+    with_tracing('punsubscribe', channels) do
+      synchronize do |client|
+        raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+        client.punsubscribe(*channels)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Inspect the state of the Pub/Sub subsystem.
   # Possible subcommands: channels, numsub, numpat.
   def pubsub(subcommand, *args)
-    scope = tracing('pubsub')
-    synchronize do |client|
-      client.call([:pubsub, subcommand] + args)
+    with_tracing('pubsub', subcommand, args) do
+      synchronize do |client|
+        client.call([:pubsub, subcommand] + args)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Watch the given keys to determine execution of the MULTI/EXEC block.
@@ -2715,25 +2587,24 @@ class Redis
   # @see #unwatch
   # @see #multi
   def watch(*keys)
-    scope = tracing('watch')
-    synchronize do |client|
-      res = client.call([:watch] + keys)
+    with_tracing('watch', keys) do
+      synchronize do |client|
+        res = client.call([:watch] + keys)
 
-      if block_given?
-        begin
-          yield(self)
-        rescue ConnectionError
-          raise
-        rescue StandardError
-          unwatch
-          raise
+        if block_given?
+          begin
+            yield(self)
+          rescue ConnectionError
+            raise
+          rescue StandardError
+            unwatch
+            raise
+          end
+        else
+          res
         end
-      else
-        res
       end
     end
-  ensure
-    scope.close
   end
 
   # Forget about all watched keys.
@@ -2743,12 +2614,11 @@ class Redis
   # @see #watch
   # @see #multi
   def unwatch
-    scope = tracing('unwatch')
-    synchronize do |client|
-      client.call([:unwatch])
+    with_tracing('unwatch') do
+      synchronize do |client|
+        client.call([:unwatch])
+      end
     end
-  ensure
-    scope.close
   end
 
   def pipelined
@@ -2794,23 +2664,22 @@ class Redis
   # @see #watch
   # @see #unwatch
   def multi
-    scope = tracing('multi')
-    synchronize do |client|
-      if !block_given?
-        client.call([:multi])
-      else
-        begin
-          pipeline = Pipeline::Multi.new
-          original, @client = @client, pipeline
-          yield(self)
-          original.call_pipeline(pipeline)
-        ensure
-          @client = original
+    with_tracing('multi') do
+      synchronize do |client|
+        if !block_given?
+          client.call([:multi])
+        else
+          begin
+            pipeline = Pipeline::Multi.new
+            original, @client = @client, pipeline
+            yield(self)
+            original.call_pipeline(pipeline)
+          ensure
+            @client = original
+          end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   # Execute all commands issued after MULTI.
@@ -2824,12 +2693,11 @@ class Redis
   # @see #multi
   # @see #discard
   def exec
-    scope = tracing('exec')
-    synchronize do |client|
-      client.call([:exec])
+    with_tracing('exec') do
+      synchronize do |client|
+        client.call([:exec])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Discard all commands issued after MULTI.
@@ -2841,12 +2709,11 @@ class Redis
   # @see #multi
   # @see #exec
   def discard
-    scope = tracing('discard')
-    synchronize do |client|
-      client.call([:discard])
+    with_tracing('discard') do
+      synchronize do |client|
+        client.call([:discard])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Control remote script registry.
@@ -2874,30 +2741,29 @@ class Redis
   # @see #eval
   # @see #evalsha
   def script(subcommand, *args)
-    scope = tracing('script')
-    subcommand = subcommand.to_s.downcase
+    with_tracing('script', subcommand, args) do
+      subcommand = subcommand.to_s.downcase
 
-    if subcommand == "exists"
-      synchronize do |client|
-        arg = args.first
+      if subcommand == "exists"
+        synchronize do |client|
+          arg = args.first
 
-        client.call([:script, :exists, arg]) do |reply|
-          reply = reply.map { |r| Boolify.call(r) }
+          client.call([:script, :exists, arg]) do |reply|
+            reply = reply.map { |r| Boolify.call(r) }
 
-          if arg.is_a?(Array)
-            reply
-          else
-            reply.first
+            if arg.is_a?(Array)
+              reply
+            else
+              reply.first
+            end
           end
         end
-      end
-    else
-      synchronize do |client|
-        client.call([:script, subcommand] + args)
+      else
+        synchronize do |client|
+          client.call([:script, subcommand] + args)
+        end
       end
     end
-  ensure
-    scope.close
   end
 
   def _eval(cmd, args)
@@ -2935,10 +2801,9 @@ class Redis
   # @see #script
   # @see #evalsha
   def eval(*args)
-    scope = tracing('eval')
-    _eval(:eval, args)
-  ensure
-    scope.close
+    with_tracing('eval', args) do
+      _eval(:eval, args)
+    end
   end
 
   # Evaluate Lua script by its SHA.
@@ -2963,10 +2828,9 @@ class Redis
   # @see #script
   # @see #eval
   def evalsha(*args)
-    scope = tracing('evalsha')
-    _eval(:evalsha, args)
-  ensure
-    scope.close
+    with_tracing('evalsha', args) do
+      _eval(:evalsha, args)
+    end
   end
 
   def _scan(command, cursor, args, options = {}, &block)
@@ -3003,10 +2867,9 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found keys
   def scan(cursor, options={})
-    scope = tracing('scan')
-    _scan(:scan, cursor, [], options)
-  ensure
-    scope.close
+    with_tracing('scan', cursor, options) do
+      _scan(:scan, cursor, [], options)
+    end
   end
 
   # Scan the keyspace
@@ -3025,16 +2888,15 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all found keys
   def scan_each(options={}, &block)
-    scope = tracing('scan_each')
-    return to_enum(:scan_each, options) unless block_given?
-    cursor = 0
-    loop do
-      cursor, keys = scan(cursor, options)
-      keys.each(&block)
-      break if cursor == "0"
+    with_tracing('scan_each', options) do
+      return to_enum(:scan_each, options) unless block_given?
+      cursor = 0
+      loop do
+        cursor, keys = scan(cursor, options)
+        keys.each(&block)
+        break if cursor == "0"
+      end
     end
-  ensure
-    scope.close
   end
 
   # Scan a hash
@@ -3049,12 +2911,11 @@ class Redis
   #
   # @return [String, Array<[String, String]>] the next cursor and all found keys
   def hscan(key, cursor, options={})
-    scope = tracing('hscan')
-    _scan(:hscan, cursor, [key], options) do |reply|
-      [reply[0], reply[1].each_slice(2).to_a]
+    with_tracing('hscan', key, cursor, options) do
+      _scan(:hscan, cursor, [key], options) do |reply|
+        [reply[0], reply[1].each_slice(2).to_a]
+      end
     end
-  ensure
-    scope.close
   end
 
   # Scan a hash
@@ -3069,16 +2930,15 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all found keys
   def hscan_each(key, options={}, &block)
-    scope = OpenTracing.start_active_span('hscan_each')
-    return to_enum(:hscan_each, key, options) unless block_given?
-    cursor = 0
-    loop do
-      cursor, values = hscan(key, cursor, options)
-      values.each(&block)
-      break if cursor == "0"
+    with_tracing('hscan_each', key, options) do
+      return to_enum(:hscan_each, key, options) unless block_given?
+      cursor = 0
+      loop do
+        cursor, values = hscan(key, cursor, options)
+        values.each(&block)
+        break if cursor == "0"
+      end
     end
-  ensure
-    scope.close
   end
 
   # Scan a sorted set
@@ -3094,12 +2954,11 @@ class Redis
   # @return [String, Array<[String, Float]>] the next cursor and all found
   #   members and scores
   def zscan(key, cursor, options={})
-    scope = tracing('zscan')
-    _scan(:zscan, cursor, [key], options) do |reply|
-      [reply[0], FloatifyPairs.call(reply[1])]
+    with_tracing('zscan', key, cursor, options) do
+      _scan(:zscan, cursor, [key], options) do |reply|
+        [reply[0], FloatifyPairs.call(reply[1])]
+      end
     end
-  ensure
-    scope.close
   end
 
   # Scan a sorted set
@@ -3114,16 +2973,15 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all found scores and members
   def zscan_each(key, options={}, &block)
-    scope = tracing('zscan_each')
-    return to_enum(:zscan_each, key, options) unless block_given?
-    cursor = 0
-    loop do
-      cursor, values = zscan(key, cursor, options)
-      values.each(&block)
-      break if cursor == "0"
+    with_tracing('zscan_each', key, options) do
+      return to_enum(:zscan_each, key, options) unless block_given?
+      cursor = 0
+      loop do
+        cursor, values = zscan(key, cursor, options)
+        values.each(&block)
+        break if cursor == "0"
+      end
     end
-  ensure
-    scope.close
   end
 
   # Scan a set
@@ -3138,10 +2996,9 @@ class Redis
   #
   # @return [String, Array<String>] the next cursor and all found members
   def sscan(key, cursor, options={})
-    scope = tracing('sscan')
-    _scan(:sscan, cursor, [key], options)
-  ensure
-    scope.close
+    with_tracing('sscan', key, cursor, options) do
+      _scan(:sscan, cursor, [key], options)
+    end
   end
 
   # Scan a set
@@ -3156,16 +3013,15 @@ class Redis
   #
   # @return [Enumerator] an enumerator for all keys in the set
   def sscan_each(key, options={}, &block)
-    scope = tracing('sscan_each')
-    return to_enum(:sscan_each, key, options) unless block_given?
-    cursor = 0
-    loop do
-      cursor, keys = sscan(key, cursor, options)
-      keys.each(&block)
-      break if cursor == "0"
+    with_tracing('sscan_each', key, options) do
+      return to_enum(:sscan_each, key, options) unless block_given?
+      cursor = 0
+      loop do
+        cursor, keys = sscan(key, cursor, options)
+        keys.each(&block)
+        break if cursor == "0"
+      end
     end
-  ensure
-    scope.close
   end
 
   # Add one or more members to a HyperLogLog structure.
@@ -3174,12 +3030,11 @@ class Redis
   # @param [String, Array<String>] member one member, or array of members
   # @return [Boolean] true if at least 1 HyperLogLog internal register was altered. false otherwise.
   def pfadd(key, member)
-    scope = tracing('pfadd')
-    synchronize do |client|
-      client.call([:pfadd, key, member], &Boolify)
+    with_tracing('pfadd', key, member) do
+      synchronize do |client|
+        client.call([:pfadd, key, member], &Boolify)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Get the approximate cardinality of members added to HyperLogLog structure.
@@ -3190,12 +3045,11 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Fixnum]
   def pfcount(*keys)
-    scope = tracing('pfcount')
-    synchronize do |client|
-      client.call([:pfcount] + keys)
+    with_tracing('pfcount', keys) do
+      synchronize do |client|
+        client.call([:pfcount] + keys)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Merge multiple HyperLogLog values into an unique value that will approximate the cardinality of the union of
@@ -3205,12 +3059,11 @@ class Redis
   # @param [String, Array<String>] source_key source key, or array of keys
   # @return [Boolean]
   def pfmerge(dest_key, *source_key)
-    scope = tracing('pfmerge')
-    synchronize do |client|
-      client.call([:pfmerge, dest_key, *source_key], &BoolifySet)
+    with_tracing('pfmerge', dest_key, source_key) do
+      synchronize do |client|
+        client.call([:pfmerge, dest_key, *source_key], &BoolifySet)
+      end
     end
-  ensure
-    scope.close
   end
 
   # Adds the specified geospatial items (latitude, longitude, name) to the specified key
@@ -3219,12 +3072,11 @@ class Redis
   # @param [Array] member arguemnts for member or members: longitude, latitude, name
   # @return [Intger] number of elements added to the sorted set
   def geoadd(key, *member)
-    scope = tracing('geoadd')
-    synchronize do |client|
-      client.call([:geoadd, key, member])
+    with_tracing('geoadd', key, member) do
+      synchronize do |client|
+        client.call([:geoadd, key, member])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Returns geohash string representing position for specified members of the specified key.
@@ -3233,12 +3085,11 @@ class Redis
   # @param [String, Array<String>] member one member or array of members
   # @return [Array<String, nil>] returns array containg geohash string if member is present, nil otherwise
   def geohash(key, member)
-    scope = tracing('geohash')
-    synchronize do |client|
-      client.call([:geohash, key, member])
+    with_tracing('geohash', key, member) do
+      synchronize do |client|
+        client.call([:geohash, key, member])
+      end
     end
-  ensure
-    scope.close
   end
 
 
@@ -3252,14 +3103,13 @@ class Redis
   # @return [Array<String>] may be changed with `options`
 
   def georadius(*args, **geoptions)
-    scope = tracing('georadius')
-    geoarguments = _geoarguments(*args, **geoptions)
+    with_tracing('georadius', args) do
+      geoarguments = _geoarguments(*args, **geoptions)
 
-    synchronize do |client|
-      client.call([:georadius, *geoarguments])
+      synchronize do |client|
+        client.call([:georadius, *geoarguments])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Query a sorted set representing a geospatial index to fetch members matching a
@@ -3272,14 +3122,13 @@ class Redis
   # @return [Array<String>] may be changed with `options`
 
   def georadiusbymember(*args, **geoptions)
-    scope = tracing('georadiusbymember')
-    geoarguments = _geoarguments(*args, **geoptions)
+    with_tracing('georadiusbymember', args) do
+      geoarguments = _geoarguments(*args, **geoptions)
 
-    synchronize do |client|
-      client.call([:georadiusbymember, *geoarguments])
+      synchronize do |client|
+        client.call([:georadiusbymember, *geoarguments])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Returns longitude and latitude of members of a geospatial index
@@ -3288,12 +3137,11 @@ class Redis
   # @param [String, Array<String>] member one member or array of members
   # @return [Array<Array<String>, nil>] returns array of elements, where each element is either array of longitude and latitude or nil
   def geopos(key, member)
-    scope = tracing('geopos')
-    synchronize do |client|
-      client.call([:geopos, key, member])
+    with_tracing('geopos', key, member) do
+      synchronize do |client|
+        client.call([:geopos, key, member])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Returns the distance between two members of a geospatial index
@@ -3303,12 +3151,11 @@ class Redis
   # @param ['m', 'km', 'mi', 'ft'] unit
   # @return [String, nil] returns distance in spefied unit if both members present, nil otherwise.
   def geodist(key, member1, member2, unit = 'm')
-    scope = tracing('geodist')
-    synchronize do |client|
-      client.call([:geodist, key, member1, member2, unit])
+    with_tracing('geodist', key, member1, member2, unit) do
+      synchronize do |client|
+        client.call([:geodist, key, member1, member2, unit])
+      end
     end
-  ensure
-    scope.close
   end
 
   # Interact with the sentinel command (masters, master, slaves, failover)
@@ -3317,28 +3164,27 @@ class Redis
   # @param [Array<String>] args depends on subcommand
   # @return [Array<String>, Hash<String, String>, String] depends on subcommand
   def sentinel(subcommand, *args)
-    scope = tracing('sentinel')
-    subcommand = subcommand.to_s.downcase
-    synchronize do |client|
-      client.call([:sentinel, subcommand] + args) do |reply|
-        case subcommand
-        when "get-master-addr-by-name"
-          reply
-        else
-          if reply.kind_of?(Array)
-            if reply[0].kind_of?(Array)
-              reply.map(&Hashify)
-            else
-              Hashify.call(reply)
-            end
-          else
+    with_tracing('sentinel', subcommand, args) do
+      subcommand = subcommand.to_s.downcase
+      synchronize do |client|
+        client.call([:sentinel, subcommand] + args) do |reply|
+          case subcommand
+          when "get-master-addr-by-name"
             reply
+          else
+            if reply.kind_of?(Array)
+              if reply[0].kind_of?(Array)
+                reply.map(&Hashify)
+              else
+                Hashify.call(reply)
+              end
+            else
+              reply
+            end
           end
         end
       end
     end
-  ensure
-    scope.close
   end
 
   def id
