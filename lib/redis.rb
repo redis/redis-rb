@@ -64,15 +64,17 @@ class Redis
   # @return [OpenTracing] OpenTracing object in the form of scope
   def with_tracing(span_name='redis', *args)
     scope = OpenTracing.start_active_span(span_name, child_of: @parent_active_span)
+
     scope.span.set_tag("component", "Redis-rb")
     scope.span.set_tag("db.type", "redis")
     scope.span.set_tag("db.statement", span_name)
     scope.span.set_tag("db.args", args)
     
     yield if block_given?
+
   rescue Exception => e
     scope.span.set_tag("error", true)
-    scope.span.log_kv({event: "error", error: {king: e.class, stacktrace: e.backtrace.inspect}})
+    scope.span.log_kv({event: "error", "error.kind": e.class, "error.stacktrace": e.backtrace.inspect})
     raise e
   ensure
     scope.close
