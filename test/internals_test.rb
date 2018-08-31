@@ -202,6 +202,19 @@ class TestInternals < Test::Unit::TestCase
     end
   end
 
+  def test_retry_with_custom_reconnect_attempts_and_exponential_backoff
+    close_on_ping([0, 1, 2], :reconnect_attempts => 3,
+                             :reconnect_delay_max => 0.5,
+                             :reconnect_delay => 0.01) do |redis|
+
+      Kernel.expects(:sleep).with(0.01).returns(true)
+      Kernel.expects(:sleep).with(0.02).returns(true)
+      Kernel.expects(:sleep).with(0.04).returns(true)
+
+      assert_equal "3", redis.ping
+    end
+  end
+
   def test_don_t_retry_when_second_read_in_pipeline_raises_econnreset
     close_on_ping([1]) do |redis|
       assert_raise Redis::ConnectionError do
