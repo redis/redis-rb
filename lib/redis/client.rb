@@ -18,6 +18,8 @@ class Redis
       :id => nil,
       :tcp_keepalive => 0,
       :reconnect_attempts => 1,
+      :reconnect_delay => 0,
+      :reconnect_delay_max => 0.5,
       :inherit_socket => false
     }
 
@@ -375,6 +377,10 @@ class Redis
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
+          sleep_t = [(@options[:reconnect_delay] * 2**(attempts-1)),
+                     @options[:reconnect_delay_max]].min
+
+          Kernel.sleep(sleep_t)
           retry
         else
           raise
@@ -452,6 +458,8 @@ class Redis
       options[:write_timeout]   = Float(options[:write_timeout])
 
       options[:reconnect_attempts] = options[:reconnect_attempts].to_i
+      options[:reconnect_delay] = options[:reconnect_delay].to_f
+      options[:reconnect_delay_max] = options[:reconnect_delay_max].to_f
 
       options[:db] = options[:db].to_i
       options[:driver] = _parse_driver(options[:driver]) || Connection.drivers.last
