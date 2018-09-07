@@ -25,7 +25,7 @@ before_script:
 env:
   global:
     - VERBOSE=true
-    - TIMEOUT=9
+    - TIMEOUT=30
   matrix:
     - DRIVER=ruby      REDIS_BRANCH=3.0
     - DRIVER=ruby      REDIS_BRANCH=3.2
