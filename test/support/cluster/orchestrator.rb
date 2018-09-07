@@ -7,7 +7,8 @@ class ClusterOrchestrator
 
   def initialize(node_addrs)
     raise 'Redis Cluster requires at least 3 master nodes.' if node_addrs.size < 3
-    @clients = node_addrs.map { |addr| Redis.new(url: addr) }
+    timeout_sec = Float(ENV['TIMEOUT'] || 30.0)
+    @clients = node_addrs.map { |addr| Redis.new(url: addr, timeout: timeout_sec) }
   end
 
   def rebuild
