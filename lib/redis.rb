@@ -1162,9 +1162,9 @@ class Redis
     case args.last
     when Hash
       options = args.pop
-    when Integer
+    when args.last.respond_to?(:to_int)
       # Issue deprecation notice in obnoxious mode...
-      options[:timeout] = args.pop
+      options[:timeout] = args.pop.to_int
     end
 
     if args.size > 1
