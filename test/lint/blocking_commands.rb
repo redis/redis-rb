@@ -79,7 +79,7 @@ module Lint
 
     def test_blpop_integer_like_timeout
       mock do |r|
-        assert_equal ["{zap}foo", "0"], r.blpop("{zap}foo", FakeDuration.new(1))
+        assert_equal ["{zap}foo", "1"], r.blpop("{zap}foo", FakeDuration.new(1))
       end
     end
 
