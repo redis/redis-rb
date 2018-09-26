@@ -42,6 +42,8 @@ class Redis
         ip = default_ip if ip.empty? # When cluster is down
         NodeKey.build_from_host_port(ip, port)
       end
+
+      private_class_method :fetch_slot_info, :parse_slot_info, :stringify_node_key
     end
   end
 end
