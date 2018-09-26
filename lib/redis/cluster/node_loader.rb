@@ -30,6 +30,8 @@ class Redis
       rescue CannotConnectError, ConnectionError, CommandError
         {} # can retry on another node
       end
+
+      private_class_method :fetch_node_info
     end
   end
 end
