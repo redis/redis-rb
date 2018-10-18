@@ -191,13 +191,10 @@ class Redis
         exception = nil
 
         process(commands) do
-          result[0] = read
-
-          @reconnect = false
-
-          (commands.size - 1).times do |i|
+          commands.size.times do |i|
             reply = read
-            result[i + 1] = reply
+            result[i] = reply
+            @reconnect = false
             exception = reply if exception.nil? && reply.is_a?(CommandError)
           end
         end
