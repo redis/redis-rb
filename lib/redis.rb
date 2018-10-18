@@ -2936,12 +2936,8 @@ private
 
   FloatifyPairs =
     lambda { |result|
-      if result.respond_to?(:each_slice)
-        result.each_slice(2).map do |member, score|
-          [member, Floatify.call(score)]
-        end
-      else
-        result
+      result.each_slice(2).map do |member, score|
+        [member, Floatify.call(score)]
       end
     }
 
