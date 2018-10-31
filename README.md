@@ -220,6 +220,51 @@ end
 
 If no message is received after 5 seconds, the client will unsubscribe.
 
+## Reconnections
+
+The client allows you to configure how many `reconnect_attempts` it should
+complete before declaring a connection as failed. Furthermore, you may want
+to control the maximum duration between reconnection attempts with
+`reconnect_delay` and `reconnect_delay_max`.
+
+```ruby
+Redis.new(
+  :reconnect_attempts => 10,
+  :reconnect_delay => 1.5,
+  :reconnect_delay_max => 10.0,
+)
+```
+
+The delay values are specified in seconds. With the above configuration, the
+client would attempt 10 reconnections, exponentially increasing the duration
+between each attempt but it never waits longer than `reconnect_delay_max`.
+
+This is the retry algorithm:
+
+```ruby
+attempt_wait_time = [(reconnect_delay * 2**(attempt-1)), reconnect_delay_max].min
+```
+
+**By default**, this gem will only **retry a connection once** and then fail, but with the
+above configuration the reconnection attempt would look like this:
+
+#|Attempt wait time|Total wait time
+:-:|:-:|:-:
+1|1.5s|1.5s
+2|3.0s|4.5s
+3|6.0s|10.5s
+4|10.0s|20.5s
+5|10.0s|30.5s
+6|10.0s|40.5s
+7|10.0s|50.5s
+8|10.0s|60.5s
+9|10.0s|70.5s
+10|10.0s|80.5s
+
+So if the reconnection attempt #10 succeeds 70 seconds have elapsed trying
+to reconnect, this is likely fine in long-running background processes, but if
+you use Redis to drive your website you might want to have a lower
+`reconnect_delay_max` or have less `reconnect_attempts`.
 
 ## SSL/TLS Support
 
