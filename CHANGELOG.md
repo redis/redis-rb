@@ -1,3 +1,9 @@
+# 4.0.3
+
+* Fix raising command error for first command in pipeline. See #788.
+* Fix the gemspec to stop exposing a `build` executable. See #785.
+* Add `:reconnect_delay` and `:reconnect_delay_max` options. See #778.
+
 # 4.0.2
 
 * Added `Redis#unlink`. See #766.
