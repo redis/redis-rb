@@ -34,7 +34,7 @@ class ClusterOrchestrator
     sleep 3
   end
 
-  def start_resharding(slot, src_node_key, dest_node_key)
+  def start_resharding(slot, src_node_key, dest_node_key, slice_size: 10)
     node_map = hashify_node_map(@clients.first)
     src_node_id = node_map.fetch(src_node_key)
     src_client = find_client(@clients, src_node_key)
@@ -45,11 +45,21 @@ class ClusterOrchestrator
     dest_client.cluster(:setslot, slot, 'IMPORTING', src_node_id)
     src_client.cluster(:setslot, slot, 'MIGRATING', dest_node_id)
 
+    keys_count = src_client.cluster(:countkeysinslot, slot)
     loop do
-      keys = src_client.cluster(:getkeysinslot, slot, 100)
+      break if keys_count <= 0
+      keys = src_client.cluster(:getkeysinslot, slot, slice_size)
       break if keys.empty?
-      keys.each { |k| src_client.migrate(k, host: dest_host, port: dest_port) }
-      sleep 0.1
+      keys.each do |k|
+        begin
+          src_client.migrate(k, host: dest_host, port: dest_port)
+        rescue Redis::CommandError => err
+          raise unless err.message.start_with?('IOERR')
+          src_client.migrate(k, host: dest_host, port: dest_port, replace: true) # retry once
+        ensure
+          keys_count -= 1
+        end
+      end
     end
   end
 
