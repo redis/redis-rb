@@ -202,6 +202,21 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
       actual = redis.migrate("foo", options.merge(:timeout => default_timeout + 1))
       expected = ["127.0.0.1", "1234", "foo", default_db.to_s, (default_timeout + 1).to_s]
       assert_equal expected, actual
+
+      # Test copy override
+      actual = redis.migrate('foo', options.merge(copy: true))
+      expected = ['127.0.0.1', '1234', 'foo', default_db.to_s, default_timeout.to_s, 'COPY']
+      assert_equal expected, actual
+
+      # Test replace override
+      actual = redis.migrate('foo', options.merge(replace: true))
+      expected = ['127.0.0.1', '1234', 'foo', default_db.to_s, default_timeout.to_s, 'REPLACE']
+      assert_equal expected, actual
+
+      # Test multiple keys
+      actual = redis.migrate(%w[foo bar baz], options)
+      expected = ['127.0.0.1', '1234', '', default_db.to_s, default_timeout.to_s, 'KEYS', 'foo', 'bar', 'baz']
+      assert_equal expected, actual
     end
   end
 end
