@@ -2,6 +2,7 @@
 
 require_relative '../errors'
 require_relative 'node_key'
+require 'uri'
 
 class Redis
   class Cluster
