@@ -1,5 +1,7 @@
 module Lint
   module BlockingCommands
+    LOW_TIMEOUT = 0.01
+
     def setup
       super
 
@@ -25,7 +27,7 @@ module Lint
 
     def mock(options = {}, &blk)
       commands = build_mock_commands(options)
-      redis_mock(commands, &blk)
+      redis_mock(commands, { timeout: LOW_TIMEOUT }, &blk)
     end
 
     def build_mock_commands(options = {})
@@ -54,82 +56,82 @@ module Lint
     end
 
     def test_blpop
-      assert_equal ["{zap}foo", "s1"], r.blpop("{zap}foo")
-      assert_equal ["{zap}foo", "s2"], r.blpop(["{zap}foo"])
-      assert_equal ["{zap}bar", "s1"], r.blpop(["{zap}bar", "{zap}foo"])
-      assert_equal ["{zap}bar", "s2"], r.blpop(["{zap}foo", "{zap}bar"])
+      assert_equal ['{zap}foo', 's1'], r.blpop('{zap}foo')
+      assert_equal ['{zap}foo', 's2'], r.blpop(['{zap}foo'])
+      assert_equal ['{zap}bar', 's1'], r.blpop(['{zap}bar', '{zap}foo'])
+      assert_equal ['{zap}bar', 's2'], r.blpop(['{zap}foo', '{zap}bar'])
     end
 
     def test_blpop_timeout
       mock do |r|
-        assert_equal ["{zap}foo", "0"], r.blpop("{zap}foo")
-        assert_equal ["{zap}foo", "1"], r.blpop("{zap}foo", :timeout => 1)
+        assert_equal ['{zap}foo', '0'], r.blpop('{zap}foo')
+        assert_equal ['{zap}foo', LOW_TIMEOUT.to_s], r.blpop('{zap}foo', timeout: LOW_TIMEOUT)
       end
     end
 
     def test_blpop_with_old_prototype
-      assert_equal ["{zap}foo", "s1"], r.blpop("{zap}foo", 0)
-      assert_equal ["{zap}foo", "s2"], r.blpop("{zap}foo", 0)
-      assert_equal ["{zap}bar", "s1"], r.blpop("{zap}bar", "{zap}foo", 0)
-      assert_equal ["{zap}bar", "s2"], r.blpop("{zap}foo", "{zap}bar", 0)
+      assert_equal ['{zap}foo', 's1'], r.blpop('{zap}foo', 0)
+      assert_equal ['{zap}foo', 's2'], r.blpop('{zap}foo', 0)
+      assert_equal ['{zap}bar', 's1'], r.blpop('{zap}bar', '{zap}foo', 0)
+      assert_equal ['{zap}bar', 's2'], r.blpop('{zap}foo', '{zap}bar', 0)
     end
 
     def test_blpop_timeout_with_old_prototype
       mock do |r|
-        assert_equal ["{zap}foo", "0"], r.blpop("{zap}foo", 0)
-        assert_equal ["{zap}foo", "1"], r.blpop("{zap}foo", 1)
+        assert_equal ['{zap}foo', '0'], r.blpop('{zap}foo', 0)
+        assert_equal ['{zap}foo', '1'], r.blpop('{zap}foo', 1)
       end
     end
 
     def test_brpop
-      assert_equal ["{zap}foo", "s2"], r.brpop("{zap}foo")
-      assert_equal ["{zap}foo", "s1"], r.brpop(["{zap}foo"])
-      assert_equal ["{zap}bar", "s2"], r.brpop(["{zap}bar", "{zap}foo"])
-      assert_equal ["{zap}bar", "s1"], r.brpop(["{zap}foo", "{zap}bar"])
+      assert_equal ['{zap}foo', 's2'], r.brpop('{zap}foo')
+      assert_equal ['{zap}foo', 's1'], r.brpop(['{zap}foo'])
+      assert_equal ['{zap}bar', 's2'], r.brpop(['{zap}bar', '{zap}foo'])
+      assert_equal ['{zap}bar', 's1'], r.brpop(['{zap}foo', '{zap}bar'])
     end
 
     def test_brpop_timeout
       mock do |r|
-        assert_equal ["{zap}foo", "0"], r.brpop("{zap}foo")
-        assert_equal ["{zap}foo", "1"], r.brpop("{zap}foo", :timeout => 1)
+        assert_equal ['{zap}foo', '0'], r.brpop('{zap}foo')
+        assert_equal ['{zap}foo', LOW_TIMEOUT.to_s], r.brpop('{zap}foo', timeout: LOW_TIMEOUT)
       end
     end
 
     def test_brpop_with_old_prototype
-      assert_equal ["{zap}foo", "s2"], r.brpop("{zap}foo", 0)
-      assert_equal ["{zap}foo", "s1"], r.brpop("{zap}foo", 0)
-      assert_equal ["{zap}bar", "s2"], r.brpop("{zap}bar", "{zap}foo", 0)
-      assert_equal ["{zap}bar", "s1"], r.brpop("{zap}foo", "{zap}bar", 0)
+      assert_equal ['{zap}foo', 's2'], r.brpop('{zap}foo', 0)
+      assert_equal ['{zap}foo', 's1'], r.brpop('{zap}foo', 0)
+      assert_equal ['{zap}bar', 's2'], r.brpop('{zap}bar', '{zap}foo', 0)
+      assert_equal ['{zap}bar', 's1'], r.brpop('{zap}foo', '{zap}bar', 0)
     end
 
     def test_brpop_timeout_with_old_prototype
       mock do |r|
-        assert_equal ["{zap}foo", "0"], r.brpop("{zap}foo", 0)
-        assert_equal ["{zap}foo", "1"], r.brpop("{zap}foo", 1)
+        assert_equal ['{zap}foo', '0'], r.brpop('{zap}foo', 0)
+        assert_equal ['{zap}foo', '1'], r.brpop('{zap}foo', 1)
       end
     end
 
     def test_brpoplpush
-      assert_equal "s2", r.brpoplpush("{zap}foo", "{zap}qux")
-      assert_equal ["s2"], r.lrange("{zap}qux", 0, -1)
+      assert_equal 's2', r.brpoplpush('{zap}foo', '{zap}qux')
+      assert_equal ['s2'], r.lrange('{zap}qux', 0, -1)
     end
 
     def test_brpoplpush_timeout
       mock do |r|
-        assert_equal "0", r.brpoplpush("{zap}foo", "{zap}bar")
-        assert_equal "1", r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
+        assert_equal '0', r.brpoplpush('{zap}foo', '{zap}bar')
+        assert_equal LOW_TIMEOUT.to_s, r.brpoplpush('{zap}foo', '{zap}bar', timeout: LOW_TIMEOUT)
       end
     end
 
     def test_brpoplpush_with_old_prototype
-      assert_equal "s2", r.brpoplpush("{zap}foo", "{zap}qux", 0)
-      assert_equal ["s2"], r.lrange("{zap}qux", 0, -1)
+      assert_equal 's2', r.brpoplpush('{zap}foo', '{zap}qux', 0)
+      assert_equal ['s2'], r.lrange('{zap}qux', 0, -1)
     end
 
     def test_brpoplpush_timeout_with_old_prototype
       mock do |r|
-        assert_equal "0", r.brpoplpush("{zap}foo", "{zap}bar", 0)
-        assert_equal "1", r.brpoplpush("{zap}foo", "{zap}bar", 1)
+        assert_equal '0', r.brpoplpush('{zap}foo', '{zap}bar', 0)
+        assert_equal '1', r.brpoplpush('{zap}foo', '{zap}bar', 1)
       end
     end
 
@@ -147,25 +149,25 @@ module Lint
 
     driver(:ruby, :hiredis) do
       def test_blpop_socket_timeout
-        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+        mock(delay: LOW_TIMEOUT * 5) do |r|
           assert_raises(Redis::TimeoutError) do
-            r.blpop("{zap}foo", :timeout => 1)
+            r.blpop('{zap}foo', timeout: LOW_TIMEOUT)
           end
         end
       end
 
       def test_brpop_socket_timeout
-        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+        mock(delay: LOW_TIMEOUT * 5) do |r|
           assert_raises(Redis::TimeoutError) do
-            r.brpop("{zap}foo", :timeout => 1)
+            r.brpop('{zap}foo', timeout: LOW_TIMEOUT)
           end
         end
       end
 
       def test_brpoplpush_socket_timeout
-        mock(:delay => 1 + OPTIONS[:timeout] * 2) do |r|
+        mock(delay: LOW_TIMEOUT * 5) do |r|
           assert_raises(Redis::TimeoutError) do
-            r.brpoplpush("{zap}foo", "{zap}bar", :timeout => 1)
+            r.brpoplpush('{zap}foo', '{zap}bar', timeout: LOW_TIMEOUT)
           end
         end
       end
