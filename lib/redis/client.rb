@@ -6,7 +6,7 @@ class Redis
   class Client
 
     DEFAULTS = {
-      :url => lambda { ENV["REDIS_URL"] },
+      :url => nil,
       :scheme => "redis",
       :host => "127.0.0.1",
       :port => 6379,
@@ -431,6 +431,30 @@ class Redis
       # Use default when option is not specified or nil
       defaults.keys.each do |key|
         options[key] = defaults[key] if options[key].nil?
+      end
+
+      url = ENV["REDIS_URL"]
+
+      # Override options from URL by env var if given
+      if url
+        require "uri"
+
+        uri = URI(url)
+
+        if uri.scheme == "unix"
+          options[:path]   = uri.path
+        elsif uri.scheme == "redis" || uri.scheme == "rediss"
+          options[:scheme]   = uri.scheme
+          options[:host]     = uri.host if uri.host
+          options[:port]     = uri.port if uri.port
+          options[:password] = CGI.unescape(uri.password) if uri.password
+          options[:db]       = uri.path[1..-1].to_i if uri.path
+          options[:role] = :master
+        else
+          raise ArgumentError, "invalid uri scheme '#{uri.scheme}'"
+        end
+
+        options[:ssl] = true if uri.scheme == "rediss"
       end
 
       if options[:path]

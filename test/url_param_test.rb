@@ -128,6 +128,32 @@ class TestUrlParam < Test::Unit::TestCase
     ENV.delete("REDIS_URL")
   end
 
+  def test_uses_redis_url_over_option_url_if_available
+    ENV["REDIS_URL"] = "redis://:secr3t@foo.com:999/2"
+
+    redis = Redis.new(:url => "redis://:unknown@example.com:1000/7")
+
+    assert_equal "foo.com", redis._client.host
+    assert_equal 999, redis._client.port
+    assert_equal 2, redis._client.db
+    assert_equal "secr3t", redis._client.password
+
+    ENV.delete("REDIS_URL")
+  end
+
+  def test_uses_redis_url_over_options_if_available
+    ENV["REDIS_URL"] = "redis://:secr3t@foo.com:999/2"
+
+    redis = Redis.new(:host => "example.com", :port => 1000, :password => "unknown", :db => 7)
+
+    assert_equal "foo.com", redis._client.host
+    assert_equal 999, redis._client.port
+    assert_equal 2, redis._client.db
+    assert_equal "secr3t", redis._client.password
+
+    ENV.delete("REDIS_URL")
+  end
+
   def test_defaults_to_localhost
     redis = Redis.new(:url => "redis:///")
 
