@@ -10,6 +10,6 @@ class TestClusterBlockingCommands < Test::Unit::TestCase
 
   def mock(options = {}, &blk)
     commands = build_mock_commands(options)
-    redis_cluster_mock(commands, &blk)
+    redis_cluster_mock(commands, { timeout: LOW_TIMEOUT }, &blk)
   end
 end

@@ -240,6 +240,8 @@ class SentinelTest < Test::Unit::TestCase
       RedisMock.start(master) do |master_port|
         RedisMock.start(handler.call(:s1, master_port)) do |s1_port|
           RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
+            sentinels[0][:port] = s1_port + 1
+            sentinels[1][:port] = s2_port + 2
             redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 0)
 
             assert redis.ping
