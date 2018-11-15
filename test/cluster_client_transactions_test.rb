@@ -40,7 +40,7 @@ class TestClusterClientTransactions < Test::Unit::TestCase
       100.times { |i| cli.set("{key}#{i}", i) }
     end
 
-    sleep 0.1
+    sleep 0.5
 
     100.times { |i| assert_equal i.to_s, rc1.get("{key}#{i}") }
     100.times { |i| assert_equal i.to_s, rc2.get("{key}#{i}") }
