@@ -26,6 +26,7 @@ env:
   global:
     - VERBOSE=true
     - TIMEOUT=30
+    - LOW_TIMEOUT=0.01
   matrix:
     - DRIVER=ruby      REDIS_BRANCH=3.0
     - DRIVER=ruby      REDIS_BRANCH=3.2
@@ -43,17 +44,14 @@ branches:
 
 matrix:
   exclude:
-    # hiredis
     - rvm: jruby-9.1.17.0
-      env: DRIVER=hiredis   REDIS_BRANCH=3.0
+  include:
     - rvm: jruby-9.1.17.0
-      env: DRIVER=hiredis   REDIS_BRANCH=3.2
-
-    # synchrony
+      env: DRIVER=ruby REDIS_BRANCH=3.0 LOW_TIMEOUT=0.1
     - rvm: jruby-9.1.17.0
-      env: DRIVER=synchrony REDIS_BRANCH=3.0
+      env: DRIVER=ruby REDIS_BRANCH=3.2 LOW_TIMEOUT=0.1
     - rvm: jruby-9.1.17.0
-      env: DRIVER=synchrony REDIS_BRANCH=3.2
+      env: DRIVER=ruby REDIS_BRANCH=4.0 LOW_TIMEOUT=0.1
 
 notifications:
   irc:

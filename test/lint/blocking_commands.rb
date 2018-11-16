@@ -1,7 +1,5 @@
 module Lint
   module BlockingCommands
-    LOW_TIMEOUT = 0.01
-
     def setup
       super
 

@@ -21,7 +21,6 @@ class ClusterOrchestrator
     replicate(@clients)
     save_config(@clients)
     wait_cluster_building(@clients)
-    sleep 3
   end
 
   def down
@@ -30,8 +29,9 @@ class ClusterOrchestrator
   end
 
   def failover
-    take_slaves(@clients).last.cluster(:failover, :takeover)
-    sleep 3
+    master, slave = take_replication_pairs(@clients)
+    slave.cluster(:failover, :takeover)
+    wait_failover(to_node_key(master), to_node_key(slave), @clients)
   end
 
   def start_resharding(slot, src_node_key, dest_node_key)
@@ -157,18 +157,42 @@ class ClusterOrchestrator
     clients.each { |c| c.cluster(:saveconfig) }
   end
 
-  def wait_cluster_building(clients)
-    first_cliient = clients.first
+  def wait_cluster_building(clients, max_attempts: 200)
+    attempt_count = 0
 
-    loop do
-      info = hashify_cluster_info(first_cliient)
-      break if info['cluster_state'] == 'ok'
-      sleep 0.1
+    clients.each do |client|
+      loop do
+        info = hashify_cluster_info(client)
+        attempt_count += 1
+        break if info['cluster_state'] == 'ok' || attempt_count > max_attempts
+        sleep 0.1
+      end
+    end
+  end
+
+  def wait_failover(master_key, slave_key, clients, max_attempts: 200)
+    attempt_count = 0
+
+    clients.each do |client|
+      loop do
+        flags = hashify_cluster_node_flags(client)
+        attempt_count += 1
+        break if (flags[master_key] == 'slave' && flags[slave_key] == 'master') || attempt_count > max_attempts
+        sleep 0.1
+      end
     end
   end
 
   def hashify_cluster_info(client)
     client.cluster(:info).split("\r\n").map { |str| str.split(':') }.to_h
+  end
+
+  def hashify_cluster_node_flags(client)
+    client.cluster(:nodes)
+          .split("\n")
+          .map { |str| str.split(' ') }
+          .map { |arr| [arr[1].split('@').first, (arr[2].split(',') & %w[master slave]).first] }
+          .to_h
   end
 
   def hashify_node_map(client)
@@ -191,10 +215,16 @@ class ClusterOrchestrator
     clients[size..size * 2]
   end
 
+  def take_replication_pairs(clients)
+    [take_masters(clients).last, take_slaves(clients).last]
+  end
+
   def find_client(clients, node_key)
-    clients.find do |cli|
-      con = cli.connection
-      node_key == "#{con.fetch(:host)}:#{con.fetch(:port)}"
-    end
+    clients.find { |cli| node_key == to_node_key(cli) }
+  end
+
+  def to_node_key(client)
+    con = client.connection
+    "#{con.fetch(:host)}:#{con.fetch(:port)}"
   end
 end
