@@ -15,9 +15,11 @@ require_relative "support/redis_mock"
 require_relative "support/connection/#{ENV["DRIVER"]}"
 require_relative 'support/cluster/orchestrator'
 
-PORT    = 6381
-OPTIONS = {:port => PORT, :db => 15, :timeout => Float(ENV["TIMEOUT"] || 0.1)}
-NODES   = ["redis://127.0.0.1:#{PORT}/15"]
+PORT        = 6381
+DB          = 15
+TIMEOUT     = Float(ENV['TIMEOUT'] || 0.1)
+LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
+OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
 def driver(*drivers, &blk)
   if drivers.map(&:to_s).include?(ENV["DRIVER"])
@@ -178,8 +180,9 @@ module Helper
   end
 
   module Distributed
-
     include Generic
+
+    NODES = ["redis://127.0.0.1:#{PORT}/15"].freeze
 
     def version
       Version.new(redis.info.first["redis_version"])

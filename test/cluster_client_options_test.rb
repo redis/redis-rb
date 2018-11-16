@@ -38,8 +38,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
 
   def test_client_accepts_valid_options
     assert_nothing_raised do
-      timeout = Float(ENV['TIMEOUT'] || 1.0)
-      build_another_client(timeout: timeout)
+      build_another_client(timeout: TIMEOUT)
     end
   end
 
