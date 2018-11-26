@@ -1,4 +1,3 @@
-TEST_FILES         := $(shell find ./test -name *_test.rb -type f)
 REDIS_BRANCH       ?= unstable
 TMP                := tmp
 BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
@@ -32,9 +31,8 @@ ${TMP}:
 ${BINARY}: ${TMP}
 	bin/build ${REDIS_BRANCH} $<
 
-test: ${TEST_FILES}
-	env SOCKET_PATH=${SOCKET_PATH} \
-		bundle exec ruby -v -e 'ARGV.each { |test_file| require test_file }' ${TEST_FILES}
+test:
+	env SOCKET_PATH=${SOCKET_PATH} bin/rake test
 
 stop:
 	$(call kill-redis,${PID_PATH})
