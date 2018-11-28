@@ -182,7 +182,7 @@ module Helper
   module Distributed
     include Generic
 
-    NODES = ["redis://127.0.0.1:#{PORT}/15"].freeze
+    NODES = ["redis://127.0.0.1:#{PORT}/#{DB}"].freeze
 
     def version
       Version.new(redis.info.first["redis_version"])
