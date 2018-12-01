@@ -30,8 +30,7 @@ Gem::Specification.new do |s|
 
   s.email = ["redis-db@googlegroups.com"]
 
-  s.files         = `git ls-files`.split("\n")
-  s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
+  s.files         = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
   s.executables   = `git ls-files -- exe/*`.split("\n").map{ |f| File.basename(f) }
 
   s.required_ruby_version = '>= 2.2.2'
