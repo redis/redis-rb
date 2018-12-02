@@ -297,7 +297,7 @@ module Helper
     end
 
     def redis_cluster_down
-      trib = ClusterOrchestrator.new(_default_nodes)
+      trib = ClusterOrchestrator.new(_default_nodes, timeout: TIMEOUT)
       trib.down
       yield
     ensure
@@ -306,7 +306,7 @@ module Helper
     end
 
     def redis_cluster_failover
-      trib = ClusterOrchestrator.new(_default_nodes)
+      trib = ClusterOrchestrator.new(_default_nodes, timeout: TIMEOUT)
       trib.failover
       yield
     ensure
@@ -318,7 +318,7 @@ module Helper
     # @param src [String] <ip>:<port>
     # @param dest [String] <ip>:<port>
     def redis_cluster_resharding(slot, src:, dest:)
-      trib = ClusterOrchestrator.new(_default_nodes)
+      trib = ClusterOrchestrator.new(_default_nodes, timeout: TIMEOUT)
       trib.start_resharding(slot, src, dest)
       yield
       trib.finish_resharding(slot, dest)

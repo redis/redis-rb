@@ -5,10 +5,10 @@ require_relative '../../../lib/redis'
 class ClusterOrchestrator
   SLOT_SIZE = 16384
 
-  def initialize(node_addrs)
+  def initialize(node_addrs, timeout: 30.0)
     raise 'Redis Cluster requires at least 3 master nodes.' if node_addrs.size < 3
-    timeout_sec = Float(ENV['TIMEOUT'] || 30.0)
-    @clients = node_addrs.map { |addr| Redis.new(url: addr, timeout: timeout_sec) }
+    @clients = node_addrs.map { |addr| Redis.new(url: addr, timeout: timeout) }
+    @timeout = timeout
   end
 
   def rebuild
@@ -21,6 +21,8 @@ class ClusterOrchestrator
     replicate(@clients)
     save_config(@clients)
     wait_cluster_building(@clients)
+    wait_replication(@clients)
+    wait_cluster_recovering(@clients)
   end
 
   def down
@@ -30,8 +32,11 @@ class ClusterOrchestrator
 
   def failover
     master, slave = take_replication_pairs(@clients)
+    wait_replication_delay(@clients, @timeout)
     slave.cluster(:failover, :takeover)
     wait_failover(to_node_key(master), to_node_key(slave), @clients)
+    wait_replication_delay(@clients, @timeout)
+    wait_cluster_recovering(@clients)
   end
 
   def start_resharding(slot, src_node_key, dest_node_key)
@@ -117,14 +122,12 @@ class ClusterOrchestrator
     end
   end
 
-  def wait_meeting(clients)
-    first_cliient = clients.first
-    size = clients.size
+  def wait_meeting(clients, max_attempts: 600)
+    size = clients.size.to_s
 
-    loop do
-      info = hashify_cluster_info(first_cliient)
-      break if info['cluster_known_nodes'].to_i == size
-      sleep 0.1
+    wait_for_state(clients, max_attempts) do |client|
+      info = hashify_cluster_info(client)
+      info['cluster_known_nodes'] == size
     end
   end
 
@@ -157,27 +160,61 @@ class ClusterOrchestrator
     clients.each { |c| c.cluster(:saveconfig) }
   end
 
-  def wait_cluster_building(clients, max_attempts: 200)
-    attempt_count = 0
+  def wait_cluster_building(clients, max_attempts: 600)
+    wait_for_state(clients, max_attempts) do |client|
+      info = hashify_cluster_info(client)
+      info['cluster_state'] == 'ok'
+    end
+  end
 
-    clients.each do |client|
-      loop do
-        info = hashify_cluster_info(client)
-        attempt_count += 1
-        break if info['cluster_state'] == 'ok' || attempt_count > max_attempts
-        sleep 0.1
+  def wait_replication(clients, max_attempts: 600)
+    wait_for_state(clients, max_attempts) do |client|
+      flags = hashify_cluster_node_flags(client)
+      flags.values.select { |f| f == 'slave' }.size == 3
+    end
+  end
+
+  def wait_failover(master_key, slave_key, clients, max_attempts: 600)
+    wait_for_state(clients, max_attempts) do |client|
+      flags = hashify_cluster_node_flags(client)
+      flags[master_key] == 'slave' && flags[slave_key] == 'master'
+    end
+  end
+
+  def wait_replication_delay(clients, timeout_sec)
+    timeout_msec = timeout_sec.to_i * 1000
+    wait_for_state(clients, clients.size + 1) do |client|
+      client.wait(1, timeout_msec) if client.role.first == 'master'
+      true
+    end
+  end
+
+  def wait_cluster_recovering(clients, max_attempts: 600)
+    key = 0
+    wait_for_state(clients, max_attempts) do |client|
+      begin
+        client.get(key) if client.role.first == 'master'
+        true
+      rescue Redis::CommandError => err
+        if err.message.start_with?('CLUSTERDOWN')
+          false
+        elsif err.message.start_with?('MOVED')
+          key += 1
+          false
+        else
+          true
+        end
       end
     end
   end
 
-  def wait_failover(master_key, slave_key, clients, max_attempts: 200)
-    attempt_count = 0
-
+  def wait_for_state(clients, max_attempts)
+    attempt_count = 1
     clients.each do |client|
-      loop do
-        flags = hashify_cluster_node_flags(client)
+      attempt_count.step(max_attempts) do |i|
+        break if i >= max_attempts
         attempt_count += 1
-        break if (flags[master_key] == 'slave' && flags[slave_key] == 'master') || attempt_count > max_attempts
+        break if yield(client)
         sleep 0.1
       end
     end

@@ -115,7 +115,7 @@ class TestClusterCommandsOnKeys < Test::Unit::TestCase
 
   def test_wait
     set_some_keys
-    assert_equal 1, redis.wait(1, 0)
+    assert_equal 3, redis.wait(1, TIMEOUT.to_i * 1000)
   end
 
   def test_scan
