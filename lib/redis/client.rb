@@ -277,12 +277,15 @@ class Redis
 
     def with_socket_timeout(timeout)
       connect unless connected?
+      original = @options[:read_timeout]
 
       begin
         connection.timeout = timeout
+        @options[:read_timeout] = timeout # for reconnection
         yield
       ensure
         connection.timeout = self.timeout if connected?
+        @options[:read_timeout] = original
       end
     end
 

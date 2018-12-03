@@ -254,7 +254,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
     received = false
 
     assert_raise Redis::TimeoutError do
-      r.subscribe_with_timeout(1, "foo")  do |on|
+      r.subscribe_with_timeout(LOW_TIMEOUT, "foo")  do |on|
         on.message do |channel, message|
           received = true
         end
@@ -268,7 +268,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
     received = false
 
     assert_raise Redis::TimeoutError do
-      r.psubscribe_with_timeout(1, "f*")  do |on|
+      r.psubscribe_with_timeout(LOW_TIMEOUT, "f*")  do |on|
         on.message do |channel, message|
           received = true
         end
