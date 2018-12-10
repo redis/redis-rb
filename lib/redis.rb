@@ -3055,8 +3055,8 @@ class Redis
   # @return [Hash{String => Hash{String => Hash}}] the entries
   def xread(keys, ids, count: nil, block: nil)
     args = [:xread]
-    args.concat(['COUNT', count])      if count
-    args.concat(['BLOCK', block.to_i]) if block
+    args << 'COUNT' << count if count
+    args << 'BLOCK' << block.to_i if block
     _xread(args, keys, ids, block)
   end
 
@@ -3113,9 +3113,9 @@ class Redis
   # @return [Hash{String => Hash{String => Hash}}] the entries
   def xreadgroup(group, consumer, keys, ids, opts = {})
     args = [:xreadgroup, 'GROUP', group, consumer]
-    args.concat(['COUNT', opts[:count]])      if opts[:count]
-    args.concat(['BLOCK', opts[:block].to_i]) if opts[:block]
-    args << 'NOACK'                           if opts[:noack]
+    args << 'COUNT' << opts[:count] if opts[:count]
+    args << 'BLOCK' << opts[:block].to_i if opts[:block]
+    args << 'NOACK' if opts[:noack]
     _xread(args, keys, ids, opts[:block])
   end
 
@@ -3459,7 +3459,9 @@ private
   def _xread(args, keys, ids, blocking_timeout_msec)
     keys = keys.is_a?(Array) ? keys : [keys]
     ids = ids.is_a?(Array) ? ids : [ids]
-    args.concat(['STREAMS'], keys, ids)
+    args << 'STREAMS'
+    args.concat(keys)
+    args.concat(ids)
 
     synchronize do |client|
       if blocking_timeout_msec.nil?
