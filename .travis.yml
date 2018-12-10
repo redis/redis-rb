@@ -52,6 +52,8 @@ matrix:
       env: DRIVER=ruby REDIS_BRANCH=3.2 LOW_TIMEOUT=0.3
     - rvm: jruby-9.1.17.0
       env: DRIVER=ruby REDIS_BRANCH=4.0 LOW_TIMEOUT=0.3
+    - rvm: 2.5.3
+      env: DRIVER=ruby REDIS_BRANCH=5.0
 
 notifications:
   irc:
