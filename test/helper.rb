@@ -159,6 +159,10 @@ module Helper
       end
     end
 
+    def omit_version(min_ver)
+      omit("Requires Redis > #{min_ver}") if version < min_ver
+    end
+
     def version
       Version.new(redis.info['redis_version'])
     end
