@@ -179,7 +179,7 @@ class TestClusterCommandsOnServer < Test::Unit::TestCase
   def test_memory_usage
     target_version('4.0.0') do
       redis.set('key1', 'Hello World')
-      assert_equal 61, redis.memory(:usage, 'key1')
+      assert_operator redis.memory(:usage, 'key1'), :>, 0
     end
   end
 

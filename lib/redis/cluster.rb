@@ -132,6 +132,7 @@ class Redis
         @node.call_all(command, &block).first
       when 'flushall', 'flushdb'
         @node.call_master(command, &block).first
+      when 'wait'     then @node.call_master(command, &block).reduce(:+)
       when 'keys'     then @node.call_slave(command, &block).flatten.sort
       when 'dbsize'   then @node.call_slave(command, &block).reduce(:+)
       when 'lastsave' then @node.call_all(command, &block).sort
