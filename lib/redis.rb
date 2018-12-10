@@ -499,22 +499,27 @@ class Redis
 
   # Transfer a key from the connected instance to another instance.
   #
-  # @param [String] key
+  # @param [String, Array<String>] key
   # @param [Hash] options
   #   - `:host => String`: host of instance to migrate to
   #   - `:port => Integer`: port of instance to migrate to
   #   - `:db => Integer`: database to migrate to (default: same as source)
   #   - `:timeout => Integer`: timeout (default: same as connection timeout)
+  #   - `:copy => Boolean`: Do not remove the key from the local instance.
+  #   - `:replace => Boolean`: Replace existing key on the remote instance.
   # @return [String] `"OK"`
   def migrate(key, options)
-    host = options[:host] || raise(RuntimeError, ":host not specified")
-    port = options[:port] || raise(RuntimeError, ":port not specified")
-    db = (options[:db] || @client.db).to_i
-    timeout = (options[:timeout] || @client.timeout).to_i
+    args = [:migrate]
+    args << (options[:host] || raise(':host not specified'))
+    args << (options[:port] || raise(':port not specified'))
+    args << (key.is_a?(String) ? key : '')
+    args << (options[:db] || @client.db).to_i
+    args << (options[:timeout] || @client.timeout).to_i
+    args << 'COPY' if options[:copy]
+    args << 'REPLACE' if options[:replace]
+    args += ['KEYS', *key] if key.is_a?(Array)
 
-    synchronize do |client|
-      client.call([:migrate, host, port, key, db, timeout])
-    end
+    synchronize { |client| client.call(args) }
   end
 
   # Delete one or more keys.
