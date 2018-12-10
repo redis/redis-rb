@@ -2990,13 +2990,31 @@ class Redis
   #   redis.xrange('mystream', count: 10)
   #
   # @param key   [String]  the stream key
-  # @param first [String]  first entry id of range, default value is `-`
-  # @param last  [String]  last entry id of range, default value is `+`
+  # @param start  [String]  first entry id of range, default value is `+`
+  # @param end [String]  last entry id of range, default value is `-`
   # @param count [Integer] the number of entries as limit
   #
   # @return [Hash{String => Hash}] the entries
-  def xrange(key, first: '-', last: '+', count: nil)
-    args = [:xrange, key, first, last]
+
+  # Fetches entries of the stream in ascending order.
+  #
+  # @example Without options
+  #   redis.xrange('mystream')
+  # @example With a specific start
+  #   redis.xrange('mystream', '0-1')
+  # @example With a specific start and end
+  #   redis.xrange('mystream', '0-1', '0-3')
+  # @example With count options
+  #   redis.xrange('mystream', count: 10)
+  #
+  # @param key [String]  the stream key
+  # @param start [String]  first entry id of range, default value is `-`
+  # @param end [String]  last entry id of range, default value is `+`
+  # @param count [Integer] the number of entries as limit
+  #
+  # @return [Array<Array<String, Hash>>] the ids and entries pairs
+  def xrange(key, start = '-', _end = '+', count: nil)
+    args = [:xrange, key, start, _end]
     args.concat(['COUNT', count]) if count
     synchronize { |client| client.call(args, &HashifyStreamEntries) }
   end
@@ -3005,21 +3023,21 @@ class Redis
   #
   # @example Without options
   #   redis.xrevrange('mystream')
-  # @example With first entry id option
-  #   redis.xrevrange('mystream', first: '0-1')
-  # @example With first and last entry id options
-  #   redis.xrevrange('mystream', first: '0-1', last: '0-3')
+  # @example With a specific end
+  #   redis.xrevrange('mystream', '0-3')
+  # @example With a specific end and start
+  #   redis.xrevrange('mystream', '0-3', '0-1')
   # @example With count options
   #   redis.xrevrange('mystream', count: 10)
   #
-  # @param key   [String]  the stream key
-  # @param first [String]  first entry id of range, default value is `-`
-  # @param last  [String]  last entry id of range, default value is `+`
-  # @param count [Integer] the number of entries as limit
+  # @param key [String]  the stream key
+  # @param end [String]  first entry id of range, default value is `+`
+  # @param start [String]  last entry id of range, default value is `-`
+  # @params count [Integer] the number of entries as limit
   #
-  # @return [Hash{String => Hash}] the entries
-  def xrevrange(key, first: '-', last: '+', count: nil)
-    args = [:xrevrange, key, last, first]
+  # @return [Array<Array<String, Hash>>] the ids and entries pairs
+  def xrevrange(key, _end = '+', start = '-', count: nil)
+    args = [:xrevrange, key, _end, start]
     args.concat(['COUNT', count]) if count
     synchronize { |client| client.call(args, &HashifyStreamEntries) }
   end
@@ -3186,26 +3204,31 @@ class Redis
   # @example With key and group
   #   redis.xpending('mystream', 'mygroup')
   # @example With range options
-  #   redis.xpending('mystream', 'mygroup', first: '-', last: '+', count: 10)
+  #   redis.xpending('mystream', 'mygroup', '-', '+', 10)
   # @example With range and consumer options
-  #   redis.xpending('mystream', 'mygroup', 'consumer1', first: '-', last: '+', count: 10)
+  #   redis.xpending('mystream', 'mygroup', '-', '+', 10, 'consumer1')
   #
-  # @param key      [String] the stream key
-  # @param group    [String] the consumer group name
-  # @param consumer [String] the consumer name
-  # @param opts     [Hash]   several options for `XPENDING` command
-  #
-  # @option opts [String]  :first first entry id of range
-  # @option opts [String]  :last  last entry id of range
-  # @option opts [Integer] :count the number of entries as limit
+  # @param key      [String]  the stream key
+  # @param group    [String]  the consumer group name
+  # @param start    [String]  start first entry id of range
+  # @param end      [String]  end   last entry id of range
+  # @param count    [Integer] count the number of entries as limit
+  # @param consumer [String]  the consumer name
   #
   # @return [Hash]        the summary of pending entries
   # @return [Array<Hash>] the pending entries details if options were specified
-  def xpending(key, group, consumer = nil, **opts)
-    args = [:xpending, key, group, opts[:first], opts[:last], opts[:count], consumer].compact
-    summary_needed = consumer.nil? && opts.empty?
+  def xpending(key, group, *args)
+    command_args = [:xpending, key, group]
+    case args.size
+    when 0, 3, 4
+      command_args.concat(args)
+    else
+      raise ArgumentError, "wrong number of arguments (given #{args.size + 2}, expected 2, 5 or 6)"
+    end
+
+    summary_needed = args.empty?
     blk = summary_needed ? HashifyStreamPendings : HashifyStreamPendingDetails
-    synchronize { |client| client.call(args, &blk) }
+    synchronize { |client| client.call(command_args, &blk) }
   end
 
   # Interact with the sentinel command (masters, master, slaves, failover)
@@ -3365,7 +3388,7 @@ private
     lambda { |reply|
       reply.map do |entry_id, values|
         [entry_id, values.each_slice(2).to_h]
-      end.to_h
+      end
     }
 
   HashifyStreamPendings =

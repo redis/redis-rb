@@ -152,43 +152,36 @@ module Lint
 
       actual = redis.xrange('s1')
 
-      assert_equal 'v1', actual['0-1']['f']
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(v1 v2 v3), actual.map { |i| i.last['f'] }
     end
 
-    def test_xrange_with_first_option
+    def test_xrange_with_start_option
       redis.xadd('s1', { f: 'v' }, id: '0-1')
       redis.xadd('s1', { f: 'v' }, id: '0-2')
       redis.xadd('s1', { f: 'v' }, id: '0-3')
 
-      actual = redis.xrange('s1', first: '0-2')
+      actual = redis.xrange('s1', '0-2')
 
-      assert_equal 2, actual.size
-      assert_equal '0-2', actual.keys.first
+      assert_equal %w(0-2 0-3), actual.map(&:first)
     end
 
-    def test_xrange_with_last_option
+    def test_xrange_with_end_option
       redis.xadd('s1', { f: 'v' }, id: '0-1')
       redis.xadd('s1', { f: 'v' }, id: '0-2')
       redis.xadd('s1', { f: 'v' }, id: '0-3')
 
-      actual = redis.xrange('s1', last: '0-2')
-
-      assert_equal 2, actual.size
-      assert_equal '0-1', actual.keys.first
-      assert_equal '0-2', actual.keys.last
+      actual = redis.xrange('s1', '-', '0-2')
+      assert_equal %w(0-1 0-2), actual.map(&:first)
     end
 
-    def test_xrange_with_first_and_last_options
+    def test_xrange_with_start_and_end_options
       redis.xadd('s1', { f: 'v' }, id: '0-1')
       redis.xadd('s1', { f: 'v' }, id: '0-2')
       redis.xadd('s1', { f: 'v' }, id: '0-3')
 
-      actual = redis.xrange('s1', first: '0-2', last: '0-2')
+      actual = redis.xrange('s1', '0-2', '0-2')
 
-      assert_equal 1, actual.size
-      assert_equal '0-2', actual.keys.first
+      assert_equal %w(0-2), actual.map(&:first)
     end
 
     def test_xrange_with_incomplete_entry_id_options
@@ -196,10 +189,10 @@ module Lint
       redis.xadd('s1', { f: 'v' }, id: '1-1')
       redis.xadd('s1', { f: 'v' }, id: '2-1')
 
-      actual = redis.xrange('s1', first: '0', last: '1')
+      actual = redis.xrange('s1', '0', '1')
 
       assert_equal 2, actual.size
-      assert_equal '0-1', actual.keys.first
+      assert_equal %w(0-1 1-1), actual.map(&:first)
     end
 
     def test_xrange_with_count_option
@@ -209,21 +202,20 @@ module Lint
 
       actual = redis.xrange('s1', count: 2)
 
-      assert_equal 2, actual.size
-      assert_equal '0-1', actual.keys.first
+      assert_equal %w(0-1 0-2), actual.map(&:first)
     end
 
     def test_xrange_with_not_existed_stream_key
-      assert_equal({}, redis.xrange('not-existed'))
+      assert_equal([], redis.xrange('not-existed'))
     end
 
     def test_xrange_with_invalid_entry_id_options
-      assert_raise(Redis::CommandError) { redis.xrange('s1', first: 'invalid', last: 'invalid') }
+      assert_raise(Redis::CommandError) { redis.xrange('s1', 'invalid', 'invalid') }
     end
 
     def test_xrange_with_invalid_arguments
-      assert_equal({}, redis.xrange(nil))
-      assert_equal({}, redis.xrange(''))
+      assert_equal([], redis.xrange(nil))
+      assert_equal([], redis.xrange(''))
     end
 
     def test_xrevrange
@@ -233,44 +225,38 @@ module Lint
 
       actual = redis.xrevrange('s1')
 
-      assert_equal '0-3', actual.keys.first
-      assert_equal 'v1', actual['0-1']['f']
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-3 0-2 0-1), actual.map(&:first)
+      assert_equal %w(v3 v2 v1), actual.map { |i| i.last['f'] }
     end
 
-    def test_xrevrange_with_first_option
+    def test_xrevrange_with_start_option
       redis.xadd('s1', { f: 'v' }, id: '0-1')
       redis.xadd('s1', { f: 'v' }, id: '0-2')
       redis.xadd('s1', { f: 'v' }, id: '0-3')
 
-      actual = redis.xrevrange('s1', first: '0-2')
+      actual = redis.xrevrange('s1', '+', '0-2')
 
-      assert_equal 2, actual.size
-      assert_equal '0-3', actual.keys.first
+      assert_equal %w(0-3 0-2), actual.map(&:first)
     end
 
-    def test_xrevrange_with_last_option
+    def test_xrevrange_with_end_option
       redis.xadd('s1', { f: 'v' }, id: '0-1')
       redis.xadd('s1', { f: 'v' }, id: '0-2')
       redis.xadd('s1', { f: 'v' }, id: '0-3')
 
-      actual = redis.xrevrange('s1', last: '0-2')
+      actual = redis.xrevrange('s1', '0-2')
 
-      assert_equal 2, actual.size
-      assert_equal '0-2', actual.keys.first
-      assert_equal '0-1', actual.keys.last
+      assert_equal %w(0-2 0-1), actual.map(&:first)
     end
 
-    def test_xrevrange_with_first_and_last_options
+    def test_xrevrange_with_start_and_end_options
       redis.xadd('s1', { f: 'v' }, id: '0-1')
       redis.xadd('s1', { f: 'v' }, id: '0-2')
       redis.xadd('s1', { f: 'v' }, id: '0-3')
 
-      actual = redis.xrevrange('s1', first: '0-2', last: '0-2')
+      actual = redis.xrevrange('s1', '0-2', '0-2')
 
-      assert_equal 1, actual.size
-      assert_equal '0-2', actual.keys.first
+      assert_equal %w(0-2), actual.map(&:first)
     end
 
     def test_xrevrange_with_incomplete_entry_id_options
@@ -278,10 +264,10 @@ module Lint
       redis.xadd('s1', { f: 'v' }, id: '1-1')
       redis.xadd('s1', { f: 'v' }, id: '2-1')
 
-      actual = redis.xrevrange('s1', first: '0', last: '1')
+      actual = redis.xrevrange('s1', '1', '0')
 
       assert_equal 2, actual.size
-      assert_equal '1-1', actual.keys.first
+      assert_equal '1-1', actual.first.first
     end
 
     def test_xrevrange_with_count_option
@@ -292,20 +278,20 @@ module Lint
       actual = redis.xrevrange('s1', count: 2)
 
       assert_equal 2, actual.size
-      assert_equal '0-3', actual.keys.first
+      assert_equal '0-3', actual.first.first
     end
 
     def test_xrevrange_with_not_existed_stream_key
-      assert_equal({}, redis.xrevrange('not-existed'))
+      assert_equal([], redis.xrevrange('not-existed'))
     end
 
     def test_xrevrange_with_invalid_entry_id_options
-      assert_raise(Redis::CommandError) { redis.xrevrange('s1', first: 'invalid', last: 'invalid') }
+      assert_raise(Redis::CommandError) { redis.xrevrange('s1', 'invalid', 'invalid') }
     end
 
     def test_xrevrange_with_invalid_arguments
-      assert_equal({}, redis.xrevrange(nil))
-      assert_equal({}, redis.xrevrange(''))
+      assert_equal([], redis.xrevrange(nil))
+      assert_equal([], redis.xrevrange(''))
     end
 
     def test_xlen
@@ -329,9 +315,7 @@ module Lint
 
       actual = redis.xread('s1', 0)
 
-      assert_equal 2, actual['s1'].size
-      assert_equal 'v1', actual['s1']['0-1']['f']
-      assert_equal 'v2', actual['s1']['0-2']['f']
+      assert_equal %w(v1 v2), actual.fetch('s1').map { |i| i.last['f'] }
     end
 
     def test_xread_with_multiple_keys
@@ -344,8 +328,8 @@ module Lint
 
       assert_equal 1, actual['s1'].size
       assert_equal 1, actual['s2'].size
-      assert_equal 'v02', actual['s1']['0-2']['f']
-      assert_equal 'v12', actual['s2']['1-2']['f']
+      assert_equal 'v02', actual['s1'][0].last['f']
+      assert_equal 'v12', actual['s2'][0].last['f']
     end
 
     def test_xread_with_count_option
@@ -423,8 +407,8 @@ module Lint
       actual = redis.xreadgroup('g1', 'c1', 's1', '>')
 
       assert_equal 2, actual['s1'].size
-      assert_equal 'v2', actual['s1']['0-2']['f']
-      assert_equal 'v3', actual['s1']['0-3']['f']
+      assert_equal 'v2', actual['s1'][0].last['f']
+      assert_equal 'v3', actual['s1'][1].last['f']
     end
 
     def test_xreadgroup_with_multiple_keys
@@ -439,8 +423,8 @@ module Lint
 
       assert_equal 1, actual['s1'].size
       assert_equal 1, actual['s2'].size
-      assert_equal 'v02', actual['s1']['0-2']['f']
-      assert_equal 'v12', actual['s2']['1-2']['f']
+      assert_equal 'v02', actual['s1'][0].last['f']
+      assert_equal 'v12', actual['s2'][0].last['f']
     end
 
     def test_xreadgroup_with_count_option
@@ -533,9 +517,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3')
 
-      assert_equal 2, actual.size
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-2 0-3), actual.map(&:first)
+      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
     end
 
     def test_xclaim_with_arrayed_entry_ids
@@ -548,9 +531,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, %w[0-2 0-3])
 
-      assert_equal 2, actual.size
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-2 0-3), actual.map(&:first)
+      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
     end
 
     def test_xclaim_with_idle_option
@@ -563,9 +545,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', idle: 0)
 
-      assert_equal 2, actual.size
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-2 0-3), actual.map(&:first)
+      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
     end
 
     def test_xclaim_with_time_option
@@ -579,9 +560,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', time: time)
 
-      assert_equal 2, actual.size
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-2 0-3), actual.map(&:first)
+      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
     end
 
     def test_xclaim_with_retrycount_option
@@ -594,9 +574,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', retrycount: 10)
 
-      assert_equal 2, actual.size
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-2 0-3), actual.map(&:first)
+      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
     end
 
     def test_xclaim_with_force_option
@@ -609,9 +588,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', force: true)
 
-      assert_equal 2, actual.size
-      assert_equal 'v2', actual['0-2']['f']
-      assert_equal 'v3', actual['0-3']['f']
+      assert_equal %w(0-2 0-3), actual.map(&:first)
+      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
     end
 
     def test_xclaim_with_justid_option
@@ -658,7 +636,7 @@ module Lint
       redis.xadd('s1', { f: 'v4' }, id: '0-4')
       redis.xreadgroup('g1', 'c2', 's1', '>')
 
-      actual = redis.xpending('s1', 'g1', first: '-', last: '+', count: 10)
+      actual = redis.xpending('s1', 'g1', '-', '+', 10)
 
       assert_equal 3, actual.size
       assert_equal '0-2', actual[0]['entry_id']
@@ -684,7 +662,7 @@ module Lint
       redis.xadd('s1', { f: 'v4' }, id: '0-4')
       redis.xreadgroup('g1', 'c2', 's1', '>')
 
-      actual = redis.xpending('s1', 'g1', 'c1', first: '-', last: '+', count: 10)
+      actual = redis.xpending('s1', 'g1', '-', '+', 10, 'c1')
 
       assert_equal 2, actual.size
       assert_equal '0-2', actual[0]['entry_id']
