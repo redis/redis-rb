@@ -1156,7 +1156,7 @@ class Redis
     end
   end
 
-  def _bpop(cmd, args)
+  def _bpop(cmd, args, &blk)
     options = {}
 
     case args.last
@@ -1177,7 +1177,7 @@ class Redis
     synchronize do |client|
       command = [cmd, keys, timeout]
       timeout += client.timeout if timeout > 0
-      client.call_with_timeout(command, timeout)
+      client.call_with_timeout(command, timeout, &blk)
     end
   end
 
@@ -1625,6 +1625,90 @@ class Redis
           Boolify.call(reply)
         end
       end
+    end
+  end
+
+  # Removes and returns up to count members with the highest scores in the sorted set stored at key.
+  #
+  # @example Popping a member
+  #   redis.zpopmax('zset')
+  #   #=> ['b', 2.0]
+  # @example With count option
+  #   redis.zpopmax('zset', 2)
+  #   #=> [['b', 2.0], ['a', 1.0]]
+  #
+  # @params key [String] a key of the sorted set
+  # @params count [Integer] a number of members
+  #
+  # @return [Array<String, Float>] element and score pair if count is not specified
+  # @return [Array<Array<String, Float>>] list of popped elements and scores
+  def zpopmax(key, count = nil)
+    synchronize do |client|
+      members = client.call([:zpopmax, key, count].compact, &FloatifyPairs)
+      count.to_i > 1 ? members : members.first
+    end
+  end
+
+  # Removes and returns up to count members with the lowest scores in the sorted set stored at key.
+  #
+  # @example Popping a member
+  #   redis.zpopmin('zset')
+  #   #=> ['a', 1.0]
+  # @example With count option
+  #   redis.zpopmin('zset', 2)
+  #   #=> [['a', 1.0], ['b', 2.0]]
+  #
+  # @params key [String] a key of the sorted set
+  # @params count [Integer] a number of members
+  #
+  # @return [Array<String, Float>] element and score pair if count is not specified
+  # @return [Array<Array<String, Float>>] list of popped elements and scores
+  def zpopmin(key, count = nil)
+    synchronize do |client|
+      members = client.call([:zpopmin, key, count].compact, &FloatifyPairs)
+      count.to_i > 1 ? members : members.first
+    end
+  end
+
+  # Removes and returns up to count members with the highest scores in the sorted set stored at keys,
+  #   or block until one is available.
+  #
+  # @example Popping a member from a sorted set
+  #   redis.bzpopmax('zset', 1)
+  #   #=> ['zset', 'b', 2.0]
+  # @example Popping a member from multiple sorted sets
+  #   redis.bzpopmax('zset1', 'zset2', 1)
+  #   #=> ['zset1', 'b', 2.0]
+  #
+  # @params keys [Array<String>] one or multiple keys of the sorted sets
+  # @params timeout [Integer] the maximum number of seconds to block
+  #
+  # @return [Array<String, String, Float>] a touple of key, member and score
+  # @return [nil] when no element could be popped and the timeout expired
+  def bzpopmax(*args)
+    _bpop(:bzpopmax, args) do |reply|
+      reply.is_a?(Array) ? [reply[0], reply[1], Floatify.call(reply[2])] : reply
+    end
+  end
+
+  # Removes and returns up to count members with the lowest scores in the sorted set stored at keys,
+  #   or block until one is available.
+  #
+  # @example Popping a member from a sorted set
+  #   redis.bzpopmin('zset', 1)
+  #   #=> ['zset', 'a', 1.0]
+  # @example Popping a member from multiple sorted sets
+  #   redis.bzpopmin('zset1', 'zset2', 1)
+  #   #=> ['zset1', 'a', 1.0]
+  #
+  # @params keys [Array<String>] one or multiple keys of the sorted sets
+  # @params timeout [Integer] the maximum number of seconds to block
+  #
+  # @return [Array<String, String, Float>] a touple of key, member and score
+  # @return [nil] when no element could be popped and the timeout expired
+  def bzpopmin(*args)
+    _bpop(:bzpopmin, args) do |reply|
+      reply.is_a?(Array) ? [reply[0], reply[1], Floatify.call(reply[2])] : reply
     end
   end
 

@@ -134,14 +134,16 @@ module Lint
     end
 
     def test_bzpopmin
-      target_version('4.9.0') do
-        assert_equal %w[{szap}foo a 0], r.bzpopmin('{szap}foo', '{szap}bar', 0)
+      target_version('5.0.0') do
+        assert_equal ['{szap}foo', 'a', 0.0], r.bzpopmin('{szap}foo', '{szap}bar', 1)
+        assert_equal nil, r.bzpopmin('{szap}aaa', '{szap}bbb', 1)
       end
     end
 
     def test_bzpopmax
-      target_version('4.9.0') do
-        assert_equal %w[{szap}foo c 2], r.bzpopmax('{szap}foo', '{szap}bar', 0)
+      target_version('5.0.0') do
+        assert_equal ['{szap}foo', 'c', 2.0], r.bzpopmax('{szap}foo', '{szap}bar', 1)
+        assert_equal nil, r.bzpopmax('{szap}aaa', '{szap}bbb', 1)
       end
     end
 
