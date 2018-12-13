@@ -316,16 +316,20 @@ module Lint
     end
 
     def test_zpopmax
-      target_version('4.9.0') do
-        r.zadd('foo', %w[0 a 1 b 2 c])
-        assert_equal %w[c 2], r.zpopmax('foo')
+      target_version('5.0.0') do
+        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['d', 3.0], r.zpopmax('foo')
+        assert_equal [['c', 2.0], ['b', 1.0]], r.zpopmax('foo', 2)
+        assert_equal [['a', 0.0]], r.zrange('foo', 0, -1, with_scores: true)
       end
     end
 
     def test_zpopmin
-      target_version('4.9.0') do
-        r.zadd('foo', %w[0 a 1 b 2 c])
-        assert_equal %w[a 0], r.zpopmin('foo')
+      target_version('5.0.0') do
+        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['a', 0.0], r.zpopmin('foo')
+        assert_equal [['b', 1.0], ['c', 2.0]], r.zpopmin('foo', 2)
+        assert_equal [['d', 3.0]], r.zrange('foo', 0, -1, with_scores: true)
       end
     end
 
