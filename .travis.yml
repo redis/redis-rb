@@ -27,9 +27,6 @@ env:
     - TIMEOUT=30
     - LOW_TIMEOUT=0.01
   matrix:
-    - DRIVER=ruby      REDIS_BRANCH=3.0
-    - DRIVER=ruby      REDIS_BRANCH=3.2
-    - DRIVER=ruby      REDIS_BRANCH=4.0
     - DRIVER=ruby      REDIS_BRANCH=5.0
     - DRIVER=hiredis   REDIS_BRANCH=5.0
     - DRIVER=synchrony REDIS_BRANCH=5.0
@@ -46,6 +43,12 @@ matrix:
   include:
     - rvm: jruby-9.1.17.0
       env: DRIVER=ruby REDIS_BRANCH=5.0 LOW_TIMEOUT=0.3
+    - rvm: 2.3.8
+      env: DRIVER=ruby REDIS_BRANCH=3.0
+    - rvm: 2.3.8
+      env: DRIVER=ruby REDIS_BRANCH=3.2
+    - rvm: 2.3.8
+      env: DRIVER=ruby REDIS_BRANCH=4.0
 
 notifications:
   irc:
