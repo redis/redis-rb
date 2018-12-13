@@ -1,3 +1,12 @@
+# Unreleased
+
+# 4.1.0
+
+* Add Redis Cluster support. See #716.
+* Add streams support. See #799 and #811.
+* Add ZPOP* support. See #812.
+* Fix issues with integer-like objects as BPOP timeout
+
 # 4.0.3
 
 * Fix raising command error for first command in pipeline. See #788.
