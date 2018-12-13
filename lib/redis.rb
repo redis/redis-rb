@@ -1159,12 +1159,11 @@ class Redis
   def _bpop(cmd, args, &blk)
     options = {}
 
-    case args.last
-    when Hash
+    if args.last.is_a?(Hash)
       options = args.pop
-    when Integer
+    elsif args.last.respond_to?(:to_int)
       # Issue deprecation notice in obnoxious mode...
-      options[:timeout] = args.pop
+      options[:timeout] = args.pop.to_int
     end
 
     if args.size > 1

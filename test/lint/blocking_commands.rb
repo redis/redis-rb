@@ -67,6 +67,22 @@ module Lint
       end
     end
 
+    class FakeDuration
+      def initialize(int)
+        @int = int
+      end
+
+      def to_int
+        @int
+      end
+    end
+
+    def test_blpop_integer_like_timeout
+      mock do |r|
+        assert_equal ["{zap}foo", "1"], r.blpop("{zap}foo", FakeDuration.new(1))
+      end
+    end
+
     def test_blpop_with_old_prototype
       assert_equal ['{zap}foo', 's1'], r.blpop('{zap}foo', 0)
       assert_equal ['{zap}foo', 's2'], r.blpop('{zap}foo', 0)
