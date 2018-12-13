@@ -45,11 +45,7 @@ matrix:
     - rvm: jruby-9.1.17.0
   include:
     - rvm: jruby-9.1.17.0
-      env: DRIVER=ruby REDIS_BRANCH=3.0 LOW_TIMEOUT=0.3
-    - rvm: jruby-9.1.17.0
-      env: DRIVER=ruby REDIS_BRANCH=3.2 LOW_TIMEOUT=0.3
-    - rvm: jruby-9.1.17.0
-      env: DRIVER=ruby REDIS_BRANCH=4.0 LOW_TIMEOUT=0.3
+      env: DRIVER=ruby REDIS_BRANCH=5.0 LOW_TIMEOUT=0.3
 
 notifications:
   irc:
