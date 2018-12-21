@@ -119,6 +119,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
       Wire.pass while !@subscribed
       redis = Redis.new(OPTIONS)
       channels_result = redis.pubsub(:channels)
+      channels_result.delete('__sentinel__:hello')
       numsub_result   = redis.pubsub(:numsub, 'foo', 'boo')
 
       redis.publish("foo", "s1")
