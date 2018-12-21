@@ -525,7 +525,6 @@ class Redis
         def initialize(options)
           super(options)
 
-          @options[:password] = DEFAULTS.fetch(:password)
           @options[:db] = DEFAULTS.fetch(:db)
 
           @sentinels = @options.delete(:sentinels).dup
@@ -586,6 +585,11 @@ class Redis
           end
 
           raise CannotConnectError, "No sentinels available."
+        rescue Redis::CommandError => err
+          # this feature is only available starting with Redis 5.0.1
+          raise unless err.message.start_with?('ERR unknown command `auth`')
+          @options[:password] = DEFAULTS.fetch(:password)
+          retry
         end
 
         def resolve_master
