@@ -3,9 +3,9 @@ module Lint
   module Sets
 
     def test_sadd
-      assert_equal true, r.sadd("foo", "s1")
-      assert_equal true, r.sadd("foo", "s2")
-      assert_equal false, r.sadd("foo", "s1")
+      assert_equal 1, r.sadd("foo", "s1")
+      assert_equal 1, r.sadd("foo", "s2")
+      assert_equal 0, r.sadd("foo", "s1")
 
       assert_equal ["s1", "s2"], r.smembers("foo").sort
     end
@@ -23,8 +23,8 @@ module Lint
       r.sadd("foo", "s1")
       r.sadd("foo", "s2")
 
-      assert_equal true, r.srem("foo", "s1")
-      assert_equal false, r.srem("foo", "s3")
+      assert_equal 1, r.srem("foo", "s1")
+      assert_equal 0, r.srem("foo", "s3")
 
       assert_equal ["s2"], r.smembers("foo")
     end

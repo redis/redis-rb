@@ -1338,21 +1338,10 @@ class Redis
   #
   # @param [String] key
   # @param [String, Array<String>] member one member, or array of members
-  # @return [Boolean, Fixnum] `Boolean` when a single member is specified,
-  #   holding whether or not adding the member succeeded, or `Fixnum` when an
-  #   array of members is specified, holding the number of members that were
-  #   successfully added
+  # @return [Fixnum] the number of members that were successfully added
   def sadd(key, member)
     synchronize do |client|
-      client.call([:sadd, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          Boolify.call(reply)
-        end
-      end
+      client.call([:sadd, key, member])
     end
   end
 
@@ -1360,21 +1349,10 @@ class Redis
   #
   # @param [String] key
   # @param [String, Array<String>] member one member, or array of members
-  # @return [Boolean, Fixnum] `Boolean` when a single member is specified,
-  #   holding whether or not removing the member succeeded, or `Fixnum` when an
-  #   array of members is specified, holding the number of members that were
-  #   successfully removed
+  # @return [Fixnum] the number of members that were successfully removed
   def srem(key, member)
     synchronize do |client|
-      client.call([:srem, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          Boolify.call(reply)
-        end
-      end
+      client.call([:srem, key, member])
     end
   end
 
@@ -1542,11 +1520,10 @@ class Redis
   #   - `:incr => true`: When this option is specified ZADD acts like
   #   ZINCRBY; only one score-element pair can be specified in this mode
   #
-  # @return [Boolean, Fixnum, Float]
-  #   - `Boolean` when a single pair is specified, holding whether or not it was
-  #   **added** to the sorted set.
-  #   - `Fixnum` when an array of pairs is specified, holding the number of
-  #   pairs that were **added** to the sorted set.
+  # @return [Fixnum, Float]
+  #   - `Fixnum` holding the number of pairs that were **added** to the
+  #   sorted set, or when the option :ch is specified, holding the number
+  #   of pairs that were **added** or **changed** to the sorted set.
   #   - `Float` when option :incr is specified, holding the score of the member
   #   after incrementing it.
   def zadd(key, *args) #, options
@@ -1569,14 +1546,17 @@ class Redis
 
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
-        # Variadic: return float if INCR, integer if !INCR
-        client.call([:zadd, key] + zadd_options + args[0], &(incr ? Floatify : nil))
+        # Variadic
+        pairs = args[0]
       elsif args.size == 2
-        # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key] + zadd_options + args, &(incr ? Floatify : Boolify))
+        # Single pair
+        pairs = args
       else
         raise ArgumentError, "wrong number of arguments"
       end
+
+      # return float if INCR, integer if !INCR
+      client.call([:zadd, key] + zadd_options + pairs, &(incr ? Floatify : nil))
     end
   end
 
@@ -1608,22 +1588,10 @@ class Redis
   #   - a single member
   #   - an array of members
   #
-  # @return [Boolean, Fixnum]
-  #   - `Boolean` when a single member is specified, holding whether or not it
-  #   was removed from the sorted set
-  #   - `Fixnum` when an array of pairs is specified, holding the number of
-  #   members that were removed to the sorted set
+  # @return [Fixnum] the number of members that were removed from the sorted set
   def zrem(key, member)
     synchronize do |client|
-      client.call([:zrem, key, member]) do |reply|
-        if member.is_a? Array
-          # Variadic: return integer
-          reply
-        else
-          # Single argument: return boolean
-          Boolify.call(reply)
-        end
-      end
+      client.call([:zrem, key, member])
     end
   end
 

@@ -6,33 +6,33 @@ module Lint
 
     def test_zadd
       assert_equal 0, r.zcard("foo")
-      assert_equal true, r.zadd("foo", 1, "s1")
-      assert_equal false, r.zadd("foo", 1, "s1")
+      assert_equal 1, r.zadd("foo", 1, "s1")
+      assert_equal 0, r.zadd("foo", 1, "s1")
       assert_equal 1, r.zcard("foo")
       r.del "foo"
 
       target_version "3.0.2" do
         # XX option
         assert_equal 0, r.zcard("foo")
-        assert_equal false, r.zadd("foo", 1, "s1", :xx => true)
+        assert_equal 0, r.zadd("foo", 1, "s1", :xx => true)
         r.zadd("foo", 1, "s1")
-        assert_equal false, r.zadd("foo", 2, "s1", :xx => true)
+        assert_equal 0, r.zadd("foo", 2, "s1", :xx => true)
         assert_equal 2, r.zscore("foo", "s1")
         r.del "foo"
 
         # NX option
         assert_equal 0, r.zcard("foo")
-        assert_equal true, r.zadd("foo", 1, "s1", :nx => true)
-        assert_equal false, r.zadd("foo", 2, "s1", :nx => true)
+        assert_equal 1, r.zadd("foo", 1, "s1", :nx => true)
+        assert_equal 0, r.zadd("foo", 2, "s1", :nx => true)
         assert_equal 1, r.zscore("foo", "s1")
         assert_equal 1, r.zcard("foo")
         r.del "foo"
 
         # CH option
         assert_equal 0, r.zcard("foo")
-        assert_equal true, r.zadd("foo", 1, "s1", :ch => true)
-        assert_equal false, r.zadd("foo", 1, "s1", :ch => true)
-        assert_equal true, r.zadd("foo", 2, "s1", :ch => true)
+        assert_equal 1, r.zadd("foo", 1, "s1", :ch => true)
+        assert_equal 0, r.zadd("foo", 1, "s1", :ch => true)
+        assert_equal 1, r.zadd("foo", 2, "s1", :ch => true)
         assert_equal 1, r.zcard("foo")
         r.del "foo"
 
@@ -118,8 +118,8 @@ module Lint
       r.zadd("foo", 2, "s2")
 
       assert_equal 2, r.zcard("foo")
-      assert_equal true, r.zrem("foo", "s1")
-      assert_equal false, r.zrem("foo", "s1")
+      assert_equal 1, r.zrem("foo", "s1")
+      assert_equal 0, r.zrem("foo", "s1")
       assert_equal 1, r.zcard("foo")
     end
 
