@@ -4,17 +4,7 @@ require_relative 'helper'
 
 # @see https://redis.io/topics/sentinel#sentinel-commands Sentinel commands
 class SentinelCommandsTest < Test::Unit::TestCase
-  include Helper::Client
-
-  MASTER_PORT = PORT.to_s
-  SLAVE_PORT = '6382'
-  SENTINEL_PORT = '6400'
-  MASTER_NAME = 'master1'
-  LOCALHOST = '127.0.0.1'
-
-  def build_sentinel_client
-    Redis.new(host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT)
-  end
+  include Helper::Sentinel
 
   def test_sentinel_command_master
     redis = build_sentinel_client
@@ -49,7 +39,7 @@ class SentinelCommandsTest < Test::Unit::TestCase
     assert_equal result[0]['ip'], LOCALHOST
 
     actual_ports = result.map { |r| r['port'] }.sort
-    expected_ports = (SENTINEL_PORT.to_i + 1..SENTINEL_PORT.to_i + 2).map(&:to_s)
+    expected_ports = SENTINEL_PORTS[1..-1]
     assert_equal actual_ports, expected_ports
   end
 

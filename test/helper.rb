@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "test/unit"
 require "mocha/test_unit"
 require "logger"
@@ -180,6 +182,40 @@ module Helper
 
     def _new_client(options = {})
       Redis.new(_format_options(options).merge(:driver => ENV["DRIVER"]))
+    end
+  end
+
+  module Sentinel
+    include Generic
+
+    MASTER_PORT = PORT.to_s
+    SLAVE_PORT = '6382'
+    SENTINEL_PORT = '6400'
+    SENTINEL_PORTS = %w[6400 6401 6402].freeze
+    MASTER_NAME = 'master1'
+    LOCALHOST = '127.0.0.1'
+
+    def build_sentinel_client(options = {})
+      opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT, logger: ::Logger.new(@log) }
+      Redis.new(opts.merge(options))
+    end
+
+    def build_slave_role_client(options = {})
+      _new_client(options.merge(role: :slave))
+    end
+
+    private
+
+    def _format_options(options = {})
+      {
+        url: "redis://#{MASTER_NAME}",
+        sentinels: [{ host: LOCALHOST, port: SENTINEL_PORT }],
+        role: :master, timeout: TIMEOUT, logger: ::Logger.new(@log)
+      }.merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis.new(_format_options(options).merge(driver: ENV['DRIVER']))
     end
   end
 
