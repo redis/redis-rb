@@ -7,74 +7,74 @@ class TestDistributedCommandsOnSets < Test::Unit::TestCase
 
   def test_smove
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'bar', 's2'
+      r.sadd 'key1', 's1'
+      r.sadd 'key4', 's2'
 
-      r.smove('foo', 'bar', 's1')
+      r.smove('key1', 'key4', 's1')
     end
   end
 
   def test_sinter
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'foo', 's2'
-      r.sadd 'bar', 's2'
+      r.sadd 'key1', 's1'
+      r.sadd 'key1', 's2'
+      r.sadd 'key4', 's2'
 
-      r.sinter('foo', 'bar')
+      r.sinter('key1', 'key4')
     end
   end
 
   def test_sinterstore
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'foo', 's2'
-      r.sadd 'bar', 's2'
+      r.sadd 'key1', 's1'
+      r.sadd 'key1', 's2'
+      r.sadd 'key4', 's2'
 
-      r.sinterstore('baz', 'foo', 'bar')
+      r.sinterstore('baz', 'key1', 'key4')
     end
   end
 
   def test_sunion
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'foo', 's2'
-      r.sadd 'bar', 's2'
-      r.sadd 'bar', 's3'
+      r.sadd 'key1', 's1'
+      r.sadd 'key1', 's2'
+      r.sadd 'key4', 's2'
+      r.sadd 'key4', 's3'
 
-      r.sunion('foo', 'bar')
+      r.sunion('key1', 'key4')
     end
   end
 
   def test_sunionstore
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'foo', 's2'
-      r.sadd 'bar', 's2'
-      r.sadd 'bar', 's3'
+      r.sadd 'key1', 's1'
+      r.sadd 'key1', 's2'
+      r.sadd 'key4', 's2'
+      r.sadd 'key4', 's3'
 
-      r.sunionstore('baz', 'foo', 'bar')
+      r.sunionstore('baz', 'key1', 'key4')
     end
   end
 
   def test_sdiff
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'foo', 's2'
-      r.sadd 'bar', 's2'
-      r.sadd 'bar', 's3'
+      r.sadd 'key1', 's1'
+      r.sadd 'key1', 's2'
+      r.sadd 'key4', 's2'
+      r.sadd 'key4', 's3'
 
-      r.sdiff('foo', 'bar')
+      r.sdiff('key1', 'key4')
     end
   end
 
   def test_sdiffstore
     assert_raise Redis::Distributed::CannotDistribute do
-      r.sadd 'foo', 's1'
-      r.sadd 'foo', 's2'
-      r.sadd 'bar', 's2'
-      r.sadd 'bar', 's3'
+      r.sadd 'key1', 's1'
+      r.sadd 'key1', 's2'
+      r.sadd 'key4', 's2'
+      r.sadd 'key4', 's3'
 
-      r.sdiffstore('baz', 'foo', 'bar')
+      r.sdiffstore('baz', 'key1', 'key4')
     end
   end
 

@@ -32,37 +32,37 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
   def test_mset
     assert_raise Redis::Distributed::CannotDistribute do
-      r.mset(:foo, "s1", :bar, "s2")
+      r.mset(:key1, "s1", :key4, "s2")
     end
   end
 
   def test_mset_mapped
     assert_raise Redis::Distributed::CannotDistribute do
-      r.mapped_mset(:foo => "s1", :bar => "s2")
+      r.mapped_mset(:key1 => "s1", :key4 => "s2")
     end
   end
 
   def test_msetnx
     assert_raise Redis::Distributed::CannotDistribute do
-      r.set("foo", "s1")
-      r.msetnx(:foo, "s2", :bar, "s3")
+      r.set("key1", "s1")
+      r.msetnx(:key1, "s2", :key4, "s3")
     end
   end
 
   def test_msetnx_mapped
     assert_raise Redis::Distributed::CannotDistribute do
-      r.set("foo", "s1")
-      r.mapped_msetnx(:foo => "s2", :bar => "s3")
+      r.set("key1", "s1")
+      r.mapped_msetnx(:key1 => "s2", :key4 => "s3")
     end
   end
 
   def test_bitop
     target_version "2.5.10" do
       assert_raise Redis::Distributed::CannotDistribute do
-        r.set("foo", "a")
-        r.set("bar", "b")
+        r.set("key1", "a")
+        r.set("key4", "b")
 
-        r.bitop(:and, "foo&bar", "foo", "bar")
+        r.bitop(:and, "key1&key4", "key1", "key4")
       end
     end
   end
@@ -71,9 +71,5 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
     assert_raise Redis::Distributed::CannotDistribute do
       super
     end
-  end
-
-  def test_bitfield
-    # Not implemented yet
   end
 end

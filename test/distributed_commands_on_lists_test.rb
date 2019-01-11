@@ -7,13 +7,13 @@ class TestDistributedCommandsOnLists < Test::Unit::TestCase
 
   def test_rpoplpush
     assert_raise Redis::Distributed::CannotDistribute do
-      r.rpoplpush('foo', 'bar')
+      r.rpoplpush('key1', 'key4')
     end
   end
 
   def test_brpoplpush
     assert_raise Redis::Distributed::CannotDistribute do
-      r.brpoplpush('foo', 'bar', timeout: 1)
+      r.brpoplpush('key1', 'key4', timeout: 1)
     end
   end
 end

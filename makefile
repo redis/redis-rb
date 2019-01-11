@@ -18,6 +18,10 @@ CLUSTER_PORTS      := 7000 7001 7002 7003 7004 7005
 CLUSTER_PID_PATHS  := $(addprefix ${TMP}/redis,$(addsuffix .pid,${CLUSTER_PORTS}))
 CLUSTER_CONF_PATHS := $(addprefix ${TMP}/nodes,$(addsuffix .conf,${CLUSTER_PORTS}))
 CLUSTER_ADDRS      := $(addprefix 127.0.0.1:,${CLUSTER_PORTS})
+NODE2_PORT         := 6383
+NODE2_PID_PATH     := ${BUILD_DIR}/redis_node2.pid
+NODE2_SOCKET_PATH  := ${BUILD_DIR}/redis_node2.sock
+
 
 define kill-redis
   (ls $1 2> /dev/null && kill $$(cat $1) && rm -f $1) || true
@@ -31,6 +35,7 @@ all:
 start_all:
 	make start
 	make start_slave
+	make start_node2
 	make start_sentinel
 	make start_cluster
 	make create_cluster
@@ -40,6 +45,7 @@ stop_all:
 	make stop_slave
 	make stop
 	make stop_cluster
+	make stop_node2
 
 ${TMP}:
 	mkdir -p $@
@@ -114,8 +120,18 @@ create_cluster:
 	yes yes | ((bundle exec ruby ${REDIS_TRIB} create --replicas 1 ${CLUSTER_ADDRS}) || \
 		(${REDIS_CLIENT} --cluster create ${CLUSTER_ADDRS} --cluster-replicas 1))
 
+stop_node2:
+	$(call kill-redis,${NODE2_PID_PATH})
+
+start_node2: ${BINARY}
+	${BINARY}\
+		--daemonize  yes\
+		--pidfile    ${NODE2_PID_PATH}\
+		--port       ${NODE2_PORT}\
+		--unixsocket ${NODE2_SOCKET_PATH}
+
 clean:
 	(test -d ${BUILD_DIR} && cd ${BUILD_DIR}/src && make clean distclean) || true
 
 .PHONY: all test stop start stop_slave start_slave stop_sentinel start_sentinel\
-	stop_cluster start_cluster create_cluster stop_all start_all clean
+	stop_cluster start_cluster create_cluster stop_node2 start_node2 stop_all start_all clean

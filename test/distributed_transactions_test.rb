@@ -1,17 +1,12 @@
 require_relative "helper"
 
 class TestDistributedTransactions < Test::Unit::TestCase
-
   include Helper::Distributed
 
   def test_multi_discard
-    @foo = nil
-
     assert_raise Redis::Distributed::CannotDistribute do
-      r.multi { @foo = 1 }
+      r.multi { :dummy }
     end
-
-    assert_equal nil, @foo
 
     assert_raise Redis::Distributed::CannotDistribute do
       r.discard

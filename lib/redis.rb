@@ -34,12 +34,15 @@ class Redis
   # @option options [Array<String, Hash{Symbol => String, Integer}>] :cluster List of cluster nodes to contact
   # @option options [Boolean] :replica Whether to use readonly replica nodes in Redis Cluster or not
   # @option options [Class] :connector Class of custom connector
+  # @option options [Hash] :distributed detail options for partitioning with client side consistent hashing (e.g. :nodes, :tag, :ring)
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
+    client = Client
+    client = Distributed::Partitioner if options.key?(:distributed)
     @cluster_mode = options.key?(:cluster)
-    client = @cluster_mode ? Cluster : Client
+    client = Cluster if @cluster_mode
     @original_client = @client = client.new(options)
     @queue = Hash.new { |h, k| h[k] = [] }
 
@@ -3500,5 +3503,6 @@ require_relative "redis/version"
 require_relative "redis/connection"
 require_relative "redis/client"
 require_relative "redis/cluster"
+require_relative 'redis/distributed/partitioner'
 require_relative "redis/pipeline"
 require_relative "redis/subscribe"

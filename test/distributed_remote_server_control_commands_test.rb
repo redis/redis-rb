@@ -27,7 +27,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
 
   def test_info_commandstats
     target_version "2.5.7" do
-      r.nodes.each { |n| n.config(:resetstat) }
+      r.nodes.each { |n| n.call(%i[config resetstat]) }
       r.ping # Executed on every node
 
       r.info(:commandstats).each do |info|
@@ -37,12 +37,7 @@ class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
   end
 
   def test_monitor
-    begin
-      r.monitor
-    rescue Exception => ex
-    ensure
-      assert ex.kind_of?(NotImplementedError)
-    end
+    assert_raise(Redis::Distributed::CannotDistribute) { r.monitor { :dummy } }
   end
 
   def test_echo

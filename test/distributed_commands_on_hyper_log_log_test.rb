@@ -16,10 +16,10 @@ class TestDistributedCommandsOnHyperLogLog < Test::Unit::TestCase
   def test_pfcount_multiple_keys_diff_nodes
     target_version '2.8.9' do
       assert_raise Redis::Distributed::CannotDistribute do
-        r.pfadd 'foo', 's1'
-        r.pfadd 'bar', 's2'
+        r.pfadd 'key1', 's1'
+        r.pfadd 'key4', 's2'
 
-        assert r.pfcount('res', 'foo', 'bar')
+        assert r.pfcount('res', 'key1', 'key4')
       end
     end
   end

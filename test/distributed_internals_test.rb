@@ -1,68 +1,65 @@
 require_relative "helper"
 
 class TestDistributedInternals < Test::Unit::TestCase
-
   include Helper::Distributed
 
   def test_provides_a_meaningful_inspect
-    nodes = ["redis://127.0.0.1:#{PORT}/15", *NODES]
-    redis = Redis::Distributed.new nodes
-
-    assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
+    expected = "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>"
+    assert_equal expected, redis.inspect
   end
 
   def test_default_as_urls
-    nodes = ["redis://127.0.0.1:#{PORT}/15", *NODES]
-    redis = Redis::Distributed.new nodes
-    assert_equal ["redis://127.0.0.1:#{PORT}/15", *NODES], redis.nodes.map { |node| node._client.id }
+    expected = ["redis://127.0.0.1:#{PORT}/#{DB}", "redis://127.0.0.1:#{NODE2_PORT}/#{DB}"]
+    assert_equal expected, redis.nodes.map(&:id)
   end
 
   def test_default_as_config_hashes
-    nodes = [OPTIONS.merge(:host => '127.0.0.1'), OPTIONS.merge(:host => 'somehost', :port => PORT.next)]
-    redis = Redis::Distributed.new nodes
-    assert_equal ["redis://127.0.0.1:#{PORT}/15","redis://somehost:#{PORT.next}/15"], redis.nodes.map { |node| node._client.id }
+    nodes = [{ host: '127.0.0.1', port: PORT, db: DB }, { host: '127.0.0.1', port: NODE2_PORT, db: DB }]
+    redis = build_another_client(distributed: { nodes: nodes })
+    expected = ["redis://127.0.0.1:#{PORT}/#{DB}", "redis://127.0.0.1:#{NODE2_PORT}/#{DB}"]
+    assert_equal expected, redis.nodes.map(&:id)
   end
 
   def test_as_mix_and_match
-    nodes = ["redis://127.0.0.1:7389/15", OPTIONS.merge(:host => 'somehost'), OPTIONS.merge(:host => 'somehost', :port => PORT.next)]
-    redis = Redis::Distributed.new nodes
-    assert_equal ["redis://127.0.0.1:7389/15", "redis://somehost:#{PORT}/15", "redis://somehost:#{PORT.next}/15"], redis.nodes.map { |node| node._client.id }
+    nodes = ["redis://127.0.0.1:#{PORT}/#{DB}", { host: '127.0.0.1', port: PORT, db: 14 }, { host: '127.0.0.1', port: NODE2_PORT, db: DB }]
+    redis = build_another_client(distributed: { nodes: nodes })
+    expected = ["redis://127.0.0.1:#{PORT}/#{DB}", "redis://127.0.0.1:#{PORT}/14", "redis://127.0.0.1:#{NODE2_PORT}/#{DB}"]
+    assert_equal expected, redis.nodes.map(&:id)
   end
 
   def test_override_id
-    nodes = [OPTIONS.merge(:host => '127.0.0.1', :id => "test"), OPTIONS.merge( :host => 'somehost', :port => PORT.next, :id => "test1")]
-    redis = Redis::Distributed.new nodes
-    assert_equal redis.nodes.first._client.id, "test"
-    assert_equal redis.nodes.last._client.id,  "test1"
-    assert_equal "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>", redis.inspect
+    nodes = [{ host: '127.0.0.1', port: PORT, db: DB, id: 'test1' }, { host: '127.0.0.1', port: NODE2_PORT, db: DB, id: 'test2' }]
+    redis = build_another_client(distributed: { nodes: nodes })
+    assert_equal redis.nodes.first.id, 'test1'
+    assert_equal redis.nodes.last.id,  'test2'
+    expected = "#<Redis client v#{Redis::VERSION} for #{redis.nodes.map(&:id).join(', ')}>"
+    assert_equal expected, redis.inspect
   end
 
   def test_can_be_duped_to_create_a_new_connection
-    redis = Redis::Distributed.new(NODES)
-
-    clients = redis.info[0]["connected_clients"].to_i
+    clients = redis.info[0]['connected_clients'].to_i
 
     r2 = redis.dup
     r2.ping
 
-    assert_equal clients + 1, redis.info[0]["connected_clients"].to_i
+    assert_equal clients + 1, redis.info[0]['connected_clients'].to_i
   end
 
   def test_keeps_options_after_dup
-    r1 = Redis::Distributed.new(NODES, :tag => /^(\w+):/)
+    r1 = build_another_client(distributed: { nodes: NODES, tag: /^(\w+):/ })
 
     assert_raise(Redis::Distributed::CannotDistribute) do
-      r1.sinter("foo", "bar")
+      r1.sinter('key1', 'key4')
     end
 
-    assert_equal [], r1.sinter("baz:foo", "baz:bar")
+    assert_equal [], r1.sinter('baz:foo', 'baz:bar')
 
     r2 = r1.dup
 
     assert_raise(Redis::Distributed::CannotDistribute) do
-      r2.sinter("foo", "bar")
+      r2.sinter('key1', 'key4')
     end
 
-    assert_equal [], r2.sinter("baz:foo", "baz:bar")
+    assert_equal [], r2.sinter('baz:foo', 'baz:bar')
   end
 end

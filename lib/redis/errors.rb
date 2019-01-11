@@ -42,6 +42,21 @@ class Redis
   class InvalidClientOptionError < BaseError
   end
 
+  class Distributed
+    # Raised when the command is not supported in Redis::Distributed.
+    class CannotDistribute < RuntimeError
+      def initialize(command)
+        @command = command
+      end
+
+      def message
+        "#{@command.to_s.upcase} cannot be used in client side partitioning "\
+          'because the keys involved need to be on the same server or '\
+          'because we cannot guarantee that the operation will be atomic.'
+      end
+    end
+  end
+
   class Cluster
     # Raised when client connected to redis as cluster mode
     # and some cluster subcommands were called.

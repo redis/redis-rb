@@ -6,6 +6,14 @@ class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
   include Helper::Distributed
   include Lint::ValueTypes
 
+  def test_move
+    assert_raise(Redis::Distributed::CannotDistribute) { super }
+
+    r.set('key1', 'v1')
+    assert r.move('key1', 14)
+    assert_equal nil, r.get('key1')
+  end
+
   def test_del
     r.set "foo", "s1"
     r.set "bar", "s2"
@@ -82,48 +90,48 @@ class TestDistributedCommandsOnValueTypes < Test::Unit::TestCase
 
   def test_rename
     assert_raise Redis::Distributed::CannotDistribute do
-      r.set("foo", "s1")
-      r.rename "foo", "bar"
+      r.set("key1", "s1")
+      r.rename "key1", "key4"
     end
 
-    assert_equal "s1", r.get("foo")
-    assert_equal nil, r.get("bar")
+    assert_equal "s1", r.get("key1")
+    assert_equal nil, r.get("key4")
   end
 
   def test_renamenx
     assert_raise Redis::Distributed::CannotDistribute do
-      r.set("foo", "s1")
-      r.rename "foo", "bar"
+      r.set("key1", "s1")
+      r.rename "key1", "key4"
     end
 
-    assert_equal "s1", r.get("foo")
-    assert_equal nil , r.get("bar")
+    assert_equal "s1", r.get("key1")
+    assert_equal nil , r.get("key4")
   end
 
   def test_dbsize
-    assert_equal [0], r.dbsize
+    assert_equal [0, 0], r.dbsize
 
-    r.set("foo", "s1")
+    r.set("key1", "s1")
 
-    assert_equal [1], r.dbsize
+    assert_equal [1, 0], r.dbsize
   end
 
   def test_flushdb
-    r.set("foo", "s1")
-    r.set("bar", "s2")
+    r.set("key1", "s1")
+    r.set("key4", "s2")
 
-    assert_equal [2], r.dbsize
+    assert_equal [1, 1], r.dbsize
 
     r.flushdb
 
-    assert_equal [0], r.dbsize
+    assert_equal [0, 0], r.dbsize
   end
 
   def test_migrate
     r.set("foo", "s1")
 
     assert_raise Redis::Distributed::CannotDistribute do
-      r.migrate("foo", {})
+      r.migrate('foo', host: '127.0.0.1', port: PORT)
     end
   end
 end

@@ -6,11 +6,7 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
 
   def test_subscribe_and_unsubscribe
     assert_raise Redis::Distributed::CannotDistribute do
-      r.subscribe("foo", "bar") { }
-    end
-
-    assert_raise Redis::Distributed::CannotDistribute do
-      r.subscribe("{qux}foo", "bar") { }
+      r.subscribe("key1", "key4") { }
     end
   end
 
@@ -42,7 +38,7 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
     # Wait until the subscription is active before publishing
     Wire.pass while !@subscribed
 
-    Redis::Distributed.new(NODES).publish("foo", "s1")
+    build_another_client.publish('foo', 's1')
 
     wire.join
 

@@ -17,34 +17,6 @@ class TestDistributedCommandsOnSortedSets < Test::Unit::TestCase
     assert_raise(Redis::Distributed::CannotDistribute) { super }
   end
 
-  def test_zlexcount
-    # Not implemented yet
-  end
-
-  def test_zpopmax
-    # Not implemented yet
-  end
-
-  def test_zpopmin
-    # Not implemented yet
-  end
-
-  def test_zrangebylex
-    # Not implemented yet
-  end
-
-  def test_zremrangebylex
-    # Not implemented yet
-  end
-
-  def test_zrevrangebylex
-    # Not implemented yet
-  end
-
-  def test_zscan
-    # Not implemented yet
-  end
-
   def test_zunionstore
     assert_raise(Redis::Distributed::CannotDistribute) { super }
   end

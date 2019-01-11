@@ -17,7 +17,7 @@ require_relative 'support/cluster/orchestrator'
 
 PORT        = 6381
 DB          = 15
-TIMEOUT     = Float(ENV['TIMEOUT'] || 0.1)
+TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
 LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
 OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
@@ -186,23 +186,56 @@ module Helper
   module Distributed
     include Generic
 
-    NODES = ["redis://127.0.0.1:#{PORT}/#{DB}"].freeze
+    NODE2_PORT = 6383
+    NODES = [PORT, NODE2_PORT].map { |port| "redis://127.0.0.1:#{port}/#{DB}" }.freeze
+
+    def redis_mock(commands, options = {})
+      commands[:command] = ->(*_) { "*0\r\n" }
+
+      RedisMock.start(commands, options) do |port|
+        yield _new_client(options.merge(distributed: { nodes: ["redis://127.0.0.1:#{port}"] }))
+      end
+    end
 
     def version
-      Version.new(redis.info.first["redis_version"])
+      Version.new(redis.info.first['redis_version'])
+    end
+
+    def build_another_client(options = {})
+      _new_client(options)
+    end
+
+    def init(redis)
+      redis.flushall
+      redis
+    rescue Redis::CannotConnectError
+      puts <<-MSG
+
+        Cannot connect to Redis instances.
+
+        Make sure Redis is running on localhost, port #{PORT}, #{NODE2_PORT}.
+
+        Try this once:
+
+          $ make stop_all
+
+        Then run the build again:
+
+          $ make start_all
+
+      MSG
+      exit 1
     end
 
     private
 
     def _format_options(options)
-      {
-        :timeout => OPTIONS[:timeout],
-        :logger => ::Logger.new(@log),
-      }.merge(options)
+      { distributed: { nodes: NODES },
+        timeout: TIMEOUT, logger: ::Logger.new(@log) }.merge(options)
     end
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
+      Redis.new(_format_options(options).merge(driver: ENV['DRIVER']))
     end
   end
 

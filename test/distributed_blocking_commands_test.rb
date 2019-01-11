@@ -7,45 +7,43 @@ class TestDistributedBlockingCommands < Test::Unit::TestCase
 
   def test_blpop_raises
     assert_raises(Redis::Distributed::CannotDistribute) do
-      r.blpop(%w[foo bar])
+      r.blpop(%w[key1 key4])
     end
   end
 
   def test_blpop_raises_with_old_prototype
     assert_raises(Redis::Distributed::CannotDistribute) do
-      r.blpop('foo', 'bar', 0)
+      r.blpop('key1', 'key4', 0)
     end
   end
 
   def test_brpop_raises
-    assert_raises(Redis::Distributed::CannotDistribute) do
-      r.brpop(%w[foo bar])
+    target_version('3.2.0') do
+      # There is a bug Redis 3.0's COMMAND command
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.brpop(%w[key1 key4])
+      end
     end
   end
 
   def test_brpop_raises_with_old_prototype
-    assert_raises(Redis::Distributed::CannotDistribute) do
-      r.brpop('foo', 'bar', 0)
+    target_version('3.2.0') do
+      # There is a bug Redis 3.0's COMMAND command
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.brpop('key1', 'key4', 0)
+      end
     end
   end
 
   def test_brpoplpush_raises
     assert_raises(Redis::Distributed::CannotDistribute) do
-      r.brpoplpush('foo', 'bar')
+      r.brpoplpush('key1', 'key4')
     end
   end
 
   def test_brpoplpush_raises_with_old_prototype
     assert_raises(Redis::Distributed::CannotDistribute) do
-      r.brpoplpush('foo', 'bar', 0)
+      r.brpoplpush('key1', 'key4', 0)
     end
-  end
-
-  def test_bzpopmin
-    # Not implemented yet
-  end
-
-  def test_bzpopmax
-    # Not implemented yet
   end
 end
