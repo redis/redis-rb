@@ -95,6 +95,54 @@ but a few so that if one is down the client will try the next one. The client
 is able to remember the last Sentinel that was able to reply correctly and will
 use it for the next requests.
 
+## Cluster support
+
+You are able to use [Redis Cluster](https://redis.io/topics/cluster-spec) via the client.
+
+```ruby
+# You can specify start-up nodes as cluster option.
+nodes = (7000..7005).map { |port| "redis://127.0.0.1:#{port}" }
+redis = Redis.new(cluster: nodes)
+
+# You can also specify the options as a Hash. The option is same as single mode client.
+(7000..7005).map { |port| { host: '127.0.0.1', port: port } }
+```
+
+The option is not needed to specify all nodes because the client internally get available nodes by [CLUSTER NODES](https://redis.io/commands/cluster-nodes) command.
+
+```ruby
+Redis.new(cluster: %w[redis://127.0.0.1:7000])
+```
+
+You are able to use [scale reading](https://redis.io/commands/readonly) by `replica` option. By default, the feature is disabled.
+
+```ruby
+Redis.new(cluster: nodes, replica: true)
+```
+
+You are able to specify cluster option along with others.
+
+```ruby
+Redis.new(cluster: %w[redis://127.0.0.1:7000], timeout: 5.0)
+```
+
+You should handle to effect to same node if you using multiple keys in multiple key allowed commands, transaction, and pipelining. You are able to use [Hash Tag](https://redis.io/topics/cluster-spec#keys-distribution-model).
+
+```ruby
+redis = Redis.new(cluster: %w[redis://127.0.0.1:7000])
+
+redis.mget('key1', 'key2')
+#=> Redis::CommandError (CROSSSLOT Keys in request don't hash to the same slot)
+
+redis.mget('{key}1', '{key}2')
+#=> [nil, nil]
+```
+
+* The client automatically reconnects after failover is occurred. So you should handle error while failovering.
+* The client supports `MOVED` redirection. It is automatically done.
+* The client supports `ASK` redirection of during resharding.
+* The cluster mode supporting is not related `Redis::Distributed`. It is used with single mode Redis as cache store (see [partitioning](https://redis.io/topics/partitioning)).
+
 ## Storing objects
 
 Redis only stores strings as values. If you want to store an object, you
