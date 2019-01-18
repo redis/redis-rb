@@ -95,6 +95,46 @@ but a few so that if one is down the client will try the next one. The client
 is able to remember the last Sentinel that was able to reply correctly and will
 use it for the next requests.
 
+## Cluster support
+
+`redis-rb` supports [clustering](https://redis.io/topics/cluster-spec).
+
+```ruby
+# Nodes can be passed to the client as an array of connection URLs.
+nodes = (7000..7005).map { |port| "redis://127.0.0.1:#{port}" }
+redis = Redis.new(cluster: nodes)
+
+# You can also specify the options as a Hash. The options are the same as for a single server connection.
+(7000..7005).map { |port| { host: '127.0.0.1', port: port } }
+```
+
+You can also specify only a subset of the nodes, and the client will discover the missing ones using the [CLUSTER NODES](https://redis.io/commands/cluster-nodes) command.
+
+```ruby
+Redis.new(cluster: %w[redis://127.0.0.1:7000])
+```
+
+If you want [the connection to be able to read from any replica](https://redis.io/commands/readonly), you must pass the `replica: true`. Note that this connection won't be usable to write keys.
+
+```ruby
+Redis.new(cluster: nodes, replica: true)
+```
+
+The calling code is responsible for [avoiding cross slot commands](https://redis.io/topics/cluster-spec#keys-distribution-model).
+
+```ruby
+redis = Redis.new(cluster: %w[redis://127.0.0.1:7000])
+
+redis.mget('key1', 'key2')
+#=> Redis::CommandError (CROSSSLOT Keys in request don't hash to the same slot)
+
+redis.mget('{key}1', '{key}2')
+#=> [nil, nil]
+```
+
+* The client automatically reconnects after a failover occurred, but the caller is responsible for handling errors while it is happening.
+* The client supports `MOVED` and `ASK` redirections transparently.
+
 ## Storing objects
 
 Redis only stores strings as values. If you want to store an object, you
