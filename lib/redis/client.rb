@@ -343,6 +343,7 @@ class Redis
       @pending_reads = 0
     rescue TimeoutError,
            SocketError,
+           Errno::EADDRNOTAVAIL,
            Errno::ECONNREFUSED,
            Errno::EHOSTDOWN,
            Errno::EHOSTUNREACH,
