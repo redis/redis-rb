@@ -2977,24 +2977,6 @@ class Redis
     synchronize { |client| client.call(args) }
   end
 
-  # Fetches entries of the stream.
-  #
-  # @example Without options
-  #   redis.xrange('mystream')
-  # @example With first entry id option
-  #   redis.xrange('mystream', first: '0-1')
-  # @example With first and last entry id options
-  #   redis.xrange('mystream', first: '0-1', last: '0-3')
-  # @example With count options
-  #   redis.xrange('mystream', count: 10)
-  #
-  # @param key   [String]  the stream key
-  # @param start  [String]  first entry id of range, default value is `+`
-  # @param end [String]  last entry id of range, default value is `-`
-  # @param count [Integer] the number of entries as limit
-  #
-  # @return [Hash{String => Hash}] the entries
-
   # Fetches entries of the stream in ascending order.
   #
   # @example Without options
