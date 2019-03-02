@@ -20,6 +20,36 @@ class SentinelTest < Test::Unit::TestCase
     assert_equal MASTER_PORT.to_i, actual[2]
   end
 
+  def test_the_client_can_connect_to_available_slaves
+    commands = {
+      sentinel: lambda do |*_|
+        [
+          ['ip', '127.0.0.1', 'port', '6382', 'flags', 'slave'],
+          ['ip', '127.0.0.1', 'port', '6383', 'flags', 's_down,slave,disconnected']
+        ]
+      end
+    }
+    RedisMock.start(commands) do |port|
+      redis = build_slave_role_client(sentinels: [{ host: 'localhost', port: port }])
+      assert_equal 'PONG', redis.ping
+    end
+  end
+
+  def test_the_client_raises_error_when_there_is_no_available_slaves
+    commands = {
+      sentinel: lambda do |*_|
+        [
+          ['ip', '127.0.0.1', 'port', '6382', 'flags', 's_down,slave,disconnected'],
+          ['ip', '127.0.0.1', 'port', '6383', 'flags', 's_down,slave,disconnected']
+        ]
+      end
+    }
+    RedisMock.start(commands) do |port|
+      redis = build_slave_role_client(sentinels: [{ host: 'localhost', port: port }])
+      assert_raise(Redis::CannotConnectError) { redis.ping }
+    end
+  end
+
   def test_sentinel_failover
     sentinels = [{:host => "127.0.0.1", :port => 26381},
                  {:host => "127.0.0.1", :port => 26382}]

@@ -604,7 +604,10 @@ class Redis
         def resolve_slave
           sentinel_detect do |client|
             if reply = client.call(["sentinel", "slaves", @master])
-              slave = Hash[*reply.sample]
+              slave = reply.map { |r| Hash[*r] }
+                           .reject { |s| s['flags'].split(',').include?('s_down') }
+                           .sample
+              raise CannotConnectError, 'No slaves available.' if slave.nil?
 
               {:host => slave.fetch("ip"), :port => slave.fetch("port")}
             end
