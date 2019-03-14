@@ -39,4 +39,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency("mocha")
   s.add_development_dependency("hiredis")
   s.add_development_dependency("em-synchrony")
+  s.add_development_dependency("async-io")
 end
