@@ -53,12 +53,8 @@ class Redis
         end
       end
 
-      def self.endpoint(config)
-        Endpoint.new(config)
-      end
-
       def self.connect(config)
-        endpoint = self.endpoint(config)
+        endpoint = Endpoint.new(config)
 
         begin
           @socket = endpoint.connect
