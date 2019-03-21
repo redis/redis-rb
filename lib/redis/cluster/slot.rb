@@ -57,7 +57,7 @@ class Redis
       end
 
       def assign_node_key(mappings, slot, node_key)
-        mappings[slot] ||= { master: nil, slaves: Set.new }
+        mappings[slot] ||= { master: nil, slaves: ::Set.new }
         if master?(node_key)
           mappings[slot][:master] = node_key
         else
