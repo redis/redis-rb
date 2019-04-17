@@ -266,7 +266,22 @@ class Redis
 
           ssl_sock = new(tcp_sock, ctx)
           ssl_sock.hostname = host
-          ssl_sock.connect
+
+          begin
+            ssl_sock.connect_nonblock
+          rescue IO::WaitReadable, IO::WaitWritable
+            resp = IO.select([ssl_sock], [ssl_sock], nil, timeout)
+
+            if resp.nil?
+              raise TimeoutError
+            end
+
+            r, w = resp
+
+            if r.size > 0 || w.size > 0
+              retry
+            end
+          end
 
           unless ctx.verify_mode == OpenSSL::SSL::VERIFY_NONE
             ssl_sock.post_connection_check(host)
