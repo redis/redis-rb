@@ -12,6 +12,21 @@ class TestCommandsGeo < Test::Unit::TestCase
     end
   end
 
+  def test_geoadd_with_array_params
+    target_version "3.2.0" do
+      added_items_count = r.geoadd("SicilyArray", [13.361389, 38.115556, "Palermo", 15.087269, 37.502669, "Catania"])
+      assert_equal 2, added_items_count
+    end
+  end
+
+  def test_georadius_with_same_params
+    target_version "3.2.0" do
+      r.geoadd("Chad", 15, 15, "Kanem")
+      nearest_cities = r.georadius("Chad", 15, 15, 15, 'km', sort: 'asc')
+      assert_equal %w(Kanem), nearest_cities
+    end
+  end
+
   def test_georadius_with_sort
     target_version "3.2.0" do
       nearest_cities = r.georadius("Sicily", 15, 37, 200, 'km', sort: 'asc')

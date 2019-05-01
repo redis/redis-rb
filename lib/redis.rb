@@ -2818,7 +2818,7 @@ class Redis
   # @return [Intger] number of elements added to the sorted set
   def geoadd(key, *member)
     synchronize do |client|
-      client.call([:geoadd, key, member])
+      client.call([:geoadd, key, *member])
     end
   end
 
@@ -3441,8 +3441,7 @@ private
     args.push sort if sort
     args.push 'count', count if count
     args.push options if options
-
-    args.uniq
+    args
   end
 
   def _subscription(method, timeout, channels, block)
