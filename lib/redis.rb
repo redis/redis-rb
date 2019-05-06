@@ -3469,6 +3469,8 @@ private
     synchronize do |client|
       if blocking_timeout_msec.nil?
         client.call(args, &HashifyStreams)
+      elsif blocking_timeout_msec.to_f.zero?
+        client.call_without_timeout(args, &HashifyStreams)
       else
         timeout = client.timeout.to_f + blocking_timeout_msec.to_f / 1000.0
         client.call_with_timeout(args, timeout, &HashifyStreams)
