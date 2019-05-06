@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestConnection < Test::Unit::TestCase
+class TestConnection < Minitest::Test
 
   include Helper::Client
 

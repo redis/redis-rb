@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestDistributedRemoteServerControlCommands < Test::Unit::TestCase
+class TestDistributedRemoteServerControlCommands < Minitest::Test
 
   include Helper::Distributed
 

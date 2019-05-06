@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_replicas_test.rb
-class TestClusterClientReplicas < Test::Unit::TestCase
+class TestClusterClientReplicas < Minitest::Test
   include Helper::Cluster
 
   def test_client_can_command_with_replica

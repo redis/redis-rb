@@ -35,7 +35,6 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 2.2.2'
 
-  s.add_development_dependency("test-unit", ">= 3.1.5")
   s.add_development_dependency("mocha")
   s.add_development_dependency("hiredis")
   s.add_development_dependency("em-synchrony")

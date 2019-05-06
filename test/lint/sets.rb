@@ -49,7 +49,7 @@ module Lint
 
       assert ["s1", "s2"].include?(r.spop("foo"))
       assert ["s1", "s2"].include?(r.spop("foo"))
-      assert_equal nil, r.spop("foo")
+      assert_nil r.spop("foo")
     end
 
     def test_spop_with_positive_count

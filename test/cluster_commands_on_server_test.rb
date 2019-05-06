@@ -4,7 +4,7 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_server_test.rb
 # @see https://redis.io/commands#server
-class TestClusterCommandsOnServer < Test::Unit::TestCase
+class TestClusterCommandsOnServer < Minitest::Test
   include Helper::Cluster
 
   def test_bgrewriteaof
@@ -21,7 +21,7 @@ class TestClusterCommandsOnServer < Test::Unit::TestCase
               'Use BGSAVE SCHEDULE in order to schedule a BGSAVE whenever possible.'
 
     redis_cluster_mock(bgsave: ->(*_) { "-Error #{err_msg}" }) do |redis|
-      assert_raise(Redis::Cluster::CommandErrorCollection, 'Command error replied on any node') do
+      assert_raises(Redis::Cluster::CommandErrorCollection, 'Command error replied on any node') do
         redis.bgsave
       end
     end
@@ -29,7 +29,7 @@ class TestClusterCommandsOnServer < Test::Unit::TestCase
 
   def test_client_kill
     redis_cluster_mock(client: ->(*_) { '-Error ERR No such client' }) do |redis|
-      assert_raise(Redis::CommandError, 'ERR No such client') do
+      assert_raises(Redis::CommandError, 'ERR No such client') do
         redis.client(:kill, '127.0.0.1:6379')
       end
     end
@@ -70,7 +70,7 @@ class TestClusterCommandsOnServer < Test::Unit::TestCase
   end
 
   def test_command_count
-    assert_true(redis.command(:count) > 0)
+    assert_equal true,(redis.command(:count) > 0)
   end
 
   def test_command_getkeys
@@ -98,7 +98,7 @@ class TestClusterCommandsOnServer < Test::Unit::TestCase
 
   def test_config_rewrite
     redis_cluster_mock(config: ->(*_) { '-Error ERR Rewriting config file: Permission denied' }) do |redis|
-      assert_raise(Redis::Cluster::CommandErrorCollection, 'Command error replied on any node') do
+      assert_raises(Redis::Cluster::CommandErrorCollection, 'Command error replied on any node') do
         redis.config(:rewrite)
       end
     end
@@ -196,13 +196,13 @@ class TestClusterCommandsOnServer < Test::Unit::TestCase
   end
 
   def test_shutdown
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'SHUTDOWN command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'SHUTDOWN command should be...') do
       redis.shutdown
     end
   end
 
   def test_slaveof
-    assert_raise(Redis::CommandError, 'ERR SLAVEOF not allowed in cluster mode.') do
+    assert_raises(Redis::CommandError, 'ERR SLAVEOF not allowed in cluster mode.') do
       redis.slaveof(:no, :one)
     end
   end

@@ -4,7 +4,7 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_pub_sub_test.rb
 # @see https://redis.io/commands#pubsub
-class TestClusterCommandsOnPubSub < Test::Unit::TestCase
+class TestClusterCommandsOnPubSub < Minitest::Test
   include Helper::Cluster
 
   def test_publish_subscribe_unsubscribe_pubsub

@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestPipeliningCommands < Test::Unit::TestCase
+class TestPipeliningCommands < Minitest::Test
 
   include Helper::Client
 
@@ -56,9 +56,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
   end
 
   def test_pipelined_with_an_empty_block
-    assert_nothing_raised do
-      r.pipelined do
-      end
+    r.pipelined do
     end
 
     assert_equal 0, r.dbsize
@@ -87,7 +85,7 @@ class TestPipeliningCommands < Test::Unit::TestCase
   # Although we could support accessing the values in these futures,
   # it doesn't make a lot of sense.
   def test_assignment_of_results_inside_the_block_with_errors
-    assert_raise(Redis::CommandError) do
+    assert_raises(Redis::CommandError) do
       r.pipelined do
         r.doesnt_exist
         @first = r.sadd("foo", 1)
@@ -95,8 +93,8 @@ class TestPipeliningCommands < Test::Unit::TestCase
       end
     end
 
-    assert_raise(Redis::FutureNotReady) { @first.value }
-    assert_raise(Redis::FutureNotReady) { @second.value }
+    assert_raises(Redis::FutureNotReady) { @first.value }
+    assert_raises(Redis::FutureNotReady) { @second.value }
   end
 
   def test_assignment_of_results_inside_a_nested_block
@@ -117,19 +115,19 @@ class TestPipeliningCommands < Test::Unit::TestCase
       @result = r.sadd("foo", 1)
     end
 
-    assert_raise(NoMethodError) { @result.to_s }
+    assert_raises(NoMethodError) { @result.to_s }
   end
 
   def test_futures_raise_when_trying_to_access_their_values_too_early
     r.pipelined do
-      assert_raise(Redis::FutureNotReady) do
+      assert_raises(Redis::FutureNotReady) do
         r.sadd("foo", 1).value
       end
     end
   end
 
   def test_futures_raise_when_command_errors_and_needs_transformation
-    assert_raise(Redis::CommandError) do
+    assert_raises(Redis::CommandError) do
       r.pipelined do
         @result = r.zrange("a", "b", 5, :with_scores => true)
       end

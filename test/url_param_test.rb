@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestUrlParam < Test::Unit::TestCase
+class TestUrlParam < Minitest::Test
 
   include Helper::Client
 
@@ -10,7 +10,7 @@ class TestUrlParam < Test::Unit::TestCase
     assert_equal "127.0.0.1", redis._client.host
     assert_equal 6379, redis._client.port
     assert_equal 0, redis._client.db
-    assert_equal nil, redis._client.password
+    assert_nil redis._client.password
   end
 
   def test_allows_to_pass_in_a_url
@@ -59,16 +59,16 @@ class TestUrlParam < Test::Unit::TestCase
     redis = Redis.new :url => "redis://:secr3t@foo.com/foo:999/2", :path => "/tmp/redis.sock"
 
     assert_equal "/tmp/redis.sock", redis._client.path
-    assert_equal nil, redis._client.host
-    assert_equal nil, redis._client.port
+    assert_nil redis._client.host
+    assert_nil redis._client.port
   end
 
   def test_override_url_if_path_option_is_passed_with_string_key
     redis = Redis.new :url => "redis://:secr3t@foo.com/foo:999/2", "path" => "/tmp/redis.sock"
 
     assert_equal "/tmp/redis.sock", redis._client.path
-    assert_equal nil, redis._client.host
-    assert_equal nil, redis._client.port
+    assert_nil redis._client.host
+    assert_nil redis._client.port
   end
 
   def test_overrides_url_if_another_connection_option_is_passed

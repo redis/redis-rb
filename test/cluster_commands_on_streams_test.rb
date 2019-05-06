@@ -5,13 +5,13 @@ require_relative 'lint/streams'
 
 # ruby -w -Itest test/cluster_commands_on_streams_test.rb
 # @see https://redis.io/commands#stream
-class TestClusterCommandsOnStreams < Test::Unit::TestCase
+class TestClusterCommandsOnStreams < Minitest::Test
   include Helper::Cluster
   include Lint::Streams
 
   def test_xread_with_multiple_keys
     err_msg = "CROSSSLOT Keys in request don't hash to the same slot"
-    assert_raise(Redis::CommandError, err_msg) { super }
+    assert_raises(Redis::CommandError, err_msg) { super }
   end
 
   def test_xread_with_multiple_keys_and_hash_tags
@@ -31,7 +31,7 @@ class TestClusterCommandsOnStreams < Test::Unit::TestCase
 
   def test_xreadgroup_with_multiple_keys
     err_msg = "CROSSSLOT Keys in request don't hash to the same slot"
-    assert_raise(Redis::CommandError, err_msg) { super }
+    assert_raises(Redis::CommandError, err_msg) { super }
   end
 
   def test_xreadgroup_with_multiple_keys_and_hash_tags

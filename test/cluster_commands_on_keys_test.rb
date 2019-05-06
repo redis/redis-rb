@@ -4,7 +4,7 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_keys_test.rb
 # @see https://redis.io/commands#generic
-class TestClusterCommandsOnKeys < Test::Unit::TestCase
+class TestClusterCommandsOnKeys < Minitest::Test
   include Helper::Cluster
 
   def set_some_keys
@@ -18,7 +18,7 @@ class TestClusterCommandsOnKeys < Test::Unit::TestCase
   def test_del
     set_some_keys
 
-    assert_raise(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
       redis.del('key1', 'key2')
     end
 
@@ -28,13 +28,13 @@ class TestClusterCommandsOnKeys < Test::Unit::TestCase
   def test_migrate
     redis.set('mykey', 1)
 
-    assert_raise(Redis::CommandError, 'ERR Target instance replied with error: MOVED 14687 127.0.0.1:7002') do
+    assert_raises(Redis::CommandError, 'ERR Target instance replied with error: MOVED 14687 127.0.0.1:7002') do
       # We cannot move between cluster nodes.
       redis.migrate('mykey', host: '127.0.0.1', port: 7000)
     end
 
     redis_cluster_mock(migrate: ->(*_) { '-IOERR error or timeout writing to target instance' }) do |redis|
-      assert_raise(Redis::CommandError, 'IOERR error or timeout writing to target instance') do
+      assert_raises(Redis::CommandError, 'IOERR error or timeout writing to target instance') do
         redis.migrate('mykey', host: '127.0.0.1', port: 11211)
       end
     end
@@ -61,13 +61,13 @@ class TestClusterCommandsOnKeys < Test::Unit::TestCase
 
   def test_randomkey
     set_some_keys
-    assert_true redis.randomkey.is_a?(String)
+    assert_equal true, redis.randomkey.is_a?(String)
   end
 
   def test_rename
     set_some_keys
 
-    assert_raise(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
       redis.rename('key1', 'key3')
     end
 
@@ -77,7 +77,7 @@ class TestClusterCommandsOnKeys < Test::Unit::TestCase
   def test_renamenx
     set_some_keys
 
-    assert_raise(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
       redis.renamenx('key1', 'key2')
     end
 
@@ -106,7 +106,7 @@ class TestClusterCommandsOnKeys < Test::Unit::TestCase
   def test_unlink
     target_version('4.0.0') do
       set_some_keys
-      assert_raise(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+      assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
         redis.unlink('key1', 'key2', 'key3')
       end
       assert_equal 2, redis.unlink('{key}1', '{key}2', '{key}3')

@@ -1,5 +1,4 @@
-TEST_FILES         := $(shell find ./test -name *_test.rb -type f)
-REDIS_BRANCH       ?= unstable
+REDIS_BRANCH       ?= 5.0
 TMP                := tmp
 BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
 TARBALL            := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
@@ -47,9 +46,8 @@ ${TMP}:
 ${BINARY}: ${TMP}
 	bin/build ${REDIS_BRANCH} $<
 
-test: ${TEST_FILES}
-	env SOCKET_PATH=${SOCKET_PATH} \
-		bundle exec ruby -v -e 'ARGV.each { |test_file| require test_file }' ${TEST_FILES}
+test: 
+	env SOCKET_PATH=${SOCKET_PATH} rake test
 
 stop:
 	$(call kill-redis,${PID_PATH})
@@ -111,8 +109,8 @@ start_cluster: ${BINARY}
 	done
 
 create_cluster:
-	yes yes | ((bundle exec ruby ${REDIS_TRIB} create --replicas 1 ${CLUSTER_ADDRS}) || \
-		(${REDIS_CLIENT} --cluster create ${CLUSTER_ADDRS} --cluster-replicas 1))
+	yes yes | ((${REDIS_CLIENT} --cluster create ${CLUSTER_ADDRS} --cluster-replicas 1) || \
+		(bundle exec ruby ${REDIS_TRIB} create --replicas 1 ${CLUSTER_ADDRS}))
 
 clean:
 	(test -d ${BUILD_DIR} && cd ${BUILD_DIR}/src && make clean distclean) || true

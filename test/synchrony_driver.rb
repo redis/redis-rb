@@ -67,7 +67,7 @@ EM.synchrony do
     end
   end
 
-  assert_equal nil, result
+  assert_nil result
   assert_equal "s1", rpool.get("foo")
 
   result = rpool.watch "foo" do |rd|

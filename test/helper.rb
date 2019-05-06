@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "test/unit"
-require "mocha/test_unit"
+require "minitest/autorun"
+require "mocha/minitest"
 require "logger"
 require "stringio"
 
@@ -31,9 +31,9 @@ end
 
 module Helper
 
-  def run(runner)
+  def run
     if respond_to?(:around)
-      around { super(runner) }
+      around { super }
     else
       super
     end
@@ -105,10 +105,12 @@ module Helper
 
       # Run GC to make sure orphaned connections are closed.
       GC.start
+      super
     end
 
     def teardown
-      @redis.quit if @redis
+      redis.quit if redis
+      super
     end
 
     def init(redis)
@@ -162,7 +164,7 @@ module Helper
     end
 
     def omit_version(min_ver)
-      omit("Requires Redis > #{min_ver}") if version < min_ver
+      skip("Requires Redis > #{min_ver}") if version < min_ver
     end
 
     def version
@@ -295,7 +297,7 @@ module Helper
           $ make
 
       MSG
-      exit 1
+      exit! 1
     end
 
     def build_another_client(options = {})

@@ -14,8 +14,6 @@ rvm:
   - 2.5.3
   - jruby-9.1.17.0
 
-gemfile: ".travis/Gemfile"
-
 sudo: false
 
 before_script:

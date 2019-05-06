@@ -4,7 +4,7 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_connection_test.rb
 # @see https://redis.io/commands#connection
-class TestClusterCommandsOnConnection < Test::Unit::TestCase
+class TestClusterCommandsOnConnection < Minitest::Test
   include Helper::Cluster
 
   def test_auth
@@ -27,13 +27,13 @@ class TestClusterCommandsOnConnection < Test::Unit::TestCase
   end
 
   def test_select
-    assert_raise(Redis::CommandError, 'ERR SELECT is not allowed in cluster mode') do
+    assert_raises(Redis::CommandError, 'ERR SELECT is not allowed in cluster mode') do
       redis.select(1)
     end
   end
 
   def test_swapdb
-    assert_raise(Redis::CommandError, 'ERR SWAPDB is not allowed in cluster mode') do
+    assert_raises(Redis::CommandError, 'ERR SWAPDB is not allowed in cluster mode') do
       redis.swapdb(1, 2)
     end
   end

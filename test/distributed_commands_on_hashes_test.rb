@@ -1,7 +1,7 @@
 require_relative 'helper'
 require_relative 'lint/hashes'
 
-class TestDistributedCommandsOnHashes < Test::Unit::TestCase
+class TestDistributedCommandsOnHashes < Minitest::Test
   include Helper::Distributed
   include Lint::Hashes
 
@@ -14,7 +14,7 @@ class TestDistributedCommandsOnHashes < Test::Unit::TestCase
   end
 
   def test_mapped_hmget_in_a_pipeline_returns_hash
-    assert_raise(Redis::Distributed::CannotDistribute) do
+    assert_raises(Redis::Distributed::CannotDistribute) do
       super
     end
   end

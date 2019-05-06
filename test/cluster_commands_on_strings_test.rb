@@ -5,7 +5,7 @@ require_relative 'lint/strings'
 
 # ruby -w -Itest test/cluster_commands_on_strings_test.rb
 # @see https://redis.io/commands#string
-class TestClusterCommandsOnStrings < Test::Unit::TestCase
+class TestClusterCommandsOnStrings < Minitest::Test
   include Helper::Cluster
   include Lint::Strings
 

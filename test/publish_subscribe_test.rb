@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestPublishSubscribe < Test::Unit::TestCase
+class TestPublishSubscribe < Minitest::Test
 
   include Helper::Client
 
@@ -206,7 +206,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_other_commands_within_a_subscribe
-    assert_raise Redis::CommandError do
+    assert_raises Redis::CommandError do
       r.subscribe("foo") do |on|
         on.subscribe do |channel, total|
           r.set("bar", "s2")
@@ -216,17 +216,17 @@ class TestPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_without_a_block
-    assert_raise LocalJumpError do
+    assert_raises LocalJumpError do
       r.subscribe("foo")
     end
   end
 
   def test_unsubscribe_without_a_subscribe
-    assert_raise RuntimeError do
+    assert_raises RuntimeError do
       r.unsubscribe
     end
 
-    assert_raise RuntimeError do
+    assert_raises RuntimeError do
       r.punsubscribe
     end
   end
@@ -254,7 +254,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
   def test_subscribe_with_timeout
     received = false
 
-    assert_raise Redis::TimeoutError do
+    assert_raises Redis::TimeoutError do
       r.subscribe_with_timeout(LOW_TIMEOUT, "foo")  do |on|
         on.message do |channel, message|
           received = true
@@ -268,7 +268,7 @@ class TestPublishSubscribe < Test::Unit::TestCase
   def test_psubscribe_with_timeout
     received = false
 
-    assert_raise Redis::TimeoutError do
+    assert_raises Redis::TimeoutError do
       r.psubscribe_with_timeout(LOW_TIMEOUT, "f*")  do |on|
         on.message do |channel, message|
           received = true

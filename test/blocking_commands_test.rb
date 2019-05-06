@@ -1,7 +1,7 @@
 require_relative 'helper'
 require_relative 'lint/blocking_commands'
 
-class TestBlockingCommands < Test::Unit::TestCase
+class TestBlockingCommands < Minitest::Test
   include Helper::Client
   include Lint::BlockingCommands
 

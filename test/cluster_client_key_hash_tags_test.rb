@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_key_hash_tags_test.rb
-class TestClusterClientKeyHashTags < Test::Unit::TestCase
+class TestClusterClientKeyHashTags < Minitest::Test
   include Helper::Cluster
 
   def build_described_class

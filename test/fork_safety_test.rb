@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestForkSafety < Test::Unit::TestCase
+class TestForkSafety < Minitest::Test
 
   include Helper::Client
 
@@ -17,8 +17,9 @@ class TestForkSafety < Test::Unit::TestCase
           redis.without_reconnect do
             redis.set "foo", 2
           end
+          exit! 0
         rescue Redis::InheritedError
-          exit 127
+          exit! 127
         end
       end
 
@@ -43,8 +44,9 @@ class TestForkSafety < Test::Unit::TestCase
           redis.without_reconnect do
             redis.set "foo", 2
           end
+          exit! 0
         rescue Redis::InheritedError
-          exit 127
+          exit! 127
         end
       end
 

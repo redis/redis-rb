@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestDistributedInternals < Test::Unit::TestCase
+class TestDistributedInternals < Minitest::Test
 
   include Helper::Distributed
 
@@ -51,7 +51,7 @@ class TestDistributedInternals < Test::Unit::TestCase
   def test_keeps_options_after_dup
     r1 = Redis::Distributed.new(NODES, :tag => /^(\w+):/)
 
-    assert_raise(Redis::Distributed::CannotDistribute) do
+    assert_raises(Redis::Distributed::CannotDistribute) do
       r1.sinter("foo", "bar")
     end
 
@@ -59,7 +59,7 @@ class TestDistributedInternals < Test::Unit::TestCase
 
     r2 = r1.dup
 
-    assert_raise(Redis::Distributed::CannotDistribute) do
+    assert_raises(Redis::Distributed::CannotDistribute) do
       r2.sinter("foo", "bar")
     end
 

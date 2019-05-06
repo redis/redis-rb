@@ -4,7 +4,7 @@ require_relative 'helper'
 require_relative 'lint/blocking_commands'
 
 # ruby -w -Itest test/cluster_blocking_commands_test.rb
-class TestClusterBlockingCommands < Test::Unit::TestCase
+class TestClusterBlockingCommands < Minitest::Test
   include Helper::Cluster
   include Lint::BlockingCommands
 

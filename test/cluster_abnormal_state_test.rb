@@ -3,12 +3,12 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_abnormal_state_test.rb
-class TestClusterAbnormalState < Test::Unit::TestCase
+class TestClusterAbnormalState < Minitest::Test
   include Helper::Cluster
 
   def test_the_state_of_cluster_down
     redis_cluster_down do
-      assert_raise(Redis::CommandError, 'CLUSTERDOWN Hash slot not served') do
+      assert_raises(Redis::CommandError, 'CLUSTERDOWN Hash slot not served') do
         redis.set('key1', 1)
       end
 
@@ -31,7 +31,7 @@ class TestClusterAbnormalState < Test::Unit::TestCase
   end
 
   def test_raising_error_when_nodes_are_not_cluster_mode
-    assert_raise(Redis::CannotConnectError, 'Redis client could not connect to any cluster nodes') do
+    assert_raises(Redis::CannotConnectError, 'Redis client could not connect to any cluster nodes') do
       build_another_client(cluster: %W[redis://127.0.0.1:#{PORT}])
     end
   end

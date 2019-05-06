@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestSorting < Test::Unit::TestCase
+class TestSorting < Minitest::Test
 
   include Helper::Client
 
