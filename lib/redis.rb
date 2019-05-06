@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "monitor"
 require_relative "redis/errors"
 
@@ -3309,131 +3311,135 @@ private
   # Commands returning 1 for true and 0 for false may be executed in a pipeline
   # where the method call will return nil. Propagate the nil instead of falsely
   # returning false.
-  Boolify =
-    lambda { |value|
-      value == 1 if value
-    }
+  Boolify = lambda { |value|
+    case value
+    when 1
+      true
+    when 0
+      false
+    else
+      value
+    end
+  }
 
-  BoolifySet =
-    lambda { |value|
-      if value && "OK" == value
-        true
-      else
-        false
-      end
-    }
+  BoolifySet = lambda { |value|
+    case value
+    when "OK"
+      true
+    when nil
+      false
+    else
+      value
+    end
+  }
 
-  Hashify =
-    lambda { |array|
-      hash = Hash.new
-      array.each_slice(2) do |field, value|
-        hash[field] = value
-      end
-      hash
-    }
+  Hashify = lambda { |value|
+    if value.respond_to?(:each_slice)
+      value.each_slice(2).to_h
+    else
+      value
+    end
+  }
 
-  Floatify =
-    lambda { |str|
-      if str
-        if (inf = str.match(/^(-)?inf/i))
-          (inf[1] ? -1.0 : 1.0) / 0.0
-        else
-          Float(str)
-        end
-      end
-    }
+  Floatify = lambda { |value|
+    case value
+    when "inf"
+      Float::INFINITY
+    when "-inf"
+      -Float::INFINITY
+    when String
+      Float(value)
+    else
+      value
+    end
+  }
 
-  FloatifyPairs =
-    lambda { |result|
-      result.each_slice(2).map do |member, score|
-        [member, Floatify.call(score)]
-      end
-    }
+  FloatifyPairs = lambda { |value|
+    return value unless value.respond_to?(:each_slice)
 
-  HashifyInfo =
-    lambda { |reply|
-      Hash[reply.split("\r\n").map do |line|
-        line.split(':', 2) unless line =~ /^(#|$)/
-      end.compact]
-    }
+    value.each_slice(2).map do |member, score|
+      [member, Floatify.call(score)]
+    end
+  }
 
-  HashifyStreams =
-    lambda { |reply|
-      return {} if reply.nil?
-      reply.map do |stream_key, entries|
-        [stream_key, HashifyStreamEntries.call(entries)]
-      end.to_h
-    }
+  HashifyInfo = lambda { |reply|
+    lines = reply.split("\r\n").grep_v(/^(#|$)/)
+    lines.map! { |line| line.split(':', 2) }
+    lines.compact!
+    lines.to_h
+  }
 
-  HashifyStreamEntries =
-    lambda { |reply|
-      reply.map do |entry_id, values|
-        [entry_id, values.each_slice(2).to_h]
-      end
-    }
+  HashifyStreams = lambda { |reply|
+    case reply
+    when nil
+      {}
+    else
+      reply.map { |key, entries| [key, HashifyStreamEntries.call(entries)] }.to_h
+    end
+  }
 
-  HashifyStreamPendings =
-    lambda { |reply|
+  HashifyStreamEntries = lambda { |reply|
+    reply.map do |entry_id, values|
+      [entry_id, values.each_slice(2).to_h]
+    end
+  }
+
+  HashifyStreamPendings = lambda { |reply|
+    {
+      'size'         => reply[0],
+      'min_entry_id' => reply[1],
+      'max_entry_id' => reply[2],
+      'consumers'    => reply[3].nil? ? {} : reply[3].to_h
+    }
+  }
+
+  HashifyStreamPendingDetails = lambda { |reply|
+    reply.map do |arr|
       {
-        'size'         => reply[0],
-        'min_entry_id' => reply[1],
-        'max_entry_id' => reply[2],
-        'consumers'    => reply[3].nil? ? {} : Hash[reply[3]]
+        'entry_id' => arr[0],
+        'consumer' => arr[1],
+        'elapsed'  => arr[2],
+        'count'    => arr[3]
       }
-    }
+    end
+  }
 
-  HashifyStreamPendingDetails =
-    lambda { |reply|
-      reply.map do |arr|
-        {
-          'entry_id' => arr[0],
-          'consumer' => arr[1],
-          'elapsed'  => arr[2],
-          'count'    => arr[3]
-        }
-      end
+  HashifyClusterNodeInfo = lambda { |str|
+    arr = str.split(' ')
+    {
+      'node_id'        => arr[0],
+      'ip_port'        => arr[1],
+      'flags'          => arr[2].split(','),
+      'master_node_id' => arr[3],
+      'ping_sent'      => arr[4],
+      'pong_recv'      => arr[5],
+      'config_epoch'   => arr[6],
+      'link_state'     => arr[7],
+      'slots'          => arr[8].nil? ? nil : Range.new(*arr[8].split('-'))
     }
+  }
 
-  HashifyClusterNodeInfo =
-    lambda { |str|
-      arr = str.split(' ')
+  HashifyClusterSlots = lambda { |reply|
+    reply.map do |arr|
+      first_slot, last_slot = arr[0..1]
+      master = { 'ip' => arr[2][0], 'port' => arr[2][1], 'node_id' => arr[2][2] }
+      replicas = arr[3..-1].map { |r| { 'ip' => r[0], 'port' => r[1], 'node_id' => r[2] } }
       {
-        'node_id'        => arr[0],
-        'ip_port'        => arr[1],
-        'flags'          => arr[2].split(','),
-        'master_node_id' => arr[3],
-        'ping_sent'      => arr[4],
-        'pong_recv'      => arr[5],
-        'config_epoch'   => arr[6],
-        'link_state'     => arr[7],
-        'slots'          => arr[8].nil? ? nil : Range.new(*arr[8].split('-'))
+        'start_slot' => first_slot,
+        'end_slot'   => last_slot,
+        'master'     => master,
+        'replicas'   => replicas
       }
-    }
+    end
+  }
 
-  HashifyClusterSlots =
-    lambda { |reply|
-      reply.map do |arr|
-        first_slot, last_slot = arr[0..1]
-        master = { 'ip' => arr[2][0], 'port' => arr[2][1], 'node_id' => arr[2][2] }
-        replicas = arr[3..-1].map { |r| { 'ip' => r[0], 'port' => r[1], 'node_id' => r[2] } }
-        {
-          'start_slot' => first_slot,
-          'end_slot'   => last_slot,
-          'master'     => master,
-          'replicas'   => replicas
-        }
-      end
-    }
+  HashifyClusterNodes = lambda { |reply|
+    reply.split(/[\r\n]+/).map { |str| HashifyClusterNodeInfo.call(str) }
+  }
 
-  HashifyClusterNodes =
-    lambda { |reply|
-      reply.split(/[\r\n]+/).map { |str| HashifyClusterNodeInfo.call(str) }
-    }
-
-  HashifyClusterSlaves =
-    lambda { |reply|
-      reply.map { |str| HashifyClusterNodeInfo.call(str) }
-    }
+  HashifyClusterSlaves = lambda { |reply|
+    reply.map { |str| HashifyClusterNodeInfo.call(str) }
+  }
 
   Noop = ->(reply) { reply }
 
