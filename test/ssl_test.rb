@@ -6,6 +6,11 @@ class SslTest < Test::Unit::TestCase
 
   driver(:ruby) do
 
+    def test_connection_to_non_ssl_server
+      redis = Redis.new(OPTIONS.merge(ssl: true))
+      redis.ping
+    end
+
     def test_verified_ssl_connection
       RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
         redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
