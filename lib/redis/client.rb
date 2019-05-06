@@ -411,7 +411,8 @@ class Redis
         options[key] = options[key.to_s] if options.has_key?(key.to_s)
       end
 
-      url = options[:url] || defaults[:url]
+      url = options[:url]
+      url = defaults[:url] if url == nil
 
       # Override defaults from URL if given
       if url
