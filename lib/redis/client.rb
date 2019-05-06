@@ -157,12 +157,11 @@ class Redis
     end
 
     def call_pipeline(pipeline)
-      commands = pipeline.commands
-      return [] if commands.empty?
+      return [] if pipeline.futures.empty?
 
       with_reconnect pipeline.with_reconnect? do
         begin
-          pipeline.finish(call_pipelined(commands)).tap do
+          pipeline.finish(call_pipelined(pipeline)).tap do
             self.db = pipeline.db if pipeline.db
           end
         rescue ConnectionError => e
@@ -175,8 +174,8 @@ class Redis
       end
     end
 
-    def call_pipelined(commands)
-      return [] if commands.empty?
+    def call_pipelined(pipeline)
+      return [] if pipeline.futures.empty?
 
       # The method #ensure_connected (called from #process) reconnects once on
       # I/O errors. To make an effort in making sure that commands are not
@@ -186,6 +185,8 @@ class Redis
       # already successfully executed commands. To circumvent this, don't retry
       # after the first reply has been read successfully.
 
+      commands = pipeline.commands
+
       result = Array.new(commands.size)
       reconnect = @reconnect
 
@@ -193,8 +194,12 @@ class Redis
         exception = nil
 
         process(commands) do
-          commands.size.times do |i|
-            reply = read
+          pipeline.timeouts.each_with_index do |timeout, i|
+            reply = if timeout
+              with_socket_timeout(timeout) { read }
+            else
+              read
+            end
             result[i] = reply
             @reconnect = false
             exception = reply if exception.nil? && reply.is_a?(CommandError)
