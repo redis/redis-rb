@@ -106,7 +106,12 @@ class Redis
   def commit
     synchronize do |client|
       begin
-        client.call_pipelined(@queue[Thread.current.object_id])
+        pipeline = Pipeline.new(client)
+        @queue[Thread.current.object_id].each do |command|
+          pipeline.call(command)
+        end
+
+        client.call_pipelined(pipeline)
       ensure
         @queue.delete(Thread.current.object_id)
       end
@@ -2405,7 +2410,8 @@ class Redis
   def pipelined
     synchronize do |client|
       begin
-        original, @client = @client, Pipeline.new
+        pipeline = Pipeline.new(@client)
+        original, @client = @client, pipeline
         yield(self)
         original.call_pipeline(@client)
       ensure
@@ -2450,7 +2456,7 @@ class Redis
         client.call([:multi])
       else
         begin
-          pipeline = Pipeline::Multi.new
+          pipeline = Pipeline::Multi.new(@client)
           original, @client = @client, pipeline
           yield(self)
           original.call_pipeline(pipeline)

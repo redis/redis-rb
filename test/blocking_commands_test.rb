@@ -36,4 +36,22 @@ class TestBlockingCommands < Test::Unit::TestCase
       assert_equal '0', r.brpoplpush('foo', 'bar')
     end
   end
+
+  def test_brpoplpush_in_transaction
+    results = r.multi do
+      r.brpoplpush('foo', 'bar')
+      r.brpoplpush('foo', 'bar', timeout: 2)
+    end
+    assert_equal [nil, nil], results
+  end
+
+  def test_brpoplpush_in_pipeline
+    mock do |r|
+      results = r.pipelined do
+        r.brpoplpush('foo', 'bar')
+        r.brpoplpush('foo', 'bar', timeout: 2)
+      end
+      assert_equal ['0', '2'], results
+    end
+  end
 end
