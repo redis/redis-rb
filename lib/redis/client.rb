@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "errors"
 require "socket"
 require "cgi"
@@ -349,7 +351,8 @@ class Redis
            Errno::EHOSTUNREACH,
            Errno::ENETUNREACH,
            Errno::ENOENT,
-           Errno::ETIMEDOUT
+           Errno::ETIMEDOUT,
+           Errno::EINVAL
 
       raise CannotConnectError, "Error connecting to Redis on #{location} (#{$!.class})"
     end
@@ -604,9 +607,19 @@ class Redis
         def resolve_slave
           sentinel_detect do |client|
             if reply = client.call(["sentinel", "slaves", @master])
-              slave = Hash[*reply.sample]
+              slaves = reply.map { |s| s.each_slice(2).to_h }
+              slaves.each { |s| s['flags'] = s.fetch('flags').split(',') }
+              slaves.reject! { |s| s.fetch('flags').include?('s_down') }
 
-              {:host => slave.fetch("ip"), :port => slave.fetch("port")}
+              if slaves.empty?
+                raise CannotConnectError, 'No slaves available.'
+              else
+                slave = slaves.sample
+                {
+                  host: slave.fetch('ip'),
+                  port: slave.fetch('port'),
+                }
+              end
             end
           end
         end
