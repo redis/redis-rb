@@ -13,6 +13,11 @@ class TestClusterClientReplicas < Minitest::Test
       assert_equal 'OK', r.set("key#{i}", i)
     end
 
+    begin
+      r.wait(6, 5_000)
+    rescue Redis::TimeoutError
+    end
+
     100.times do |i|
       assert_equal i.to_s, r.get("key#{i}")
     end
@@ -29,6 +34,11 @@ class TestClusterClientReplicas < Minitest::Test
     r = build_another_client(replica: true)
 
     5.times { |i| r.set("key#{i}", i) }
+
+    begin
+      r.wait(6, 5_000)
+    rescue Redis::TimeoutError
+    end
 
     assert_equal %w[key0 key1 key2 key3 key4], r.keys
     assert_equal 5, r.dbsize
