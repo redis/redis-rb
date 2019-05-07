@@ -267,19 +267,28 @@ class Redis
           ssl_sock = new(tcp_sock, ctx)
           ssl_sock.hostname = host
 
+          # modified from zendesk/ruby-kafka source
           begin
+            # Initiate the socket connection in the background. If it doesn't fail
+            # immediately it will raise an IO::WaitWritable (Errno::EINPROGRESS)
+            # indicating the connection is in progress.
+            # Unlike waiting for a tcp socket to connect, you can't time out ssl socket
+            # connections during the connect phase properly, because IO.select only partially works.
+            # Instead, you have to retry.
             ssl_sock.connect_nonblock
-          rescue IO::WaitReadable, IO::WaitWritable
-            resp = IO.select([ssl_sock], [ssl_sock], nil, timeout)
-
-            if resp.nil?
+          rescue Errno::EAGAIN, Errno::EWOULDBLOCK, IO::WaitReadable
+            resp = IO.select([ssl_sock], nil, nil, timeout)
+            if resp
+              retry
+            else
               raise TimeoutError
             end
-
-            r, w = resp
-
-            if r.size > 0 || w.size > 0
+          rescue IO::WaitWritable
+            resp = IO.select(nil, [ssl_sock], nil, timeout)
+            if resp
               retry
+            else
+              raise TimeoutError
             end
           end
 
