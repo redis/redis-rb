@@ -1,5 +1,15 @@
 # Unreleased
 
+# 4.1.1
+
+* Fix error handling in multi blocks. See #754.
+* Fix geoadd to accept arrays like georadius and georadiusbymember. See #841.
+* Fix georadius command failing when long == lat. See #841.
+* Fix timeout error in xread block: 0. See #837.
+* Fix incompatibility issue with redis-objects. See #834.
+* Properly handle Errno::EADDRNOTAVAIL on connect.
+* Fix password authentication to sentinel instances. See #813.
+
 # 4.1.0
 
 * Add Redis Cluster support. See #716.
