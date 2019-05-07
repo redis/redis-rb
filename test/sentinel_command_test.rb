@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # @see https://redis.io/topics/sentinel#sentinel-commands Sentinel commands
-class SentinelCommandsTest < Test::Unit::TestCase
+class SentinelCommandsTest < Minitest::Test
   include Helper::Sentinel
 
   def test_sentinel_command_master

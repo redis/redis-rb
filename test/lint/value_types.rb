@@ -116,7 +116,7 @@ module Lint
       r.set "bar", "s2"
 
       assert r.move("foo", 14)
-      assert_equal nil, r.get("foo")
+      assert_nil r.get("foo")
 
       assert !r.move("bar", 14)
       assert_equal "s2", r.get("bar")

@@ -275,7 +275,7 @@ module Lint
 
       assert_equal 's1', response['{1}foo']
       assert_equal 's2', response['{1}bar']
-      assert_equal nil,  response['{1}baz']
+      assert_nil  response['{1}baz']
     end
 
     def test_mapped_mget_in_a_pipeline_returns_hash
@@ -307,7 +307,7 @@ module Lint
       r.set('{1}foo', 's1')
       assert_equal false, r.msetnx('{1}foo', 's2', '{1}bar', 's3')
       assert_equal 's1', r.get('{1}foo')
-      assert_equal nil, r.get('{1}bar')
+      assert_nil r.get('{1}bar')
 
       r.del('{1}foo')
       assert_equal true, r.msetnx('{1}foo', 's2', '{1}bar', 's3')
@@ -319,7 +319,7 @@ module Lint
       r.set('{1}foo', 's1')
       assert_equal false, r.mapped_msetnx('{1}foo' => 's2', '{1}bar' => 's3')
       assert_equal 's1', r.get('{1}foo')
-      assert_equal nil, r.get('{1}bar')
+      assert_nil r.get('{1}bar')
 
       r.del('{1}foo')
       assert_equal true, r.mapped_msetnx('{1}foo' => 's2', '{1}bar' => 's3')

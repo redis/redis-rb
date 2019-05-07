@@ -22,8 +22,8 @@ module Lint
       assert_match ENTRY_ID_FORMAT, actual['last-generated-id']
       assert_equal 4, actual['length']
       assert_equal 1, actual['groups']
-      assert_true actual.key?('radix-tree-keys')
-      assert_true actual.key?('radix-tree-nodes')
+      assert_equal true, actual.key?('radix-tree-keys')
+      assert_equal true, actual.key?('radix-tree-nodes')
       assert_kind_of Array, actual['first-entry']
       assert_kind_of Array, actual['last-entry']
     end
@@ -47,12 +47,12 @@ module Lint
     end
 
     def test_xinfo_with_invalid_arguments
-      assert_raise(Redis::CommandError) { redis.xinfo('', '', '') }
-      assert_raise(Redis::CommandError) { redis.xinfo(nil, nil, nil) }
-      assert_raise(Redis::CommandError) { redis.xinfo(:stream, nil) }
-      assert_raise(Redis::CommandError) { redis.xinfo(:groups, nil) }
-      assert_raise(Redis::CommandError) { redis.xinfo(:consumers, nil) }
-      assert_raise(Redis::CommandError) { redis.xinfo(:consumers, 's1', nil) }
+      assert_raises(Redis::CommandError) { redis.xinfo('', '', '') }
+      assert_raises(Redis::CommandError) { redis.xinfo(nil, nil, nil) }
+      assert_raises(Redis::CommandError) { redis.xinfo(:stream, nil) }
+      assert_raises(Redis::CommandError) { redis.xinfo(:groups, nil) }
+      assert_raises(Redis::CommandError) { redis.xinfo(:consumers, nil) }
+      assert_raises(Redis::CommandError) { redis.xinfo(:consumers, 's1', nil) }
     end
 
     def test_xadd_with_entry_as_splatted_params
@@ -71,7 +71,7 @@ module Lint
 
     def test_xadd_with_invalid_entry_id_option
       entry_id = 'invalid-format-entry-id'
-      assert_raise(Redis::CommandError, 'ERR Invalid stream ID specified as stream command argument') do
+      assert_raises(Redis::CommandError, 'ERR Invalid stream ID specified as stream command argument') do
         redis.xadd('s1', { f1: 'v1', f2: 'v2' }, id: entry_id)
       end
     end
@@ -79,7 +79,7 @@ module Lint
     def test_xadd_with_old_entry_id_option
       redis.xadd('s1', { f1: 'v1', f2: 'v2' }, id: '0-1')
       err_msg = 'ERR The ID specified in XADD is equal or smaller than the target stream top item'
-      assert_raise(Redis::CommandError, err_msg) do
+      assert_raises(Redis::CommandError, err_msg) do
         redis.xadd('s1', { f1: 'v1', f2: 'v2' }, id: '0-0')
       end
     end
@@ -90,9 +90,9 @@ module Lint
     end
 
     def test_xadd_with_invalid_arguments
-      assert_raise(Redis::CommandError) { redis.xadd(nil, {}) }
-      assert_raise(Redis::CommandError) { redis.xadd('', {}) }
-      assert_raise(Redis::CommandError) { redis.xadd('s1', {}) }
+      assert_raises(Redis::CommandError) { redis.xadd(nil, {}) }
+      assert_raises(Redis::CommandError) { redis.xadd('', {}) }
+      assert_raises(Redis::CommandError) { redis.xadd('s1', {}) }
     end
 
     def test_xtrim
@@ -142,7 +142,7 @@ module Lint
       assert_equal 0, redis.xdel(nil, [nil])
       assert_equal 0, redis.xdel('', '')
       assert_equal 0, redis.xdel('', [''])
-      assert_raise(Redis::CommandError) { redis.xdel('s1', []) }
+      assert_raises(Redis::CommandError) { redis.xdel('s1', []) }
     end
 
     def test_xrange
@@ -210,7 +210,7 @@ module Lint
     end
 
     def test_xrange_with_invalid_entry_id_options
-      assert_raise(Redis::CommandError) { redis.xrange('s1', 'invalid', 'invalid') }
+      assert_raises(Redis::CommandError) { redis.xrange('s1', 'invalid', 'invalid') }
     end
 
     def test_xrange_with_invalid_arguments
@@ -286,7 +286,7 @@ module Lint
     end
 
     def test_xrevrange_with_invalid_entry_id_options
-      assert_raise(Redis::CommandError) { redis.xrevrange('s1', 'invalid', 'invalid') }
+      assert_raises(Redis::CommandError) { redis.xrevrange('s1', 'invalid', 'invalid') }
     end
 
     def test_xrevrange_with_invalid_arguments
@@ -361,12 +361,12 @@ module Lint
     end
 
     def test_xread_with_invalid_arguments
-      assert_raise(Redis::CommandError) { redis.xread(nil, nil) }
-      assert_raise(Redis::CommandError) { redis.xread('', '') }
-      assert_raise(Redis::CommandError) { redis.xread([], []) }
-      assert_raise(Redis::CommandError) { redis.xread([''], ['']) }
-      assert_raise(Redis::CommandError) { redis.xread('s1', '0-0', count: 'a') }
-      assert_raise(Redis::CommandError) { redis.xread('s1', %w[0-0 0-0]) }
+      assert_raises(Redis::CommandError) { redis.xread(nil, nil) }
+      assert_raises(Redis::CommandError) { redis.xread('', '') }
+      assert_raises(Redis::CommandError) { redis.xread([], []) }
+      assert_raises(Redis::CommandError) { redis.xread([''], ['']) }
+      assert_raises(Redis::CommandError) { redis.xread('s1', '0-0', count: 'a') }
+      assert_raises(Redis::CommandError) { redis.xread('s1', %w[0-0 0-0]) }
     end
 
     def test_xgroup_with_create_subcommand
@@ -377,14 +377,14 @@ module Lint
     def test_xgroup_with_create_subcommand_and_mkstream_option
       err_msg = 'ERR The XGROUP subcommand requires the key to exist. '\
         'Note that for CREATE you may want to use the MKSTREAM option to create an empty stream automatically.'
-      assert_raise(Redis::CommandError, err_msg) { redis.xgroup(:create, 's2', 'g1', '$') }
+      assert_raises(Redis::CommandError, err_msg) { redis.xgroup(:create, 's2', 'g1', '$') }
       assert_equal 'OK', redis.xgroup(:create, 's2', 'g1', '$', mkstream: true)
     end
 
     def test_xgroup_with_create_subcommand_and_existed_stream_key
       redis.xadd('s1', f: 'v')
       redis.xgroup(:create, 's1', 'g1', '$')
-      assert_raise(Redis::CommandError, 'BUSYGROUP Consumer Group name already exists') do
+      assert_raises(Redis::CommandError, 'BUSYGROUP Consumer Group name already exists') do
         redis.xgroup(:create, 's1', 'g1', '$')
       end
     end
@@ -408,8 +408,8 @@ module Lint
     end
 
     def test_xgroup_with_invalid_arguments
-      assert_raise(Redis::CommandError) { redis.xgroup(nil, nil, nil) }
-      assert_raise(Redis::CommandError) { redis.xgroup('', '', '') }
+      assert_raises(Redis::CommandError) { redis.xgroup(nil, nil, nil) }
+      assert_raises(Redis::CommandError) { redis.xgroup('', '', '') }
     end
 
     def test_xreadgroup_with_a_key
@@ -473,14 +473,14 @@ module Lint
     end
 
     def test_xreadgroup_with_invalid_arguments
-      assert_raise(Redis::CommandError) { redis.xreadgroup(nil, nil, nil, nil) }
-      assert_raise(Redis::CommandError) { redis.xreadgroup('', '', '', '') }
-      assert_raise(Redis::CommandError) { redis.xreadgroup('', '', [], []) }
-      assert_raise(Redis::CommandError) { redis.xreadgroup('', '', [''], ['']) }
+      assert_raises(Redis::CommandError) { redis.xreadgroup(nil, nil, nil, nil) }
+      assert_raises(Redis::CommandError) { redis.xreadgroup('', '', '', '') }
+      assert_raises(Redis::CommandError) { redis.xreadgroup('', '', [], []) }
+      assert_raises(Redis::CommandError) { redis.xreadgroup('', '', [''], ['']) }
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
-      assert_raise(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', '>', count: 'a') }
-      assert_raise(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', %w[> >]) }
+      assert_raises(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', '>', count: 'a') }
+      assert_raises(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', %w[> >]) }
     end
 
     def test_xack_with_a_entry_id
@@ -517,7 +517,7 @@ module Lint
     def test_xack_with_invalid_arguments
       assert_equal 0, redis.xack(nil, nil, nil)
       assert_equal 0, redis.xack('', '', '')
-      assert_raise(Redis::CommandError) { redis.xack('', '', []) }
+      assert_raises(Redis::CommandError) { redis.xack('', '', []) }
       assert_equal 0, redis.xack('', '', [''])
     end
 
@@ -622,8 +622,8 @@ module Lint
     end
 
     def test_xclaim_with_invalid_arguments
-      assert_raise(Redis::CommandError) { redis.xclaim(nil, nil, nil, nil, nil) }
-      assert_raise(Redis::CommandError) { redis.xclaim('', '', '', '', '') }
+      assert_raises(Redis::CommandError) { redis.xclaim(nil, nil, nil, nil, nil) }
+      assert_raises(Redis::CommandError) { redis.xclaim('', '', '', '', '') }
     end
 
     def test_xpending
@@ -655,15 +655,15 @@ module Lint
       assert_equal 3, actual.size
       assert_equal '0-2', actual[0]['entry_id']
       assert_equal 'c1', actual[0]['consumer']
-      assert_true actual[0]['elapsed'] >= 0
+      assert_equal true, actual[0]['elapsed'] >= 0
       assert_equal 1, actual[0]['count']
       assert_equal '0-3', actual[1]['entry_id']
       assert_equal 'c1', actual[1]['consumer']
-      assert_true actual[1]['elapsed'] >= 0
+      assert_equal true, actual[1]['elapsed'] >= 0
       assert_equal 1, actual[1]['count']
       assert_equal '0-4', actual[2]['entry_id']
       assert_equal 'c2', actual[2]['consumer']
-      assert_true actual[2]['elapsed'] >= 0
+      assert_equal true, actual[2]['elapsed'] >= 0
       assert_equal 1, actual[2]['count']
     end
 
@@ -681,11 +681,11 @@ module Lint
       assert_equal 2, actual.size
       assert_equal '0-2', actual[0]['entry_id']
       assert_equal 'c1', actual[0]['consumer']
-      assert_true actual[0]['elapsed'] >= 0
+      assert_equal true, actual[0]['elapsed'] >= 0
       assert_equal 1, actual[0]['count']
       assert_equal '0-3', actual[1]['entry_id']
       assert_equal 'c1', actual[1]['consumer']
-      assert_true actual[1]['elapsed'] >= 0
+      assert_equal true, actual[1]['elapsed'] >= 0
       assert_equal 1, actual[1]['count']
     end
   end

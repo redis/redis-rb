@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestErrorReplies < Test::Unit::TestCase
+class TestErrorReplies < Minitest::Test
 
   include Helper::Client
 

@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_options_test.rb
-class TestClusterClientOptions < Test::Unit::TestCase
+class TestClusterClientOptions < Minitest::Test
   include Helper::Cluster
 
   def test_option_class
@@ -31,21 +31,15 @@ class TestClusterClientOptions < Test::Unit::TestCase
              'redis://127.0.0.1:7004',
              'redis://127.0.0.1:7005']
 
-    assert_nothing_raised do
-      build_another_client(cluster: nodes)
-    end
+    build_another_client(cluster: nodes)
   end
 
   def test_client_accepts_valid_options
-    assert_nothing_raised do
-      build_another_client(timeout: TIMEOUT)
-    end
+    build_another_client(timeout: TIMEOUT)
   end
 
   def test_client_ignores_invalid_options
-    assert_nothing_raised do
-      build_another_client(invalid_option: true)
-    end
+    build_another_client(invalid_option: true)
   end
 
   def test_client_works_even_if_so_many_unavailable_nodes_specified
@@ -56,11 +50,11 @@ class TestClusterClientOptions < Test::Unit::TestCase
   end
 
   def test_client_does_not_accept_db_specified_url
-    assert_raise(Redis::CannotConnectError, 'Could not connect to any nodes') do
+    assert_raises(Redis::CannotConnectError, 'Could not connect to any nodes') do
       build_another_client(cluster: ['redis://127.0.0.1:7000/1/namespace'])
     end
 
-    assert_raise(Redis::CannotConnectError, 'Could not connect to any nodes') do
+    assert_raises(Redis::CannotConnectError, 'Could not connect to any nodes') do
       build_another_client(cluster: [{ host: '127.0.0.1', port: '7000' }], db: 1)
     end
   end
@@ -68,7 +62,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_unconnectable_node_url_only
     nodes = ['redis://127.0.0.1:7006']
 
-    assert_raise(Redis::CannotConnectError, 'Could not connect to any nodes') do
+    assert_raises(Redis::CannotConnectError, 'Could not connect to any nodes') do
       build_another_client(cluster: nodes)
     end
   end
@@ -76,15 +70,13 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_accepts_unconnectable_node_url_included
     nodes = ['redis://127.0.0.1:7000', 'redis://127.0.0.1:7006']
 
-    assert_nothing_raised(Redis::CannotConnectError, 'Could not connect to any nodes') do
-      build_another_client(cluster: nodes)
-    end
+    build_another_client(cluster: nodes)
   end
 
   def test_client_does_not_accept_http_scheme_url
     nodes = ['http://127.0.0.1:80']
 
-    assert_raise(Redis::InvalidClientOptionError, "invalid uri scheme 'http'") do
+    assert_raises(Redis::InvalidClientOptionError, "invalid uri scheme 'http'") do
       build_another_client(cluster: nodes)
     end
   end
@@ -92,7 +84,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_blank_included_config
     nodes = ['']
 
-    assert_raise(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
+    assert_raises(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
       build_another_client(cluster: nodes)
     end
   end
@@ -100,7 +92,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_bool_included_config
     nodes = [true]
 
-    assert_raise(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
+    assert_raises(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
       build_another_client(cluster: nodes)
     end
   end
@@ -108,7 +100,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_nil_included_config
     nodes = [nil]
 
-    assert_raise(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
+    assert_raises(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
       build_another_client(cluster: nodes)
     end
   end
@@ -116,7 +108,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_array_included_config
     nodes = [[]]
 
-    assert_raise(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
+    assert_raises(Redis::InvalidClientOptionError, "invalid uri scheme ''") do
       build_another_client(cluster: nodes)
     end
   end
@@ -124,7 +116,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_empty_hash_included_config
     nodes = [{}]
 
-    assert_raise(Redis::InvalidClientOptionError, 'Redis option of `cluster` must includes `:host` and `:port` keys') do
+    assert_raises(Redis::InvalidClientOptionError, 'Redis option of `cluster` must includes `:host` and `:port` keys') do
       build_another_client(cluster: nodes)
     end
   end
@@ -132,7 +124,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_object_included_config
     nodes = [Object.new]
 
-    assert_raise(Redis::InvalidClientOptionError, 'Redis Cluster node config must includes String or Hash') do
+    assert_raises(Redis::InvalidClientOptionError, 'Redis Cluster node config must includes String or Hash') do
       build_another_client(cluster: nodes)
     end
   end
@@ -140,7 +132,7 @@ class TestClusterClientOptions < Test::Unit::TestCase
   def test_client_does_not_accept_not_array_config
     nodes = :not_array
 
-    assert_raise(Redis::InvalidClientOptionError, 'Redis Cluster node config must be Array') do
+    assert_raises(Redis::InvalidClientOptionError, 'Redis Cluster node config must be Array') do
       build_another_client(cluster: nodes)
     end
   end

@@ -152,14 +152,14 @@ module Lint
     def test_bzpopmin
       target_version('5.0.0') do
         assert_equal ['{szap}foo', 'a', 0.0], r.bzpopmin('{szap}foo', '{szap}bar', 1)
-        assert_equal nil, r.bzpopmin('{szap}aaa', '{szap}bbb', 2)
+        assert_nil r.bzpopmin('{szap}aaa', '{szap}bbb', 2)
       end
     end
 
     def test_bzpopmax
       target_version('5.0.0') do
         assert_equal ['{szap}foo', 'c', 2.0], r.bzpopmax('{szap}foo', '{szap}bar', 1)
-        assert_equal nil, r.bzpopmax('{szap}aaa', '{szap}bbb', 1)
+        assert_nil r.bzpopmax('{szap}aaa', '{szap}bbb', 1)
       end
     end
 

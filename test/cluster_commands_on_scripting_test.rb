@@ -4,7 +4,7 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_scripting_test.rb
 # @see https://redis.io/commands#scripting
-class TestClusterCommandsOnScripting < Test::Unit::TestCase
+class TestClusterCommandsOnScripting < Minitest::Test
   include Helper::Cluster
 
   def test_eval
@@ -12,7 +12,7 @@ class TestClusterCommandsOnScripting < Test::Unit::TestCase
     argv = %w[first second]
 
     keys = %w[key1 key2]
-    assert_raise(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
       redis.eval(script, keys: keys, argv: argv)
     end
 

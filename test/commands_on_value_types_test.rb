@@ -1,7 +1,7 @@
 require_relative "helper"
 require_relative "lint/value_types"
 
-class TestCommandsOnValueTypes < Test::Unit::TestCase
+class TestCommandsOnValueTypes < Minitest::Test
 
   include Helper::Client
   include Lint::ValueTypes
@@ -93,7 +93,7 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     r.rename "foo", "bar"
 
     assert_equal "s1", r.get("bar")
-    assert_equal nil, r.get("foo")
+    assert_nil r.get("foo")
   end
 
   def test_renamenx
@@ -175,12 +175,12 @@ class TestCommandsOnValueTypes < Test::Unit::TestCase
     redis_mock(:migrate => lambda { |*args| args }) do |redis|
       options = { :host => "127.0.0.1", :port => 1234 }
 
-      ex = assert_raise(RuntimeError) do
+      ex = assert_raises(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :host })
       end
       assert ex.message =~ /host not specified/
 
-      ex = assert_raise(RuntimeError) do
+      ex = assert_raises(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :port })
       end
       assert ex.message =~ /port not specified/

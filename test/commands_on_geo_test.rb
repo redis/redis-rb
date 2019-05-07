@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestCommandsGeo < Test::Unit::TestCase
+class TestCommandsGeo < Minitest::Test
   include Helper::Client
 
   def setup
@@ -108,7 +108,7 @@ class TestCommandsGeo < Test::Unit::TestCase
   def test_geodist_with_nonexistant_location
     target_version "3.2.0" do
       distination = r.geodist("Sicily", "Palermo", "Rome")
-      assert_equal nil, distination
+      assert_nil distination
     end
   end
 

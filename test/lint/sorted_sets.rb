@@ -45,7 +45,7 @@ module Lint
         r.del 'bar'
 
         # Incompatible options combination
-        assert_raise(Redis::CommandError) { r.zadd("foo", 1, "s1", :xx => true, :nx => true) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", 1, "s1", :xx => true, :nx => true) }
       end
     end
 
@@ -66,8 +66,8 @@ module Lint
         r.del "foo"
 
         # Wrong number of arguments
-        assert_raise(Redis::CommandError) { r.zadd("foo", ["bar"]) }
-        assert_raise(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", ["bar"]) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
       end
 
       target_version "3.0.2" do
@@ -78,7 +78,7 @@ module Lint
         assert_equal 0, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], :xx => true)
         assert_equal 2, r.zscore("foo", "s1")
         assert_equal 3, r.zscore("foo", "s2")
-        assert_equal nil, r.zscore("foo", "s3")
+        assert_nil r.zscore("foo", "s3")
         assert_equal 2, r.zcard("foo")
         r.del "foo"
 
@@ -104,12 +104,12 @@ module Lint
         assert_equal 11.0, r.zadd("foo", [10, "s1"], :incr => true)
         assert_equal(-Infinity, r.zadd("bar", ["-inf", "s1"], :incr => true))
         assert_equal(+Infinity, r.zadd("bar", ["+inf", "s2"], :incr => true))
-        assert_raise(Redis::CommandError) { r.zadd("foo", [1, "s1", 2, "s2"], :incr => true) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1", 2, "s2"], :incr => true) }
         r.del 'foo'
         r.del 'bar'
 
         # Incompatible options combination
-        assert_raise(Redis::CommandError) { r.zadd("foo", [1, "s1"], :xx => true, :nx => true) }
+        assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1"], :xx => true, :nx => true) }
       end
     end
 
@@ -286,8 +286,8 @@ module Lint
 
       assert_equal 1.0, r.zscore("foo", "s1")
 
-      assert_equal nil, r.zscore("foo", "s2")
-      assert_equal nil, r.zscore("bar", "s1")
+      assert_nil r.zscore("foo", "s2")
+      assert_nil r.zscore("bar", "s1")
 
       r.zadd "bar", "-inf", "s1"
       r.zadd "bar", "+inf", "s2"

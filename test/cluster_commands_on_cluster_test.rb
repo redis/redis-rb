@@ -4,51 +4,51 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_cluster_test.rb
 # @see https://redis.io/commands#cluster
-class TestClusterCommandsOnCluster < Test::Unit::TestCase
+class TestClusterCommandsOnCluster < Minitest::Test
   include Helper::Cluster
 
   def test_cluster_addslots
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER ADDSLOTS command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER ADDSLOTS command should be...') do
       redis.cluster(:addslots, 0, 1, 2)
     end
   end
 
   def test_cluster_count_failure_reports
-    assert_raise(Redis::CommandError, 'ERR Unknown node unknown-node-id') do
+    assert_raises(Redis::CommandError, 'ERR Unknown node unknown-node-id') do
       redis.cluster('count-failure-reports', 'unknown-node-id')
     end
 
     node_id = redis.cluster(:nodes).first.fetch('node_id')
-    assert_true(redis.cluster('count-failure-reports', node_id) >= 0)
+    assert_equal true,(redis.cluster('count-failure-reports', node_id) >= 0)
   end
 
   def test_cluster_countkeysinslot
-    assert_true(redis.cluster(:countkeysinslot, 0) >= 0)
-    assert_true(redis.cluster(:countkeysinslot, 16383) >= 0)
+    assert_equal true,(redis.cluster(:countkeysinslot, 0) >= 0)
+    assert_equal true,(redis.cluster(:countkeysinslot, 16383) >= 0)
 
-    assert_raise(Redis::CommandError, 'ERR Invalid slot') do
+    assert_raises(Redis::CommandError, 'ERR Invalid slot') do
       redis.cluster(:countkeysinslot, -1)
     end
 
-    assert_raise(Redis::CommandError, 'ERR Invalid slot') do
+    assert_raises(Redis::CommandError, 'ERR Invalid slot') do
       redis.cluster(:countkeysinslot, 16384)
     end
   end
 
   def test_cluster_delslots
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER DELSLOTS command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER DELSLOTS command should be...') do
       redis.cluster(:delslots, 0, 1, 2)
     end
   end
 
   def test_cluster_failover
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER FAILOVER command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER FAILOVER command should be...') do
       redis.cluster(:failover, 'FORCE')
     end
   end
 
   def test_cluster_forget
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER FORGET command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER FORGET command should be...') do
       redis.cluster(:forget, 'unknown-node-id')
     end
   end
@@ -72,7 +72,7 @@ class TestClusterCommandsOnCluster < Test::Unit::TestCase
   end
 
   def test_cluster_meet
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER MEET command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER MEET command should be...') do
       redis.cluster(:meet, '127.0.0.1', 11211)
     end
   end
@@ -94,13 +94,13 @@ class TestClusterCommandsOnCluster < Test::Unit::TestCase
   end
 
   def test_cluster_replicate
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER REPLICATE command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER REPLICATE command should be...') do
       redis.cluster(:replicate)
     end
   end
 
   def test_cluster_reset
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER RESET command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER RESET command should be...') do
       redis.cluster(:reset)
     end
   end
@@ -110,13 +110,13 @@ class TestClusterCommandsOnCluster < Test::Unit::TestCase
   end
 
   def test_cluster_set_config_epoch
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER SET-CONFIG-EPOCH command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER SET-CONFIG-EPOCH command should be...') do
       redis.cluster('set-config-epoch')
     end
   end
 
   def test_cluster_setslot
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER SETSLOT command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER SETSLOT command should be...') do
       redis.cluster(:setslot)
     end
   end
@@ -128,7 +128,7 @@ class TestClusterCommandsOnCluster < Test::Unit::TestCase
     sample_slave_node_id = cluster_nodes.find { |n| n.fetch('master_node_id') != '-' }.fetch('node_id')
 
     assert_equal 'slave', redis.cluster(:slaves, sample_master_node_id).first.fetch('flags').first
-    assert_raise(Redis::CommandError, 'ERR The specified node is not a master') do
+    assert_raises(Redis::CommandError, 'ERR The specified node is not a master') do
       redis.cluster(:slaves, sample_slave_node_id)
     end
   end
@@ -152,13 +152,13 @@ class TestClusterCommandsOnCluster < Test::Unit::TestCase
   end
 
   def test_readonly
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'READONLY command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'READONLY command should be...') do
       redis.readonly
     end
   end
 
   def test_readwrite
-    assert_raise(Redis::Cluster::OrchestrationCommandNotSupported, 'READWRITE command should be...') do
+    assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'READWRITE command should be...') do
       redis.readwrite
     end
   end

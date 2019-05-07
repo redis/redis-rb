@@ -27,7 +27,7 @@ module Lint
 
       assert_equal 1, r.hdel("foo", "f1")
 
-      assert_equal nil, r.hget("foo", "f1")
+      assert_nil r.hget("foo", "f1")
     end
 
     def test_splat_hdel
@@ -40,8 +40,8 @@ module Lint
 
         assert_equal 2, r.hdel("foo", "f1", "f2")
 
-        assert_equal nil, r.hget("foo", "f1")
-        assert_equal nil, r.hget("foo", "f2")
+        assert_nil r.hget("foo", "f1")
+        assert_nil r.hget("foo", "f2")
       end
     end
 
@@ -55,8 +55,8 @@ module Lint
 
         assert_equal 2, r.hdel("foo", ["f1", "f2"])
 
-        assert_equal nil, r.hget("foo", "f1")
-        assert_equal nil, r.hget("foo", "f2")
+        assert_nil r.hget("foo", "f1")
+        assert_nil r.hget("foo", "f2")
       end
     end
 
@@ -115,7 +115,7 @@ module Lint
     end
 
     def test_hmset_with_invalid_arguments
-      assert_raise(Redis::CommandError) do
+      assert_raises(Redis::CommandError) do
         r.hmset("hash", "foo1", "bar1", "foo2", "bar2", "foo3")
       end
     end

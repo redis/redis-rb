@@ -2,7 +2,7 @@
 
 require_relative 'helper'
 
-class SentinelTest < Test::Unit::TestCase
+class SentinelTest < Minitest::Test
   include Helper::Sentinel
 
   def test_sentinel_master_role_connection
@@ -46,7 +46,7 @@ class SentinelTest < Test::Unit::TestCase
     }
     RedisMock.start(commands) do |port|
       redis = build_slave_role_client(sentinels: [{ host: 'localhost', port: port }])
-      assert_raise(Redis::CannotConnectError) { redis.ping }
+      assert_raises(Redis::CannotConnectError) { redis.ping }
     end
   end
 
@@ -242,7 +242,7 @@ class SentinelTest < Test::Unit::TestCase
       end
     }
 
-    ex = assert_raise(Redis::ConnectionError) do
+    ex = assert_raises(Redis::ConnectionError) do
       RedisMock.start(master) do |master_port|
         RedisMock.start(sentinel.call(master_port)) do |sen_port|
           sentinels[0][:port] = sen_port
@@ -298,7 +298,7 @@ class SentinelTest < Test::Unit::TestCase
 
     connections.clear
 
-    ex = assert_raise(Redis::CannotConnectError) do
+    ex = assert_raises(Redis::CannotConnectError) do
       RedisMock.start(master) do |master_port|
         RedisMock.start(handler.call(:s1, master_port)) do |s1_port|
           RedisMock.start(handler.call(:s2, master_port)) do |s2_port|

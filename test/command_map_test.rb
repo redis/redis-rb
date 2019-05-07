@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestCommandMap < Test::Unit::TestCase
+class TestCommandMap < Minitest::Test
 
   include Helper::Client
 
@@ -17,7 +17,7 @@ class TestCommandMap < Test::Unit::TestCase
   def test_override_non_existing_commands
     r.set("key", "value")
 
-    assert_raise Redis::CommandError do
+    assert_raises Redis::CommandError do
       r.idontexist("key")
     end
 

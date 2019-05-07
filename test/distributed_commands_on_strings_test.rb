@@ -1,7 +1,7 @@
 require_relative "helper"
 require_relative "lint/strings"
 
-class TestDistributedCommandsOnStrings < Test::Unit::TestCase
+class TestDistributedCommandsOnStrings < Minitest::Test
 
   include Helper::Distributed
   include Lint::Strings
@@ -27,30 +27,30 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
     assert_equal "s1", response["foo"]
     assert_equal "s2", response["bar"]
-    assert_equal nil , response["baz"]
+    assert_nil response["baz"]
   end
 
   def test_mset
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.mset(:foo, "s1", :bar, "s2")
     end
   end
 
   def test_mset_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.mapped_mset(:foo => "s1", :bar => "s2")
     end
   end
 
   def test_msetnx
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.set("foo", "s1")
       r.msetnx(:foo, "s2", :bar, "s3")
     end
   end
 
   def test_msetnx_mapped
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.set("foo", "s1")
       r.mapped_msetnx(:foo => "s2", :bar => "s3")
     end
@@ -58,7 +58,7 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
 
   def test_bitop
     target_version "2.5.10" do
-      assert_raise Redis::Distributed::CannotDistribute do
+      assert_raises Redis::Distributed::CannotDistribute do
         r.set("foo", "a")
         r.set("bar", "b")
 
@@ -68,7 +68,7 @@ class TestDistributedCommandsOnStrings < Test::Unit::TestCase
   end
 
   def test_mapped_mget_in_a_pipeline_returns_hash
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       super
     end
   end

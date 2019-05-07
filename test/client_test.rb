@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestClient < Test::Unit::TestCase
+class TestClient < Minitest::Test
 
   include Helper::Client
 
@@ -37,7 +37,7 @@ class TestClient < Test::Unit::TestCase
     r.queue("SET", "foo", "bar")
     r.queue("INCR")
 
-    assert_raise(Redis::CommandError) do
+    assert_raises(Redis::CommandError) do
       r.commit
     end
   end
@@ -46,7 +46,7 @@ class TestClient < Test::Unit::TestCase
     r.queue("SET", "foo", "bar")
     r.queue("INCR")
 
-    assert_raise(Redis::CommandError) do
+    assert_raises(Redis::CommandError) do
       r.commit
     end
 
@@ -66,11 +66,10 @@ class TestClient < Test::Unit::TestCase
       end
     end
 
-    assert_raise_message(
-      'Error connecting to Redis on 127.0.0.5:999 (Errno::ECONNREFUSED)'
-    ) do
+    error = assert_raises do
       new_redis = _new_client(connector: custom_connector)
       new_redis.ping
     end
+    assert_equal 'Error connecting to Redis on 127.0.0.5:999 (Errno::ECONNREFUSED)', error.message
   end
 end

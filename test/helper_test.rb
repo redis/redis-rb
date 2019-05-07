@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestHelper < Test::Unit::TestCase
+class TestHelper < Minitest::Test
 
   include Helper
 

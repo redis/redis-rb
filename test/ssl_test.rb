@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class SslTest < Test::Unit::TestCase
+class SslTest < Minitest::Test
 
   include Helper::Client
 
@@ -14,7 +14,7 @@ class SslTest < Test::Unit::TestCase
     end
 
     def test_unverified_ssl_connection
-      assert_raise(OpenSSL::SSL::SSLError) do
+      assert_raises(OpenSSL::SSL::SSLError) do
         RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
           redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
           redis.ping
@@ -34,7 +34,7 @@ class SslTest < Test::Unit::TestCase
   driver(:hiredis, :synchrony) do
 
     def test_ssl_not_implemented_exception
-      assert_raise(NotImplementedError) do
+      assert_raises(NotImplementedError) do
         RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
           redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
           redis.ping

@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_internals_test.rb
-class TestClusterClientInternals < Test::Unit::TestCase
+class TestClusterClientInternals < Minitest::Test
   include Helper::Cluster
 
   def test_handle_multiple_servers
@@ -16,7 +16,7 @@ class TestClusterClientInternals < Test::Unit::TestCase
   end
 
   def test_unknown_commands_does_not_work_by_default
-    assert_raise(Redis::CommandError) do
+    assert_raises(Redis::CommandError) do
       redis.not_yet_implemented_command('boo', 'foo')
     end
   end

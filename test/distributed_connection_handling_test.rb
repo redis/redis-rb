@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestDistributedConnectionHandling < Test::Unit::TestCase
+class TestDistributedConnectionHandling < Minitest::Test
 
   include Helper::Distributed
 
@@ -12,7 +12,7 @@ class TestDistributedConnectionHandling < Test::Unit::TestCase
     r.set "foo", "bar"
 
     r.select 14
-    assert_equal nil, r.get("foo")
+    assert_nil r.get("foo")
 
     r.select 15
 

@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestBitpos < Test::Unit::TestCase
+class TestBitpos < Minitest::Test
 
   include Helper::Client
 

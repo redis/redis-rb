@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_slots_test.rb
-class TestClusterClientSlots < Test::Unit::TestCase
+class TestClusterClientSlots < Minitest::Test
   include Helper::Cluster
 
   def test_slot_class
@@ -14,16 +14,16 @@ class TestClusterClientSlots < Test::Unit::TestCase
     assert_equal true, slot.exists?(10)
     assert_equal false, slot.exists?(11)
 
-    assert_equal nil, slot.find_node_key_of_master(0)
-    assert_equal nil, slot.find_node_key_of_slave(0)
+    assert_nil slot.find_node_key_of_master(0)
+    assert_nil slot.find_node_key_of_slave(0)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_master(1)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_slave(1)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_master(10)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_slave(10)
-    assert_equal nil, slot.find_node_key_of_master(11)
-    assert_equal nil, slot.find_node_key_of_slave(11)
+    assert_nil slot.find_node_key_of_master(11)
+    assert_nil slot.find_node_key_of_slave(11)
 
-    assert_equal nil, slot.put(1, '127.0.0.1:7001')
+    assert_nil slot.put(1, '127.0.0.1:7001')
   end
 
   def test_slot_class_with_node_flags_and_replicas
@@ -36,16 +36,16 @@ class TestClusterClientSlots < Test::Unit::TestCase
     assert_equal true, slot.exists?(10)
     assert_equal false, slot.exists?(11)
 
-    assert_equal nil, slot.find_node_key_of_master(0)
-    assert_equal nil, slot.find_node_key_of_slave(0)
+    assert_nil slot.find_node_key_of_master(0)
+    assert_nil slot.find_node_key_of_slave(0)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_master(1)
     assert_equal '127.0.0.1:7001', slot.find_node_key_of_slave(1)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_master(10)
     assert_equal '127.0.0.1:7001', slot.find_node_key_of_slave(10)
-    assert_equal nil, slot.find_node_key_of_master(11)
-    assert_equal nil, slot.find_node_key_of_slave(11)
+    assert_nil slot.find_node_key_of_master(11)
+    assert_nil slot.find_node_key_of_slave(11)
 
-    assert_equal nil, slot.put(1, '127.0.0.1:7002')
+    assert_nil slot.put(1, '127.0.0.1:7002')
   end
 
   def test_slot_class_with_node_flags_and_without_replicas
@@ -58,16 +58,16 @@ class TestClusterClientSlots < Test::Unit::TestCase
     assert_equal true, slot.exists?(10)
     assert_equal false, slot.exists?(11)
 
-    assert_equal nil, slot.find_node_key_of_master(0)
-    assert_equal nil, slot.find_node_key_of_slave(0)
+    assert_nil slot.find_node_key_of_master(0)
+    assert_nil slot.find_node_key_of_slave(0)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_master(1)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_slave(1)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_master(10)
     assert_equal '127.0.0.1:7000', slot.find_node_key_of_slave(10)
-    assert_equal nil, slot.find_node_key_of_master(11)
-    assert_equal nil, slot.find_node_key_of_slave(11)
+    assert_nil slot.find_node_key_of_master(11)
+    assert_nil slot.find_node_key_of_slave(11)
 
-    assert_equal nil, slot.put(1, '127.0.0.1:7002')
+    assert_nil slot.put(1, '127.0.0.1:7002')
   end
 
   def test_slot_class_with_empty_slots
@@ -76,12 +76,12 @@ class TestClusterClientSlots < Test::Unit::TestCase
     assert_equal false, slot.exists?(0)
     assert_equal false, slot.exists?(1)
 
-    assert_equal nil, slot.find_node_key_of_master(0)
-    assert_equal nil, slot.find_node_key_of_slave(0)
-    assert_equal nil, slot.find_node_key_of_master(1)
-    assert_equal nil, slot.find_node_key_of_slave(1)
+    assert_nil slot.find_node_key_of_master(0)
+    assert_nil slot.find_node_key_of_slave(0)
+    assert_nil slot.find_node_key_of_master(1)
+    assert_nil slot.find_node_key_of_slave(1)
 
-    assert_equal nil, slot.put(1, '127.0.0.1:7001')
+    assert_nil slot.put(1, '127.0.0.1:7001')
   end
 
   def test_redirection_when_slot_is_resharding

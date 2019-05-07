@@ -1,15 +1,15 @@
 require_relative "helper"
 
-class TestDistributedPublishSubscribe < Test::Unit::TestCase
+class TestDistributedPublishSubscribe < Minitest::Test
 
   include Helper::Distributed
 
   def test_subscribe_and_unsubscribe
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.subscribe("foo", "bar") { }
     end
 
-    assert_raise Redis::Distributed::CannotDistribute do
+    assert_raises Redis::Distributed::CannotDistribute do
       r.subscribe("{qux}foo", "bar") { }
     end
   end
@@ -73,7 +73,7 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_other_commands_within_a_subscribe
-    assert_raise Redis::CommandError do
+    assert_raises Redis::CommandError do
       r.subscribe("foo") do |on|
         on.subscribe do |channel, total|
           r.set("bar", "s2")
@@ -83,7 +83,7 @@ class TestDistributedPublishSubscribe < Test::Unit::TestCase
   end
 
   def test_subscribe_without_a_block
-    assert_raise LocalJumpError do
+    assert_raises LocalJumpError do
       r.subscribe("foo")
     end
   end

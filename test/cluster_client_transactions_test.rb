@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_transactions_test.rb
-class TestClusterClientTransactions < Test::Unit::TestCase
+class TestClusterClientTransactions < Minitest::Test
   include Helper::Cluster
 
   def test_transaction_with_hash_tag
@@ -22,14 +22,14 @@ class TestClusterClientTransactions < Test::Unit::TestCase
     rc1 = redis
     rc2 = build_another_client
 
-    assert_raise(Redis::Cluster::CrossSlotPipeliningError) do
+    assert_raises(Redis::Cluster::CrossSlotPipeliningError) do
       rc1.multi do |cli|
         100.times { |i| cli.set("key#{i}", i) }
       end
     end
 
-    100.times { |i| assert_equal nil, rc1.get("key#{i}") }
-    100.times { |i| assert_equal nil, rc2.get("key#{i}") }
+    100.times { |i| assert_nil rc1.get("key#{i}") }
+    100.times { |i| assert_nil rc2.get("key#{i}") }
   end
 
   def test_transaction_with_replicas
@@ -65,7 +65,7 @@ class TestClusterClientTransactions < Test::Unit::TestCase
     assert_equal '200', rc1.get('{key}1')
     assert_equal '200', rc2.get('{key}1')
 
-    assert_equal nil, rc1.get('{key}2')
-    assert_equal nil, rc2.get('{key}2')
+    assert_nil rc1.get('{key}2')
+    assert_nil rc2.get('{key}2')
   end
 end

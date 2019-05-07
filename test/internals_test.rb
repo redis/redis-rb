@@ -1,6 +1,6 @@
 require_relative "helper"
 
-class TestInternals < Test::Unit::TestCase
+class TestInternals < Minitest::Test
 
   include Helper::Client
 
@@ -24,18 +24,16 @@ class TestInternals < Test::Unit::TestCase
   def test_recovers_from_failed_commands
     # See https://github.com/redis/redis-rb/issues#issue/28
 
-    assert_raise(Redis::CommandError) do
+    assert_raises(Redis::CommandError) do
       r.command_that_doesnt_exist
     end
 
-    assert_nothing_raised do
-      r.info
-    end
+    r.info
   end
 
   def test_raises_on_protocol_errors
     redis_mock(:ping => lambda { |*_| "foo" }) do |redis|
-      assert_raise(Redis::ProtocolError) do
+      assert_raises(Redis::ProtocolError) do
         redis.ping
       end
     end
@@ -73,9 +71,7 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_timeout
-    assert_nothing_raised do
-      Redis.new(OPTIONS.merge(:timeout => 0))
-    end
+    Redis.new(OPTIONS.merge(:timeout => 0))
   end
 
   driver(:ruby) do
@@ -112,7 +108,7 @@ class TestInternals < Test::Unit::TestCase
   def test_connection_timeout
     opts = OPTIONS.merge(:host => "10.255.255.254", :connect_timeout => 0.1, :timeout => 5.0)
     start_time = Time.now
-    assert_raise Redis::CannotConnectError do
+    assert_raises Redis::CannotConnectError do
       Redis.new(opts).ping
     end
     assert (Time.now - start_time) <= opts[:timeout]
@@ -120,7 +116,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_missing_socket
     opts = { :path => '/missing.sock' }
-    assert_raise Redis::CannotConnectError do
+    assert_raises Redis::CannotConnectError do
       Redis.new(opts).ping
     end
   end
@@ -158,7 +154,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_dont_retry_when_wrapped_in_with_reconnect_false
     close_on_ping([0]) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.with_reconnect(false) do
           redis.ping
         end
@@ -168,7 +164,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_dont_retry_when_wrapped_in_without_reconnect
     close_on_ping([0]) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.without_reconnect do
           redis.ping
         end
@@ -178,7 +174,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_retry_only_once_when_read_raises_econnreset
     close_on_ping([0, 1]) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.ping
       end
 
@@ -194,7 +190,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_retry_with_custom_reconnect_attempts_can_still_fail
     close_on_ping([0, 1, 2], :reconnect_attempts => 2) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.ping
       end
 
@@ -217,7 +213,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_don_t_retry_when_second_read_in_pipeline_raises_econnreset
     close_on_ping([1]) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.pipelined do
           redis.ping
           redis.ping # Second #read times out
@@ -279,7 +275,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_dont_retry_on_write_error_when_wrapped_in_with_reconnect_false
     close_on_connection([0]) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.with_reconnect(false) do
           redis._client.call(["x" * 128 * 1024])
         end
@@ -289,7 +285,7 @@ class TestInternals < Test::Unit::TestCase
 
   def test_dont_retry_on_write_error_when_wrapped_in_without_reconnect
     close_on_connection([0]) do |redis|
-      assert_raise Redis::ConnectionError do
+      assert_raises Redis::ConnectionError do
         redis.without_reconnect do
           redis._client.call(["x" * 128 * 1024])
         end
@@ -298,9 +294,7 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_connecting_to_unix_domain_socket
-    assert_nothing_raised do
-      Redis.new(OPTIONS.merge(:path => ENV.fetch("SOCKET_PATH"))).ping
-    end
+    Redis.new(OPTIONS.merge(:path => ENV.fetch("SOCKET_PATH"))).ping
   end
 
   driver(:ruby, :hiredis) do
@@ -309,7 +303,7 @@ class TestInternals < Test::Unit::TestCase
 
       redis = Redis.new(:port => 6380, :timeout => 0.1)
 
-      assert_raise(Redis::TimeoutError) do
+      assert_raises(Redis::TimeoutError) do
         redis.ping
       end
 
@@ -328,9 +322,7 @@ class TestInternals < Test::Unit::TestCase
   end
 
   def test_resolves_localhost
-    assert_nothing_raised do
-      Redis.new(OPTIONS.merge(:host => 'localhost')).ping
-    end
+    Redis.new(OPTIONS.merge(:host => 'localhost')).ping
   end
 
   class << self
@@ -375,9 +367,7 @@ class TestInternals < Test::Unit::TestCase
     }
 
     redis_mock(commands, :host => host) do |redis|
-      assert_nothing_raised do
-        redis.ping
-      end
+      redis.ping
     end
   end
 

@@ -3,7 +3,7 @@
 require_relative 'helper'
 
 # ruby -w -Itest test/cluster_client_pipelining_test.rb
-class TestClusterClientPipelining < Test::Unit::TestCase
+class TestClusterClientPipelining < Minitest::Test
   include Helper::Cluster
 
   def test_pipelining_with_a_hash_tag
@@ -26,7 +26,7 @@ class TestClusterClientPipelining < Test::Unit::TestCase
     end
 
     [p1, p2, p3, p4, p5, p6].each do |actual|
-      assert_true actual.is_a?(Redis::Future)
+      assert_equal true, actual.is_a?(Redis::Future)
     end
 
     assert_equal('George Washington', p1.value)
@@ -38,7 +38,7 @@ class TestClusterClientPipelining < Test::Unit::TestCase
   end
 
   def test_pipelining_without_hash_tags
-    assert_raise(Redis::Cluster::CrossSlotPipeliningError) do
+    assert_raises(Redis::Cluster::CrossSlotPipeliningError) do
       redis.pipelined do
         redis.set(:a, 1)
         redis.set(:b, 2)

@@ -4,7 +4,7 @@ require_relative 'helper'
 
 # ruby -w -Itest test/cluster_commands_on_geo_test.rb
 # @see https://redis.io/commands#geo
-class TestClusterCommandsOnGeo < Test::Unit::TestCase
+class TestClusterCommandsOnGeo < Minitest::Test
   include Helper::Cluster
 
   MIN_REDIS_VERSION = '3.2.0'
