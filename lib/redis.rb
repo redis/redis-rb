@@ -2823,7 +2823,7 @@ class Redis
   #
   # @param [String] key
   # @param [Array] member arguemnts for member or members: longitude, latitude, name
-  # @return [Intger] number of elements added to the sorted set
+  # @return [Integer] number of elements added to the sorted set
   def geoadd(key, *member)
     synchronize do |client|
       client.call([:geoadd, key, *member])
