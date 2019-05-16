@@ -37,7 +37,7 @@ p r.rpop('listor')
 puts "key distribution:"
 
 r.ring.nodes.each do |node|
-  p [node.client, node.keys("*")]
+  p [node.client(:getname), node.keys("*")]
 end
 r.flushdb
 p r.keys('*')
