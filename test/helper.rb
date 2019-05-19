@@ -19,7 +19,7 @@ require_relative 'support/cluster/orchestrator'
 
 PORT        = 6381
 DB          = 15
-TIMEOUT     = Float(ENV['TIMEOUT'] || 0.1)
+TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
 LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
 OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 

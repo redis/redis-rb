@@ -19,48 +19,48 @@ CLUSTER_CONF_PATHS := $(addprefix ${TMP}/nodes,$(addsuffix .conf,${CLUSTER_PORTS
 CLUSTER_ADDRS      := $(addprefix 127.0.0.1:,${CLUSTER_PORTS})
 
 define kill-redis
-  (ls $1 2> /dev/null && kill $$(cat $1) && rm -f $1) || true
+  (ls $1 > /dev/null 2>&1 && kill $$(cat $1) && rm -f $1) || true
 endef
 
 all:
-	make start_all
-	make test
-	make stop_all
+	@make --no-print-directory start_all
+	@make --no-print-directory test
+	@make --no-print-directory stop_all
 
 start_all:
-	make start
-	make start_slave
-	make start_sentinel
-	make start_cluster
-	make create_cluster
+	@make --no-print-directory start
+	@make --no-print-directory start_slave
+	@make --no-print-directory start_sentinel
+	@make --no-print-directory start_cluster
+	@make --no-print-directory create_cluster
 
 stop_all:
-	make stop_sentinel
-	make stop_slave
-	make stop
-	make stop_cluster
+	@make --no-print-directory stop_sentinel
+	@make --no-print-directory stop_slave
+	@make --no-print-directory stop
+	@make --no-print-directory stop_cluster
 
 ${TMP}:
-	mkdir -p $@
+	@mkdir -p $@
 
 ${BINARY}: ${TMP}
-	bin/build ${REDIS_BRANCH} $<
+	@bin/build ${REDIS_BRANCH} $<
 
 test: 
-	env SOCKET_PATH=${SOCKET_PATH} rake test
+	@env SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
 
 stop:
-	$(call kill-redis,${PID_PATH})
+	@$(call kill-redis,${PID_PATH})
 
 start: ${BINARY}
-	${BINARY}                     \
-		--daemonize  yes            \
-		--pidfile    ${PID_PATH}    \
-		--port       ${PORT}        \
+	@${BINARY}\
+		--daemonize  yes\
+		--pidfile    ${PID_PATH}\
+		--port       ${PORT}\
 		--unixsocket ${SOCKET_PATH}
 
 stop_slave:
-	$(call kill-redis,${SLAVE_PID_PATH})
+	@$(call kill-redis,${SLAVE_PID_PATH})
 
 start_slave: ${BINARY}
 	${BINARY}\
@@ -71,11 +71,11 @@ start_slave: ${BINARY}
 		--slaveof    127.0.0.1 ${PORT}
 
 stop_sentinel:
-	$(call kill-redis,${SENTINEL_PID_PATHS})
-	rm -f ${TMP}/sentinel*.conf || true
+	@$(call kill-redis,${SENTINEL_PID_PATHS})
+	@rm -f ${TMP}/sentinel*.conf || true
 
 start_sentinel: ${BINARY}
-	for port in ${SENTINEL_PORTS}; do\
+	@for port in ${SENTINEL_PORTS}; do\
 		conf=${TMP}/sentinel$$port.conf;\
 		touch $$conf;\
 		echo '' >  $$conf;\
@@ -91,29 +91,28 @@ start_sentinel: ${BINARY}
 	done
 
 stop_cluster:
-	$(call kill-redis,${CLUSTER_PID_PATHS})
-	rm -f appendonly.aof || true
-	rm -f ${CLUSTER_CONF_PATHS} || true
+	@$(call kill-redis,${CLUSTER_PID_PATHS})
+	@rm -f appendonly.aof || true
+	@rm -f ${CLUSTER_CONF_PATHS} || true
 
 start_cluster: ${BINARY}
-	for port in ${CLUSTER_PORTS}; do                    \
-		${BINARY}                                         \
-			--daemonize            yes                      \
-			--appendonly           yes                      \
-			--cluster-enabled      yes                      \
-			--cluster-config-file  ${TMP}/nodes$$port.conf  \
-			--cluster-node-timeout 5000                     \
-			--pidfile              ${TMP}/redis$$port.pid   \
-			--port                 $$port                   \
-			--unixsocket           ${TMP}/redis$$port.sock; \
+	@for port in ${CLUSTER_PORTS}; do\
+		${BINARY}\
+			--daemonize            yes\
+			--appendonly           yes\
+			--cluster-enabled      yes\
+			--cluster-config-file  ${TMP}/nodes$$port.conf\
+			--cluster-node-timeout 5000\
+			--pidfile              ${TMP}/redis$$port.pid\
+			--port                 $$port\
+			--unixsocket           ${TMP}/redis$$port.sock;\
 	done
 
 create_cluster:
-	yes yes | ((${REDIS_CLIENT} --cluster create ${CLUSTER_ADDRS} --cluster-replicas 1) || \
-		(bundle exec ruby ${REDIS_TRIB} create --replicas 1 ${CLUSTER_ADDRS}))
+	@bin/cluster_creater ${CLUSTER_ADDRS}
 
 clean:
-	(test -d ${BUILD_DIR} && cd ${BUILD_DIR}/src && make clean distclean) || true
+	@(test -d ${BUILD_DIR} && cd ${BUILD_DIR}/src && make clean distclean) || true
 
 .PHONY: all test stop start stop_slave start_slave stop_sentinel start_sentinel\
 	stop_cluster start_cluster create_cluster stop_all start_all clean
