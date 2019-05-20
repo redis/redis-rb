@@ -6,6 +6,8 @@ require 'digest/sha1'
 require 'fileutils'
 
 class Builder
+  TARBALL_CACHE_EXPIRATION = 60 * 10
+
   def initialize(redis_branch, tmp_dir)
     @redis_branch = redis_branch
     @tmp_dir = tmp_dir
@@ -13,7 +15,7 @@ class Builder
   end
 
   def run
-    download_tarball
+    download_tarball_if_needed
     if old_checkum != checksum
       build
       update_checksum
@@ -21,8 +23,12 @@ class Builder
     0
   end
 
-  def download_tarball
-    command!('wget', tarball_url, '-O', tarball_path)
+  private
+
+  def download_tarball_if_needed
+    return if File.exist?(tarball_path) && File.mtime(tarball_path) > Time.now - TARBALL_CACHE_EXPIRATION
+
+    command!('wget', '-q', tarball_url, '-O', tarball_path)
   end
 
   def tarball_path

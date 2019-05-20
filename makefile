@@ -63,7 +63,7 @@ stop_slave:
 	@$(call kill-redis,${SLAVE_PID_PATH})
 
 start_slave: ${BINARY}
-	${BINARY}\
+	@${BINARY}\
 		--daemonize  yes\
 		--pidfile    ${SLAVE_PID_PATH}\
 		--port       ${SLAVE_PORT}\
