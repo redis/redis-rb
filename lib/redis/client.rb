@@ -577,6 +577,7 @@ class Redis
             client = Client.new(@options.merge({
               :host => sentinel[:host],
               :port => sentinel[:port],
+              password: sentinel[:password],
               :reconnect_attempts => 0,
             }))
 
@@ -595,11 +596,6 @@ class Redis
           end
 
           raise CannotConnectError, "No sentinels available."
-        rescue Redis::CommandError => err
-          # this feature is only available starting with Redis 5.0.1
-          raise if err.message !~ /ERR unknown command (`|')auth(`|')/
-          @options[:password] = DEFAULTS.fetch(:password)
-          retry
         end
 
         def resolve_master

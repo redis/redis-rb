@@ -95,6 +95,15 @@ but a few so that if one is down the client will try the next one. The client
 is able to remember the last Sentinel that was able to reply correctly and will
 use it for the next requests.
 
+If you want to [authenticate](https://redis.io/topics/sentinel#configuring-sentinel-instances-with-authentication) Sentinel itself, you must specify the `password` option per instance.
+
+```ruby
+SENTINELS = [{ host: '127.0.0.1', port: 26380, password: 'mysecret' },
+             { host: '127.0.0.1', port: 26381, password: 'mysecret' }]
+
+redis = Redis.new(host: 'mymaster', sentinels: SENTINELS, role: :master)
+```
+
 ## Cluster support
 
 `redis-rb` supports [clustering](https://redis.io/topics/cluster-spec).

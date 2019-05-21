@@ -129,63 +129,99 @@ class SentinelTest < Minitest::Test
   end
 
   def test_sentinel_with_non_sentinel_options
-    sentinels = [{:host => "127.0.0.1", :port => 26381}]
-
-    commands = {
-      :s1 => [],
-      :m1 => []
-    }
-
-    sentinel = lambda do |port|
-      {
-        :auth => lambda do |pass|
-          commands[:s1] << ["auth", pass]
-          '+OK'
-        end,
-        :select => lambda do |db|
-          commands[:s1] << ["select", db]
-          "-ERR unknown command 'select'"
-        end,
-        :sentinel => lambda do |command, *args|
-          commands[:s1] << [command, *args]
-          ["127.0.0.1", port.to_s]
-        end
-      }
-    end
-
-    master = {
-      :auth => lambda do |pass|
-        commands[:m1] << ["auth", pass]
-        "+OK"
-      end,
-      :role => lambda do
-        commands[:m1] << ["role"]
-        ["master"]
-      end
-    }
-
-    RedisMock.start(master) do |master_port|
-      RedisMock.start(sentinel.call(master_port)) do |sen_port|
-        sentinels[0][:port] = sen_port
-        redis = Redis.new(:url => "redis://:foo@master1/15", :sentinels => sentinels, :role => :master)
-
-        assert redis.ping
-      end
-    end
-
-    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1]], commands[:s1]
-    assert_equal [%w[auth foo], %w[role]], commands[:m1]
-  end
-
-  def test_sentinel_authentication_in_redis_prior_to_version_five
-    sentinels = [{ host: '127.0.0.1', port: 26381 }]
     commands = { s1: [], m1: [] }
 
     sentinel = lambda do |port|
       {
         auth: lambda do |pass|
           commands[:s1] << ['auth', pass]
-          '-ERR unknown command `auth`'
+          '+OK'
+        end,
+        select: lambda do |db|
+          commands[:s1] << ['select', db]
+          "-ERR unknown command 'select'"
+        end,
+        sentinel: lambda do |command, *args|
+          commands[:s1] << [command, *args]
+          ['127.0.0.1', port.to_s]
+        end
+      }
+    end
+
+    master = {
+      auth: lambda do |pass|
+        commands[:m1] << ['auth', pass]
+        '+OK'
+      end,
+      role: lambda do
+        commands[:m1] << ['role']
+        ['master']
+      end
+    }
+
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(sentinel.call(master_port)) do |sen_port|
+        s = [{ host: '127.0.0.1', port: sen_port }]
+        redis = Redis.new(url: 'redis://:foo@master1/15', sentinels: s, role: :master)
+        assert redis.ping
+      end
+    end
+
+    assert_equal [%w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[auth foo], %w[role]], commands[:m1]
+  end
+
+  def test_authentication_for_sentinel
+    commands = { s1: [], m1: [] }
+
+    sentinel = lambda do |port|
+      {
+        auth: lambda do |pass|
+          commands[:s1] << ['auth', pass]
+          '+OK'
+        end,
+        select: lambda do |db|
+          commands[:s1] << ['select', db]
+          '-ERR unknown command `select`'
+        end,
+        sentinel: lambda do |command, *args|
+          commands[:s1] << [command, *args]
+          ['127.0.0.1', port.to_s]
+        end
+      }
+    end
+
+    master = {
+      auth: lambda do |pass|
+        commands[:m1] << ['auth', pass]
+        '-ERR Client sent AUTH, but no password is set'
+      end,
+      role: lambda do
+        commands[:m1] << ['role']
+        ['master']
+      end
+    }
+
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(sentinel.call(master_port)) do |sen_port|
+        s = [{ host: '127.0.0.1', port: sen_port, password: 'foo' }]
+        r = Redis.new(host: 'master1', sentinels: s, role: :master)
+        assert r.ping
+      end
+    end
+
+    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[role]], commands[:m1]
+  end
+
+  def test_authentication_for_sentinel_and_redis
+    commands = { s1: [], m1: [] }
+
+    sentinel = lambda do |port|
+      {
+        auth: lambda do |pass|
+          commands[:s1] << ['auth', pass]
+          '+OK'
         end,
         select: lambda do |db|
           commands[:s1] << ['select', db]
@@ -211,18 +247,14 @@ class SentinelTest < Minitest::Test
 
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
-        sentinels[0][:port] = sen_port
-        redis = Redis.new(url: 'redis://master1',
-                          sentinels: sentinels,
-                          role: :master,
-                          password: 'foo')
-
-        assert redis.ping
+        s = [{ host: '127.0.0.1', port: sen_port, password: 'foo' }]
+        r = Redis.new(host: 'master1', sentinels: s, role: :master, password: 'bar')
+        assert r.ping
       end
     end
 
     assert_equal [%w[auth foo], %w[get-master-addr-by-name master1]], commands[:s1]
-    assert_equal [%w[auth foo], %w[role]], commands[:m1]
+    assert_equal [%w[auth bar], %w[role]], commands[:m1]
   end
 
   def test_sentinel_role_mismatch
