@@ -109,7 +109,7 @@ start_cluster: ${BINARY}
 	done
 
 create_cluster:
-	@bin/cluster_creater ${CLUSTER_ADDRS}
+	@bin/cluster_creator ${CLUSTER_ADDRS}
 
 clean:
 	@(test -d ${BUILD_DIR} && cd ${BUILD_DIR}/src && make clean distclean) || true
