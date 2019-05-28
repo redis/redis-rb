@@ -3,7 +3,7 @@ cache:
     directories:
       - tmp/cache
 before_install:
-  - gem update --system 2.6.14
+  - gem update --system 3.0.3
   - gem --version
 
 script: make
