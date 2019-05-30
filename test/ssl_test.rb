@@ -8,7 +8,7 @@ class SslTest < Minitest::Test
 
     def test_connection_to_non_ssl_server
       assert_raises(Redis::CannotConnectError) do
-        redis = Redis.new(OPTIONS.merge(ssl: true))
+        redis = Redis.new(OPTIONS.merge(ssl: true, timeout: LOW_TIMEOUT))
         redis.ping
       end
     end
