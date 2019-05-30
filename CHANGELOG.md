@@ -1,5 +1,12 @@
 # Unreleased
 
+# 4.1.2
+
+* Fix the client hanging forever when connecting with SSL to a non-SSL server. See #835.
+* Fix several authentication problems with sentinel. See #850 and #856.
+* Explicitly drop Ruby 2.2 support.
+
+
 # 4.1.1
 
 * Fix error handling in multi blocks. See #754.
