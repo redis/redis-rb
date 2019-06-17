@@ -436,6 +436,10 @@ redis = Redis.new(:driver => :synchrony)
 This library is tested against recent Ruby and Redis versions.
 Check [Travis][travis-link] for the exact versions supported.
 
+## See Also
+
+- [async-redis](https://github.com/socketry/async-redis) — An [async](https://github.com/socketry/async) compatible Redis client.
+
 ## Contributors
 
 Several people contributed to redis-rb, but we would like to especially
