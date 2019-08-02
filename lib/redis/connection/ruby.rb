@@ -321,6 +321,7 @@ class Redis
         instance.timeout = config[:read_timeout]
         instance.write_timeout = config[:write_timeout]
         instance.set_tcp_keepalive config[:tcp_keepalive]
+        instance.set_tcp_nodelay if sock.is_a? TCPSocket
         instance
       end
 
@@ -348,6 +349,16 @@ class Redis
         def get_tcp_keepalive
           {
           }
+        end
+      end
+
+      # disables Nagle's Algorithm, prevents multiple round trips with MULTI
+      if [:IPPROTO_TCP, :TCP_NODELAY].all?{|c| Socket.const_defined? c}
+        def set_tcp_nodelay        
+          @sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)        
+        end
+      else
+        def set_tcp_nodelay
         end
       end
 
