@@ -289,7 +289,7 @@ class Redis
             end
           end
 
-          unless ctx.verify_mode == OpenSSL::SSL::VERIFY_NONE
+          unless ctx.verify_mode == OpenSSL::SSL::VERIFY_NONE || (ctx.respond_to?(:verify_hostname) && !ctx.verify_hostname)
             ssl_sock.post_connection_check(host)
           end
 
