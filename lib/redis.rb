@@ -1164,21 +1164,21 @@ class Redis
   end
 
   def _bpop(cmd, args, &blk)
-    options = {}
-
-    if args.last.is_a?(Hash)
+    timeout = if args.last.is_a?(Hash)
       options = args.pop
+      options[:timeout]
     elsif args.last.respond_to?(:to_int)
       # Issue deprecation notice in obnoxious mode...
-      options[:timeout] = args.pop.to_int
+      args.pop.to_int
     end
+
+    timeout ||= 0
 
     if args.size > 1
       # Issue deprecation notice in obnoxious mode...
     end
 
     keys = args.flatten
-    timeout = options[:timeout] || 0
 
     synchronize do |client|
       command = [cmd, keys, timeout]
