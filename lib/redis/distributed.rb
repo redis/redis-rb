@@ -401,13 +401,12 @@ class Redis
     end
 
     def _bpop(cmd, args)
-      options = {}
-
-      if args.last.is_a?(Hash)
+      timeout = if args.last.is_a?(Hash)
         options = args.pop
+        options[:timeout]
       elsif args.last.respond_to?(:to_int)
         # Issue deprecation notice in obnoxious mode...
-        options[:timeout] = args.pop.to_int
+        args.pop.to_int
       end
 
       if args.size > 1
@@ -417,7 +416,11 @@ class Redis
       keys = args.flatten
 
       ensure_same_node(cmd, keys) do |node|
-        node.__send__(cmd, keys, options)
+        if timeout
+          node.__send__(cmd, keys, timeout: timeout)
+        else
+          node.__send__(cmd, keys)
+        end
       end
     end
 
