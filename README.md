@@ -142,6 +142,7 @@ redis.mget('{key}1', '{key}2')
 ```
 
 * The client automatically reconnects after a failover occurred, but the caller is responsible for handling errors while it is happening.
+* The client support permanent node failures, and will reroute requests to promoted slaves.
 * The client supports `MOVED` and `ASK` redirections transparently.
 
 ## Storing objects
