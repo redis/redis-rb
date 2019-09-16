@@ -17,6 +17,10 @@ class ClusterOrchestrator
     @timeout = timeout
   end
 
+  def restart_cluster_nodes
+    system("make --no-print-directory start_cluster > /dev/null 2>&1")
+  end
+
   def rebuild
     flush_all_data(@clients)
     reset_cluster(@clients)
@@ -34,6 +38,18 @@ class ClusterOrchestrator
   def down
     flush_all_data(@clients)
     reset_cluster(@clients)
+  end
+
+  def fail_serving_master
+    master, slave = take_replication_pairs(@clients)
+    master.shutdown
+    max_attempts = 600
+    attempt_count = 1
+    attempt_count.step(max_attempts) do |i|
+      return if slave.role == 'master' || i >= max_attempts
+      attempt_count += 1
+      sleep 0.1
+    end
   end
 
   def failover
@@ -127,13 +143,13 @@ class ClusterOrchestrator
   end
 
   def meet_each_other(clients)
-    first_cliient = clients.first
-    target_info = first_cliient.connection
+    first_client = clients.first
+    target_info = first_client.connection
     target_host = target_info.fetch(:host)
     target_port = target_info.fetch(:port)
 
     clients.each do |client|
-      next if first_cliient.id == client.id
+      next if first_client.id == client.id
       client.cluster(:meet, target_host, target_port)
     end
   end
