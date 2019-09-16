@@ -10,6 +10,18 @@ module Lint
       assert_equal true,  r.exists("foo")
     end
 
+    def test_mexists
+      refute r.exists(["foo", "baz"])
+
+      r.set("foo", "s1")
+
+      assert_equal 1,  r.mexists(["foo", "baz"])
+
+      r.set("baz", "s2")
+
+      assert_equal 2,  r.mexists(["foo", "baz"])
+    end
+
     def test_type
       assert_equal "none", r.type("foo")
 

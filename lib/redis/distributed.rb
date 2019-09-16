@@ -174,6 +174,14 @@ class Redis
       node_for(key).exists(key)
     end
 
+    # Count existing keys.
+    def mexists(*args)
+      keys_per_node = args.group_by { |key| node_for(key) }
+      keys_per_node.inject(0) do |sum, (node, keys)|
+        sum + node.mexists(*keys)
+      end
+    end
+
     # Find all keys matching the given pattern.
     def keys(glob = "*")
       on_each_node(:keys, glob).flatten
