@@ -44,7 +44,7 @@ class ClusterOrchestrator
     master, slave = take_replication_pairs(@clients)
     master.shutdown
     attempt_count = 1
-    max_attempts = 200
+    max_attempts = 500
     attempt_count.step(max_attempts) do |i|
       return if slave.role == 'master' || i >= max_attempts
       attempt_count += 1
