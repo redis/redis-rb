@@ -71,9 +71,9 @@ class Redis
     def call(command, &block)
       begin
         send_command(command, &block)
-      rescue CannotConnectError => error
+      rescue CannotConnectError
         update_cluster_info!
-        raise error
+        raise
       end
     end
 

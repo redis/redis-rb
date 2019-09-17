@@ -18,7 +18,7 @@ class ClusterOrchestrator
   end
 
   def restart_cluster_nodes
-    system("make --no-print-directory start_cluster > /dev/null 2>&1")
+    system('make', '--no-print-directory', 'start_cluster', out: File::NULL, err: File::NULL)
   end
 
   def rebuild
@@ -43,8 +43,8 @@ class ClusterOrchestrator
   def fail_serving_master
     master, slave = take_replication_pairs(@clients)
     master.shutdown
-    max_attempts = 600
     attempt_count = 1
+    max_attempts = 200
     attempt_count.step(max_attempts) do |i|
       return if slave.role == 'master' || i >= max_attempts
       attempt_count += 1

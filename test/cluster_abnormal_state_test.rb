@@ -18,11 +18,11 @@ class TestClusterAbnormalState < Minitest::Test
 
   def test_the_state_of_cluster_failover
     redis_cluster_failover do
-      100.times do |i|
+      10.times do |i|
         assert_equal 'OK', r.set("key#{i}", i)
       end
 
-      100.times do |i|
+      10.times do |i|
         assert_equal i.to_s, r.get("key#{i}")
       end
 
@@ -36,11 +36,11 @@ class TestClusterAbnormalState < Minitest::Test
         r.set('key0', 0)
       end
 
-      100.times do |i|
+      10.times do |i|
         assert_equal 'OK', r.set("key#{i}", i)
       end
 
-      100.times do |i|
+      10.times do |i|
         assert_equal i.to_s, r.get("key#{i}")
       end
 
