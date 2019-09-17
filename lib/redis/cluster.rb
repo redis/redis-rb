@@ -226,6 +226,9 @@ class Redis
       else
         raise
       end
+    rescue CannotConnectError
+      update_cluster_info!
+      raise
     end
 
     def assign_redirection_node(err_msg)

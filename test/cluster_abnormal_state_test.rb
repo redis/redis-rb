@@ -18,11 +18,29 @@ class TestClusterAbnormalState < Minitest::Test
 
   def test_the_state_of_cluster_failover
     redis_cluster_failover do
-      100.times do |i|
+      10.times do |i|
         assert_equal 'OK', r.set("key#{i}", i)
       end
 
-      100.times do |i|
+      10.times do |i|
+        assert_equal i.to_s, r.get("key#{i}")
+      end
+
+      assert_equal 'ok', redis.cluster(:info).fetch('cluster_state')
+    end
+  end
+
+  def test_the_state_of_cluster_node_failure
+    redis_cluster_fail_master do
+      assert_raises(Redis::CannotConnectError, 'Error connecting to Redis on 127.0.0.1:7002') do
+        r.set('key0', 0)
+      end
+
+      10.times do |i|
+        assert_equal 'OK', r.set("key#{i}", i)
+      end
+
+      10.times do |i|
         assert_equal i.to_s, r.get("key#{i}")
       end
 

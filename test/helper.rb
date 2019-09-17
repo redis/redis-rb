@@ -356,6 +356,16 @@ module Helper
       trib.close
     end
 
+    def redis_cluster_fail_master
+      trib = ClusterOrchestrator.new(_default_nodes, timeout: TIMEOUT)
+      trib.fail_serving_master
+      yield
+    ensure
+      trib.restart_cluster_nodes
+      trib.rebuild
+      trib.close
+    end
+
     # @param slot [Integer]
     # @param src [String] <ip>:<port>
     # @param dest [String] <ip>:<port>
