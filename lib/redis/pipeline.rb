@@ -132,14 +132,18 @@ class Redis
 
     attr_reader :timeout
 
-    # Avoid allowing people to use == inside a pipelined
-    undef :==
-
     def initialize(command, transformation, timeout)
       @command = command
       @transformation = transformation
       @timeout = timeout
       @object = FutureNotReady
+    end
+
+    def ==(*)
+      message = "The method == and != is deprecated for Redis::Future and will be removed in 4.2.0"
+      message << " - You probably meant to call .value == or .value !="
+      ::Redis.deprecate(message)
+      super
     end
 
     def inspect

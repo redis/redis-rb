@@ -126,14 +126,6 @@ class TestPipeliningCommands < Minitest::Test
     end
   end
 
-  def test_futures_raise_when_trying_to_compare_their_value_too_early
-    r.pipelined do
-      assert_raises(NoMethodError) do
-        r.sadd("foo", 1) == 1
-      end
-    end
-  end
-
   def test_futures_raise_when_command_errors_and_needs_transformation
     assert_raises(Redis::CommandError) do
       r.pipelined do
