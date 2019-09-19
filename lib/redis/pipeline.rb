@@ -132,6 +132,9 @@ class Redis
 
     attr_reader :timeout
 
+    # Avoid allowing people to use == inside a pipelined
+    undef :==
+
     def initialize(command, transformation, timeout)
       @command = command
       @transformation = transformation
