@@ -129,6 +129,7 @@ class Redis
 
   class Future < BasicObject
     FutureNotReady = ::Redis::FutureNotReady.new
+    COMPARISON_METHODS = %i(== != >= <=)
 
     attr_reader :timeout
 
@@ -155,6 +156,12 @@ class Redis
     def value
       ::Kernel.raise(@object) if @object.kind_of?(::RuntimeError)
       @object
+    end
+
+    COMPARISON_METHODS.each do |method|
+      define_method(method) do |other|
+        value.send(method, other)
+      end
     end
 
     def is_a?(other)
