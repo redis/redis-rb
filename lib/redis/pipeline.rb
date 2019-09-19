@@ -139,6 +139,13 @@ class Redis
       @object = FutureNotReady
     end
 
+    def ==(*)
+      message = "The method == and != is deprecated for Redis::Future and will be removed in 4.2.0"
+      message << " - You probably meant to call .value == or .value !="
+      ::Redis.deprecate(message)
+      super
+    end
+
     def inspect
       "<Redis::Future #{@command.inspect}>"
     end

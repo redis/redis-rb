@@ -5,6 +5,10 @@ require_relative "redis/errors"
 
 class Redis
 
+  def self.deprecate(message, trace = caller[0])
+    $stderr.puts "\n#{message} (in #{trace})"
+  end
+
   def self.current
     @current ||= Redis.new
   end
