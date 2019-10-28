@@ -100,7 +100,9 @@ class Redis
   # See http://redis.io/topics/pipelining for more details.
   #
   def queue(*command)
-    @queue[Thread.current.object_id] << command
+    synchronize do
+      @queue[Thread.current.object_id] << command
+    end
   end
 
   # Sends all commands in the queue.
