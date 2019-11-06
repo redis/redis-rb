@@ -53,7 +53,7 @@ class Redis
         crlf = nil
 
         while (crlf = @buffer.index(CRLF)) == nil
-          @buffer << _read_from_socket(1024)
+          @buffer << _read_from_socket(16384)
         end
 
         @buffer.slice!(0, crlf + CRLF.bytesize)
@@ -354,8 +354,8 @@ class Redis
 
       # disables Nagle's Algorithm, prevents multiple round trips with MULTI
       if [:IPPROTO_TCP, :TCP_NODELAY].all?{|c| Socket.const_defined? c}
-        def set_tcp_nodelay        
-          @sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)        
+        def set_tcp_nodelay
+          @sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
         end
       else
         def set_tcp_nodelay
