@@ -216,7 +216,10 @@ class Redis
       node.public_send(method_name, *args, &block)
     rescue CommandError => err
       if err.message.start_with?('MOVED')
-        assign_redirection_node(err.message).public_send(method_name, *args, &block)
+        raise if retry_count <= 0
+        node = assign_redirection_node(err.message)
+        retry_count -= 1
+        retry
       elsif err.message.start_with?('ASK')
         raise if retry_count <= 0
         node = assign_asking_node(err.message)
