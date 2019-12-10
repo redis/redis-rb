@@ -1,4 +1,5 @@
 #! /usr/bin/env ruby
+# frozen_string_literal: true
 
 # This is a helper script used together with examples/sentinel.rb
 # It runs two Redis masters, two slaves for each of them, and two sentinels.

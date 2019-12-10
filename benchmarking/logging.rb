@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 # Run with
 #
 #   $ ruby -Ilib benchmarking/logging.rb
