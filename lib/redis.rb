@@ -924,7 +924,7 @@ class Redis
   # Get the values of all the given keys.
   #
   # @example
-  #   redis.mget("key1", "key1")
+  #   redis.mget("key1", "key2")
   #     # => ["v1", "v2"]
   #
   # @param [Array<String>] keys
