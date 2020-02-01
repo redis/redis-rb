@@ -15,18 +15,16 @@ class Redis
       def initialize(options)
         options = options.dup
         node_addrs = options.delete(:cluster)
-        @node_uris = build_node_uris(node_addrs)
+        @node_opts = build_node_options(node_addrs)
         @replica = options.delete(:replica) == true
+        add_common_node_option_if_needed(options, @node_opts, :scheme)
+        add_common_node_option_if_needed(options, @node_opts, :password)
         @options = options
       end
 
       def per_node_key
-        @node_uris.map { |uri| [NodeKey.build_from_uri(uri), @options.merge(url: uri.to_s)] }
+        @node_opts.map { |opt| [NodeKey.build_from_host_port(opt[:host], opt[:port]), @options.merge(opt)] }
                   .to_h
-      end
-
-      def secure?
-        @node_uris.any? { |uri| uri.scheme == SECURE_SCHEME } || @options[:ssl_params] || false
       end
 
       def use_replica?
@@ -34,16 +32,16 @@ class Redis
       end
 
       def update_node(addrs)
-        @node_uris = build_node_uris(addrs)
+        @node_opts = build_node_options(addrs)
       end
 
       def add_node(host, port)
-        @node_uris << parse_node_hash(host: host, port: port)
+        @node_opts << { host: host, port: port }
       end
 
       private
 
-      def build_node_uris(addrs)
+      def build_node_options(addrs)
         raise InvalidClientOptionError, 'Redis option of `cluster` must be an Array' unless addrs.is_a?(Array)
         addrs.map { |addr| parse_node_addr(addr) }
       end
@@ -53,7 +51,7 @@ class Redis
         when String
           parse_node_url(addr)
         when Hash
-          parse_node_hash(addr)
+          parse_node_option(addr)
         else
           raise InvalidClientOptionError, 'Redis option of `cluster` must includes String or Hash'
         end
@@ -62,15 +60,27 @@ class Redis
       def parse_node_url(addr)
         uri = URI(addr)
         raise InvalidClientOptionError, "Invalid uri scheme #{addr}" unless VALID_SCHEMES.include?(uri.scheme)
-        uri
+
+        db = uri.path.split('/')[1]&.to_i
+        { scheme: uri.scheme, password: uri.password, host: uri.host, port: uri.port, db: db }.compact
       rescue URI::InvalidURIError => err
         raise InvalidClientOptionError, err.message
       end
 
-      def parse_node_hash(addr)
+      def parse_node_option(addr)
         addr = addr.map { |k, v| [k.to_sym, v] }.to_h
         raise InvalidClientOptionError, 'Redis option of `cluster` must includes `:host` and `:port` keys' if addr.values_at(:host, :port).any?(&:nil?)
-        URI::Generic.build(scheme: DEFAULT_SCHEME, host: addr[:host], port: addr[:port].to_i)
+
+        addr
+      end
+
+      # Redis cluster node returns only host and port information.
+      # So we should complement additional information such as:
+      #   scheme, password and so on.
+      def add_common_node_option_if_needed(options, node_opts, key)
+        return options if options[key].nil? && node_opts.first[key].nil?
+
+        options[key] = options[key] || node_opts.first[key]
       end
     end
   end

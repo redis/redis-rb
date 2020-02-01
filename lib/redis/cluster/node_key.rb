@@ -6,17 +6,13 @@ class Redis
     # It is different from node id.
     # Node id is internal identifying code in Redis Cluster.
     module NodeKey
-      DEFAULT_SCHEME = 'redis'
-      SECURE_SCHEME = 'rediss'
       DELIMITER = ':'
 
       module_function
 
-      def to_node_urls(node_keys, secure:)
-        scheme = secure ? SECURE_SCHEME : DEFAULT_SCHEME
-        node_keys
-          .map { |k| k.split(DELIMITER) }
-          .map { |k| URI::Generic.build(scheme: scheme, host: k[0], port: k[1].to_i).to_s }
+      def optionize(node_key)
+        host, port = split(node_key)
+        { host: host, port: port }
       end
 
       def split(node_key)
