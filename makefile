@@ -22,23 +22,11 @@ define kill-redis
   (ls $1 > /dev/null 2>&1 && kill $$(cat $1) && rm -f $1) || true
 endef
 
-all:
-	@make --no-print-directory start_all
-	@make --no-print-directory test
-	@make --no-print-directory stop_all
+all: start_all test stop_all
 
-start_all:
-	@make --no-print-directory start
-	@make --no-print-directory start_slave
-	@make --no-print-directory start_sentinel
-	@make --no-print-directory start_cluster
-	@make --no-print-directory create_cluster
+start_all: start start_slave start_sentinel start_cluster create_cluster
 
-stop_all:
-	@make --no-print-directory stop_sentinel
-	@make --no-print-directory stop_slave
-	@make --no-print-directory stop
-	@make --no-print-directory stop_cluster
+stop_all: stop_sentinel stop_slave stop stop_cluster
 
 ${TMP}:
 	@mkdir -p $@
