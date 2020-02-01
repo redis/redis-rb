@@ -112,12 +112,11 @@ class Redis
       node = Node.new(option.per_node_key)
       available_slots = SlotLoader.load(node)
       node_flags = NodeLoader.load_flags(node)
-      available_node_urls = NodeKey.to_node_urls(available_slots.keys, secure: option.secure?)
-      option.update_node(available_node_urls)
+      option.update_node(available_slots.keys.map { |k| NodeKey.optionize(k) })
       [Node.new(option.per_node_key, node_flags, option.use_replica?),
        Slot.new(available_slots, node_flags, option.use_replica?)]
     ensure
-      node.map(&:disconnect)
+      node&.each(&:disconnect)
     end
 
     def fetch_command_details(nodes)

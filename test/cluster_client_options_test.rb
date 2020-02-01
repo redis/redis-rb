@@ -7,20 +7,44 @@ class TestClusterClientOptions < Minitest::Test
   include Helper::Cluster
 
   def test_option_class
-    option = Redis::Cluster::Option.new(cluster: %w[rediss://127.0.0.1:7000], replica: true)
-    assert_equal({ '127.0.0.1:7000' => { url: 'rediss://127.0.0.1:7000' } }, option.per_node_key)
-    assert_equal true, option.secure?
+    option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000], replica: true)
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
     assert_equal true, option.use_replica?
 
     option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000], replica: false)
-    assert_equal({ '127.0.0.1:7000' => { url: 'redis://127.0.0.1:7000' } }, option.per_node_key)
-    assert_equal false, option.secure?
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
     assert_equal false, option.use_replica?
 
     option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000])
-    assert_equal({ '127.0.0.1:7000' => { url: 'redis://127.0.0.1:7000' } }, option.per_node_key)
-    assert_equal false, option.secure?
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
     assert_equal false, option.use_replica?
+
+    option = Redis::Cluster::Option.new(cluster: %w[rediss://johndoe:foobar@127.0.0.1:7000/1/namespace])
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'rediss', password: 'foobar', host: '127.0.0.1', port: 7000, db: 1 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %w[rediss://127.0.0.1:7000], scheme: 'redis')
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'rediss', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %w[redis://:bazzap@127.0.0.1:7000], password: 'foobar')
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', password: 'bazzap', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000/0], db: 1)
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: '127.0.0.1', port: 7000, db: 0 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: [{ host: '127.0.0.1', port: 7000 }])
+    assert_equal({ '127.0.0.1:7000' => { host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
+    assert_raises(Redis::InvalidClientOptionError) do
+      Redis::Cluster::Option.new(cluster: nil)
+    end
+
+    assert_raises(Redis::InvalidClientOptionError) do
+      Redis::Cluster::Option.new(cluster: %w[invalid_uri])
+    end
+
+    assert_raises(Redis::InvalidClientOptionError) do
+      Redis::Cluster::Option.new(cluster: [{ host: '127.0.0.1' }])
+    end
   end
 
   def test_client_accepts_valid_node_configs
@@ -43,7 +67,9 @@ class TestClusterClientOptions < Minitest::Test
   end
 
   def test_client_works_even_if_so_many_unavailable_nodes_specified
-    nodes = (6001..7005).map { |port| "redis://127.0.0.1:#{port}" }
+    min = 7000
+    max = min + Process.getrlimit(Process::RLIMIT_NOFILE).first / 3 * 2
+    nodes = (min..max).map { |port| "redis://127.0.0.1:#{port}" }
     redis = build_another_client(cluster: nodes)
 
     assert_equal 'PONG', redis.ping
