@@ -116,7 +116,7 @@ class Redis
       [Node.new(option.per_node_key, node_flags, option.use_replica?),
        Slot.new(available_slots, node_flags, option.use_replica?)]
     ensure
-      node&.map(&:disconnect)
+      node&.each(&:disconnect)
     end
 
     def fetch_command_details(nodes)

@@ -80,7 +80,7 @@ class Redis
       def add_common_node_option_if_needed(options, node_opts, key)
         return options if options[key].nil? && node_opts.first[key].nil?
 
-        options[key] = options[key] || node_opts.first[key]
+        options[key] ||= node_opts.first[key]
       end
     end
   end
