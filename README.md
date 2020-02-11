@@ -1,4 +1,4 @@
-# redis-rb [![Build Status][travis-image]][travis-link] [![Inline docs][inchpages-image]][inchpages-link]
+# redis-rb [![Build Status][travis-image]][travis-link] [![Inline docs][inchpages-image]][inchpages-link] ![](https://github.com/redis/redis-rb/workflows/Test/badge.svg?branch=master)
 
 A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still
 providing an idiomatic interface.
