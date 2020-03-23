@@ -13,7 +13,7 @@ class Redis
         info = {}
 
         nodes.each do |node|
-          info = Hash[*fetch_slot_info(node)]
+          info = fetch_slot_info(node)
           info.empty? ? next : break
         end
 
@@ -23,9 +23,11 @@ class Redis
       end
 
       def fetch_slot_info(node)
+        hash_with_default_arr = Hash.new { |h, k| h[k] = [] }
         node.call(%i[cluster slots])
-            .map { |arr| parse_slot_info(arr, default_ip: node.host) }
-            .flatten
+          .flat_map { |arr| parse_slot_info(arr, default_ip: node.host) }
+          .each_with_object(hash_with_default_arr) { |arr, h| h[arr[0]] << arr[1] }
+
       rescue CannotConnectError, ConnectionError, CommandError
         {} # can retry on another node
       end
@@ -34,7 +36,6 @@ class Redis
         first_slot, last_slot = arr[0..1]
         slot_range = (first_slot..last_slot).freeze
         arr[2..-1].map { |addr| [stringify_node_key(addr, default_ip), slot_range] }
-                  .flatten
       end
 
       def stringify_node_key(arr, default_ip)

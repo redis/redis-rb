@@ -50,9 +50,12 @@ class Redis
         @node_flags[node_key] == ROLE_SLAVE
       end
 
+      # available_slots is mapping of node_key to list of slot ranges
       def build_slot_node_key_map(available_slots)
-        available_slots.each_with_object({}) do |(node_key, slots), acc|
-          slots.each { |slot| assign_node_key(acc, slot, node_key) }
+        available_slots.each_with_object({}) do |(node_key, slots_arr), acc|
+          slots_arr.each do |slots|
+            slots.each { |slot| assign_node_key(acc, slot, node_key) }
+          end
         end
       end
 
