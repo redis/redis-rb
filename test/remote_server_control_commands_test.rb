@@ -27,10 +27,10 @@ class TestRemoteServerControlCommands < Minitest::Test
   def test_info_commandstats
     target_version "2.5.7" do
       r.config(:resetstat)
-      r.ping
+      r.config(:get, :port)
 
       result = r.info(:commandstats)
-      assert_equal "1", result["ping"]["calls"]
+      assert_equal '2', result['config']['calls']
     end
   end
 
