@@ -1,8 +1,10 @@
+# frozen_string_literal: true
 class Redis
   module Connection
     module CommandHelper
 
-      COMMAND_DELIMITER = "\r\n"
+      COMMAND_DELIMITER = "\r\n".freeze
+      TRAILING_DELIMITER = "".freeze
 
       def build_command(args)
         command = [nil]
@@ -24,7 +26,7 @@ class Redis
         command[0] = "*#{(command.length - 1) / 2}"
 
         # Trailing delimiter
-        command << ""
+        command << TRAILING_DELIMITER
         command.join(COMMAND_DELIMITER)
       end
 
