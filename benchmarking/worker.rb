@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 BENCHMARK_ROOT = File.dirname(__FILE__)
 REDIS_ROOT = File.join(BENCHMARK_ROOT, "..", "lib")
 

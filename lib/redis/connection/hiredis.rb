@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require_relative "registry"
 require_relative "../errors"
 require "hiredis/connection"

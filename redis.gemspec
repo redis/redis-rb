@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require "./lib/redis/version"
 
 Gem::Specification.new do |s|

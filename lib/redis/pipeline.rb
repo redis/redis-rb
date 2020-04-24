@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class Redis
   class Pipeline
     attr_accessor :db

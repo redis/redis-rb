@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require_relative "connection/registry"
 
 # If a connection driver was required before this file, the array
