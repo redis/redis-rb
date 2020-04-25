@@ -263,7 +263,9 @@ class Redis
           tcp_sock = TCPSocket.connect(host, port, timeout)
 
           ctx = OpenSSL::SSL::SSLContext.new
-          ctx.set_params(ssl_params) if ssl_params && !ssl_params.empty?
+
+          # The provided parameters are merged into OpenSSL::SSL::SSLContext::DEFAULT_PARAMS
+          ctx.set_params(ssl_params || {})
 
           ssl_sock = new(tcp_sock, ctx)
           ssl_sock.hostname = host
