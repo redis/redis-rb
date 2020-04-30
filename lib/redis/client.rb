@@ -250,6 +250,7 @@ class Redis
     def disconnect
       connection.disconnect if connected?
     end
+    alias_method :close, :disconnect
 
     def reconnect
       disconnect
