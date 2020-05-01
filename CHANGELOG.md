@@ -1,5 +1,15 @@
 # Unreleased
 
+# 4.1.4
+
+* Alias `Redis#disconnect` as `#close`. See #901.
+* Handle clusters with multiple slot ranges. See #894.
+* Fix password authentication to a redis cluster. See #889.
+* Handle recursive MOVED responses. See #882.
+* Increase buffer size in the ruby connector. See #880.
+* Fix thread safety of `Redis.queue`. See #878.
+* Deprecate `Redis::Future#==` as it's likely to be a mistake. See #876.
+
 # 4.1.3
 
 * Fix the client hanging forever when connecting with SSL to a non-SSL server. See #835.

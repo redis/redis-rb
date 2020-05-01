@@ -135,6 +135,16 @@ class TestPipeliningCommands < Minitest::Test
     end
   end
 
+  def test_futures_warn_when_tested_for_equality
+    r.pipelined do
+      @result = r.sadd("foo", 1)
+    end
+
+    assert_output(nil, /deprecated/) do
+      @result == @result
+    end
+  end
+
   def test_futures_can_be_identified
     r.pipelined do
       @result = r.sadd("foo", 1)
