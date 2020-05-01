@@ -451,7 +451,7 @@ client and evangelized Redis in Rubyland. Thank you, Ezra.
 ## Contributing
 
 [Fork the project](https://github.com/redis/redis-rb) and send pull
-requests. You can also ask for help at `#redis-rb` on Freenode.
+requests.
 
 
 [inchpages-image]: https://inch-ci.org/github/redis/redis-rb.svg
