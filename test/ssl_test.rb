@@ -30,6 +30,15 @@ class SslTest < Minitest::Test
       end
     end
 
+    def test_verify_certificates_by_default
+      assert_raises(OpenSSL::SSL::SSLError) do
+        RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
+          redis = Redis.new(:port => port, :ssl => true)
+          redis.ping
+        end
+      end
+    end
+
     def test_ssl_blocking
       RedisMock.start({}, ssl_server_opts("trusted")) do |port|
         redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
