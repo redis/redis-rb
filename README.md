@@ -322,7 +322,7 @@ This library supports natively terminating client side SSL/TLS connections
 when talking to Redis via a server-side proxy such as [stunnel], [hitch],
 or [ghostunnel].
 
-To enable SSL support, pass the `:ssl => :true` option when configuring the
+To enable SSL support, pass the `:ssl => true` option when configuring the
 Redis client, or pass in `:url => "rediss://..."` (like HTTPS for Redis).
 You will also need to pass in an `:ssl_params => { ... }` hash used to
 configure the `OpenSSL::SSL::SSLContext` object used for the connection:
