@@ -3,6 +3,7 @@
 A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still
 providing an idiomatic interface.
 
+See [RubyDoc.info][rubydoc] for the API docs of the latest published gem.
 
 ## Getting started
 
@@ -33,6 +34,9 @@ You can also specify connection options as a [`redis://` URL][redis-url]:
 ```ruby
 redis = Redis.new(url: "redis://:p4ssw0rd@10.0.1.1:6380/15")
 ```
+
+The client expects passwords with special chracters to be URL-encoded (i.e.
+`CGI.escape(password)`).
 
 By default, the client will try to read the `REDIS_URL` environment variable
 and use that as URL to connect to. The above statement is therefore equivalent
@@ -147,8 +151,8 @@ redis.mget('{key}1', '{key}2')
 
 ## Storing objects
 
-Redis only stores strings as values. If you want to store an object, you
-can use a serialization mechanism such as JSON:
+Redis "string" types can be used to store serialized Ruby objects, for
+example with JSON:
 
 ```ruby
 require "json"
@@ -322,7 +326,7 @@ This library supports natively terminating client side SSL/TLS connections
 when talking to Redis via a server-side proxy such as [stunnel], [hitch],
 or [ghostunnel].
 
-To enable SSL support, pass the `:ssl => :true` option when configuring the
+To enable SSL support, pass the `:ssl => true` option when configuring the
 Redis client, or pass in `:url => "rediss://..."` (like HTTPS for Redis).
 You will also need to pass in an `:ssl_params => { ... }` hash used to
 configure the `OpenSSL::SSL::SSLContext` object used for the connection:
