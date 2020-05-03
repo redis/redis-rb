@@ -34,6 +34,9 @@ You can also specify connection options as a [`redis://` URL][redis-url]:
 redis = Redis.new(url: "redis://:p4ssw0rd@10.0.1.1:6380/15")
 ```
 
+The client expects passwords with special chracters to be URL-encoded (i.e.
+`CGI.escape(pasword)`).
+
 By default, the client will try to read the `REDIS_URL` environment variable
 and use that as URL to connect to. The above statement is therefore equivalent
 to setting this environment variable and calling `Redis.new` without arguments.
