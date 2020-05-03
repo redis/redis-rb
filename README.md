@@ -3,6 +3,7 @@
 A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still
 providing an idiomatic interface.
 
+See [RubyDoc.info][rubydoc] for the API docs of the latest published gem.
 
 ## Getting started
 
