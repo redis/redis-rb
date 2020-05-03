@@ -151,8 +151,8 @@ redis.mget('{key}1', '{key}2')
 
 ## Storing objects
 
-Redis only stores strings as values. If you want to store an object, you
-can use a serialization mechanism such as JSON:
+Redis "string" types can be used to store serialized Ruby objects, for
+example with JSON:
 
 ```ruby
 require "json"
