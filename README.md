@@ -36,7 +36,7 @@ redis = Redis.new(url: "redis://:p4ssw0rd@10.0.1.1:6380/15")
 ```
 
 The client expects passwords with special chracters to be URL-encoded (i.e.
-`CGI.escape(pasword)`).
+`CGI.escape(password)`).
 
 By default, the client will try to read the `REDIS_URL` environment variable
 and use that as URL to connect to. The above statement is therefore equivalent
