@@ -1,5 +1,7 @@
 # Unreleased
 
+* Fix xclaim exception on [nil] response. See #905
+
 # 4.1.4
 
 * Alias `Redis#disconnect` as `#close`. See #901.

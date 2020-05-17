@@ -3386,8 +3386,11 @@ private
   }
 
   HashifyStreamEntries = lambda { |reply|
-    reply.map do |entry_id, values|
-      [entry_id, values.each_slice(2).to_h]
+    case reply
+    when [nil]
+      []
+    else
+      reply.map { |entry_id, values| [entry_id, values.each_slice(2).to_h] }
     end
   }
 
