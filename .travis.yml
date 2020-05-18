@@ -7,9 +7,8 @@ before_install:
 script: make test
 
 rvm:
-  - 2.2.2
-  - 2.3.3
-  - 2.4.1
+  - 2.6.2
+  - 2.7.1
   - jruby-9.1.15.0
   - rbx-3
 
