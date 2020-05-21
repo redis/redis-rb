@@ -1,5 +1,7 @@
 # Unreleased
 
+* `Redis::Client#disconnect` provides a `on_disconnect` connector hook.
+
 # 4.1.4
 
 * Alias `Redis#disconnect` as `#close`. See #901.

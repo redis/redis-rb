@@ -248,7 +248,11 @@ class Redis
     end
 
     def disconnect
-      connection.disconnect if connected?
+      if connected?
+        result = connection.disconnect
+        @connector.on_disconnect(self)
+        result
+      end
     end
     alias_method :close, :disconnect
 
@@ -530,6 +534,9 @@ class Redis
       end
 
       def check(client)
+      end
+
+      def on_disconnect(client)
       end
 
       class Sentinel < Connector

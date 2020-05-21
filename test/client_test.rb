@@ -68,9 +68,32 @@ class TestClient < Minitest::Test
     end
 
     error = assert_raises do
-      new_redis = _new_client(connector: custom_connector)
+      new_redis = new_client(connector: custom_connector)
       new_redis.ping
     end
     assert_equal 'Error connecting to Redis on 127.0.0.5:999 (Errno::ECONNREFUSED)', error.message
+  end
+
+  def test_client_connect_disconnect_hooks
+    custom_connector = Class.new(Redis::Client::Connector) do
+      attr_reader :connect_called, :disconnect_called
+
+      def check(client)
+        @connect_called = true
+      end
+
+      def on_disconnect(client)
+        @disconnect_called = true
+      end
+    end
+
+    redis = new_client(connector: custom_connector)
+    redis.ping
+    redis.close
+
+    connector = redis._client.instance_variable_get(:@connector)
+
+    assert connector.connect_called
+    assert connector.disconnect_called
   end
 end

@@ -173,8 +173,11 @@ module Helper
   end
 
   module Client
-
     include Generic
+
+    def new_client(options = {})
+      _new_client(options)
+    end
 
     private
 
