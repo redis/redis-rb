@@ -22,7 +22,9 @@ class Redis
       :reconnect_attempts => 1,
       :reconnect_delay => 0,
       :reconnect_delay_max => 0.5,
-      :inherit_socket => false
+      :inherit_socket => false,
+      :sentinels => nil,
+      :role => nil
     }
 
     attr_reader :options
@@ -89,7 +91,7 @@ class Redis
       @pending_reads = 0
 
       @connector =
-        if options.include?(:sentinels)
+        if !@options[:sentinels].nil?
           Connector::Sentinel.new(@options)
         elsif options.include?(:connector) && options[:connector].respond_to?(:new)
           options.delete(:connector).new(@options)
@@ -539,7 +541,7 @@ class Redis
           @options[:db] = DEFAULTS.fetch(:db)
 
           @sentinels = @options.delete(:sentinels).dup
-          @role = @options.fetch(:role, "master").to_s
+          @role = (@options[:role] || "master").to_s
           @master = @options[:host]
         end
 
@@ -576,10 +578,10 @@ class Redis
         def sentinel_detect
           @sentinels.each do |sentinel|
             client = Client.new(@options.merge({
-              :host => sentinel[:host],
-              :port => sentinel[:port],
-              password: sentinel[:password],
-              :reconnect_attempts => 0,
+              host: sentinel[:host] || sentinel["host"],
+              port: sentinel[:port] || sentinel["port"],
+              password: sentinel[:password] || sentinel["password"],
+              reconnect_attempts: 0
             }))
 
             begin
