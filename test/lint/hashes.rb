@@ -4,9 +4,18 @@ module Lint
   module Hashes
 
     def test_hset_and_hget
-      r.hset("foo", "f1", "s1")
+      assert_equal 1, r.hset("foo", "f1", "s1")
 
       assert_equal "s1", r.hget("foo", "f1")
+    end
+
+    def test_variadic_hset
+      target_version "4.0.0" do
+        assert_equal 2, r.hset("foo", "f1", "s1", "f2", "s2")
+
+        assert_equal "s1", r.hget("foo", "f1")
+        assert_equal "s2", r.hget("foo", "f2")
+      end
     end
 
     def test_hsetnx

@@ -669,9 +669,9 @@ class Redis
       node_for(key).hlen(key)
     end
 
-    # Set the string value of a hash field.
-    def hset(key, field, value)
-      node_for(key).hset(key, field, value)
+    # Set multiple hash fields to multiple values.
+    def hset(key, *attrs)
+      node_for(key).hset(key, *attrs)
     end
 
     # Set the value of a hash field, only if the field does not exist.
