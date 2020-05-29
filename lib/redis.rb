@@ -2101,16 +2101,36 @@ class Redis
     end
   end
 
-  # Set the string value of a hash field.
+  # Set one or more hash values.
+  #
+  # @example
+  #   redis.hset("hash", "f1", "v1", "f2", "v2")
+  #     # => 2
   #
   # @param [String] key
-  # @param [String] field
-  # @param [String] value
-  # @return [Boolean] whether or not the field was **added** to the hash
-  def hset(key, field, value)
+  # @param [Array<String>] attrs array of fields and values
+  # @return [Integer] The number of fields that were added to the hash
+  #
+  # @see #mapped_hset
+  def hset(key, *attrs)
     synchronize do |client|
-      client.call([:hset, key, field, value], &Boolify)
+      client.call([:hset, key, *attrs])
     end
+  end
+
+  # Set one or more hash values.
+  #
+  # @example
+  #   redis.mapped_hset("hash", { "f1" => "v1", "f2" => "v2" })
+  #     # => 2
+  #
+  # @param [String] key
+  # @param [Hash] hash a non-empty hash with fields mapping to values
+  # @return [Integer] The number of fields that were added to the hash
+  #
+  # @see #hset
+  def mapped_hset(key, hash)
+    hset(key, hash.to_a.flatten)
   end
 
   # Set the value of a hash field, only if the field does not exist.
