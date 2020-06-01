@@ -127,4 +127,21 @@ class TestDistributedCommandsOnValueTypes < Minitest::Test
       r.migrate("foo", {})
     end
   end
+
+  def test_exists_with_multiple_arguements
+    target_version "3.0.3" do
+      assert_equal false, r.exists("foo")
+
+      r.set("foo", "s1")
+
+      assert_equal true,  r.exists("foo")
+      assert_equal true, r.exists("foo", "foo2")
+
+      r.set("foo2", "s1")
+
+      assert_equal true, r.exists("foo", "foo2")
+      assert_equal true, r.exists("foo", "foo2", "foo3")
+      assert_equal false, r.exists("foo3", "foo4")
+    end
+  end
 end

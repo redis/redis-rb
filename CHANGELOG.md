@@ -1,5 +1,7 @@
 # Unreleased
 
+  * Support multiple keys for `Redis#exists`. See #911.
+
 # 4.1.4
 
 * Alias `Redis#disconnect` as `#close`. See #901.

@@ -34,7 +34,7 @@ ${TMP}:
 ${BINARY}: ${TMP}
 	@bin/build ${REDIS_BRANCH} $<
 
-test: 
+test:
 	@env SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
 
 stop:

@@ -550,13 +550,15 @@ class Redis
     end
   end
 
-  # Determine if a key exists.
+  # Determine if one or more keys exists.
   #
-  # @param [String] key
+  # @param [String, Array<String>] key
   # @return [Boolean]
-  def exists(key)
+  def exists(*keys)
     synchronize do |client|
-      client.call([:exists, key], &Boolify)
+      client.call([:exists, *keys]) do |value|
+        value > 0
+      end
     end
   end
 

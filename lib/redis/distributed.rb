@@ -170,9 +170,24 @@ class Redis
       end
     end
 
-    # Determine if a key exists.
-    def exists(key)
-      node_for(key).exists(key)
+    # Determine if one or more keys exists
+    def exists(*keys)
+      if keys.length == 1
+        key = keys[0]
+        node_for(key).exists(key)
+      else
+        nodes = {}
+
+        keys.each do |key|
+          node = node_for(key)
+          nodes[node] ||= []
+          nodes[node] << key
+        end
+
+        nodes.any? do |node, keys|
+          node.exists(keys)
+        end
+      end
     end
 
     # Find all keys matching the given pattern.
