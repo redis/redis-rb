@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'set'
-
 class Redis
   class Cluster
     # Keep slot and node key map for Redis Cluster Client
@@ -28,11 +26,20 @@ class Redis
         return nil unless exists?(slot)
         return find_node_key_of_master(slot) if replica_disabled?
 
-        @map[slot][:slaves].to_a.sample
+        @map[slot][:slaves].sample
       end
 
       def put(slot, node_key)
-        assign_node_key(@map, slot, node_key)
+        # Since we're sharing a hash for build_slot_node_key_map, duplicate it
+        # if it already exists instead of preserving as-is.
+        @map[slot] = @map[slot] ? @map[slot].dup : { master: nil, slaves: [] }
+
+        if master?(node_key)
+          @map[slot][:master] = node_key
+        elsif !@map[slot][:slaves].include?(node_key)
+          @map[slot][:slaves] << node_key
+        end
+
         nil
       end
 
@@ -52,20 +59,27 @@ class Redis
 
       # available_slots is mapping of node_key to list of slot ranges
       def build_slot_node_key_map(available_slots)
-        available_slots.each_with_object({}) do |(node_key, slots_arr), acc|
-          slots_arr.each do |slots|
-            slots.each { |slot| assign_node_key(acc, slot, node_key) }
+        by_ranges = {}
+        available_slots.each do |node_key, slots_arr|
+          by_ranges[slots_arr] ||= { master: nil, slaves: [] }
+
+          if master?(node_key)
+            by_ranges[slots_arr][:master] = node_key
+          elsif !by_ranges[slots_arr][:slaves].include?(node_key)
+            by_ranges[slots_arr][:slaves] << node_key
           end
         end
-      end
 
-      def assign_node_key(mappings, slot, node_key)
-        mappings[slot] ||= { master: nil, slaves: ::Set.new }
-        if master?(node_key)
-          mappings[slot][:master] = node_key
-        else
-          mappings[slot][:slaves].add(node_key)
+        by_slot = {}
+        by_ranges.each do |slots_arr, nodes|
+          slots_arr.each do |slots|
+            slots.each do |slot|
+              by_slot[slot] = nodes
+            end
+          end
         end
+
+        by_slot
       end
     end
   end
