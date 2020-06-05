@@ -43,6 +43,9 @@ class TestClusterCommandsOnServer < Minitest::Test
     a_client_info = redis.client(:list).first
     actual = a_client_info.keys.sort
     expected = %w[addr age cmd db events fd flags id idle multi name obl oll omem psub qbuf qbuf-free sub]
+    if version >= '6'
+      expected << 'user'
+    end
     assert_equal expected, actual
   end
 
@@ -83,6 +86,11 @@ class TestClusterCommandsOnServer < Minitest::Test
       ['set', -3, %w[write denyoom], 1, 1, 1],
       ['eval', -3, %w[noscript movablekeys], 0, 0, 0]
     ]
+    if version >= '6'
+      expected[0] << ["@read", "@string", "@fast"]
+      expected[1] << ["@write", "@string", "@slow"]
+      expected[2] << ["@slow", "@scripting"]
+    end
     assert_equal expected, redis.command(:info, :get, :set, :eval)
   end
 

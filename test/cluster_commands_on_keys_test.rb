@@ -98,7 +98,13 @@ class TestClusterCommandsOnKeys < Minitest::Test
       set_some_keys
       assert_equal 1, redis.touch('key1')
       assert_equal 1, redis.touch('key2')
-      assert_equal 1, redis.touch('key1', 'key2')
+      if version < '6'
+        assert_equal 1, redis.touch('key1', 'key2')
+      else
+        assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+          redis.touch('key1', 'key2')
+        end
+      end
       assert_equal 2, redis.touch('{key}1', '{key}2')
     end
   end
