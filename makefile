@@ -1,4 +1,4 @@
-REDIS_BRANCH       ?= 5.0
+REDIS_BRANCH       ?= 6.0
 TMP                := tmp
 BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
 TARBALL            := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
@@ -34,7 +34,7 @@ ${TMP}:
 ${BINARY}: ${TMP}
 	@bin/build ${REDIS_BRANCH} $<
 
-test: 
+test:
 	@env SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
 
 stop:
