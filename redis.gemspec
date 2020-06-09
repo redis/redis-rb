@@ -32,6 +32,14 @@ Gem::Specification.new do |s|
 
   s.email = ["redis-db@googlegroups.com"]
 
+  s.metadata = {
+    "bug_tracker_uri" => "#{s.homepage}/issues",
+    "changelog_uri" => "#{s.homepage}/blob/master/CHANGELOG.md",
+    "documentation_uri" => "https://www.rubydoc.info/gems/redis/#{s.version}",
+    "homepage_uri" => s.homepage,
+    "source_code_uri" => "#{s.homepage}/tree/v#{s.version}"
+  }
+
   s.files         = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
   s.executables   = `git ls-files -- exe/*`.split("\n").map { |f| File.basename(f) }
 
