@@ -6,6 +6,11 @@ require_relative "../errors"
 require "em-synchrony"
 require "hiredis/reader"
 
+Kernel.warn(
+  "The redis synchrony driver is deprecated and will be removed in redis-rb 5.0. " \
+  "We're looking for people to maintain it as a separate gem, see https://github.com/redis/redis-rb/issues/915"
+)
+
 class Redis
   module Connection
     class RedisClient < EventMachine::Connection
