@@ -11,6 +11,30 @@ module Lint
       assert_equal true,  r.exists("foo")
     end
 
+    def test_exists_integer
+      previous_exists_returns_integer = Redis.exists_returns_integer
+      Redis.exists_returns_integer = true
+      assert_equal 0, r.exists("foo")
+
+      r.set("foo", "s1")
+
+      assert_equal 1,  r.exists("foo")
+    ensure
+      Redis.exists_returns_integer = previous_exists_returns_integer
+    end
+
+    def test_variadic_exists
+      assert_equal 0, r.exists("{1}foo", "{1}bar")
+
+      r.set("{1}foo", "s1")
+
+      assert_equal 1, r.exists("{1}foo", "{1}bar")
+
+      r.set("{1}bar", "s2")
+
+      assert_equal 2, r.exists("{1}foo", "{1}bar")
+    end
+
     def test_exists?
       assert_equal false, r.exists?("{1}foo", "{1}bar")
 

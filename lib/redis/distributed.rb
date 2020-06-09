@@ -171,8 +171,24 @@ class Redis
     end
 
     # Determine if a key exists.
-    def exists(key)
-      node_for(key).exists(key)
+    def exists(*args)
+      if !Redis.exists_returns_integer && args.size == 1
+        message = "`Redis#exists(key)` will return an Integer in redis-rb 4.3, if you want to keep the old behavior, " \
+          "use `exists?` instead. To opt-in to the new behavior now you can set Redis.exists_returns_integer = true. " \
+          "(#{::Kernel.caller(1, 1).first})\n"
+
+        if defined?(::Warning)
+          ::Warning.warn(message)
+        else
+          $stderr.puts(message)
+        end
+        exists?(*args)
+      else
+        keys_per_node = args.group_by { |key| node_for(key) }
+        keys_per_node.inject(0) do |sum, (node, keys)|
+          sum + node._exists(*keys)
+        end
+      end
     end
 
     # Determine if any of the keys exists.

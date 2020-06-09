@@ -4,6 +4,10 @@ require "monitor"
 require_relative "redis/errors"
 
 class Redis
+  class << self
+    attr_accessor :exists_returns_integer
+  end
+
   def self.current
     @current ||= Redis.new
   end
@@ -550,13 +554,30 @@ class Redis
     end
   end
 
-  # Determine if a key exists.
+  # Determine how many of the keys exists.
   #
-  # @param [String] key
-  # @return [Boolean]
-  def exists(key)
+  # @param [String, Array<String>] keys
+  # @return [Integer]
+  def exists(*keys)
+    if !Redis.exists_returns_integer && keys.size == 1
+      message = "`Redis#exists(key)` will return an Integer in redis-rb 4.3, if you want to keep the old behavior, " \
+        "use `exists?` instead. To opt-in to the new behavior now you can set Redis.exists_returns_integer = true. " \
+        "(#{::Kernel.caller(1, 1).first})\n"
+
+      if defined?(::Warning)
+        ::Warning.warn(message)
+      else
+        $stderr.puts(message)
+      end
+      exists?(*keys)
+    else
+      _exists(*keys)
+    end
+  end
+
+  def _exists(*keys)
     synchronize do |client|
-      client.call([:exists, key], &Boolify)
+      client.call([:exists, *keys])
     end
   end
 
