@@ -11,10 +11,10 @@ module Lint
     end
 
     def test_xinfo_with_stream_subcommand
-      redis.xadd('s1', f: 'v1')
-      redis.xadd('s1', f: 'v2')
-      redis.xadd('s1', f: 'v3')
-      redis.xadd('s1', f: 'v4')
+      redis.xadd('s1', { f: 'v1' })
+      redis.xadd('s1', { f: 'v2' })
+      redis.xadd('s1', { f: 'v3' })
+      redis.xadd('s1', { f: 'v4' })
       redis.xgroup(:create, 's1', 'g1', '$')
 
       actual = redis.xinfo(:stream, 's1')
@@ -29,7 +29,7 @@ module Lint
     end
 
     def test_xinfo_with_groups_subcommand
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
 
       actual = redis.xinfo(:groups, 's1').first
@@ -41,7 +41,7 @@ module Lint
     end
 
     def test_xinfo_with_consumers_subcommand
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
       assert_equal [], redis.xinfo(:consumers, 's1', 'g1')
     end
@@ -56,7 +56,7 @@ module Lint
     end
 
     def test_xadd_with_entry_as_splatted_params
-      assert_match ENTRY_ID_FORMAT, redis.xadd('s1', f1: 'v1', f2: 'v2')
+      assert_match ENTRY_ID_FORMAT, redis.xadd('s1', { f1: 'v1', f2: 'v2' })
     end
 
     def test_xadd_with_entry_as_a_hash_literal
@@ -96,18 +96,18 @@ module Lint
     end
 
     def test_xtrim
-      redis.xadd('s1', f: 'v1')
-      redis.xadd('s1', f: 'v2')
-      redis.xadd('s1', f: 'v3')
-      redis.xadd('s1', f: 'v4')
+      redis.xadd('s1', { f: 'v1' })
+      redis.xadd('s1', { f: 'v2' })
+      redis.xadd('s1', { f: 'v3' })
+      redis.xadd('s1', { f: 'v4' })
       assert_equal 2, redis.xtrim('s1', 2)
     end
 
     def test_xtrim_with_approximate_option
-      redis.xadd('s1', f: 'v1')
-      redis.xadd('s1', f: 'v2')
-      redis.xadd('s1', f: 'v3')
-      redis.xadd('s1', f: 'v4')
+      redis.xadd('s1', { f: 'v1' })
+      redis.xadd('s1', { f: 'v2' })
+      redis.xadd('s1', { f: 'v3' })
+      redis.xadd('s1', { f: 'v4' })
       assert_equal 0, redis.xtrim('s1', 2, approximate: true)
     end
 
@@ -295,8 +295,8 @@ module Lint
     end
 
     def test_xlen
-      redis.xadd('s1', f: 'v1')
-      redis.xadd('s1', f: 'v2')
+      redis.xadd('s1', { f: 'v1' })
+      redis.xadd('s1', { f: 'v2' })
       assert_equal 2, redis.xlen('s1')
     end
 
@@ -370,7 +370,7 @@ module Lint
     end
 
     def test_xgroup_with_create_subcommand
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       assert_equal 'OK', redis.xgroup(:create, 's1', 'g1', '$')
     end
 
@@ -382,7 +382,7 @@ module Lint
     end
 
     def test_xgroup_with_create_subcommand_and_existed_stream_key
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
       assert_raises(Redis::CommandError, 'BUSYGROUP Consumer Group name already exists') do
         redis.xgroup(:create, 's1', 'g1', '$')
@@ -390,19 +390,19 @@ module Lint
     end
 
     def test_xgroup_with_setid_subcommand
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
       assert_equal 'OK', redis.xgroup(:setid, 's1', 'g1', '0')
     end
 
     def test_xgroup_with_destroy_subcommand
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
       assert_equal 1, redis.xgroup(:destroy, 's1', 'g1')
     end
 
     def test_xgroup_with_delconsumer_subcommand
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
       assert_equal 0, redis.xgroup(:delconsumer, 's1', 'g1', 'c1')
     end
@@ -464,7 +464,7 @@ module Lint
     end
 
     def test_xreadgroup_with_block_option
-      redis.xadd('s1', f: 'v')
+      redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
 
       actual = redis.xreadgroup('g1', 'c1', 's1', '>', block: LOW_TIMEOUT * 1000)

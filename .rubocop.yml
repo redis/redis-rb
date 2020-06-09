@@ -21,6 +21,9 @@ Lint/AssignmentInCondition:
 Lint/UnifiedInteger:
   Enabled: false
 
+Lint/UnderscorePrefixedVariableName:
+  Enabled: false
+
 Metrics/ClassLength:
   Enabled: false
 
@@ -112,3 +115,6 @@ Naming/RescuedExceptionsVariableName:
 Naming/AccessorMethodName:
   Exclude:
     - lib/redis/connection/ruby.rb
+
+Naming/MethodParameterName:
+  Enabled: false

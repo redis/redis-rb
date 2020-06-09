@@ -6,14 +6,11 @@ require_relative "redis/errors"
 class Redis
   class << self
     attr_accessor :exists_returns_integer
+    attr_writer :current
   end
 
   def self.current
     @current ||= Redis.new
-  end
-
-  class << self
-    attr_writer :current
   end
 
   include MonitorMixin
@@ -504,9 +501,9 @@ class Redis
   #   - `:replace => Boolean`: if false, raises an error if key already exists
   # @raise [Redis::CommandError]
   # @return [String] `"OK"`
-  def restore(key, ttl, serialized_value, options = {})
+  def restore(key, ttl, serialized_value, replace: nil)
     args = [:restore, key, ttl, serialized_value]
-    args << 'REPLACE' if options[:replace]
+    args << 'REPLACE' if replace
 
     synchronize do |client|
       client.call(args)
@@ -694,26 +691,25 @@ class Redis
   #   elements where every element is an array with the result for every
   #   element specified in `:get`
   #   - when `:store` is specified, the number of elements in the stored result
-  def sort(key, options = {})
-    args = []
+  def sort(key, by: nil, limit: nil, get: nil, order: nil, store: nil)
+    args = [:sort, key]
+    args << "BY" << by if by
 
-    by = options[:by]
-    args.concat(["BY", by]) if by
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+    get = Array(get)
+    get.each do |item|
+      args << "GET" << item
+    end
 
-    get = Array(options[:get])
-    args.concat(["GET"].product(get).flatten) unless get.empty?
-
-    order = options[:order]
     args.concat(order.split(" ")) if order
-
-    store = options[:store]
-    args.concat(["STORE", store]) if store
+    args << "STORE" << store if store
 
     synchronize do |client|
-      client.call([:sort, key] + args) do |reply|
+      client.call(args) do |reply|
         if get.size > 1 && !store
           reply.each_slice(get.size).to_a if reply
         else
@@ -817,29 +813,19 @@ class Redis
   #   - `:xx => true`: Only set the key if it already exist.
   #   - `:keepttl => true`: Retain the time to live associated with the key.
   # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
-  def set(key, value, options = {})
-    args = []
-
-    ex = options[:ex]
-    args.concat(["EX", ex]) if ex
-
-    px = options[:px]
-    args.concat(["PX", px]) if px
-
-    nx = options[:nx]
-    args.concat(["NX"]) if nx
-
-    xx = options[:xx]
-    args.concat(["XX"]) if xx
-
-    keepttl = options[:keepttl]
-    args.concat(["KEEPTTL"]) if keepttl
+  def set(key, value, ex: nil, px: nil, nx: nil, xx: nil, keepttl: nil)
+    args = [:set, key, value.to_s]
+    args << "EX" << ex if ex
+    args << "PX" << px if px
+    args << "NX" if nx
+    args << "XX" if xx
+    args << "KEEPTTL" if keepttl
 
     synchronize do |client|
       if nx || xx
-        client.call([:set, key, value.to_s] + args, &BoolifySet)
+        client.call(args, &BoolifySet)
       else
-        client.call([:set, key, value.to_s] + args)
+        client.call(args)
       end
     end
   end
@@ -921,7 +907,7 @@ class Redis
   # @see #mapped_msetnx
   def msetnx(*args)
     synchronize do |client|
-      client.call([:msetnx] + args, &Boolify)
+      client.call([:msetnx, *args], &Boolify)
     end
   end
 
@@ -961,7 +947,7 @@ class Redis
   # @see #mapped_mget
   def mget(*keys, &blk)
     synchronize do |client|
-      client.call([:mget] + keys, &blk)
+      client.call([:mget, *keys], &blk)
     end
   end
 
@@ -1064,7 +1050,7 @@ class Redis
   # @return [Integer] the length of the string stored in `destkey`
   def bitop(operation, destkey, *keys)
     synchronize do |client|
-      client.call([:bitop, operation, destkey] + keys)
+      client.call([:bitop, operation, destkey, *keys])
     end
   end
 
@@ -1271,15 +1257,7 @@ class Redis
   # @return [nil, String]
   #   - `nil` when the operation timed out
   #   - the element was popped and pushed otherwise
-  def brpoplpush(source, destination, options = {})
-    case options
-    when Integer
-      # Issue deprecation notice in obnoxious mode...
-      options = { timeout: options }
-    end
-
-    timeout = options[:timeout] || 0
-
+  def brpoplpush(source, destination, deprecated_timeout = 0, timeout: deprecated_timeout)
     synchronize do |client|
       command = [:brpoplpush, source, destination, timeout]
       timeout += client.timeout if timeout > 0
@@ -1486,7 +1464,7 @@ class Redis
   # @return [Array<String>] members in the difference
   def sdiff(*keys)
     synchronize do |client|
-      client.call([:sdiff] + keys)
+      client.call([:sdiff, *keys])
     end
   end
 
@@ -1497,7 +1475,7 @@ class Redis
   # @return [Integer] number of elements in the resulting set
   def sdiffstore(destination, *keys)
     synchronize do |client|
-      client.call([:sdiffstore, destination] + keys)
+      client.call([:sdiffstore, destination, *keys])
     end
   end
 
@@ -1507,7 +1485,7 @@ class Redis
   # @return [Array<String>] members in the intersection
   def sinter(*keys)
     synchronize do |client|
-      client.call([:sinter] + keys)
+      client.call([:sinter, *keys])
     end
   end
 
@@ -1518,7 +1496,7 @@ class Redis
   # @return [Integer] number of elements in the resulting set
   def sinterstore(destination, *keys)
     synchronize do |client|
-      client.call([:sinterstore, destination] + keys)
+      client.call([:sinterstore, destination, *keys])
     end
   end
 
@@ -1528,7 +1506,7 @@ class Redis
   # @return [Array<String>] members in the union
   def sunion(*keys)
     synchronize do |client|
-      client.call([:sunion] + keys)
+      client.call([:sunion, *keys])
     end
   end
 
@@ -1539,7 +1517,7 @@ class Redis
   # @return [Integer] number of elements in the resulting set
   def sunionstore(destination, *keys)
     synchronize do |client|
-      client.call([:sunionstore, destination] + keys)
+      client.call([:sunionstore, destination, *keys])
     end
   end
 
@@ -1588,31 +1566,20 @@ class Redis
   #   pairs that were **added** to the sorted set.
   #   - `Float` when option :incr is specified, holding the score of the member
   #   after incrementing it.
-  def zadd(key, *args)
-    zadd_options = []
-    if args.last.is_a?(Hash)
-      options = args.pop
-
-      nx = options[:nx]
-      zadd_options << "NX" if nx
-
-      xx = options[:xx]
-      zadd_options << "XX" if xx
-
-      ch = options[:ch]
-      zadd_options << "CH" if ch
-
-      incr = options[:incr]
-      zadd_options << "INCR" if incr
-    end
+  def zadd(key, *args, nx: nil, xx: nil, ch: nil, incr: nil)
+    command = [:zadd, key]
+    command << "NX" if nx
+    command << "XX" if xx
+    command << "CH" if ch
+    command << "INCR" if incr
 
     synchronize do |client|
       if args.size == 1 && args[0].is_a?(Array)
         # Variadic: return float if INCR, integer if !INCR
-        client.call([:zadd, key] + zadd_options + args[0], &(incr ? Floatify : nil))
+        client.call(command + args[0], &(incr ? Floatify : nil))
       elsif args.size == 2
         # Single pair: return float if INCR, boolean if !INCR
-        client.call([:zadd, key] + zadd_options + args, &(incr ? Floatify : Boolify))
+        client.call(command + args, &(incr ? Floatify : Boolify))
       else
         raise ArgumentError, "wrong number of arguments"
       end
@@ -1783,10 +1750,8 @@ class Redis
   # @return [Array<String>, Array<[String, Float]>]
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
-  def zrange(key, start, stop, options = {})
-    args = []
-
-    with_scores = options[:with_scores] || options[:withscores]
+  def zrange(key, start, stop, withscores: false, with_scores: withscores)
+    args = [:zrange, key, start, stop]
 
     if with_scores
       args << "WITHSCORES"
@@ -1794,7 +1759,7 @@ class Redis
     end
 
     synchronize do |client|
-      client.call([:zrange, key, start, stop] + args, &block)
+      client.call(args, &block)
     end
   end
 
@@ -1809,10 +1774,8 @@ class Redis
   #     # => [["b", 64.0], ["a", 32.0]]
   #
   # @see #zrange
-  def zrevrange(key, start, stop, options = {})
-    args = []
-
-    with_scores = options[:with_scores] || options[:withscores]
+  def zrevrange(key, start, stop, withscores: false, with_scores: withscores)
+    args = [:zrevrange, key, start, stop]
 
     if with_scores
       args << "WITHSCORES"
@@ -1820,7 +1783,7 @@ class Redis
     end
 
     synchronize do |client|
-      client.call([:zrevrange, key, start, stop] + args, &block)
+      client.call(args, &block)
     end
   end
 
@@ -1911,14 +1874,16 @@ class Redis
   #   `count` members
   #
   # @return [Array<String>, Array<[String, Float]>]
-  def zrangebylex(key, min, max, options = {})
-    args = []
+  def zrangebylex(key, min, max, limit: nil)
+    args = [:zrangebylex, key, min, max]
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
 
     synchronize do |client|
-      client.call([:zrangebylex, key, min, max] + args)
+      client.call(args)
     end
   end
 
@@ -1933,14 +1898,16 @@ class Redis
   #     # => ["abbygail", "abby"]
   #
   # @see #zrangebylex
-  def zrevrangebylex(key, max, min, options = {})
-    args = []
+  def zrevrangebylex(key, max, min, limit: nil)
+    args = [:zrevrangebylex, key, max, min]
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
 
     synchronize do |client|
-      client.call([:zrevrangebylex, key, max, min] + args)
+      client.call(args)
     end
   end
 
@@ -1971,21 +1938,21 @@ class Redis
   # @return [Array<String>, Array<[String, Float]>]
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
-  def zrangebyscore(key, min, max, options = {})
-    args = []
-
-    with_scores = options[:with_scores] || options[:withscores]
+  def zrangebyscore(key, min, max, withscores: false, with_scores: withscores, limit: nil)
+    args = [:zrangebyscore, key, min, max]
 
     if with_scores
       args << "WITHSCORES"
       block = FloatifyPairs
     end
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
 
     synchronize do |client|
-      client.call([:zrangebyscore, key, min, max] + args, &block)
+      client.call(args, &block)
     end
   end
 
@@ -2003,21 +1970,21 @@ class Redis
   #     # => [["b", 64.0], ["a", 32.0]]
   #
   # @see #zrangebyscore
-  def zrevrangebyscore(key, max, min, options = {})
-    args = []
-
-    with_scores = options[:with_scores] || options[:withscores]
+  def zrevrangebyscore(key, max, min, withscores: false, with_scores: withscores, limit: nil)
+    args = [:zrevrangebyscore, key, max, min]
 
     if with_scores
-      args << ["WITHSCORES"]
+      args << "WITHSCORES"
       block = FloatifyPairs
     end
 
-    limit = options[:limit]
-    args.concat(["LIMIT"] + limit) if limit
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
 
     synchronize do |client|
-      client.call([:zrevrangebyscore, key, max, min] + args, &block)
+      client.call(args, &block)
     end
   end
 
@@ -2081,17 +2048,18 @@ class Redis
   #   sorted sets
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Integer] number of elements in the resulting sorted set
-  def zinterstore(destination, keys, options = {})
-    args = []
+  def zinterstore(destination, keys, weights: nil, aggregate: nil)
+    args = [:zinterstore, destination, keys.size, *keys]
 
-    weights = options[:weights]
-    args.concat(["WEIGHTS"] + weights) if weights
+    if weights
+      args << "WEIGHTS"
+      args.concat(weights)
+    end
 
-    aggregate = options[:aggregate]
-    args.concat(["AGGREGATE", aggregate]) if aggregate
+    args << "AGGREGATE" << aggregate if aggregate
 
     synchronize do |client|
-      client.call([:zinterstore, destination, keys.size] + keys + args)
+      client.call(args)
     end
   end
 
@@ -2108,17 +2076,18 @@ class Redis
   #   sorted sets
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Integer] number of elements in the resulting sorted set
-  def zunionstore(destination, keys, options = {})
-    args = []
+  def zunionstore(destination, keys, weights: nil, aggregate: nil)
+    args = [:zunionstore, destination, keys.size, *keys]
 
-    weights = options[:weights]
-    args.concat(["WEIGHTS"] + weights) if weights
+    if weights
+      args << "WEIGHTS"
+      args.concat(weights)
+    end
 
-    aggregate = options[:aggregate]
-    args.concat(["AGGREGATE", aggregate]) if aggregate
+    args << "AGGREGATE" << aggregate if aggregate
 
     synchronize do |client|
-      client.call([:zunionstore, destination, keys.size] + keys + args)
+      client.call(args)
     end
   end
 
@@ -2419,7 +2388,7 @@ class Redis
   # @see #multi
   def watch(*keys)
     synchronize do |client|
-      res = client.call([:watch] + keys)
+      res = client.call([:watch, *keys])
 
       if block_given?
         begin
@@ -2649,18 +2618,12 @@ class Redis
     _eval(:evalsha, args)
   end
 
-  def _scan(command, cursor, args, options = {}, &block)
+  def _scan(command, cursor, args, match: nil, count: nil, &block)
     # SSCAN/ZSCAN/HSCAN already prepend the key to +args+.
 
     args << cursor
-
-    if match = options[:match]
-      args.concat(["MATCH", match])
-    end
-
-    if count = options[:count]
-      args.concat(["COUNT", count])
-    end
+    args << "MATCH" << match if match
+    args << "COUNT" << count if count
 
     synchronize do |client|
       client.call([command] + args, &block)
@@ -2682,8 +2645,8 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [String, Array<String>] the next cursor and all found keys
-  def scan(cursor, options = {})
-    _scan(:scan, cursor, [], options)
+  def scan(cursor, **options)
+    _scan(:scan, cursor, [], **options)
   end
 
   # Scan the keyspace
@@ -2701,12 +2664,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all found keys
-  def scan_each(options = {}, &block)
-    return to_enum(:scan_each, options) unless block_given?
+  def scan_each(**options, &block)
+    return to_enum(:scan_each, **options) unless block_given?
 
     cursor = 0
     loop do
-      cursor, keys = scan(cursor, options)
+      cursor, keys = scan(cursor, **options)
       keys.each(&block)
       break if cursor == "0"
     end
@@ -2723,8 +2686,8 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [String, Array<[String, String]>] the next cursor and all found keys
-  def hscan(key, cursor, options = {})
-    _scan(:hscan, cursor, [key], options) do |reply|
+  def hscan(key, cursor, **options)
+    _scan(:hscan, cursor, [key], **options) do |reply|
       [reply[0], reply[1].each_slice(2).to_a]
     end
   end
@@ -2740,12 +2703,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all found keys
-  def hscan_each(key, options = {}, &block)
-    return to_enum(:hscan_each, key, options) unless block_given?
+  def hscan_each(key, **options, &block)
+    return to_enum(:hscan_each, key, **options) unless block_given?
 
     cursor = 0
     loop do
-      cursor, values = hscan(key, cursor, options)
+      cursor, values = hscan(key, cursor, **options)
       values.each(&block)
       break if cursor == "0"
     end
@@ -2763,8 +2726,8 @@ class Redis
   #
   # @return [String, Array<[String, Float]>] the next cursor and all found
   #   members and scores
-  def zscan(key, cursor, options = {})
-    _scan(:zscan, cursor, [key], options) do |reply|
+  def zscan(key, cursor, **options)
+    _scan(:zscan, cursor, [key], **options) do |reply|
       [reply[0], FloatifyPairs.call(reply[1])]
     end
   end
@@ -2780,12 +2743,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all found scores and members
-  def zscan_each(key, options = {}, &block)
-    return to_enum(:zscan_each, key, options) unless block_given?
+  def zscan_each(key, **options, &block)
+    return to_enum(:zscan_each, key, **options) unless block_given?
 
     cursor = 0
     loop do
-      cursor, values = zscan(key, cursor, options)
+      cursor, values = zscan(key, cursor, **options)
       values.each(&block)
       break if cursor == "0"
     end
@@ -2802,8 +2765,8 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [String, Array<String>] the next cursor and all found members
-  def sscan(key, cursor, options = {})
-    _scan(:sscan, cursor, [key], options)
+  def sscan(key, cursor, **options)
+    _scan(:sscan, cursor, [key], **options)
   end
 
   # Scan a set
@@ -2817,12 +2780,12 @@ class Redis
   #   - `:count => Integer`: return count keys at most per iteration
   #
   # @return [Enumerator] an enumerator for all keys in the set
-  def sscan_each(key, options = {}, &block)
-    return to_enum(:sscan_each, key, options) unless block_given?
+  def sscan_each(key, **options, &block)
+    return to_enum(:sscan_each, key, **options) unless block_given?
 
     cursor = 0
     loop do
-      cursor, keys = sscan(key, cursor, options)
+      cursor, keys = sscan(key, cursor, **options)
       keys.each(&block)
       break if cursor == "0"
     end
@@ -2991,10 +2954,14 @@ class Redis
   # @option opts [Boolean] :approximate whether to add `~` modifier of maxlen or not
   #
   # @return [String] the entry id
-  def xadd(key, entry, opts = {})
+  def xadd(key, entry, approximate: nil, maxlen: nil, id: '*')
     args = [:xadd, key]
-    args.concat(['MAXLEN', (opts[:approximate] ? '~' : nil), opts[:maxlen]].compact) if opts[:maxlen]
-    args << (opts[:id] || '*')
+    if maxlen
+      args << "MAXLEN"
+      args << "~" if approximate
+      args << maxlen
+    end
+    args << id
     args.concat(entry.to_a.flatten)
     synchronize { |client| client.call(args) }
   end
@@ -3165,12 +3132,12 @@ class Redis
   # @option opts [Boolean] :noack whether message loss is acceptable or not
   #
   # @return [Hash{String => Hash{String => Hash}}] the entries
-  def xreadgroup(group, consumer, keys, ids, opts = {})
+  def xreadgroup(group, consumer, keys, ids, count: nil, block: nil, noack: nil)
     args = [:xreadgroup, 'GROUP', group, consumer]
-    args << 'COUNT' << opts[:count] if opts[:count]
-    args << 'BLOCK' << opts[:block].to_i if opts[:block]
-    args << 'NOACK' if opts[:noack]
-    _xread(args, keys, ids, opts[:block])
+    args << 'COUNT' << count if count
+    args << 'BLOCK' << block.to_i if block
+    args << 'NOACK' if noack
+    _xread(args, keys, ids, block)
   end
 
   # Removes one or multiple entries from the pending entries list of a stream consumer group.

@@ -146,8 +146,8 @@ class Redis
     end
 
     # Create a key using the serialized value, previously obtained using DUMP.
-    def restore(key, ttl, serialized_value, options = {})
-      node_for(key).restore(key, ttl, serialized_value, options)
+    def restore(key, ttl, serialized_value, **options)
+      node_for(key).restore(key, ttl, serialized_value, **options)
     end
 
     # Transfer a key from the connected instance to another instance.
@@ -231,11 +231,11 @@ class Redis
     end
 
     # Sort the elements in a list, set or sorted set.
-    def sort(key, options = {})
+    def sort(key, **options)
       keys = [key, options[:by], options[:store], *Array(options[:get])].compact
 
       ensure_same_node(:sort, keys) do |node|
-        node.sort(key, options)
+        node.sort(key, **options)
       end
     end
 
@@ -270,8 +270,8 @@ class Redis
     end
 
     # Set the string value of a key.
-    def set(key, value, options = {})
-      node_for(key).set(key, value, options)
+    def set(key, value, **options)
+      node_for(key).set(key, value, **options)
     end
 
     # Set the time to live in seconds of a key.
@@ -465,15 +465,9 @@ class Redis
 
     # Pop a value from a list, push it to another list and return it; or block
     # until one is available.
-    def brpoplpush(source, destination, options = {})
-      case options
-      when Integer
-        # Issue deprecation notice in obnoxious mode...
-        options = { timeout: options }
-      end
-
+    def brpoplpush(source, destination, deprecated_timeout = 0, **options)
       ensure_same_node(:brpoplpush, [source, destination]) do |node|
-        node.brpoplpush(source, destination, options)
+        node.brpoplpush(source, destination, deprecated_timeout, **options)
       end
     end
 
@@ -550,13 +544,13 @@ class Redis
     end
 
     # Scan a set
-    def sscan(key, cursor, options = {})
-      node_for(key).sscan(key, cursor, options)
+    def sscan(key, cursor, **options)
+      node_for(key).sscan(key, cursor, **options)
     end
 
     # Scan a set and return an enumerator
-    def sscan_each(key, options = {}, &block)
-      node_for(key).sscan_each(key, options, &block)
+    def sscan_each(key, **options, &block)
+      node_for(key).sscan_each(key, **options, &block)
     end
 
     # Subtract multiple sets.
@@ -611,6 +605,7 @@ class Redis
     def zadd(key, *args)
       node_for(key).zadd(key, *args)
     end
+    ruby2_keywords(:zadd) if respond_to?(:ruby2_keywords, true)
 
     # Increment the score of a member in a sorted set.
     def zincrby(key, increment, member)
@@ -628,14 +623,14 @@ class Redis
     end
 
     # Return a range of members in a sorted set, by index.
-    def zrange(key, start, stop, options = {})
-      node_for(key).zrange(key, start, stop, options)
+    def zrange(key, start, stop, **options)
+      node_for(key).zrange(key, start, stop, **options)
     end
 
     # Return a range of members in a sorted set, by index, with scores ordered
     # from high to low.
-    def zrevrange(key, start, stop, options = {})
-      node_for(key).zrevrange(key, start, stop, options)
+    def zrevrange(key, start, stop, **options)
+      node_for(key).zrevrange(key, start, stop, **options)
     end
 
     # Determine the index of a member in a sorted set.
@@ -655,14 +650,14 @@ class Redis
     end
 
     # Return a range of members in a sorted set, by score.
-    def zrangebyscore(key, min, max, options = {})
-      node_for(key).zrangebyscore(key, min, max, options)
+    def zrangebyscore(key, min, max, **options)
+      node_for(key).zrangebyscore(key, min, max, **options)
     end
 
     # Return a range of members in a sorted set, by score, with scores ordered
     # from high to low.
-    def zrevrangebyscore(key, max, min, options = {})
-      node_for(key).zrevrangebyscore(key, max, min, options)
+    def zrevrangebyscore(key, max, min, **options)
+      node_for(key).zrevrangebyscore(key, max, min, **options)
     end
 
     # Remove all members in a sorted set within the given scores.
@@ -677,16 +672,16 @@ class Redis
 
     # Intersect multiple sorted sets and store the resulting sorted set in a new
     # key.
-    def zinterstore(destination, keys, options = {})
+    def zinterstore(destination, keys, **options)
       ensure_same_node(:zinterstore, [destination] + keys) do |node|
-        node.zinterstore(destination, keys, options)
+        node.zinterstore(destination, keys, **options)
       end
     end
 
     # Add multiple sorted sets and store the resulting sorted set in a new key.
-    def zunionstore(destination, keys, options = {})
+    def zunionstore(destination, keys, **options)
       ensure_same_node(:zunionstore, [destination] + keys) do |node|
-        node.zunionstore(destination, keys, options)
+        node.zunionstore(destination, keys, **options)
       end
     end
 
