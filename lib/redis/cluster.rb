@@ -80,6 +80,7 @@ class Redis
     def call_pipeline(pipeline)
       node_keys, command_keys = extract_keys_in_pipeline(pipeline)
       raise CrossSlotPipeliningError, command_keys if node_keys.size > 1
+
       node = find_node(node_keys.first)
       try_send(node, :call_pipeline, pipeline)
     end
@@ -216,11 +217,13 @@ class Redis
     rescue CommandError => err
       if err.message.start_with?('MOVED')
         raise if retry_count <= 0
+
         node = assign_redirection_node(err.message)
         retry_count -= 1
         retry
       elsif err.message.start_with?('ASK')
         raise if retry_count <= 0
+
         node = assign_asking_node(err.message)
         node.call(%i[asking])
         retry_count -= 1
@@ -266,6 +269,7 @@ class Redis
 
     def find_node(node_key)
       return @node.sample if node_key.nil?
+
       @node.find_by(node_key)
     rescue Node::ReloadNeeded
       update_cluster_info!(node_key)

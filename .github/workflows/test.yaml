@@ -8,6 +8,25 @@ on:
     branches:
       - "*"
 jobs:
+  lint:
+    name: Rubocop
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Set up Ruby
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: "2.4"
+      - name: Set up Gems
+        run: |
+          gem update --system --no-document
+          gem install bundler --no-document
+          bundle install --jobs 4 --retry 3 --path=.bundle
+      - name: Lint
+        run: bundle exec rubocop
+
   main:
     name: Main
     timeout-minutes: 30

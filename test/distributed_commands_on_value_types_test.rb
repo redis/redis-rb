@@ -1,9 +1,9 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 require_relative "lint/value_types"
 
 class TestDistributedCommandsOnValueTypes < Minitest::Test
-
   include Helper::Distributed
   include Lint::ValueTypes
 

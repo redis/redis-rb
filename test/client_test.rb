@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestClient < Minitest::Test
-
   include Helper::Client
 
   def test_call

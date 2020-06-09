@@ -143,7 +143,7 @@ class TestClusterClientSlots < Minitest::Test
   def test_redirection_when_slot_is_resharding
     100.times { |i| redis.set("{key}#{i}", i) }
 
-    redis_cluster_resharding(12539, src: '127.0.0.1:7002', dest: '127.0.0.1:7000') do
+    redis_cluster_resharding(12_539, src: '127.0.0.1:7002', dest: '127.0.0.1:7000') do
       100.times { |i| assert_equal i.to_s, redis.get("{key}#{i}") }
     end
   end

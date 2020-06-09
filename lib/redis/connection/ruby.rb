@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require_relative "registry"
 require_relative "command_helper"
 require_relative "../errors"
@@ -14,8 +15,7 @@ end
 class Redis
   module Connection
     module SocketMixin
-
-      CRLF = "\r\n".freeze
+      CRLF = "\r\n"
 
       def initialize(*args)
         super(*args)
@@ -25,46 +25,32 @@ class Redis
       end
 
       def timeout=(timeout)
-        if timeout && timeout > 0
-          @timeout = timeout
-        else
-          @timeout = nil
-        end
+        @timeout = (timeout if timeout && timeout > 0)
       end
 
       def write_timeout=(timeout)
-        if timeout && timeout > 0
-          @write_timeout = timeout
-        else
-          @write_timeout = nil
-        end
+        @write_timeout = (timeout if timeout && timeout > 0)
       end
 
       def read(nbytes)
         result = @buffer.slice!(0, nbytes)
 
-        while result.bytesize < nbytes
-          result << _read_from_socket(nbytes - result.bytesize)
-        end
+        result << _read_from_socket(nbytes - result.bytesize) while result.bytesize < nbytes
 
         result
       end
 
       def gets
-        crlf = nil
-
-        while (crlf = @buffer.index(CRLF)) == nil
-          @buffer << _read_from_socket(16384)
+        while (crlf = @buffer.index(CRLF)).nil?
+          @buffer << _read_from_socket(16_384)
         end
 
         @buffer.slice!(0, crlf + CRLF.bytesize)
       end
 
       def _read_from_socket(nbytes)
-
         begin
           read_nonblock(nbytes)
-
         rescue IO::WaitReadable
           if IO.select([self], nil, nil, @timeout)
             retry
@@ -78,7 +64,6 @@ class Redis
             raise Redis::TimeoutError
           end
         end
-
       rescue EOFError
         raise Errno::ECONNRESET
       end
@@ -86,7 +71,6 @@ class Redis
       def _write_to_socket(data)
         begin
           write_nonblock(data)
-
         rescue IO::WaitWritable
           if IO.select(nil, [self], nil, @write_timeout)
             retry
@@ -100,7 +84,6 @@ class Redis
             raise Redis::TimeoutError
           end
         end
-
       rescue EOFError
         raise Errno::ECONNRESET
       end
@@ -115,6 +98,7 @@ class Redis
 
           total_count += count
           return total_count if total_count >= length
+
           data = data.byteslice(count..-1)
         end
       end
@@ -125,7 +109,6 @@ class Redis
       require "timeout"
 
       class TCPSocket < ::TCPSocket
-
         include SocketMixin
 
         def self.connect(host, port, timeout)
@@ -141,7 +124,6 @@ class Redis
       if defined?(::UNIXSocket)
 
         class UNIXSocket < ::UNIXSocket
-
           include SocketMixin
 
           def self.connect(path, timeout)
@@ -159,7 +141,6 @@ class Redis
 
           def _read_from_socket(nbytes)
             readpartial(nbytes)
-
           rescue EOFError
             raise Errno::ECONNRESET
           end
@@ -170,19 +151,16 @@ class Redis
     else
 
       class TCPSocket < ::Socket
-
         include SocketMixin
 
-        def self.connect_addrinfo(ai, port, timeout)
-          sock = new(::Socket.const_get(ai[0]), Socket::SOCK_STREAM, 0)
-          sockaddr = ::Socket.pack_sockaddr_in(port, ai[3])
+        def self.connect_addrinfo(addrinfo, port, timeout)
+          sock = new(::Socket.const_get(addrinfo[0]), Socket::SOCK_STREAM, 0)
+          sockaddr = ::Socket.pack_sockaddr_in(port, addrinfo[3])
 
           begin
             sock.connect_nonblock(sockaddr)
           rescue Errno::EINPROGRESS
-            if IO.select(nil, [sock], nil, timeout) == nil
-              raise TimeoutError
-            end
+            raise TimeoutError if IO.select(nil, [sock], nil, timeout).nil?
 
             begin
               sock.connect_nonblock(sockaddr)
@@ -221,14 +199,13 @@ class Redis
               return connect_addrinfo(ai, port, timeout)
             rescue SystemCallError
               # Raise if this was our last attempt.
-              raise if addrinfo.length == i+1
+              raise if addrinfo.length == i + 1
             end
           end
         end
       end
 
       class UNIXSocket < ::Socket
-
         include SocketMixin
 
         def self.connect(path, timeout)
@@ -238,9 +215,7 @@ class Redis
           begin
             sock.connect_nonblock(sockaddr)
           rescue Errno::EINPROGRESS
-            if IO.select(nil, [sock], nil, timeout) == nil
-              raise TimeoutError
-            end
+            raise TimeoutError if IO.select(nil, [sock], nil, timeout).nil?
 
             begin
               sock.connect_nonblock(sockaddr)
@@ -292,7 +267,10 @@ class Redis
             end
           end
 
-          unless ctx.verify_mode == OpenSSL::SSL::VERIFY_NONE || (ctx.respond_to?(:verify_hostname) && !ctx.verify_hostname)
+          unless ctx.verify_mode == OpenSSL::SSL::VERIFY_NONE || (
+            ctx.respond_to?(:verify_hostname) &&
+            !ctx.verify_hostname
+          )
             ssl_sock.post_connection_check(host)
           end
 
@@ -304,15 +282,16 @@ class Redis
     class Ruby
       include Redis::Connection::CommandHelper
 
-      MINUS    = "-".freeze
-      PLUS     = "+".freeze
-      COLON    = ":".freeze
-      DOLLAR   = "$".freeze
-      ASTERISK = "*".freeze
+      MINUS    = "-"
+      PLUS     = "+"
+      COLON    = ":"
+      DOLLAR   = "$"
+      ASTERISK = "*"
 
       def self.connect(config)
         if config[:scheme] == "unix"
           raise ArgumentError, "SSL incompatible with unix sockets" if config[:ssl]
+
           sock = UNIXSocket.connect(config[:path], config[:connect_timeout])
         elsif config[:scheme] == "rediss" || config[:ssl]
           sock = SSLSocket.connect(config[:host], config[:port], config[:connect_timeout], config[:ssl_params])
@@ -328,7 +307,7 @@ class Redis
         instance
       end
 
-      if [:SOL_SOCKET, :SO_KEEPALIVE, :SOL_TCP, :TCP_KEEPIDLE, :TCP_KEEPINTVL, :TCP_KEEPCNT].all?{|c| Socket.const_defined? c}
+      if %i[SOL_SOCKET SO_KEEPALIVE SOL_TCP TCP_KEEPIDLE TCP_KEEPINTVL TCP_KEEPCNT].all? { |c| Socket.const_defined? c }
         def set_tcp_keepalive(keepalive)
           return unless keepalive.is_a?(Hash)
 
@@ -340,14 +319,13 @@ class Redis
 
         def get_tcp_keepalive
           {
-            :time   => @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE).int,
-            :intvl  => @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL).int,
-            :probes => @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT).int,
+            time: @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPIDLE).int,
+            intvl: @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPINTVL).int,
+            probes: @sock.getsockopt(Socket::SOL_TCP, Socket::TCP_KEEPCNT).int
           }
         end
       else
-        def set_tcp_keepalive(keepalive)
-        end
+        def set_tcp_keepalive(keepalive); end
 
         def get_tcp_keepalive
           {
@@ -356,13 +334,12 @@ class Redis
       end
 
       # disables Nagle's Algorithm, prevents multiple round trips with MULTI
-      if [:IPPROTO_TCP, :TCP_NODELAY].all?{|c| Socket.const_defined? c}
+      if %i[IPPROTO_TCP TCP_NODELAY].all? { |c| Socket.const_defined? c }
         def set_tcp_nodelay
           @sock.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
         end
       else
-        def set_tcp_nodelay
-        end
+        def set_tcp_nodelay; end
       end
 
       def initialize(sock)
@@ -370,7 +347,7 @@ class Redis
       end
 
       def connected?
-        !! @sock
+        !!@sock
       end
 
       def disconnect
@@ -381,9 +358,7 @@ class Redis
       end
 
       def timeout=(timeout)
-        if @sock.respond_to?(:timeout=)
-          @sock.timeout = timeout
-        end
+        @sock.timeout = timeout if @sock.respond_to?(:timeout=)
       end
 
       def write_timeout=(timeout)
@@ -398,7 +373,6 @@ class Redis
         line = @sock.gets
         reply_type = line.slice!(0, 1)
         format_reply(reply_type, line)
-
       rescue Errno::EAGAIN
         raise TimeoutError
       end
@@ -410,7 +384,7 @@ class Redis
         when COLON    then format_integer_reply(line)
         when DOLLAR   then format_bulk_reply(line)
         when ASTERISK then format_multi_bulk_reply(line)
-        else raise ProtocolError.new(reply_type)
+        else raise ProtocolError, reply_type
         end
       end
 
@@ -429,6 +403,7 @@ class Redis
       def format_bulk_reply(line)
         bulklen = line.to_i
         return if bulklen == -1
+
         reply = encode(@sock.read(bulklen))
         @sock.read(2) # Discard CRLF.
         reply

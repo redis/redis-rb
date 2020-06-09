@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestCommandMap < Minitest::Test
-
   include Helper::Client
 
   def test_override_existing_commands

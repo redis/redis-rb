@@ -1,11 +1,12 @@
 # frozen_string_literal: true
+
 require "benchmark"
 
-$:.push File.join(File.dirname(__FILE__), 'lib')
+$LOAD_PATH.push File.join(File.dirname(__FILE__), 'lib')
 
 require 'redis'
 
-ITERATIONS = 10000
+ITERATIONS = 10_000
 
 @r = Redis.new
 

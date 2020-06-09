@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestHelper < Minitest::Test
-
   include Helper
 
   def test_version_comparison

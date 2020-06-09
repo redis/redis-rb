@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestPublishSubscribe < Minitest::Test
-
   include Helper::Client
 
   class TestError < StandardError
@@ -14,19 +14,19 @@ class TestPublishSubscribe < Minitest::Test
 
     wire = Wire.new do
       r.subscribe("foo") do |on|
-        on.subscribe do |channel, total|
+        on.subscribe do |_channel, total|
           @subscribed = true
           @t1 = total
         end
 
-        on.message do |channel, message|
+        on.message do |_channel, message|
           if message == "s1"
             r.unsubscribe
             @message = message
           end
         end
 
-        on.unsubscribe do |channel, total|
+        on.unsubscribe do |_channel, total|
           @unsubscribed = true
           @t2 = total
         end
@@ -34,7 +34,7 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass while !@subscribed
+    Wire.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -53,19 +53,19 @@ class TestPublishSubscribe < Minitest::Test
 
     wire = Wire.new do
       r.psubscribe("f*") do |on|
-        on.psubscribe do |pattern, total|
+        on.psubscribe do |_pattern, total|
           @subscribed = true
           @t1 = total
         end
 
-        on.pmessage do |pattern, channel, message|
+        on.pmessage do |_pattern, _channel, message|
           if message == "s1"
             r.punsubscribe
             @message = message
           end
         end
 
-        on.punsubscribe do |pattern, total|
+        on.punsubscribe do |_pattern, total|
           @unsubscribed = true
           @t2 = total
         end
@@ -73,7 +73,7 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass while !@subscribed
+    Wire.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -91,11 +91,11 @@ class TestPublishSubscribe < Minitest::Test
       @subscribed = false
       wire = Wire.new do
         r.psubscribe("f*") do |on|
-          on.psubscribe { |channel, total| @subscribed = true }
-          on.pmessage   { |pattern, channel, message| r.punsubscribe }
+          on.psubscribe { |_channel, _total| @subscribed = true }
+          on.pmessage   { |_pattern, _channel, _message| r.punsubscribe }
         end
       end
-      Wire.pass while !@subscribed
+      Wire.pass until @subscribed
       redis = Redis.new(OPTIONS)
       numpat_result = redis.pubsub(:numpat)
 
@@ -107,21 +107,20 @@ class TestPublishSubscribe < Minitest::Test
     end
   end
 
-
   def test_pubsub_with_channels_and_numsub_subcommnads
     target_version("2.8.0") do
       @subscribed = false
       wire = Wire.new do
         r.subscribe("foo") do |on|
-          on.subscribe { |channel, total| @subscribed = true }
-          on.message   { |channel, message| r.unsubscribe }
+          on.subscribe { |_channel, _total| @subscribed = true }
+          on.message   { |_channel, _message| r.unsubscribe }
         end
       end
-      Wire.pass while !@subscribed
+      Wire.pass until @subscribed
       redis = Redis.new(OPTIONS)
       channels_result = redis.pubsub(:channels)
       channels_result.delete('__sentinel__:hello')
-      numsub_result   = redis.pubsub(:numsub, 'foo', 'boo')
+      numsub_result = redis.pubsub(:numsub, 'foo', 'boo')
 
       redis.publish("foo", "s1")
       wire.join
@@ -137,11 +136,11 @@ class TestPublishSubscribe < Minitest::Test
     wire = Wire.new do
       begin
         r.subscribe("foo") do |on|
-          on.subscribe do |channel, total|
+          on.subscribe do |_channel, _total|
             @subscribed = true
           end
 
-          on.message do |channel, message|
+          on.message do |_channel, _message|
             raise TestError
           end
         end
@@ -150,7 +149,7 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass while !@subscribed
+    Wire.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -165,11 +164,11 @@ class TestPublishSubscribe < Minitest::Test
     wire = Wire.new do
       begin
         r.psubscribe("f*") do |on|
-          on.psubscribe do |pattern, total|
+          on.psubscribe do |_pattern, _total|
             @subscribed = true
           end
 
-          on.pmessage do |pattern, channel, message|
+          on.pmessage do |_pattern, _channel, _message|
             raise TestError
           end
         end
@@ -178,7 +177,7 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass while !@subscribed
+    Wire.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
@@ -192,7 +191,7 @@ class TestPublishSubscribe < Minitest::Test
 
     wire = Wire.new do
       r.subscribe("foo") do |on|
-        on.subscribe do |channel, total|
+        on.subscribe do |channel, _total|
           @channels << channel
 
           r.subscribe("bar") if channel == "foo"
@@ -209,7 +208,7 @@ class TestPublishSubscribe < Minitest::Test
   def test_other_commands_within_a_subscribe
     assert_raises Redis::CommandError do
       r.subscribe("foo") do |on|
-        on.subscribe do |channel, total|
+        on.subscribe do |_channel, _total|
           r.set("bar", "s2")
         end
       end
@@ -256,8 +255,8 @@ class TestPublishSubscribe < Minitest::Test
     received = false
 
     assert_raises Redis::TimeoutError do
-      r.subscribe_with_timeout(LOW_TIMEOUT, "foo")  do |on|
-        on.message do |channel, message|
+      r.subscribe_with_timeout(LOW_TIMEOUT, "foo") do |on|
+        on.message do |_channel, _message|
           received = true
         end
       end
@@ -270,8 +269,8 @@ class TestPublishSubscribe < Minitest::Test
     received = false
 
     assert_raises Redis::TimeoutError do
-      r.psubscribe_with_timeout(LOW_TIMEOUT, "f*")  do |on|
-        on.message do |channel, message|
+      r.psubscribe_with_timeout(LOW_TIMEOUT, "f*") do |on|
+        on.message do |_channel, _message|
           received = true
         end
       end

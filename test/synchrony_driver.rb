@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "em-synchrony"
 require "em-synchrony/connection_pool"
 
@@ -8,7 +9,7 @@ require_relative "../lib/redis/connection/synchrony"
 require_relative "helper"
 
 PORT    = 6381
-OPTIONS = {:port => PORT, :db => 15}
+OPTIONS = { port: PORT, db: 15 }.freeze
 
 #
 # if running under Eventmachine + Synchrony (Ruby 1.9+), then
@@ -55,7 +56,6 @@ EM.synchrony do
 
   assert_equal "OK", r._client.call(:quit)
   assert_equal "PONG", r.ping
-
 
   rpool = EM::Synchrony::ConnectionPool.new(size: 5) { Redis.new OPTIONS }
 

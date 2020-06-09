@@ -25,9 +25,8 @@ class Redis
       def fetch_slot_info(node)
         hash_with_default_arr = Hash.new { |h, k| h[k] = [] }
         node.call(%i[cluster slots])
-          .flat_map { |arr| parse_slot_info(arr, default_ip: node.host) }
-          .each_with_object(hash_with_default_arr) { |arr, h| h[arr[0]] << arr[1] }
-
+            .flat_map { |arr| parse_slot_info(arr, default_ip: node.host) }
+            .each_with_object(hash_with_default_arr) { |arr, h| h[arr[0]] << arr[1] }
       rescue CannotConnectError, ConnectionError, CommandError
         {} # can retry on another node
       end

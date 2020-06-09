@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributed < Minitest::Test
-
   include Helper::Distributed
 
   def test_handle_multiple_servers
@@ -16,14 +16,14 @@ class TestDistributed < Minitest::Test
       assert_equal "foo#{idx}", @r.get(idx.to_s)
     end
 
-    assert_equal "0", @r.keys("*").sort.first
+    assert_equal "0", @r.keys("*").min
     assert_equal "string", @r.type("1")
   end
 
   def test_add_nodes
     logger = Logger.new("/dev/null")
 
-    @r = Redis::Distributed.new NODES, :logger => logger, :timeout => 10
+    @r = Redis::Distributed.new NODES, logger: logger, timeout: 10
 
     assert_equal "127.0.0.1", @r.nodes[0]._client.host
     assert_equal PORT, @r.nodes[0]._client.port

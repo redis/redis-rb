@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestThreadSafety < Minitest::Test
-
   include Helper::Client
 
   driver(:ruby, :hiredis) do
@@ -14,18 +14,18 @@ class TestThreadSafety < Minitest::Test
       sample = 100
 
       t1 = Thread.new do
-        $foos = Array.new(sample) { redis.get "foo" }
+        @foos = Array.new(sample) { redis.get "foo" }
       end
 
       t2 = Thread.new do
-        $bars = Array.new(sample) { redis.get "bar" }
+        @bars = Array.new(sample) { redis.get "bar" }
       end
 
       t1.join
       t2.join
 
-      assert_equal ["1"], $foos.uniq
-      assert_equal ["2"], $bars.uniq
+      assert_equal ["1"], @foos.uniq
+      assert_equal ["2"], @bars.uniq
     end
 
     def test_thread_safety_queue_commit
@@ -40,7 +40,7 @@ class TestThreadSafety < Minitest::Test
           r.queue("get", "foo")
         end
 
-        $foos = r.commit
+        @foos = r.commit
       end
 
       t2 = Thread.new do
@@ -48,14 +48,14 @@ class TestThreadSafety < Minitest::Test
           r.queue("get", "bar")
         end
 
-        $bars = r.commit
+        @bars = r.commit
       end
 
       t1.join
       t2.join
 
-      assert_equal ["1"], $foos.uniq
-      assert_equal ["2"], $bars.uniq
+      assert_equal ["1"], @foos.uniq
+      assert_equal ["2"], @bars.uniq
     end
   end
 end

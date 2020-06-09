@@ -1,8 +1,7 @@
 # frozen_string_literal: true
+
 module Lint
-
   module Hashes
-
     def test_hset_and_hget
       assert_equal 1, r.hset("foo", "f1", "s1")
 
@@ -114,12 +113,12 @@ module Lint
     end
 
     def test_hgetall
-      assert({} == r.hgetall("foo"))
+      assert(r.hgetall("foo") == {})
 
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
 
-      assert({"f1" => "s1", "f2" => "s2"} == r.hgetall("foo"))
+      assert(r.hgetall("foo") == { "f1" => "s1", "f2" => "s2" })
     end
 
     def test_hmset
@@ -136,7 +135,7 @@ module Lint
     end
 
     def test_mapped_hmset
-      r.mapped_hmset("foo", :f1 => "s1", :f2 => "s2")
+      r.mapped_hmset("foo", f1: "s1", f2: "s2")
 
       assert_equal "s1", r.hget("foo", "f1")
       assert_equal "s2", r.hget("foo", "f2")
@@ -155,8 +154,8 @@ module Lint
       r.hset("foo", "f2", "s2")
       r.hset("foo", "f3", "s3")
 
-      assert({"f1" => "s1"} == r.mapped_hmget("foo", "f1"))
-      assert({"f1" => "s1", "f2" => "s2"} == r.mapped_hmget("foo", "f1", "f2"))
+      assert(r.mapped_hmget("foo", "f1") == { "f1" => "s1" })
+      assert(r.mapped_hmget("foo", "f1", "f2") == { "f1" => "s1", "f2" => "s2" })
     end
 
     def test_mapped_hmget_in_a_pipeline_returns_hash

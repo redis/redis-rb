@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestSorting < Minitest::Test
-
   include Helper::Client
 
   def test_sort
@@ -12,8 +12,8 @@ class TestSorting < Minitest::Test
     r.rpush("bar", "1")
     r.rpush("bar", "2")
 
-    assert_equal ["s1"], r.sort("bar", :get => "foo:*", :limit => [0, 1])
-    assert_equal ["s2"], r.sort("bar", :get => "foo:*", :limit => [0, 1], :order => "desc alpha")
+    assert_equal ["s1"], r.sort("bar", get: "foo:*", limit: [0, 1])
+    assert_equal ["s2"], r.sort("bar", get: "foo:*", limit: [0, 1], order: "desc alpha")
   end
 
   def test_sort_with_an_array_of_gets
@@ -26,9 +26,9 @@ class TestSorting < Minitest::Test
     r.rpush("bar", "1")
     r.rpush("bar", "2")
 
-    assert_equal [["s1a", "s1b"]], r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1])
-    assert_equal [["s2a", "s2b"]], r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :limit => [0, 1], :order => "desc alpha")
-    assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort("bar", :get => ["foo:*:a", "foo:*:b"])
+    assert_equal [["s1a", "s1b"]], r.sort("bar", get: ["foo:*:a", "foo:*:b"], limit: [0, 1])
+    assert_equal [["s2a", "s2b"]], r.sort("bar", get: ["foo:*:a", "foo:*:b"], limit: [0, 1], order: "desc alpha")
+    assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort("bar", get: ["foo:*:a", "foo:*:b"])
   end
 
   def test_sort_with_store
@@ -38,7 +38,7 @@ class TestSorting < Minitest::Test
     r.rpush("bar", "1")
     r.rpush("bar", "2")
 
-    r.sort("bar", :get => "foo:*", :store => "baz")
+    r.sort("bar", get: "foo:*", store: "baz")
     assert_equal ["s1", "s2"], r.lrange("baz", 0, -1)
   end
 
@@ -52,7 +52,7 @@ class TestSorting < Minitest::Test
     r.rpush("bar", "1")
     r.rpush("bar", "2")
 
-    r.sort("bar", :get => ["foo:*:a", "foo:*:b"], :store => 'baz')
+    r.sort("bar", get: ["foo:*:a", "foo:*:b"], store: 'baz')
     assert_equal ["s1a", "s1b", "s2a", "s2b"], r.lrange("baz", 0, -1)
   end
 end

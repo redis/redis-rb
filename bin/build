@@ -69,9 +69,7 @@ class Builder
 
   def command!(*args)
     puts "$ #{args.join(' ')}"
-    unless system(*args)
-      raise "Command failed with status #{$?.exitstatus}"
-    end
+    raise "Command failed with status #{$CHILD_STATUS.exitstatus}" unless system(*args)
   end
 end
 

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
-module Lint
 
+module Lint
   module Strings
     def mock(*args, &block)
       redis_mock(*args, &block)
@@ -39,26 +39,26 @@ module Lint
 
     def test_set_with_ex
       target_version "2.6.12" do
-        r.set("foo", "bar", :ex => 2)
+        r.set("foo", "bar", ex: 2)
         assert_in_range 0..2, r.ttl("foo")
       end
     end
 
     def test_set_with_px
       target_version "2.6.12" do
-        r.set("foo", "bar", :px => 2000)
+        r.set("foo", "bar", px: 2000)
         assert_in_range 0..2, r.ttl("foo")
       end
     end
 
     def test_set_with_nx
       target_version "2.6.12" do
-        r.set("foo", "qux", :nx => true)
-        assert !r.set("foo", "bar", :nx => true)
+        r.set("foo", "qux", nx: true)
+        assert !r.set("foo", "bar", nx: true)
         assert_equal "qux", r.get("foo")
 
         r.del("foo")
-        assert r.set("foo", "bar", :nx => true)
+        assert r.set("foo", "bar", nx: true)
         assert_equal "bar", r.get("foo")
       end
     end
@@ -66,19 +66,19 @@ module Lint
     def test_set_with_xx
       target_version "2.6.12" do
         r.set("foo", "qux")
-        assert r.set("foo", "bar", :xx => true)
+        assert r.set("foo", "bar", xx: true)
         assert_equal "bar", r.get("foo")
 
         r.del("foo")
-        assert !r.set("foo", "bar", :xx => true)
+        assert !r.set("foo", "bar", xx: true)
       end
     end
 
     def test_set_with_keepttl
       target_version "6.0.0" do
-        r.set("foo", "qux", :ex => 2)
+        r.set("foo", "qux", ex: 2)
         assert_in_range 0..2, r.ttl("foo")
-        r.set("foo", "bar", :keepttl => true)
+        r.set("foo", "bar", keepttl: true)
         assert_in_range 0..2, r.ttl("foo")
       end
     end
@@ -168,8 +168,8 @@ module Lint
     def test_incrbyfloat
       target_version "2.5.4" do
         assert_equal 1.23, r.incrbyfloat("foo", 1.23)
-        assert_equal 2   , r.incrbyfloat("foo", 0.77)
-        assert_equal 1.9 , r.incrbyfloat("foo", -0.1)
+        assert_equal 2, r.incrbyfloat("foo", 0.77)
+        assert_equal 1.9, r.incrbyfloat("foo", -0.1)
       end
     end
 
@@ -247,7 +247,7 @@ module Lint
 
       r.setrange("foo", 2, value)
 
-      assert_equal "ab#{value.to_s}", r.get("foo")
+      assert_equal "ab#{value}", r.get("foo")
     end
 
     def test_strlen
@@ -285,7 +285,7 @@ module Lint
 
       assert_equal 's1', response['{1}foo']
       assert_equal 's2', response['{1}bar']
-      assert_nil  response['{1}baz']
+      assert_nil response['{1}baz']
     end
 
     def test_mapped_mget_in_a_pipeline_returns_hash

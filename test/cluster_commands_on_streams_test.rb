@@ -23,10 +23,10 @@ class TestClusterCommandsOnStreams < Minitest::Test
     actual = redis.xread(%w[{s}1 {s}2], %w[0-1 1-1])
 
     assert_equal %w(0-2), actual['{s}1'].map(&:first)
-    assert_equal %w(v02), actual['{s}1'].map { |i| i.last['f'] }
+    assert_equal(%w(v02), actual['{s}1'].map { |i| i.last['f'] })
 
     assert_equal %w(1-2), actual['{s}2'].map(&:first)
-    assert_equal %w(v12), actual['{s}2'].map { |i| i.last['f'] }
+    assert_equal(%w(v12), actual['{s}2'].map { |i| i.last['f'] })
   end
 
   def test_xreadgroup_with_multiple_keys
@@ -45,9 +45,9 @@ class TestClusterCommandsOnStreams < Minitest::Test
     actual = redis.xreadgroup('g1', 'c1', %w[{s}1 {s}2], %w[> >])
 
     assert_equal %w(0-2), actual['{s}1'].map(&:first)
-    assert_equal %w(v02), actual['{s}1'].map { |i| i.last['f'] }
+    assert_equal(%w(v02), actual['{s}1'].map { |i| i.last['f'] })
 
     assert_equal %w(1-2), actual['{s}2'].map(&:first)
-    assert_equal %w(v12), actual['{s}2'].map { |i| i.last['f'] }
+    assert_equal(%w(v12), actual['{s}2'].map { |i| i.last['f'] })
   end
 end

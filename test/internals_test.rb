@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestInternals < Minitest::Test
-
   include Helper::Client
 
   def test_logger
@@ -33,7 +33,7 @@ class TestInternals < Minitest::Test
   end
 
   def test_raises_on_protocol_errors
-    redis_mock(:ping => lambda { |*_| "foo" }) do |redis|
+    redis_mock(ping: ->(*_) { "foo" }) do |redis|
       assert_raises(Redis::ProtocolError) do
         redis.ping
       end
@@ -45,7 +45,7 @@ class TestInternals < Minitest::Test
     assert_equal 6379, Redis.current._client.port
     assert_equal 0, Redis.current._client.db
 
-    Redis.current = Redis.new(OPTIONS.merge(:port => 6380, :db => 1))
+    Redis.current = Redis.new(OPTIONS.merge(port: 6380, db: 1))
 
     t = Thread.new do
       assert_equal "127.0.0.1", Redis.current._client.host
@@ -72,23 +72,21 @@ class TestInternals < Minitest::Test
   end
 
   def test_timeout
-    Redis.new(OPTIONS.merge(:timeout => 0))
+    Redis.new(OPTIONS.merge(timeout: 0))
   end
 
   driver(:ruby) do
     def test_tcp_keepalive
-      keepalive = {:time => 20, :intvl => 10, :probes => 5}
+      keepalive = { time: 20, intvl: 10, probes: 5 }
 
-      redis = Redis.new(OPTIONS.merge(:tcp_keepalive => keepalive))
+      redis = Redis.new(OPTIONS.merge(tcp_keepalive: keepalive))
       redis.ping
 
       connection = redis._client.connection
       actual_keepalive = connection.get_tcp_keepalive
 
-      [:time, :intvl, :probes].each do |key|
-        if actual_keepalive.has_key?(key)
-          assert_equal actual_keepalive[key], keepalive[key]
-        end
+      %i[time intvl probes].each do |key|
+        assert_equal actual_keepalive[key], keepalive[key] if actual_keepalive.key?(key)
       end
     end
   end
@@ -102,39 +100,39 @@ class TestInternals < Minitest::Test
       redis_usec = rv[0] * 1_000_000 + rv[1]
       ruby_usec = Integer(Time.now.to_f * 1_000_000)
 
-      assert 500_000 > (ruby_usec - redis_usec).abs
+      assert((ruby_usec - redis_usec).abs < 500_000)
     end
   end
 
   def test_connection_timeout
-    opts = OPTIONS.merge(:host => "10.255.255.254", :connect_timeout => 0.1, :timeout => 5.0)
+    opts = OPTIONS.merge(host: "10.255.255.254", connect_timeout: 0.1, timeout: 5.0)
     start_time = Time.now
     assert_raises Redis::CannotConnectError do
       Redis.new(opts).ping
     end
-    assert (Time.now - start_time) <= opts[:timeout]
+    assert((Time.now - start_time) <= opts[:timeout])
   end
 
   def test_missing_socket
-    opts = { :path => '/missing.sock' }
+    opts = { path: '/missing.sock' }
     assert_raises Redis::CannotConnectError do
       Redis.new(opts).ping
     end
   end
 
   def close_on_ping(seq, options = {})
-    $request = 0
+    @request = 0
 
     command = lambda do
-      idx = $request
-      $request += 1
+      idx = @request
+      @request += 1
 
       rv = "+%d" % idx
       rv = nil if seq.include?(idx)
       rv
     end
 
-    redis_mock({:ping => command}, {:timeout => 0.1}.merge(options)) do |redis|
+    redis_mock({ ping: command }, { timeout: 0.1 }.merge(options)) do |redis|
       yield(redis)
     end
   end
@@ -184,13 +182,13 @@ class TestInternals < Minitest::Test
   end
 
   def test_retry_with_custom_reconnect_attempts
-    close_on_ping([0, 1], :reconnect_attempts => 2) do |redis|
+    close_on_ping([0, 1], reconnect_attempts: 2) do |redis|
       assert_equal "2", redis.ping
     end
   end
 
   def test_retry_with_custom_reconnect_attempts_can_still_fail
-    close_on_ping([0, 1, 2], :reconnect_attempts => 2) do |redis|
+    close_on_ping([0, 1, 2], reconnect_attempts: 2) do |redis|
       assert_raises Redis::ConnectionError do
         redis.ping
       end
@@ -200,10 +198,9 @@ class TestInternals < Minitest::Test
   end
 
   def test_retry_with_custom_reconnect_attempts_and_exponential_backoff
-    close_on_ping([0, 1, 2], :reconnect_attempts => 3,
-                             :reconnect_delay_max => 0.5,
-                             :reconnect_delay => 0.01) do |redis|
-
+    close_on_ping([0, 1, 2], reconnect_attempts: 3,
+                             reconnect_delay_max: 0.5,
+                             reconnect_delay: 0.01) do |redis|
       Kernel.expects(:sleep).with(0.01).returns(true)
       Kernel.expects(:sleep).with(0.02).returns(true)
       Kernel.expects(:sleep).with(0.04).returns(true)
@@ -226,7 +223,7 @@ class TestInternals < Minitest::Test
   end
 
   def close_on_connection(seq)
-    $n = 0
+    @n = 0
 
     read_command = lambda do |session|
       Array.new(session.gets[1..-3].to_i) do
@@ -238,8 +235,8 @@ class TestInternals < Minitest::Test
     end
 
     handler = lambda do |session|
-      n = $n
-      $n += 1
+      n = @n
+      @n += 1
 
       select = read_command.call(session)
       if select[0].downcase == "select"
@@ -247,11 +244,8 @@ class TestInternals < Minitest::Test
       else
         raise "Expected SELECT"
       end
-
-      if !seq.include?(n)
-        while read_command.call(session)
-          session.write("+#{n}\r\n")
-        end
+      unless seq.include?(n) # rubocop:disable Style/IfUnlessModifier
+        session.write("+#{n}\r\n") while read_command.call(session)
       end
     end
 
@@ -295,26 +289,25 @@ class TestInternals < Minitest::Test
   end
 
   def test_connecting_to_unix_domain_socket
-    Redis.new(OPTIONS.merge(:path => ENV.fetch("SOCKET_PATH"))).ping
+    Redis.new(OPTIONS.merge(path: ENV.fetch("SOCKET_PATH"))).ping
   end
 
   driver(:ruby, :hiredis) do
     def test_bubble_timeout_without_retrying
       serv = TCPServer.new(6380)
 
-      redis = Redis.new(:port => 6380, :timeout => 0.1)
+      redis = Redis.new(port: 6380, timeout: 0.1)
 
       assert_raises(Redis::TimeoutError) do
         redis.ping
       end
-
     ensure
-      serv.close if serv
+      serv&.close
     end
   end
 
   def test_client_options
-    redis = Redis.new(OPTIONS.merge(:host => "host", :port => 1234, :db => 1, :scheme => "foo"))
+    redis = Redis.new(OPTIONS.merge(host: "host", port: 1234, db: 1, scheme: "foo"))
 
     assert_equal "host", redis._client.options[:host]
     assert_equal 1234, redis._client.options[:port]
@@ -323,29 +316,27 @@ class TestInternals < Minitest::Test
   end
 
   def test_resolves_localhost
-    Redis.new(OPTIONS.merge(:host => 'localhost')).ping
+    Redis.new(OPTIONS.merge(host: 'localhost')).ping
   end
 
   class << self
-    def af_family_supported(af)
+    def af_family_supported(af_type)
       hosts = {
-        Socket::AF_INET  => "127.0.0.1",
-        Socket::AF_INET6 => "::1",
+        Socket::AF_INET => "127.0.0.1",
+        Socket::AF_INET6 => "::1"
       }
 
       begin
-        s = Socket.new(af, Socket::SOCK_STREAM, 0)
+        s = Socket.new(af_type, Socket::SOCK_STREAM, 0)
         begin
           tries = 5
           begin
-            sa = Socket.pack_sockaddr_in(1024 + Random.rand(63076), hosts[af])
+            sa = Socket.pack_sockaddr_in(Random.rand(1024..64_099), hosts[af_type])
             s.bind(sa)
           rescue Errno::EADDRINUSE => e
             # On JRuby (9.1.15.0), if IPv6 is globally disabled on the system,
             # we get an EADDRINUSE with belows message.
-            if e.message =~ /Protocol family unavailable/
-              return
-            end
+            return if e.message =~ /Protocol family unavailable/
 
             tries -= 1
             retry if tries > 0
@@ -364,12 +355,10 @@ class TestInternals < Minitest::Test
 
   def af_test(host)
     commands = {
-      :ping => lambda { |*_| "+pong" },
+      ping: ->(*_) { "+pong" }
     }
 
-    redis_mock(commands, :host => host) do |redis|
-      redis.ping
-    end
+    redis_mock(commands, host: host, &:ping)
   end
 
   driver(:ruby) do

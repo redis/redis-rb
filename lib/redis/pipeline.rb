@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class Redis
   class Pipeline
     attr_accessor :db
@@ -61,7 +62,7 @@ class Redis
       @futures.map(&:timeout)
     end
 
-    def with_reconnect(val=true)
+    def with_reconnect(val = true)
       @with_reconnect = false unless val
       yield
     end
@@ -93,7 +94,8 @@ class Redis
 
         if exec.size < futures.size
           # Some command wasn't recognized by Redis.
-          raise replies.detect { |r| r.is_a?(CommandError) }
+          command_error = replies.detect { |r| r.is_a?(CommandError) }
+          raise command_error
         end
 
         super(exec) do |reply|
@@ -145,11 +147,7 @@ class Redis
       message << " - You probably meant to call .value == or .value !="
       message << " (#{::Kernel.caller(1, 1).first})\n"
 
-      if defined?(::Warning)
-        ::Warning.warn(message)
-      else
-        $stderr.puts(message)
-      end
+      ::Kernel.warn(message)
 
       super
     end
@@ -168,7 +166,7 @@ class Redis
     end
 
     def value
-      ::Kernel.raise(@object) if @object.kind_of?(::RuntimeError)
+      ::Kernel.raise(@object) if @object.is_a?(::RuntimeError)
       @object
     end
 

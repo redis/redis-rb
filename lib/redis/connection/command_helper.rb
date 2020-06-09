@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 class Redis
   module Connection
     module CommandHelper
-
       COMMAND_DELIMITER = "\r\n"
 
       def build_command(args)
@@ -29,7 +29,7 @@ class Redis
         command.join(COMMAND_DELIMITER)
       end
 
-    protected
+      protected
 
       def encode(string)
         string.force_encoding(Encoding.default_external)

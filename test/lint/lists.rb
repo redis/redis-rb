@@ -1,8 +1,7 @@
 # frozen_string_literal: true
+
 module Lint
-
   module Lists
-
     def test_lpush
       r.lpush "foo", "s1"
       r.lpush "foo", "s2"

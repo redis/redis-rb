@@ -1,19 +1,19 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestRemoteServerControlCommands < Minitest::Test
-
   include Helper::Client
 
   def test_info
     keys = [
-     "redis_version",
-     "uptime_in_seconds",
-     "uptime_in_days",
-     "connected_clients",
-     "used_memory",
-     "total_connections_received",
-     "total_commands_processed",
+      "redis_version",
+      "uptime_in_seconds",
+      "uptime_in_days",
+      "connected_clients",
+      "used_memory",
+      "total_connections_received",
+      "total_commands_processed"
     ]
 
     info = r.info
@@ -52,7 +52,7 @@ class TestRemoteServerControlCommands < Minitest::Test
 
     wire.join
 
-    assert log[-1][%q{(db 15) "set" "foo" "s1"}]
+    assert log[-1]['(db 15) "set" "foo" "s1"']
   end
 
   def test_monitor_redis_gte_2_5_0
@@ -91,7 +91,7 @@ class TestRemoteServerControlCommands < Minitest::Test
   def test_debug
     r.set "foo", "s1"
 
-    assert r.debug(:object, "foo").kind_of?(String)
+    assert r.debug(:object, "foo").is_a?(String)
   end
 
   def test_object
@@ -99,12 +99,12 @@ class TestRemoteServerControlCommands < Minitest::Test
 
     assert_equal 1, r.object(:refcount, "list")
     encoding = r.object(:encoding, "list")
-    assert "ziplist" == encoding || "quicklist" == encoding, "Wrong encoding for list"
-    assert r.object(:idletime, "list").kind_of?(Integer)
+    assert encoding == "ziplist" || encoding == "quicklist", "Wrong encoding for list"
+    assert r.object(:idletime, "list").is_a?(Integer)
   end
 
   def test_sync
-    redis_mock(:sync => lambda { "+OK" }) do |redis|
+    redis_mock(sync: -> { "+OK" }) do |redis|
       assert_equal "OK", redis.sync
     end
   end
@@ -123,23 +123,23 @@ class TestRemoteServerControlCommands < Minitest::Test
     return if version < "2.4.0"
 
     keys = [
-     "addr",
-     "fd",
-     "name",
-     "age",
-     "idle",
-     "flags",
-     "db",
-     "sub",
-     "psub",
-     "multi",
-     "qbuf",
-     "qbuf-free",
-     "obl",
-     "oll",
-     "omem",
-     "events",
-     "cmd"
+      "addr",
+      "fd",
+      "name",
+      "age",
+      "idle",
+      "flags",
+      "db",
+      "sub",
+      "psub",
+      "multi",
+      "qbuf",
+      "qbuf-free",
+      "obl",
+      "oll",
+      "omem",
+      "events",
+      "cmd"
     ]
 
     clients = r.client(:list)
@@ -156,11 +156,11 @@ class TestRemoteServerControlCommands < Minitest::Test
 
     r.client(:setname, 'redis-rb')
     clients = r.client(:list)
-    i = clients.index {|client| client['name'] == 'redis-rb'}
+    i = clients.index { |client| client['name'] == 'redis-rb' }
     assert_equal "OK", r.client(:kill, clients[i]["addr"])
 
     clients = r.client(:list)
-    i = clients.index {|client| client['name'] == 'redis-rb'}
+    i = clients.index { |client| client['name'] == 'redis-rb' }
     assert_nil i
   end
 

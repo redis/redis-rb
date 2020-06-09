@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestConnection < Minitest::Test
-
   include Helper::Client
 
   def test_provides_a_meaningful_inspect
@@ -18,27 +18,27 @@ class TestConnection < Minitest::Test
   end
 
   def test_default_id_with_host_and_port
-    redis = Redis.new(OPTIONS.merge(:host => "host", :port => "1234", :db => 0))
+    redis = Redis.new(OPTIONS.merge(host: "host", port: "1234", db: 0))
     assert_equal "redis://host:1234/0", redis.connection.fetch(:id)
   end
 
   def test_default_id_with_host_and_port_and_explicit_scheme
-    redis = Redis.new(OPTIONS.merge(:host => "host", :port => "1234", :db => 0, :scheme => "foo"))
+    redis = Redis.new(OPTIONS.merge(host: "host", port: "1234", db: 0, scheme: "foo"))
     assert_equal "redis://host:1234/0", redis.connection.fetch(:id)
   end
 
   def test_default_id_with_path
-    redis = Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock", :db => 0))
+    redis = Redis.new(OPTIONS.merge(path: "/tmp/redis.sock", db: 0))
     assert_equal "redis:///tmp/redis.sock/0", redis.connection.fetch(:id)
   end
 
   def test_default_id_with_path_and_explicit_scheme
-    redis = Redis.new(OPTIONS.merge(:path => "/tmp/redis.sock", :db => 0, :scheme => "foo"))
+    redis = Redis.new(OPTIONS.merge(path: "/tmp/redis.sock", db: 0, scheme: "foo"))
     assert_equal "redis:///tmp/redis.sock/0", redis.connection.fetch(:id)
   end
 
   def test_override_id
-    redis = Redis.new(OPTIONS.merge(:id => "test"))
+    redis = Redis.new(OPTIONS.merge(id: "test"))
     assert_equal "test", redis.connection.fetch(:id)
   end
 

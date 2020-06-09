@@ -1,8 +1,7 @@
 # frozen_string_literal: true
+
 module Lint
-
   module ValueTypes
-
     def test_exists
       assert_equal false, r.exists("foo")
 
@@ -40,7 +39,7 @@ module Lint
 
       r.set("{1}foo", "s1")
 
-      assert_equal true,  r.exists?("{1}foo")
+      assert_equal true, r.exists?("{1}foo")
     end
 
     def test_type
@@ -56,7 +55,7 @@ module Lint
       r.set("fo", "s2")
       r.set("foo", "s3")
 
-      assert_equal ["f","fo", "foo"], r.keys("f*").sort
+      assert_equal ["f", "fo", "foo"], r.keys("f*").sort
     end
 
     def test_expire
@@ -92,7 +91,7 @@ module Lint
       r.expire("foo", 1)
       r.persist("foo")
 
-      assert(-1 == r.ttl("foo"))
+      assert(r.ttl("foo") == -1)
     end
 
     def test_ttl
@@ -129,9 +128,9 @@ module Lint
 
         r.set("bar", "somethingelse")
         assert_raises(Redis::CommandError) { r.restore("bar", 1000, w) } # ensure by default replace is false
-        assert_raises(Redis::CommandError) { r.restore("bar", 1000, w, :replace => false) }
+        assert_raises(Redis::CommandError) { r.restore("bar", 1000, w, replace: false) }
         assert_equal "somethingelse", r.get("bar")
-        assert r.restore("bar", 1000, w, :replace => true)
+        assert r.restore("bar", 1000, w, replace: true)
         assert_equal ["b", "c", "d"], r.lrange("bar", 0, -1)
         assert [0, 1].include? r.ttl("bar")
       end

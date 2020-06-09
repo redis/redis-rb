@@ -12,7 +12,7 @@ require 'benchmark'
 HOST            = '127.0.0.1'
 STANDALONE_PORT = 6381
 CLUSTER_PORT    = 7000
-N               = (ARGV.first || 100000).to_i
+N               = (ARGV.first || 100_000).to_i
 
 rn = Redis.new(host: HOST, port: STANDALONE_PORT)
 rc = Redis.new(host: HOST, port: CLUSTER_PORT)

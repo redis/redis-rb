@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # Run with
 #
 #   $ ruby -Ilib benchmarking/speed.rb
@@ -8,7 +9,7 @@ require "benchmark"
 require "redis"
 
 r = Redis.new
-n = (ARGV.shift || 20000).to_i
+n = (ARGV.shift || 20_000).to_i
 
 elapsed = Benchmark.realtime do
   # n sets, n gets

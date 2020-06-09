@@ -1,32 +1,32 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestConnectionHandling < Minitest::Test
-
   include Helper::Client
 
   def test_auth
     commands = {
-      :auth => lambda { |password| $auth = password; "+OK" },
-      :get  => lambda { |key| $auth == "secret" ? "$3\r\nbar" : "$-1" },
+      auth: ->(password) { @auth = password; "+OK" },
+      get: ->(_key) { @auth == "secret" ? "$3\r\nbar" : "$-1" }
     }
 
-    redis_mock(commands, :password => "secret") do |redis|
+    redis_mock(commands, password: "secret") do |redis|
       assert_equal "bar", redis.get("foo")
     end
   end
 
   def test_id
     commands = {
-      :client => lambda { |cmd, name| $name = [cmd, name]; "+OK" },
-      :ping  => lambda { "+PONG" },
+      client: ->(cmd, name) { @name = [cmd, name]; "+OK" },
+      ping: -> { "+PONG" }
     }
 
-    redis_mock(commands, :id => "client-name") do |redis|
+    redis_mock(commands, id: "client-name") do |redis|
       assert_equal "PONG", redis.ping
     end
 
-    assert_equal ["setname","client-name"], $name
+    assert_equal ["setname", "client-name"], @name
   end
 
   def test_ping
@@ -54,7 +54,7 @@ class TestConnectionHandling < Minitest::Test
     quit = 0
 
     commands = {
-      :quit => lambda do
+      quit: lambda do
         quit += 1
         "+OK"
       end
@@ -81,7 +81,7 @@ class TestConnectionHandling < Minitest::Test
     quit = 0
 
     commands = {
-      :quit => lambda do
+      quit: lambda do
         quit += 1
         "+OK"
       end
@@ -106,7 +106,7 @@ class TestConnectionHandling < Minitest::Test
 
   def test_shutdown
     commands = {
-      :shutdown => lambda { :exit }
+      shutdown: -> { :exit }
     }
 
     redis_mock(commands) do |redis|
@@ -118,9 +118,9 @@ class TestConnectionHandling < Minitest::Test
   def test_shutdown_with_error
     connections = 0
     commands = {
-      :select => lambda { |*_| connections += 1; "+OK\r\n" },
-      :connections => lambda { ":#{connections}\r\n" },
-      :shutdown => lambda { "-ERR could not shutdown\r\n" }
+      select: ->(*_) { connections += 1; "+OK\r\n" },
+      connections: -> { ":#{connections}\r\n" },
+      shutdown: -> { "-ERR could not shutdown\r\n" }
     }
 
     redis_mock(commands) do |redis|
@@ -138,7 +138,7 @@ class TestConnectionHandling < Minitest::Test
 
   def test_shutdown_from_pipeline
     commands = {
-      :shutdown => lambda { :exit }
+      shutdown: -> { :exit }
     }
 
     redis_mock(commands) do |redis|
@@ -154,9 +154,9 @@ class TestConnectionHandling < Minitest::Test
   def test_shutdown_with_error_from_pipeline
     connections = 0
     commands = {
-      :select => lambda { |*_| connections += 1; "+OK\r\n" },
-      :connections => lambda { ":#{connections}\r\n" },
-      :shutdown => lambda { "-ERR could not shutdown\r\n" }
+      select: ->(*_) { connections += 1; "+OK\r\n" },
+      connections: -> { ":#{connections}\r\n" },
+      shutdown: -> { "-ERR could not shutdown\r\n" }
     }
 
     redis_mock(commands) do |redis|
@@ -176,9 +176,9 @@ class TestConnectionHandling < Minitest::Test
 
   def test_shutdown_from_multi_exec
     commands = {
-      :multi => lambda { "+OK\r\n" },
-      :shutdown => lambda { "+QUEUED\r\n" },
-      :exec => lambda { :exit }
+      multi: -> { "+OK\r\n" },
+      shutdown: -> { "+QUEUED\r\n" },
+      exec: -> { :exit }
     }
 
     redis_mock(commands) do |redis|
@@ -194,11 +194,11 @@ class TestConnectionHandling < Minitest::Test
   def test_shutdown_with_error_from_multi_exec
     connections = 0
     commands = {
-      :select => lambda { |*_| connections += 1; "+OK\r\n" },
-      :connections => lambda { ":#{connections}\r\n" },
-      :multi => lambda { "+OK\r\n" },
-      :shutdown => lambda { "+QUEUED\r\n" },
-      :exec => lambda { "*1\r\n-ERR could not shutdown\r\n" }
+      select: ->(*_) { connections += 1; "+OK\r\n" },
+      connections: -> { ":#{connections}\r\n" },
+      multi: -> { "+OK\r\n" },
+      shutdown: -> { "+QUEUED\r\n" },
+      exec: -> { "*1\r\n-ERR could not shutdown\r\n" }
     }
 
     redis_mock(commands) do |redis|
@@ -214,7 +214,7 @@ class TestConnectionHandling < Minitest::Test
       rescue => err
       end
 
-      assert err.kind_of?(StandardError)
+      assert err.is_a?(StandardError)
 
       # The connection should remain intact
       assert_equal connections, redis.connections
@@ -222,35 +222,33 @@ class TestConnectionHandling < Minitest::Test
   end
 
   def test_slaveof
-    redis_mock(:slaveof => lambda { |host, port| "+SLAVEOF #{host} #{port}" }) do |redis|
+    redis_mock(slaveof: ->(host, port) { "+SLAVEOF #{host} #{port}" }) do |redis|
       assert_equal "SLAVEOF somehost 6381", redis.slaveof("somehost", 6381)
     end
   end
 
   def test_bgrewriteaof
-    redis_mock(:bgrewriteaof => lambda { "+BGREWRITEAOF" }) do |redis|
+    redis_mock(bgrewriteaof: -> { "+BGREWRITEAOF" }) do |redis|
       assert_equal "BGREWRITEAOF", redis.bgrewriteaof
     end
   end
 
   def test_config_get
-    assert r.config(:get, "*")["timeout"] != nil
+    refute_nil r.config(:get, "*")["timeout"]
 
     config = r.config(:get, "timeout")
     assert_equal ["timeout"], config.keys
-    assert config.values.compact.size > 0
+    assert !config.values.compact.empty?
   end
 
   def test_config_set
-    begin
-      assert_equal "OK", r.config(:set, "timeout", 200)
-      assert_equal "200", r.config(:get, "*")["timeout"]
+    assert_equal "OK", r.config(:set, "timeout", 200)
+    assert_equal "200", r.config(:get, "*")["timeout"]
 
-      assert_equal "OK", r.config(:set, "timeout", 100)
-      assert_equal "100", r.config(:get, "*")["timeout"]
-    ensure
-      r.config :set, "timeout", 300
-    end
+    assert_equal "OK", r.config(:set, "timeout", 100)
+    assert_equal "100", r.config(:get, "*")["timeout"]
+  ensure
+    r.config :set, "timeout", 300
   end
 
   driver(:ruby, :hiredis) do
@@ -258,8 +256,8 @@ class TestConnectionHandling < Minitest::Test
       t = nil
 
       commands = {
-        :set => lambda { |key, value| t.kill; "+OK\r\n" },
-        :incr => lambda { |key| ":1\r\n" },
+        set: ->(_key, _value) { t.kill; "+OK\r\n" },
+        incr: ->(_key) { ":1\r\n" }
       }
 
       redis_mock(commands) do |redis|

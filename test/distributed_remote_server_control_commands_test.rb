@@ -1,19 +1,19 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedRemoteServerControlCommands < Minitest::Test
-
   include Helper::Distributed
 
   def test_info
     keys = [
-     "redis_version",
-     "uptime_in_seconds",
-     "uptime_in_days",
-     "connected_clients",
-     "used_memory",
-     "total_connections_received",
-     "total_commands_processed",
+      "redis_version",
+      "uptime_in_seconds",
+      "uptime_in_days",
+      "connected_clients",
+      "used_memory",
+      "total_connections_received",
+      "total_commands_processed"
     ]
 
     infos = r.info
@@ -40,12 +40,10 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
   end
 
   def test_monitor
-    begin
-      r.monitor
-    rescue Exception => ex
-    ensure
-      assert ex.kind_of?(NotImplementedError)
-    end
+    r.monitor
+  rescue Exception => ex
+  ensure
+    assert ex.is_a?(NotImplementedError)
   end
 
   def test_echo
@@ -60,7 +58,7 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
         redis_usec = rv[0] * 1_000_000 + rv[1]
         ruby_usec = Integer(Time.now.to_f * 1_000_000)
 
-        assert 500_000 > (ruby_usec - redis_usec).abs
+        assert((ruby_usec - redis_usec).abs < 500_000)
       end
     end
   end

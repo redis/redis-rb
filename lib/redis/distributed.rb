@@ -1,16 +1,17 @@
 # frozen_string_literal: true
+
 require_relative "hash_ring"
 
 class Redis
   class Distributed
-
     class CannotDistribute < RuntimeError
       def initialize(command)
         @command = command
       end
 
       def message
-        "#{@command.to_s.upcase} cannot be used in Redis::Distributed because the keys involved need to be on the same server or because we cannot guarantee that the operation will be atomic."
+        "#{@command.to_s.upcase} cannot be used in Redis::Distributed because the keys involved need " \
+          "to be on the same server or because we cannot guarantee that the operation will be atomic."
       end
     end
 
@@ -34,9 +35,9 @@ class Redis
     end
 
     def add_node(options)
-      options = { :url => options } if options.is_a?(String)
+      options = { url: options } if options.is_a?(String)
       options = @default_options.merge(options)
-      @ring.add_node Redis.new( options )
+      @ring.add_node Redis.new(options)
     end
 
     # Change the selected database for the current connection.
@@ -150,7 +151,7 @@ class Redis
     end
 
     # Transfer a key from the connected instance to another instance.
-    def migrate(key, options)
+    def migrate(_key, _options)
       raise CannotDistribute, :migrate
     end
 
@@ -180,7 +181,7 @@ class Redis
         if defined?(::Warning)
           ::Warning.warn(message)
         else
-          $stderr.puts(message)
+          warn(message)
         end
         exists?(*args)
       else
@@ -289,20 +290,20 @@ class Redis
     end
 
     # Set multiple keys to multiple values.
-    def mset(*args)
+    def mset(*_args)
       raise CannotDistribute, :mset
     end
 
-    def mapped_mset(hash)
+    def mapped_mset(_hash)
       raise CannotDistribute, :mapped_mset
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
-    def msetnx(*args)
+    def msetnx(*_args)
       raise CannotDistribute, :msetnx
     end
 
-    def mapped_msetnx(hash)
+    def mapped_msetnx(_hash)
       raise CannotDistribute, :mapped_msetnx
     end
 
@@ -361,7 +362,7 @@ class Redis
     end
 
     # Return the position of the first bit set to 1 or 0 in a string.
-    def bitpos(key, bit, start=nil, stop=nil)
+    def bitpos(key, bit, start = nil, stop = nil)
       node_for(key).bitpos(key, bit, start, stop)
     end
 
@@ -379,7 +380,7 @@ class Redis
       get(key)
     end
 
-    def []=(key,value)
+    def []=(key, value)
       set(key, value)
     end
 
@@ -468,7 +469,7 @@ class Redis
       case options
       when Integer
         # Issue deprecation notice in obnoxious mode...
-        options = { :timeout => options }
+        options = { timeout: options }
       end
 
       ensure_same_node(:brpoplpush, [source, destination]) do |node|
@@ -549,12 +550,12 @@ class Redis
     end
 
     # Scan a set
-    def sscan(key, cursor, options={})
+    def sscan(key, cursor, options = {})
       node_for(key).sscan(key, cursor, options)
     end
 
     # Scan a set and return an enumerator
-    def sscan_each(key, options={}, &block)
+    def sscan_each(key, options = {}, &block)
       node_for(key).sscan_each(key, options, &block)
     end
 
@@ -768,7 +769,7 @@ class Redis
     end
 
     def subscribed?
-      !! @subscribed_node
+      !!@subscribed_node
     end
 
     # Listen for messages published to the given channels.
@@ -786,7 +787,8 @@ class Redis
 
     # Stop listening for messages posted to the given channels.
     def unsubscribe(*channels)
-      raise RuntimeError, "Can't unsubscribe if not subscribed." unless subscribed?
+      raise "Can't unsubscribe if not subscribed." unless subscribed?
+
       @subscribed_node.unsubscribe(*channels)
     end
 
@@ -802,7 +804,7 @@ class Redis
     end
 
     # Watch the given keys to determine execution of the MULTI/EXEC block.
-    def watch(*keys)
+    def watch(*_keys)
       raise CannotDistribute, :watch
     end
 
@@ -886,7 +888,7 @@ class Redis
       self.class.new(@node_configs, @default_options)
     end
 
-  protected
+    protected
 
     def on_each_node(command, *args)
       nodes.map do |node|

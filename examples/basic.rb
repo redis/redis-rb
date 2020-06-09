@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'redis'
 
 r = Redis.new
@@ -7,7 +8,7 @@ r.del('foo')
 
 puts
 
-p'set foo to "bar"'
+p 'set foo to "bar"'
 r['foo'] = 'bar'
 
 puts

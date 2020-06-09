@@ -6,26 +6,25 @@ require "cgi"
 
 class Redis
   class Client
-
     DEFAULTS = {
-      :url => lambda { ENV["REDIS_URL"] },
-      :scheme => "redis",
-      :host => "127.0.0.1",
-      :port => 6379,
-      :path => nil,
-      :timeout => 5.0,
-      :password => nil,
-      :db => 0,
-      :driver => nil,
-      :id => nil,
-      :tcp_keepalive => 0,
-      :reconnect_attempts => 1,
-      :reconnect_delay => 0,
-      :reconnect_delay_max => 0.5,
-      :inherit_socket => false,
-      :sentinels => nil,
-      :role => nil
-    }
+      url: -> { ENV["REDIS_URL"] },
+      scheme: "redis",
+      host: "127.0.0.1",
+      port: 6379,
+      path: nil,
+      timeout: 5.0,
+      password: nil,
+      db: 0,
+      driver: nil,
+      id: nil,
+      tcp_keepalive: 0,
+      reconnect_attempts: 1,
+      reconnect_delay: 0,
+      reconnect_delay_max: 0.5,
+      inherit_socket: false,
+      sentinels: nil,
+      role: nil
+    }.freeze
 
     attr_reader :options
 
@@ -168,6 +167,7 @@ class Redis
           end
         rescue ConnectionError => e
           return nil if pipeline.shutdown?
+
           # Assume the pipeline was sent in one piece, but execution of
           # SHUTDOWN caused none of the replies for commands that were executed
           # prior to it from coming back around.
@@ -246,13 +246,13 @@ class Redis
     end
 
     def connected?
-      !! (connection && connection.connected?)
+      !!(connection && connection.connected?)
     end
 
     def disconnect
       connection.disconnect if connected?
     end
-    alias_method :close, :disconnect
+    alias close disconnect
 
     def reconnect
       disconnect
@@ -303,30 +303,27 @@ class Redis
       with_socket_timeout(0, &blk)
     end
 
-    def with_reconnect(val=true)
-      begin
-        original, @reconnect = @reconnect, val
-        yield
-      ensure
-        @reconnect = original
-      end
+    def with_reconnect(val = true)
+      original, @reconnect = @reconnect, val
+      yield
+    ensure
+      @reconnect = original
     end
 
     def without_reconnect(&blk)
       with_reconnect(false, &blk)
     end
 
-  protected
+    protected
 
     def logging(commands)
-      return yield unless @logger && @logger.debug?
+      return yield unless @logger&.debug?
 
       begin
         commands.each do |name, *args|
           logged_args = args.map do |a|
-            case
-            when a.respond_to?(:inspect) then a.inspect
-            when a.respond_to?(:to_s)    then a.to_s
+            if a.respond_to?(:inspect) then a.inspect
+            elsif a.respond_to?(:to_s) then a.to_s
             else
               # handle poorly-behaved descendants of BasicObject
               klass = a.instance_exec { (class << self; self end).superclass }
@@ -360,9 +357,9 @@ class Redis
            Errno::ENETUNREACH,
            Errno::ENOENT,
            Errno::ETIMEDOUT,
-           Errno::EINVAL
+           Errno::EINVAL => error
 
-      raise CannotConnectError, "Error connecting to Redis on #{location} (#{$!.class})"
+      raise CannotConnectError, "Error connecting to Redis on #{location} (#{error.class})"
     end
 
     def ensure_connected
@@ -376,9 +373,9 @@ class Redis
         if connected?
           unless inherit_socket? || Process.pid == @pid
             raise InheritedError,
-              "Tried to use a connection from a child process without reconnecting. " +
-              "You need to reconnect to Redis after forking " +
-              "or set :inherit_socket to true."
+                  "Tried to use a connection from a child process without reconnecting. " \
+                  "You need to reconnect to Redis after forking " \
+                  "or set :inherit_socket to true."
           end
         else
           connect
@@ -389,7 +386,7 @@ class Redis
         disconnect
 
         if attempts <= @options[:reconnect_attempts] && @reconnect
-          sleep_t = [(@options[:reconnect_delay] * 2**(attempts-1)),
+          sleep_t = [(@options[:reconnect_delay] * 2**(attempts - 1)),
                      @options[:reconnect_delay_max]].min
 
           Kernel.sleep(sleep_t)
@@ -411,16 +408,14 @@ class Redis
 
       defaults.keys.each do |key|
         # Fill in defaults if needed
-        if defaults[key].respond_to?(:call)
-          defaults[key] = defaults[key].call
-        end
+        defaults[key] = defaults[key].call if defaults[key].respond_to?(:call)
 
         # Symbolize only keys that are needed
-        options[key] = options[key.to_s] if options.has_key?(key.to_s)
+        options[key] = options[key.to_s] if options.key?(key.to_s)
       end
 
       url = options[:url]
-      url = defaults[:url] if url == nil
+      url = defaults[:url] if url.nil?
 
       # Override defaults from URL if given
       if url
@@ -429,7 +424,7 @@ class Redis
         uri = URI(url)
 
         if uri.scheme == "unix"
-          defaults[:path]   = uri.path
+          defaults[:path] = uri.path
         elsif uri.scheme == "redis" || uri.scheme == "rediss"
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host if uri.host
@@ -460,7 +455,7 @@ class Redis
         options[:port] = options[:port].to_i
       end
 
-      if options.has_key?(:timeout)
+      if options.key?(:timeout)
         options[:connect_timeout] ||= options[:timeout]
         options[:read_timeout]    ||= options[:timeout]
         options[:write_timeout]   ||= options[:timeout]
@@ -479,7 +474,7 @@ class Redis
 
       case options[:tcp_keepalive]
       when Hash
-        [:time, :intvl, :probes].each do |key|
+        %i[time intvl probes].each do |key|
           unless options[:tcp_keepalive][key].is_a?(Integer)
             raise "Expected the #{key.inspect} key in :tcp_keepalive to be an Integer"
           end
@@ -487,13 +482,13 @@ class Redis
 
       when Integer
         if options[:tcp_keepalive] >= 60
-          options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 20, :intvl => 10, :probes => 2}
+          options[:tcp_keepalive] = { time: options[:tcp_keepalive] - 20, intvl: 10, probes: 2 }
 
         elsif options[:tcp_keepalive] >= 30
-          options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 10, :intvl => 5, :probes => 2}
+          options[:tcp_keepalive] = { time: options[:tcp_keepalive] - 10, intvl: 5, probes: 2 }
 
         elsif options[:tcp_keepalive] >= 5
-          options[:tcp_keepalive] = {:time => options[:tcp_keepalive] - 2, :intvl => 2, :probes => 1}
+          options[:tcp_keepalive] = { time: options[:tcp_keepalive] - 2, intvl: 2, probes: 1 }
         end
       end
 
@@ -505,14 +500,14 @@ class Redis
     def _parse_driver(driver)
       driver = driver.to_s if driver.is_a?(Symbol)
 
-      if driver.kind_of?(String)
+      if driver.is_a?(String)
         begin
           require_relative "connection/#{driver}"
-        rescue LoadError, NameError => e
+        rescue LoadError, NameError
           begin
             require "connection/#{driver}"
-          rescue LoadError, NameError => e
-            raise RuntimeError, "Cannot load driver #{driver.inspect}: #{e.message}"
+          rescue LoadError, NameError => error
+            raise "Cannot load driver #{driver.inspect}: #{error.message}"
           end
         end
 
@@ -531,8 +526,7 @@ class Redis
         @options
       end
 
-      def check(client)
-      end
+      def check(client); end
 
       class Sentinel < Connector
         def initialize(options)
@@ -564,13 +558,13 @@ class Redis
 
         def resolve
           result = case @role
-                   when "master"
-                     resolve_master
-                   when "slave"
-                     resolve_slave
-                   else
-                     raise ArgumentError, "Unknown instance role #{@role}"
-                   end
+          when "master"
+            resolve_master
+          when "slave"
+            resolve_slave
+          else
+            raise ArgumentError, "Unknown instance role #{@role}"
+          end
 
           result || (raise ConnectionError, "Unable to fetch #{@role} via Sentinel.")
         end
@@ -578,11 +572,11 @@ class Redis
         def sentinel_detect
           @sentinels.each do |sentinel|
             client = Client.new(@options.merge({
-              host: sentinel[:host] || sentinel["host"],
-              port: sentinel[:port] || sentinel["port"],
-              password: sentinel[:password] || sentinel["password"],
-              reconnect_attempts: 0
-            }))
+                                                 host: sentinel[:host] || sentinel["host"],
+                                                 port: sentinel[:port] || sentinel["port"],
+                                                 password: sentinel[:password] || sentinel["password"],
+                                                 reconnect_attempts: 0
+                                               }))
 
             begin
               if result = yield(client)
@@ -604,7 +598,7 @@ class Redis
         def resolve_master
           sentinel_detect do |client|
             if reply = client.call(["sentinel", "get-master-addr-by-name", @master])
-              {:host => reply[0], :port => reply[1]}
+              { host: reply[0], port: reply[1] }
             end
           end
         end
@@ -622,7 +616,7 @@ class Redis
                 slave = slaves.sample
                 {
                   host: slave.fetch('ip'),
-                  port: slave.fetch('port'),
+                  port: slave.fetch('port')
                 }
               end
             end

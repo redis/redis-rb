@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "redis"
 
 worker_processes 3
@@ -16,6 +17,6 @@ worker_processes 3
 # Thus we need to connect to Redis after forking the
 # worker processes.
 
-after_fork do |server, worker|
+after_fork do |_server, _worker|
   Redis.current.disconnect!
 end

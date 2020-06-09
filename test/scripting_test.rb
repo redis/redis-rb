@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestScripting < Minitest::Test
-
   include Helper::Client
 
   def to_sha(script)
@@ -33,7 +33,7 @@ class TestScripting < Minitest::Test
 
   def test_script_kill
     target_version "2.5.9" do # 2.6-rc1
-      redis_mock(:script => lambda { |arg| "+#{arg.upcase}" }) do |redis|
+      redis_mock(script: ->(arg) { "+#{arg.upcase}" }) do |redis|
         assert_equal "KILL", redis.script(:kill)
       end
     end
@@ -52,8 +52,8 @@ class TestScripting < Minitest::Test
     target_version "2.5.9" do # 2.6-rc1
       assert_equal 0, r.eval("return #KEYS", {})
       assert_equal 0, r.eval("return #ARGV", {})
-      assert_equal ["k1", "k2"], r.eval("return KEYS", { :keys => ["k1", "k2"] })
-      assert_equal ["a1", "a2"], r.eval("return ARGV", { :argv => ["a1", "a2"] })
+      assert_equal ["k1", "k2"], r.eval("return KEYS", { keys: ["k1", "k2"] })
+      assert_equal ["a1", "a2"], r.eval("return ARGV", { argv: ["a1", "a2"] })
     end
   end
 
@@ -70,8 +70,8 @@ class TestScripting < Minitest::Test
     target_version "2.5.9" do # 2.6-rc1
       assert_equal 0, r.evalsha(to_sha("return #KEYS"), {})
       assert_equal 0, r.evalsha(to_sha("return #ARGV"), {})
-      assert_equal ["k1", "k2"], r.evalsha(to_sha("return KEYS"), { :keys => ["k1", "k2"] })
-      assert_equal ["a1", "a2"], r.evalsha(to_sha("return ARGV"), { :argv => ["a1", "a2"] })
+      assert_equal ["k1", "k2"], r.evalsha(to_sha("return KEYS"), { keys: ["k1", "k2"] })
+      assert_equal ["a1", "a2"], r.evalsha(to_sha("return ARGV"), { argv: ["a1", "a2"] })
     end
   end
 end

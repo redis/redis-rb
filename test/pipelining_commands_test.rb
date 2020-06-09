@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestPipeliningCommands < Minitest::Test
-
   include Helper::Client
 
   def test_bulk_commands
@@ -130,7 +130,7 @@ class TestPipeliningCommands < Minitest::Test
   def test_futures_raise_when_command_errors_and_needs_transformation
     assert_raises(Redis::CommandError) do
       r.pipelined do
-        @result = r.zrange("a", "b", 5, :with_scores => true)
+        @result = r.zrange("a", "b", 5, with_scores: true)
       end
     end
   end
@@ -141,7 +141,7 @@ class TestPipeliningCommands < Minitest::Test
     end
 
     assert_output(nil, /deprecated/) do
-      @result == @result
+      @result == 1
     end
   end
 
@@ -179,7 +179,7 @@ class TestPipeliningCommands < Minitest::Test
       r.info
     end
 
-    assert result.first.kind_of?(Hash)
+    assert result.first.is_a?(Hash)
   end
 
   def test_config_get_in_a_pipeline_returns_hash
@@ -187,7 +187,7 @@ class TestPipeliningCommands < Minitest::Test
       r.config(:get, "*")
     end
 
-    assert result.first.kind_of?(Hash)
+    assert result.first.is_a?(Hash)
   end
 
   def test_hgetall_in_a_pipeline_returns_hash

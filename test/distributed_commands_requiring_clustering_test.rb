@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedCommandsRequiringClustering < Minitest::Test
-
   include Helper::Distributed
 
   def test_rename
@@ -27,7 +27,7 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     r.rpush "{qux}foo", "s1"
     r.rpush "{qux}foo", "s2"
 
-    assert_equal "s2", r.brpoplpush("{qux}foo", "{qux}bar", :timeout => 1)
+    assert_equal "s2", r.brpoplpush("{qux}foo", "{qux}bar", timeout: 1)
     assert_equal ["s2"], r.lrange("{qux}bar", 0, -1)
   end
 
@@ -115,8 +115,8 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     r.rpush("{qux}bar", "1")
     r.rpush("{qux}bar", "2")
 
-    assert_equal ["s1"], r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1])
-    assert_equal ["s2"], r.sort("{qux}bar", :get => "{qux}foo:*", :limit => [0, 1], :order => "desc alpha")
+    assert_equal ["s1"], r.sort("{qux}bar", get: "{qux}foo:*", limit: [0, 1])
+    assert_equal ["s2"], r.sort("{qux}bar", get: "{qux}foo:*", limit: [0, 1], order: "desc alpha")
   end
 
   def test_sort_with_an_array_of_gets
@@ -129,9 +129,9 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     r.rpush("{qux}bar", "1")
     r.rpush("{qux}bar", "2")
 
-    assert_equal [["s1a", "s1b"]], r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1])
-    assert_equal [["s2a", "s2b"]], r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"], :limit => [0, 1], :order => "desc alpha")
-    assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort("{qux}bar", :get => ["{qux}foo:*:a", "{qux}foo:*:b"])
+    assert_equal [["s1a", "s1b"]], r.sort("{qux}bar", get: ["{qux}foo:*:a", "{qux}foo:*:b"], limit: [0, 1])
+    assert_equal [["s2a", "s2b"]], r.sort("{qux}bar", get: ["{qux}foo:*:a", "{qux}foo:*:b"], limit: [0, 1], order: "desc alpha")
+    assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort("{qux}bar", get: ["{qux}foo:*:a", "{qux}foo:*:b"])
   end
 
   def test_sort_with_store
@@ -141,7 +141,7 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     r.rpush("{qux}bar", "1")
     r.rpush("{qux}bar", "2")
 
-    r.sort("{qux}bar", :get => "{qux}foo:*", :store => "{qux}baz")
+    r.sort("{qux}bar", get: "{qux}foo:*", store: "{qux}baz")
     assert_equal ["s1", "s2"], r.lrange("{qux}baz", 0, -1)
   end
 

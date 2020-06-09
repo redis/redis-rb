@@ -1,12 +1,11 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class SslTest < Minitest::Test
-
   include Helper::Client
 
   driver(:ruby) do
-
     def test_connection_to_non_ssl_server
       assert_raises(Redis::CannotConnectError) do
         redis = Redis.new(OPTIONS.merge(ssl: true, timeout: LOW_TIMEOUT))
@@ -15,16 +14,16 @@ class SslTest < Minitest::Test
     end
 
     def test_verified_ssl_connection
-      RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
-        redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
+      RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
+        redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
         assert_equal redis.ping, "PONG"
       end
     end
 
     def test_unverified_ssl_connection
       assert_raises(OpenSSL::SSL::SSLError) do
-        RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
-          redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
+        RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
+          redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
           redis.ping
         end
       end
@@ -32,8 +31,8 @@ class SslTest < Minitest::Test
 
     def test_verify_certificates_by_default
       assert_raises(OpenSSL::SSL::SSLError) do
-        RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
-          redis = Redis.new(:port => port, :ssl => true)
+        RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
+          redis = Redis.new(port: port, ssl: true)
           redis.ping
         end
       end
@@ -41,24 +40,21 @@ class SslTest < Minitest::Test
 
     def test_ssl_blocking
       RedisMock.start({}, ssl_server_opts("trusted")) do |port|
-        redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
+        redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
         assert_equal redis.set("boom", "a" * 10_000_000), "OK"
       end
     end
-
   end
 
   driver(:hiredis, :synchrony) do
-
     def test_ssl_not_implemented_exception
       assert_raises(NotImplementedError) do
-        RedisMock.start({ :ping => proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
-          redis = Redis.new(:port => port, :ssl => true, :ssl_params => { :ca_file => ssl_ca_file })
+        RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
+          redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
           redis.ping
         end
       end
     end
-
   end
 
   private
@@ -68,10 +64,10 @@ class SslTest < Minitest::Test
     ssl_key  = File.join(cert_path, "#{prefix}-cert.key")
 
     {
-      :ssl => true,
-      :ssl_params => {
-        :cert => OpenSSL::X509::Certificate.new(File.read(ssl_cert)),
-        :key  => OpenSSL::PKey::RSA.new(File.read(ssl_key))
+      ssl: true,
+      ssl_params: {
+        cert: OpenSSL::X509::Certificate.new(File.read(ssl_cert)),
+        key: OpenSSL::PKey::RSA.new(File.read(ssl_key))
       }
     }
   end
@@ -81,6 +77,6 @@ class SslTest < Minitest::Test
   end
 
   def cert_path
-    File.expand_path("../support/ssl/", __FILE__)
+    File.expand_path('support/ssl', __dir__)
   end
 end

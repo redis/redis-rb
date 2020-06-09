@@ -1,9 +1,9 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 require_relative "lint/strings"
 
 class TestDistributedCommandsOnStrings < Minitest::Test
-
   include Helper::Distributed
   include Lint::Strings
 
@@ -11,7 +11,7 @@ class TestDistributedCommandsOnStrings < Minitest::Test
     r.set("foo", "s1")
     r.set("bar", "s2")
 
-    assert_equal ["s1", "s2"]     , r.mget("foo", "bar")
+    assert_equal ["s1", "s2"], r.mget("foo", "bar")
     assert_equal ["s1", "s2", nil], r.mget("foo", "bar", "baz")
   end
 
@@ -39,7 +39,7 @@ class TestDistributedCommandsOnStrings < Minitest::Test
 
   def test_mset_mapped
     assert_raises Redis::Distributed::CannotDistribute do
-      r.mapped_mset(:foo => "s1", :bar => "s2")
+      r.mapped_mset(foo: "s1", bar: "s2")
     end
   end
 
@@ -53,7 +53,7 @@ class TestDistributedCommandsOnStrings < Minitest::Test
   def test_msetnx_mapped
     assert_raises Redis::Distributed::CannotDistribute do
       r.set("foo", "s1")
-      r.mapped_msetnx(:foo => "s2", :bar => "s3")
+      r.mapped_msetnx(foo: "s2", bar: "s3")
     end
   end
 

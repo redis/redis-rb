@@ -1,8 +1,7 @@
 # frozen_string_literal: true
+
 module Lint
-
   module Sets
-
     def test_sadd
       assert_equal true, r.sadd("foo", "s1")
       assert_equal true, r.sadd("foo", "s2")
@@ -37,7 +36,7 @@ module Lint
         r.sadd("foo", "s3")
 
         assert_equal 1, r.srem("foo", ["s1", "aaa"])
-        assert_equal 0, r.srem("foo", ["bbb", "ccc" "ddd"])
+        assert_equal 0, r.srem("foo", ["bbb", "ccc", "ddd"])
         assert_equal 1, r.srem("foo", ["eee", "s3"])
 
         assert_equal ["s2"], r.smembers("foo")

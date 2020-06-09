@@ -1,9 +1,9 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 require_relative "lint/value_types"
 
 class TestCommandsOnValueTypes < Minitest::Test
-
   include Helper::Client
   include Lint::ValueTypes
 
@@ -132,7 +132,7 @@ class TestCommandsOnValueTypes < Minitest::Test
 
     assert_equal 2, r.dbsize
 
-    r.flushdb(:async => false)
+    r.flushdb(async: false)
 
     assert_equal 0, r.dbsize
 
@@ -143,38 +143,38 @@ class TestCommandsOnValueTypes < Minitest::Test
 
       assert_equal 2, r.dbsize
 
-      r.flushdb(:async => true)
+      r.flushdb(async: true)
 
       assert_equal 0, r.dbsize
 
-      redis_mock(:flushdb => lambda { |args| "+FLUSHDB #{args.upcase}" }) do |redis|
-        assert_equal "FLUSHDB ASYNC", redis.flushdb(:async => true)
+      redis_mock(flushdb: ->(args) { "+FLUSHDB #{args.upcase}" }) do |redis|
+        assert_equal "FLUSHDB ASYNC", redis.flushdb(async: true)
       end
     end
   end
 
   def test_flushall
     # Test defaults
-    redis_mock(:flushall => lambda { "+FLUSHALL" }) do |redis|
+    redis_mock(flushall: -> { "+FLUSHALL" }) do |redis|
       assert_equal "FLUSHALL", redis.flushall
     end
 
     # Test sync
-    redis_mock(:flushall => lambda { "+FLUSHALL" }) do |redis|
-      assert_equal "FLUSHALL", redis.flushall(:async => false)
+    redis_mock(flushall: -> { "+FLUSHALL" }) do |redis|
+      assert_equal "FLUSHALL", redis.flushall(async: false)
     end
 
     # Test async
     target_version "3.9.101" do
-      redis_mock(:flushall => lambda { |args| "+FLUSHALL #{args.upcase}" }) do |redis|
-        assert_equal "FLUSHALL ASYNC", redis.flushall(:async => true)
+      redis_mock(flushall: ->(args) { "+FLUSHALL #{args.upcase}" }) do |redis|
+        assert_equal "FLUSHALL ASYNC", redis.flushall(async: true)
       end
     end
   end
 
   def test_migrate
-    redis_mock(:migrate => lambda { |*args| args }) do |redis|
-      options = { :host => "127.0.0.1", :port => 1234 }
+    redis_mock(migrate: ->(*args) { args }) do |redis|
+      options = { host: "127.0.0.1", port: 1234 }
 
       ex = assert_raises(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :host })
@@ -195,12 +195,12 @@ class TestCommandsOnValueTypes < Minitest::Test
       assert_equal expected, actual
 
       # Test db override
-      actual = redis.migrate("foo", options.merge(:db => default_db + 1))
+      actual = redis.migrate("foo", options.merge(db: default_db + 1))
       expected = ["127.0.0.1", "1234", "foo", (default_db + 1).to_s, default_timeout.to_s]
       assert_equal expected, actual
 
       # Test timeout override
-      actual = redis.migrate("foo", options.merge(:timeout => default_timeout + 1))
+      actual = redis.migrate("foo", options.merge(timeout: default_timeout + 1))
       expected = ["127.0.0.1", "1234", "foo", default_db.to_s, (default_timeout + 1).to_s]
       assert_equal expected, actual
 

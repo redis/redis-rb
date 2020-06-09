@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestBitpos < Minitest::Test
-
   include Helper::Client
 
   def test_bitpos_empty_zero
@@ -60,5 +60,4 @@ class TestBitpos < Minitest::Test
       end
     end
   end
-
 end

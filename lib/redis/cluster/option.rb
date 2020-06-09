@@ -43,6 +43,7 @@ class Redis
 
       def build_node_options(addrs)
         raise InvalidClientOptionError, 'Redis option of `cluster` must be an Array' unless addrs.is_a?(Array)
+
         addrs.map { |addr| parse_node_addr(addr) }
       end
 
@@ -69,7 +70,9 @@ class Redis
 
       def parse_node_option(addr)
         addr = addr.map { |k, v| [k.to_sym, v] }.to_h
-        raise InvalidClientOptionError, 'Redis option of `cluster` must includes `:host` and `:port` keys' if addr.values_at(:host, :port).any?(&:nil?)
+        if addr.values_at(:host, :port).any?(&:nil?)
+          raise InvalidClientOptionError, 'Redis option of `cluster` must includes `:host` and `:port` keys'
+        end
 
         addr
       end

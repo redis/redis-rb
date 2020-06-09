@@ -1,9 +1,10 @@
 # frozen_string_literal: true
+
 require "socket"
 
 module RedisMock
   class Server
-    def initialize(options = {}, &block)
+    def initialize(options = {})
       tcp_server = TCPServer.new(options[:host] || "127.0.0.1", 0)
       tcp_server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
 
@@ -32,23 +33,21 @@ module RedisMock
     end
 
     def run
-      begin
-        loop do
-          session = @server.accept
+      loop do
+        session = @server.accept
 
-          begin
-            return if yield(session) == :exit
-          ensure
-            session.close
-          end
+        begin
+          return if yield(session) == :exit
+        ensure
+          session.close
         end
-      rescue => ex
-        $stderr.puts "Error running mock server: #{ex.class}: #{ex.message}"
-        $stderr.puts ex.backtrace
-        retry
-      ensure
-        @server.close
       end
+    rescue => ex
+      warn "Error running mock server: #{ex.class}: #{ex.message}"
+      warn ex.backtrace
+      retry
+    ensure
+      @server.close
     end
   end
 
@@ -95,7 +94,7 @@ module RedisMock
 
         command = argv.shift
         blk = commands[command.to_sym]
-        blk ||= lambda { |*_| "+OK" }
+        blk ||= ->(*_) { "+OK" }
 
         response = blk.call(*argv)
 

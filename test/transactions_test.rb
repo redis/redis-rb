@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestTransactions < Minitest::Test
-
   include Helper::Client
 
   def test_multi_discard
@@ -79,7 +79,6 @@ class TestTransactions < Minitest::Test
       r.multi do |multi|
         multi.set "bar", "s2"
         raise "Some error"
-        multi.set "baz", "s3"
       end
     end
 
@@ -88,19 +87,19 @@ class TestTransactions < Minitest::Test
   end
 
   def test_transformed_replies_as_return_values_for_multi_exec_block
-    info, _ = r.multi do |m|
+    info, = r.multi do |_m|
       r.info
     end
 
-    assert info.kind_of?(Hash)
+    assert info.is_a?(Hash)
   end
 
   def test_transformed_replies_inside_multi_exec_block
-    r.multi do |m|
+    r.multi do |_m|
       @info = r.info
     end
 
-    assert @info.value.kind_of?(Hash)
+    assert @info.value.is_a?(Hash)
   end
 
   def test_raise_command_errors_when_reply_is_not_transformed
@@ -118,7 +117,7 @@ class TestTransactions < Minitest::Test
   def test_empty_multi_exec
     result = nil
 
-    redis_mock(:exec => lambda { |*_| "-ERROR" }) do |redis|
+    redis_mock(exec: ->(*_) { "-ERROR" }) do |redis|
       result = redis.multi {}
     end
 
@@ -154,7 +153,7 @@ class TestTransactions < Minitest::Test
   def test_raise_command_errors_when_reply_is_transformed_to_floats
     assert_raises(Redis::CommandError) do
       r.multi do |m|
-        m.zrange("a", "b", 5, :with_scores => true)
+        m.zrange("a", "b", 5, with_scores: true)
       end
     end
   end
@@ -186,7 +185,7 @@ class TestTransactions < Minitest::Test
     rescue => err
     end
 
-    assert err.kind_of?(RuntimeError)
+    assert err.is_a?(RuntimeError)
   end
 
   def test_multi_with_a_block_yielding_the_client
@@ -198,7 +197,7 @@ class TestTransactions < Minitest::Test
   end
 
   def test_raise_command_error_when_exec_fails
-    redis_mock(:exec => lambda { |*_| "-ERROR" }) do |redis|
+    redis_mock(exec: ->(*_) { "-ERROR" }) do |redis|
       assert_raises(Redis::CommandError) do
         redis.multi do |m|
           m.set "foo", "s1"
@@ -255,7 +254,6 @@ class TestTransactions < Minitest::Test
 
   def test_watch_with_a_block_and_an_unmodified_key
     result = r.watch "foo" do |rd|
-
       assert_same r, rd
 
       rd.multi do |multi|
@@ -269,7 +267,6 @@ class TestTransactions < Minitest::Test
 
   def test_watch_with_a_block_and_a_modified_key
     result = r.watch "foo" do |rd|
-
       assert_same r, rd
 
       rd.set "foo", "s1"

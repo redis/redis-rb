@@ -1,9 +1,9 @@
 # frozen_string_literal: true
+
 require 'zlib'
 
 class Redis
   class HashRing
-
     POINTS_PER_SERVER = 160 # this is the default in libmemcached
 
     attr_reader :ring, :sorted_keys, :replicas, :nodes
@@ -11,7 +11,7 @@ class Redis
     # nodes is a list of objects that have a proper to_s representation.
     # replicas indicates how many virtual points should be used pr. node,
     # replicas are required to improve the distribution.
-    def initialize(nodes=[], replicas=POINTS_PER_SERVER)
+    def initialize(nodes = [], replicas = POINTS_PER_SERVER)
       @replicas = replicas
       @ring = {}
       @nodes = []
@@ -33,11 +33,11 @@ class Redis
     end
 
     def remove_node(node)
-      @nodes.reject!{|n| n.id == node.id}
+      @nodes.reject! { |n| n.id == node.id }
       @replicas.times do |i|
         key = Zlib.crc32("#{node.id}:#{i}")
         @ring.delete(key)
-        @sorted_keys.reject! {|k| k == key}
+        @sorted_keys.reject! { |k| k == key }
       end
     end
 
@@ -47,27 +47,29 @@ class Redis
     end
 
     def get_node_pos(key)
-      return [nil,nil] if @ring.size == 0
+      return [nil, nil] if @ring.empty?
+
       crc = Zlib.crc32(key)
       idx = HashRing.binary_search(@sorted_keys, crc)
-      return [@ring[@sorted_keys[idx]], idx]
+      [@ring[@sorted_keys[idx]], idx]
     end
 
     def iter_nodes(key)
-      return [nil,nil] if @ring.size == 0
+      return [nil, nil] if @ring.empty?
+
       _, pos = get_node_pos(key)
       @ring.size.times do |n|
-        yield @ring[@sorted_keys[(pos+n) % @ring.size]]
+        yield @ring[@sorted_keys[(pos + n) % @ring.size]]
       end
     end
 
     # Find the closest index in HashRing with value <= the given value
-    def self.binary_search(ary, value, &block)
+    def self.binary_search(ary, value)
       upper = ary.size - 1
       lower = 0
       idx = 0
 
-      while(lower <= upper) do
+      while lower <= upper
         idx = (lower + upper) / 2
         comp = ary[idx] <=> value
 
@@ -80,10 +82,8 @@ class Redis
         end
       end
 
-      if upper < 0
-        upper = ary.size - 1
-      end
-      return upper
+      upper = ary.size - 1 if upper < 0
+      upper
     end
   end
 end

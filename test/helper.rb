@@ -11,10 +11,10 @@ ENV["DRIVER"] ||= "ruby"
 
 require_relative "../lib/redis"
 require_relative "../lib/redis/distributed"
-require_relative "../lib/redis/connection/#{ENV["DRIVER"]}"
+require_relative "../lib/redis/connection/#{ENV['DRIVER']}"
 
 require_relative "support/redis_mock"
-require_relative "support/connection/#{ENV["DRIVER"]}"
+require_relative "support/connection/#{ENV['DRIVER']}"
 require_relative 'support/cluster/orchestrator'
 
 PORT        = 6381
@@ -24,13 +24,10 @@ LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
 OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
 def driver(*drivers, &blk)
-  if drivers.map(&:to_s).include?(ENV["DRIVER"])
-    class_eval(&blk)
-  end
+  class_eval(&blk) if drivers.map(&:to_s).include?(ENV["DRIVER"])
 end
 
 module Helper
-
   def run
     if respond_to?(:around)
       around { super }
@@ -61,25 +58,24 @@ module Helper
   end
 
   class Version
-
     include Comparable
 
     attr :parts
 
-    def initialize(v)
-      case v
+    def initialize(version)
+      @parts = case version
       when Version
-        @parts = v.parts
+        version.parts
       else
-        @parts = v.to_s.split(".")
+        version.to_s.split(".")
       end
     end
 
     def <=>(other)
       other = Version.new(other)
-      length = [self.parts.length, other.parts.length].max
+      length = [parts.length, other.parts.length].max
       length.times do |i|
-        a, b = self.parts[i], other.parts[i]
+        a, b = parts[i], other.parts[i]
 
         return -1 if a.nil?
         return +1 if b.nil?
@@ -91,13 +87,12 @@ module Helper
   end
 
   module Generic
-
     include Helper
 
     attr_reader :log
     attr_reader :redis
 
-    alias :r :redis
+    alias r redis
 
     def setup
       @log = StringIO.new
@@ -109,7 +104,7 @@ module Helper
     end
 
     def teardown
-      redis.quit if redis
+      redis&.quit
       super
     end
 
@@ -139,15 +134,15 @@ module Helper
       exit 1
     end
 
-    def redis_mock(commands, options = {}, &blk)
+    def redis_mock(commands, options = {})
       RedisMock.start(commands, options) do |port|
-        yield _new_client(options.merge(:port => port))
+        yield _new_client(options.merge(port: port))
       end
     end
 
-    def redis_mock_with_handler(handler, options = {}, &blk)
+    def redis_mock_with_handler(handler, options = {})
       RedisMock.start_with_handler(handler, options) do |port|
-        yield _new_client(options.merge(:port => port))
+        yield _new_client(options.merge(port: port))
       end
     end
 
@@ -173,17 +168,16 @@ module Helper
   end
 
   module Client
-
     include Generic
 
     private
 
     def _format_options(options)
-      OPTIONS.merge(:logger => ::Logger.new(@log)).merge(options)
+      OPTIONS.merge(logger: ::Logger.new(@log)).merge(options)
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(:driver => ENV["DRIVER"]))
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"]))
     end
   end
 
@@ -234,13 +228,13 @@ module Helper
 
     def _format_options(options)
       {
-        :timeout => OPTIONS[:timeout],
-        :logger => ::Logger.new(@log),
+        timeout: OPTIONS[:timeout],
+        logger: ::Logger.new(@log)
       }.merge(options)
     end
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(:driver => ENV["conn"]))
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
     end
   end
 
@@ -309,12 +303,12 @@ module Helper
       port = nil
 
       cluster_subcommands = if commands.key?(:cluster)
-                              commands.delete(:cluster)
-                                      .map { |k, v| [k.to_s.downcase, v] }
-                                      .to_h
-                            else
-                              {}
-                            end
+        commands.delete(:cluster)
+                .map { |k, v| [k.to_s.downcase, v] }
+                .to_h
+      else
+        {}
+      end
 
       commands[:cluster] = lambda { |subcommand, *args|
         if cluster_subcommands.key?(subcommand)

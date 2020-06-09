@@ -3,10 +3,11 @@
 require_relative '../../../lib/redis'
 
 class ClusterOrchestrator
-  SLOT_SIZE = 16384
+  SLOT_SIZE = 16_384
 
   def initialize(node_addrs, timeout: 30.0)
     raise 'Redis Cluster requires at least 3 master nodes.' if node_addrs.size < 3
+
     @clients = node_addrs.map do |addr|
       Redis.new(url: addr,
                 timeout: timeout,
@@ -47,6 +48,7 @@ class ClusterOrchestrator
     max_attempts = 500
     attempt_count.step(max_attempts) do |i|
       return if slave.role == 'master' || i >= max_attempts
+
       attempt_count += 1
       sleep 0.1
     end
@@ -75,13 +77,16 @@ class ClusterOrchestrator
     keys_count = src_client.cluster(:countkeysinslot, slot)
     loop do
       break if keys_count <= 0
+
       keys = src_client.cluster(:getkeysinslot, slot, slice_size)
       break if keys.empty?
+
       keys.each do |k|
         begin
           src_client.migrate(k, host: dest_host, port: dest_port)
         rescue Redis::CommandError => err
           raise unless err.message.start_with?('IOERR')
+
           src_client.migrate(k, host: dest_host, port: dest_port, replace: true) # retry once
         ensure
           keys_count -= 1
@@ -150,6 +155,7 @@ class ClusterOrchestrator
 
     clients.each do |client|
       next if first_client.id == client.id
+
       client.cluster(:meet, target_host, target_port)
     end
   end
@@ -245,8 +251,10 @@ class ClusterOrchestrator
     clients.each do |client|
       attempt_count.step(max_attempts) do |i|
         break if i >= max_attempts
+
         attempt_count += 1
         break if yield(client)
+
         sleep 0.1
       end
     end
@@ -275,12 +283,14 @@ class ClusterOrchestrator
   def take_masters(clients)
     size = clients.size / 2
     return clients if size < 3
+
     clients.take(size)
   end
 
   def take_slaves(clients)
     size = clients.size / 2
     return [] if size < 3
+
     clients[size..size * 2]
   end
 

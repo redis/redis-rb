@@ -51,23 +51,23 @@ class SentinelTest < Minitest::Test
   end
 
   def test_sentinel_failover
-    sentinels = [{:host => "127.0.0.1", :port => 26381},
-                 {:host => "127.0.0.1", :port => 26382}]
+    sentinels = [{ host: "127.0.0.1", port: 26_381 },
+                 { host: "127.0.0.1", port: 26_382 }]
 
     commands = {
-      :s1 => [],
-      :s2 => [],
+      s1: [],
+      s2: []
     }
 
     s1 = {
-      :sentinel => lambda do |command, *args|
+      sentinel: lambda do |command, *args|
         commands[:s1] << [command, *args]
         "$-1" # Nil
       end
     }
 
     s2 = {
-      :sentinel => lambda do |command, *args|
+      sentinel: lambda do |command, *args|
         commands[:s2] << [command, *args]
         ["127.0.0.1", "6381"]
       end
@@ -77,7 +77,7 @@ class SentinelTest < Minitest::Test
       RedisMock.start(s2) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
-        redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+        redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master)
 
         assert redis.ping
       end
@@ -88,23 +88,23 @@ class SentinelTest < Minitest::Test
   end
 
   def test_sentinel_failover_prioritize_healthy_sentinel
-    sentinels = [{:host => "127.0.0.1", :port => 26381},
-                 {:host => "127.0.0.1", :port => 26382}]
+    sentinels = [{ host: "127.0.0.1", port: 26_381 },
+                 { host: "127.0.0.1", port: 26_382 }]
 
     commands = {
-      :s1 => [],
-      :s2 => [],
+      s1: [],
+      s2: []
     }
 
     s1 = {
-      :sentinel => lambda do |command, *args|
+      sentinel: lambda do |command, *args|
         commands[:s1] << [command, *args]
         "$-1" # Nil
       end
     }
 
     s2 = {
-      :sentinel => lambda do |command, *args|
+      sentinel: lambda do |command, *args|
         commands[:s2] << [command, *args]
         ["127.0.0.1", "6381"]
       end
@@ -114,7 +114,7 @@ class SentinelTest < Minitest::Test
       RedisMock.start(s2) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
-        redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+        redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master)
 
         assert redis.ping
 
@@ -258,18 +258,18 @@ class SentinelTest < Minitest::Test
   end
 
   def test_sentinel_role_mismatch
-    sentinels = [{:host => "127.0.0.1", :port => 26381}]
+    sentinels = [{ host: "127.0.0.1", port: 26_381 }]
 
     sentinel = lambda do |port|
       {
-        :sentinel => lambda do |command, *args|
+        sentinel: lambda do |_command, *_args|
           ["127.0.0.1", port.to_s]
         end
       }
     end
 
     master = {
-      :role => lambda do
+      role: lambda do
         ["slave"]
       end
     }
@@ -278,7 +278,7 @@ class SentinelTest < Minitest::Test
       RedisMock.start(master) do |master_port|
         RedisMock.start(sentinel.call(master_port)) do |sen_port|
           sentinels[0][:port] = sen_port
-          redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master)
+          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master)
 
           assert redis.ping
         end
@@ -289,14 +289,14 @@ class SentinelTest < Minitest::Test
   end
 
   def test_sentinel_retries
-    sentinels = [{:host => "127.0.0.1", :port => 26381},
-                 {:host => "127.0.0.1", :port => 26382}]
+    sentinels = [{ host: "127.0.0.1", port: 26_381 },
+                 { host: "127.0.0.1", port: 26_382 }]
 
     connections = []
 
     handler = lambda do |id, port|
       {
-        :sentinel => lambda do |command, *args|
+        sentinel: lambda do |_command, *_args|
           connections << id
 
           if connections.count(id) < 2
@@ -309,7 +309,7 @@ class SentinelTest < Minitest::Test
     end
 
     master = {
-      :role => lambda do
+      role: lambda do
         ["master"]
       end
     }
@@ -319,14 +319,14 @@ class SentinelTest < Minitest::Test
         RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
           sentinels[0][:port] = s1_port
           sentinels[1][:port] = s2_port
-          redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 1)
+          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 1)
 
           assert redis.ping
         end
       end
     end
 
-    assert_equal [:s1, :s2, :s1], connections
+    assert_equal %i[s1 s2 s1], connections
 
     connections.clear
 
@@ -336,7 +336,7 @@ class SentinelTest < Minitest::Test
           RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
             sentinels[0][:port] = s1_port + 1
             sentinels[1][:port] = s2_port + 2
-            redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :master, :reconnect_attempts => 0)
+            redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 0)
 
             assert redis.ping
           end

@@ -35,7 +35,7 @@ class TestClusterCommandsOnKeys < Minitest::Test
 
     redis_cluster_mock(migrate: ->(*_) { '-IOERR error or timeout writing to target instance' }) do |redis|
       assert_raises(Redis::CommandError, 'IOERR error or timeout writing to target instance') do
-        redis.migrate('mykey', host: '127.0.0.1', port: 11211)
+        redis.migrate('mykey', host: '127.0.0.1', port: 11_211)
       end
     end
 

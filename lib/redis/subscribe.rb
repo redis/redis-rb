@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class Redis
   class SubscribedClient
     def initialize(client)
@@ -33,24 +34,21 @@ class Redis
       call([:punsubscribe, *channels])
     end
 
-  protected
+    protected
 
     def subscription(start, stop, channels, block, timeout = 0)
       sub = Subscription.new(&block)
 
       unsubscribed = false
 
-      begin
-        @client.call_loop([start, *channels], timeout) do |line|
-          type, *rest = line
-          sub.callbacks[type].call(*rest)
-          unsubscribed = type == stop && rest.last == 0
-          break if unsubscribed
-        end
-      ensure
-        # No need to unsubscribe here. The real client closes the connection
-        # whenever an exception is raised (see #ensure_connected).
+      @client.call_loop([start, *channels], timeout) do |line|
+        type, *rest = line
+        sub.callbacks[type].call(*rest)
+        unsubscribed = type == stop && rest.last == 0
+        break if unsubscribed
       end
+      # No need to unsubscribe here. The real client closes the connection
+      # whenever an exception is raised (see #ensure_connected).
     end
   end
 
@@ -59,7 +57,7 @@ class Redis
 
     def initialize
       @callbacks = Hash.new do |hash, key|
-        hash[key] = lambda { |*_| }
+        hash[key] = ->(*_) {}
       end
 
       yield(self)

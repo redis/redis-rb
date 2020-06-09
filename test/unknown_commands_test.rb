@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestUnknownCommands < Minitest::Test
-
   include Helper::Client
 
   def test_should_try_to_work

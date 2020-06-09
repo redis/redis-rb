@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestEncoding < Minitest::Test
-
   include Helper::Client
 
   def test_returns_properly_encoded_strings

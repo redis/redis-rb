@@ -43,9 +43,7 @@ class TestClusterCommandsOnServer < Minitest::Test
     a_client_info = redis.client(:list).first
     actual = a_client_info.keys.sort
     expected = %w[addr age cmd db events fd flags id idle multi name obl oll omem psub qbuf qbuf-free sub]
-    if version >= '6'
-      expected << 'user'
-    end
+    expected << 'user' if version >= '6'
     assert_equal expected, actual
   end
 
@@ -73,7 +71,7 @@ class TestClusterCommandsOnServer < Minitest::Test
   end
 
   def test_command_count
-    assert_equal true,(redis.command(:count) > 0)
+    assert_equal true, (redis.command(:count) > 0)
   end
 
   def test_command_getkeys
@@ -96,10 +94,10 @@ class TestClusterCommandsOnServer < Minitest::Test
 
   def test_config_get
     expected_keys = if version < '3.2.0'
-                      %w[hash-max-ziplist-entries list-max-ziplist-entries set-max-intset-entries zset-max-ziplist-entries]
-                    else
-                      %w[hash-max-ziplist-entries set-max-intset-entries zset-max-ziplist-entries]
-                    end
+      %w[hash-max-ziplist-entries list-max-ziplist-entries set-max-intset-entries zset-max-ziplist-entries]
+    else
+      %w[hash-max-ziplist-entries set-max-intset-entries zset-max-ziplist-entries]
+    end
 
     assert_equal expected_keys, redis.config(:get, '*max-*-entries*').keys.sort
   end

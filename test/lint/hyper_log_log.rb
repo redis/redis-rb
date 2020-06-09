@@ -1,8 +1,7 @@
 # frozen_string_literal: true
+
 module Lint
-
   module HyperLogLog
-
     def test_pfadd
       target_version "2.8.9" do
         assert_equal true, r.pfadd("foo", "s1")

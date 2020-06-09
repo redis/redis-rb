@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestErrorReplies < Minitest::Test
-
   include Helper::Client
 
   # Every test shouldn't disconnect from the server. Also, when error replies are

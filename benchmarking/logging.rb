@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 # Run with
 #
 #   $ ruby -Ilib benchmarking/logging.rb
@@ -7,7 +8,7 @@
 begin
   require "bench"
 rescue LoadError
-  $stderr.puts "`gem install bench` and try again."
+  warn "`gem install bench` and try again."
   exit 1
 end
 
@@ -35,19 +36,20 @@ end
 default = Redis.new
 
 logging_redises = [
-  Redis.new(:logger => log(:DEBUG)),
-  Redis.new(:logger => log(:INFO)),
+  Redis.new(logger: log(:DEBUG)),
+  Redis.new(logger: log(:INFO))
 ]
 
 begin
   require "log4r"
 
   logging_redises += [
-    Redis.new(:logger => log(:DEBUG, Log4r)),
-    Redis.new(:logger => log(:INFO, Log4r)),
+    Redis.new(logger: log(:DEBUG, Log4r)),
+    Redis.new(logger: log(:INFO, Log4r))
   ]
 rescue LoadError
-  $stderr.puts "Log4r not installed. `gem install log4r` if you want to compare it against Ruby's Logger (spoiler: it's much faster)."
+  warn "Log4r not installed. `gem install log4r` if you want to compare it against Ruby's " \
+    "Logger (spoiler: it's much faster)."
 end
 
 benchmark "Default options (no logger)" do

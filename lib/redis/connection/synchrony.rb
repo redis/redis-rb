@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require_relative "command_helper"
 require_relative "registry"
 require_relative "../errors"
@@ -47,9 +48,7 @@ class Redis
 
       def read
         @req = EventMachine::DefaultDeferrable.new
-        if @timeout > 0
-          @req.timeout(@timeout, :timeout)
-        end
+        @req.timeout(@timeout, :timeout) if @timeout > 0
         EventMachine::Synchrony.sync @req
       end
 
@@ -106,7 +105,7 @@ class Redis
       end
 
       def connected?
-        @connection && @connection.connected?
+        @connection&.connected?
       end
 
       def timeout=(timeout)

@@ -3,7 +3,7 @@
 module Lint
   module Streams
     MIN_REDIS_VERSION = '4.9.0'
-    ENTRY_ID_FORMAT = /\d+-\d+/
+    ENTRY_ID_FORMAT = /\d+-\d+/.freeze
 
     def setup
       super
@@ -152,7 +152,7 @@ module Lint
 
       actual = redis.xrange('s1')
 
-      assert_equal %w(v1 v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v1 v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xrange_with_start_option
@@ -226,7 +226,7 @@ module Lint
       actual = redis.xrevrange('s1')
 
       assert_equal %w(0-3 0-2 0-1), actual.map(&:first)
-      assert_equal %w(v3 v2 v1), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v3 v2 v1), actual.map { |i| i.last['f'] })
     end
 
     def test_xrevrange_with_start_option
@@ -315,7 +315,7 @@ module Lint
 
       actual = redis.xread('s1', 0)
 
-      assert_equal %w(v1 v2), actual.fetch('s1').map { |i| i.last['f'] }
+      assert_equal(%w(v1 v2), actual.fetch('s1').map { |i| i.last['f'] })
     end
 
     def test_xread_with_multiple_keys
@@ -357,7 +357,7 @@ module Lint
       redis.dup.xadd('s1', { f: 'v1' }, id: '0-1')
       wire.join
 
-      assert_equal ['v1'], actual.fetch('s1').map { |i| i.last['f'] }
+      assert_equal(['v1'], actual.fetch('s1').map { |i| i.last['f'] })
     end
 
     def test_xread_with_invalid_arguments
@@ -532,7 +532,7 @@ module Lint
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3')
 
       assert_equal %w(0-2 0-3), actual.map(&:first)
-      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xclaim_with_arrayed_entry_ids
@@ -546,7 +546,7 @@ module Lint
       actual = redis.xclaim('s1', 'g1', 'c2', 10, %w[0-2 0-3])
 
       assert_equal %w(0-2 0-3), actual.map(&:first)
-      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xclaim_with_idle_option
@@ -560,7 +560,7 @@ module Lint
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', idle: 0)
 
       assert_equal %w(0-2 0-3), actual.map(&:first)
-      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xclaim_with_time_option
@@ -575,7 +575,7 @@ module Lint
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', time: time)
 
       assert_equal %w(0-2 0-3), actual.map(&:first)
-      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xclaim_with_retrycount_option
@@ -589,7 +589,7 @@ module Lint
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', retrycount: 10)
 
       assert_equal %w(0-2 0-3), actual.map(&:first)
-      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xclaim_with_force_option
@@ -602,8 +602,8 @@ module Lint
 
       actual = redis.xclaim('s1', 'g1', 'c2', 10, '0-2', '0-3', force: true)
 
-      assert_equal %w(0-2 0-3), actual.map(&:first)
-      assert_equal %w(v2 v3), actual.map { |i| i.last['f'] }
+      assert_equal(%w(0-2 0-3), actual.map(&:first))
+      assert_equal(%w(v2 v3), actual.map { |i| i.last['f'] })
     end
 
     def test_xclaim_with_justid_option

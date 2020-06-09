@@ -1,17 +1,17 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedPublishSubscribe < Minitest::Test
-
   include Helper::Distributed
 
   def test_subscribe_and_unsubscribe
     assert_raises Redis::Distributed::CannotDistribute do
-      r.subscribe("foo", "bar") { }
+      r.subscribe("foo", "bar") {}
     end
 
     assert_raises Redis::Distributed::CannotDistribute do
-      r.subscribe("{qux}foo", "bar") { }
+      r.subscribe("{qux}foo", "bar") {}
     end
   end
 
@@ -21,19 +21,19 @@ class TestDistributedPublishSubscribe < Minitest::Test
 
     wire = Wire.new do
       r.subscribe("foo") do |on|
-        on.subscribe do |channel, total|
+        on.subscribe do |_channel, total|
           @subscribed = true
           @t1 = total
         end
 
-        on.message do |channel, message|
+        on.message do |_channel, message|
           if message == "s1"
             r.unsubscribe
             @message = message
           end
         end
 
-        on.unsubscribe do |channel, total|
+        on.unsubscribe do |_channel, total|
           @unsubscribed = true
           @t2 = total
         end
@@ -41,7 +41,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass while !@subscribed
+    Wire.pass until @subscribed
 
     Redis::Distributed.new(NODES).publish("foo", "s1")
 
@@ -59,7 +59,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
 
     wire = Wire.new do
       r.subscribe("foo") do |on|
-        on.subscribe do |channel, total|
+        on.subscribe do |channel, _total|
           @channels << channel
 
           r.subscribe("bar") if channel == "foo"
@@ -76,7 +76,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
   def test_other_commands_within_a_subscribe
     assert_raises Redis::CommandError do
       r.subscribe("foo") do |on|
-        on.subscribe do |channel, total|
+        on.subscribe do |_channel, _total|
           r.set("bar", "s2")
         end
       end

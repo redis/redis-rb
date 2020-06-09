@@ -9,10 +9,10 @@
 
 require "fileutils"
 
-$pids = []
+pids = []
 
 at_exit do
-  $pids.each do |pid|
+  pids.each do |pid|
     begin
       Process.kill(:INT, pid)
     rescue Errno::ESRCH
@@ -22,29 +22,29 @@ at_exit do
   Process.waitall
 end
 
-base = File.expand_path(File.dirname(__FILE__))
+base = __dir__
 
 # Masters
-$pids << spawn("redis-server --port 6380 --loglevel warning")
-$pids << spawn("redis-server --port 6381 --loglevel warning")
+pids << spawn("redis-server --port 6380 --loglevel warning")
+pids << spawn("redis-server --port 6381 --loglevel warning")
 
 # Slaves of Master 1
-$pids << spawn("redis-server --port 63800 --slaveof 127.0.0.1 6380 --loglevel warning")
-$pids << spawn("redis-server --port 63801 --slaveof 127.0.0.1 6380 --loglevel warning")
+pids << spawn("redis-server --port 63800 --slaveof 127.0.0.1 6380 --loglevel warning")
+pids << spawn("redis-server --port 63801 --slaveof 127.0.0.1 6380 --loglevel warning")
 
 # Slaves of Master 2
-$pids << spawn("redis-server --port 63810 --slaveof 127.0.0.1 6381 --loglevel warning")
-$pids << spawn("redis-server --port 63811 --slaveof 127.0.0.1 6381 --loglevel warning")
+pids << spawn("redis-server --port 63810 --slaveof 127.0.0.1 6381 --loglevel warning")
+pids << spawn("redis-server --port 63811 --slaveof 127.0.0.1 6381 --loglevel warning")
 
 FileUtils.cp(File.join(base, "sentinel.conf"), "tmp/sentinel1.conf")
 FileUtils.cp(File.join(base, "sentinel.conf"), "tmp/sentinel2.conf")
 
 # Sentinels
-$pids << spawn("redis-server tmp/sentinel1.conf --sentinel --port 26379")
-$pids << spawn("redis-server tmp/sentinel2.conf --sentinel --port 26380")
+pids << spawn("redis-server tmp/sentinel1.conf --sentinel --port 26379")
+pids << spawn("redis-server tmp/sentinel2.conf --sentinel --port 26380")
 
 sleep 30
 
-Process.kill(:KILL, $pids[0])
+Process.kill(:KILL, pids[0])
 
 Process.waitall

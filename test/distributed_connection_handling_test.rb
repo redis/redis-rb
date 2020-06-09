@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedConnectionHandling < Minitest::Test
-
   include Helper::Distributed
 
   def test_ping

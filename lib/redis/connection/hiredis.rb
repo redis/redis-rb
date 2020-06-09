@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require_relative "registry"
 require_relative "../errors"
 require "hiredis/connection"
@@ -7,7 +8,6 @@ require "timeout"
 class Redis
   module Connection
     class Hiredis
-
       def self.connect(config)
         connection = ::Hiredis::Connection.new
         connect_timeout = (config.fetch(:connect_timeout, 0) * 1_000_000).to_i
@@ -32,7 +32,7 @@ class Redis
       end
 
       def connected?
-        @connection && @connection.connected?
+        @connection&.connected?
       end
 
       def timeout=(timeout)
@@ -58,7 +58,7 @@ class Redis
       rescue Errno::EAGAIN
         raise TimeoutError
       rescue RuntimeError => err
-        raise ProtocolError.new(err.message)
+        raise ProtocolError, err.message
       end
     end
   end

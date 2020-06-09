@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedSorting < Minitest::Test
-
   include Helper::Distributed
 
   def test_sort
@@ -13,7 +13,7 @@ class TestDistributedSorting < Minitest::Test
       r.rpush("bar", "1")
       r.rpush("bar", "2")
 
-      r.sort("bar", :get => "foo:*", :limit => [0, 1])
+      r.sort("bar", get: "foo:*", limit: [0, 1])
     end
   end
 end

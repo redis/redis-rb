@@ -1,0 +1,114 @@
+AllCops:
+  TargetRubyVersion: 2.3
+
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - 'test/**/*'
+
+Layout/CaseIndentation:
+  EnforcedStyle: end
+
+Lint/RescueException:
+  Enabled: false
+
+Lint/SuppressedException:
+  Enabled: false
+
+Lint/AssignmentInCondition:
+  Enabled: false
+
+Lint/UnifiedInteger:
+  Enabled: false
+
+Metrics/ClassLength:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/BlockLength:
+  Enabled: false
+
+Metrics/MethodLength:
+  Enabled: false
+
+Metrics/ModuleLength:
+  Enabled: false
+
+Metrics/ParameterLists:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Style/PercentLiteralDelimiters:
+  Enabled: false
+
+Style/ParallelAssignment:
+  Enabled: false
+
+Style/NumericPredicate:
+  Enabled: false
+
+Style/SignalException:
+  Exclude:
+    - 'lib/redis/connection/synchrony.rb'
+
+Style/MethodMissingSuper:
+  Enabled: false
+
+Style/StringLiterals:
+  Enabled: false
+
+Style/DoubleNegation:
+  Enabled: false
+
+Style/MultipleComparison:
+  Enabled: false
+
+Style/GuardClause:
+  Enabled: false
+
+Style/Semicolon:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Style/FormatStringToken:
+  Enabled: false
+
+Style/FormatString:
+  Enabled: false
+
+Style/RescueStandardError:
+  Enabled: false
+
+Style/WordArray:
+  Enabled: false
+
+Lint/NonLocalExitFromIterator:
+  Enabled: false
+
+Lint/EndAlignment:
+  EnforcedStyleAlignWith: variable
+
+Layout/ElseAlignment:
+  Enabled: false
+
+Naming/HeredocDelimiterNaming:
+  Enabled: false
+
+Naming/FileName:
+  Enabled: false
+
+Naming/RescuedExceptionsVariableName:
+  Enabled: false
+
+Naming/AccessorMethodName:
+  Exclude:
+    - lib/redis/connection/ruby.rb

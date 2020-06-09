@@ -1,14 +1,15 @@
 # frozen_string_literal: true
+
 require "redis"
 
-puts <<-EOS
-To play with this example use redis-cli from another terminal, like this:
+puts <<~EOS
+  To play with this example use redis-cli from another terminal, like this:
 
-  $ redis-cli publish one hello
+    $ redis-cli publish one hello
 
-Finally force the example to exit sending the 'exit' message with:
+  Finally force the example to exit sending the 'exit' message with:
 
-  $ redis-cli publish two exit
+    $ redis-cli publish two exit
 
 EOS
 

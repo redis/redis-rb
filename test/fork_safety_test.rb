@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestForkSafety < Minitest::Test
-
   include Helper::Client
 
   driver(:ruby, :hiredis) do
@@ -28,13 +28,12 @@ class TestForkSafety < Minitest::Test
 
       assert_equal 127, status.exitstatus
       assert_equal "1", redis.get("foo")
-
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
     end
 
     def test_fork_safety_with_enabled_inherited_socket
-      redis = Redis.new(OPTIONS.merge(:inherit_socket => true))
+      redis = Redis.new(OPTIONS.merge(inherit_socket: true))
       redis.set "foo", 1
 
       child_pid = fork do
@@ -55,7 +54,6 @@ class TestForkSafety < Minitest::Test
 
       assert_equal 0, status.exitstatus
       assert_equal "2", redis.get("foo")
-
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
     end

@@ -19,19 +19,19 @@ class TestClusterCommandsOnCluster < Minitest::Test
     end
 
     node_id = redis.cluster(:nodes).first.fetch('node_id')
-    assert_equal true,(redis.cluster('count-failure-reports', node_id) >= 0)
+    assert_equal true, (redis.cluster('count-failure-reports', node_id) >= 0)
   end
 
   def test_cluster_countkeysinslot
-    assert_equal true,(redis.cluster(:countkeysinslot, 0) >= 0)
-    assert_equal true,(redis.cluster(:countkeysinslot, 16383) >= 0)
+    assert_equal true, (redis.cluster(:countkeysinslot, 0) >= 0)
+    assert_equal true, (redis.cluster(:countkeysinslot, 16_383) >= 0)
 
     assert_raises(Redis::CommandError, 'ERR Invalid slot') do
       redis.cluster(:countkeysinslot, -1)
     end
 
     assert_raises(Redis::CommandError, 'ERR Invalid slot') do
-      redis.cluster(:countkeysinslot, 16384)
+      redis.cluster(:countkeysinslot, 16_384)
     end
   end
 
@@ -73,7 +73,7 @@ class TestClusterCommandsOnCluster < Minitest::Test
 
   def test_cluster_meet
     assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER MEET command should be...') do
-      redis.cluster(:meet, '127.0.0.1', 11211)
+      redis.cluster(:meet, '127.0.0.1', 11_211)
     end
   end
 

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedScripting < Minitest::Test
-
   include Helper::Distributed
 
   def to_sha(script)
@@ -33,7 +33,7 @@ class TestDistributedScripting < Minitest::Test
 
   def test_script_kill
     target_version "2.5.9" do # 2.6-rc1
-      redis_mock(:script => lambda { |arg| "+#{arg.upcase}" }) do |redis|
+      redis_mock(script: ->(arg) { "+#{arg.upcase}" }) do |redis|
         assert_equal ["KILL"], redis.script(:kill)
       end
     end
@@ -61,11 +61,11 @@ class TestDistributedScripting < Minitest::Test
       end
 
       assert_raises(Redis::Distributed::CannotDistribute) do
-        r.eval("return KEYS", { :keys => ["k1", "k2"] })
+        r.eval("return KEYS", { keys: ["k1", "k2"] })
       end
 
-      assert_equal ["k1"], r.eval("return KEYS", { :keys => ["k1"] })
-      assert_equal ["a1", "a2"], r.eval("return ARGV", { :keys => ["k1"], :argv => ["a1", "a2"] })
+      assert_equal ["k1"], r.eval("return KEYS", { keys: ["k1"] })
+      assert_equal ["a1", "a2"], r.eval("return ARGV", { keys: ["k1"], argv: ["a1", "a2"] })
     end
   end
 
@@ -91,11 +91,11 @@ class TestDistributedScripting < Minitest::Test
       end
 
       assert_raises(Redis::Distributed::CannotDistribute) do
-        r.evalsha(to_sha("return KEYS"), { :keys => ["k1", "k2"] })
+        r.evalsha(to_sha("return KEYS"), { keys: ["k1", "k2"] })
       end
 
-      assert_equal ["k1"], r.evalsha(to_sha("return KEYS"), { :keys => ["k1"] })
-      assert_equal ["a1", "a2"], r.evalsha(to_sha("return ARGV"), { :keys => ["k1"], :argv => ["a1", "a2"] })
+      assert_equal ["k1"], r.evalsha(to_sha("return KEYS"), { keys: ["k1"] })
+      assert_equal ["a1", "a2"], r.evalsha(to_sha("return ARGV"), { keys: ["k1"], argv: ["a1", "a2"] })
     end
   end
 end

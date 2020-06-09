@@ -39,6 +39,7 @@ class Redis
       def call_master(command, &block)
         try_map do |node_key, client|
           next if slave?(node_key)
+
           client.call(command, &block)
         end.values
       end
@@ -48,6 +49,7 @@ class Redis
 
         try_map do |node_key, client|
           next if master?(node_key)
+
           client.call(command, &block)
         end.values
       end
@@ -97,6 +99,7 @@ class Redis
         end
 
         return results if errors.empty?
+
         raise CommandErrorCollection, errors
       end
     end

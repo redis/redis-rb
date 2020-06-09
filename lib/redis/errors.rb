@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class Redis
   # Base error for all redis-rb errors.
   class BaseError < RuntimeError

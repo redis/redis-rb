@@ -1,8 +1,8 @@
 # frozen_string_literal: true
+
 require_relative "helper"
 
 class TestDistributedKeyTags < Minitest::Test
-
   include Helper
   include Helper::Distributed
 
@@ -24,7 +24,7 @@ class TestDistributedKeyTags < Minitest::Test
       r.set "{foo}users:#{i}", i
     end
 
-    assert_equal [0, 100], r.nodes.map { |node| node.keys.size }
+    assert_equal([0, 100], r.nodes.map { |node| node.keys.size })
   end
 
   def test_distributes_keys_if_no_clustering_is_used
@@ -34,11 +34,11 @@ class TestDistributedKeyTags < Minitest::Test
     r.set "users:1", 1
     r.set "users:4", 4
 
-    assert_equal [1, 1], r.nodes.map { |node| node.keys.size }
+    assert_equal([1, 1], r.nodes.map { |node| node.keys.size })
   end
 
   def test_allows_passing_a_custom_tag_extractor
-    r = Redis::Distributed.new(NODES, :tag => /^(.+?):/)
+    r = Redis::Distributed.new(NODES, tag: /^(.+?):/)
     r.add_node("redis://127.0.0.1:#{PORT}/14")
     r.flushdb
 
@@ -46,6 +46,6 @@ class TestDistributedKeyTags < Minitest::Test
       r.set "foo:users:#{i}", i
     end
 
-    assert_equal [0, 100], r.nodes.map { |node| node.keys.size }
+    assert_equal([0, 100], r.nodes.map { |node| node.keys.size })
   end
 end
