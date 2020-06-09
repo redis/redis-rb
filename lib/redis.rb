@@ -560,6 +560,16 @@ class Redis
     end
   end
 
+  # Determine if any of the keys exists.
+  #
+  # @param [String, Array<String>] keys
+  # @return [Boolean]
+  def exists?(*keys)
+    synchronize do |client|
+      client.call([:exists, *keys], &Boolify)
+    end
+  end
+
   # Find all keys matching the given pattern.
   #
   # @param [String] pattern

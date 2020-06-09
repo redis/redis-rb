@@ -11,6 +11,14 @@ module Lint
       assert_equal true,  r.exists("foo")
     end
 
+    def test_exists?
+      assert_equal false, r.exists?("{1}foo", "{1}bar")
+
+      r.set("{1}foo", "s1")
+
+      assert_equal true,  r.exists?("{1}foo")
+    end
+
     def test_type
       assert_equal "none", r.type("foo")
 

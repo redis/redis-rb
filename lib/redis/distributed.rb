@@ -175,6 +175,15 @@ class Redis
       node_for(key).exists(key)
     end
 
+    # Determine if any of the keys exists.
+    def exists?(*args)
+      keys_per_node = args.group_by { |key| node_for(key) }
+      keys_per_node.each do |node, keys|
+        return true if node.exists?(*keys)
+      end
+      false
+    end
+
     # Find all keys matching the given pattern.
     def keys(glob = "*")
       on_each_node(:keys, glob).flatten
