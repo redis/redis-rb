@@ -2109,11 +2109,16 @@ class Redis
   #
   # @example
   #   redis.hset("hash", "f1", "v1", "f2", "v2") # => 2
+  #   redis.hset("hash", { "f1" => "v1", "f2" => "v2" }) # => 2
   #
   # @param [String] key
-  # @param [Array<String>] attrs array of fields and values
+  # @param [Array<String> | Hash<String, String>] attrs array or hash of fields and values
   # @return [Integer] The number of fields that were added to the hash
   def hset(key, *attrs)
+    if attrs.size == 1 && attrs.first.is_a?(Hash)
+      attrs = attrs.first.flatten
+    end
+
     synchronize do |client|
       client.call([:hset, key, *attrs])
     end

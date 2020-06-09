@@ -15,6 +15,11 @@ module Lint
 
         assert_equal "s1", r.hget("foo", "f1")
         assert_equal "s2", r.hget("foo", "f2")
+
+        assert_equal 2, r.hset("bar", { "f1" => "s1", "f2" => "s2" })
+
+        assert_equal "s1", r.hget("bar", "f1")
+        assert_equal "s2", r.hget("bar", "f2")
       end
     end
 
