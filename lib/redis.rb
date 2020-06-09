@@ -786,6 +786,7 @@ class Redis
   #   - `:px => Integer`: Set the specified expire time, in milliseconds.
   #   - `:nx => true`: Only set the key if it does not already exist.
   #   - `:xx => true`: Only set the key if it already exist.
+  #   - `:keepttl => true`: Retain the time to live associated with the key.
   # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
   def set(key, value, options = {})
     args = []
@@ -801,6 +802,9 @@ class Redis
 
     xx = options[:xx]
     args.concat(["XX"]) if xx
+
+    keepttl = options[:keepttl]
+    args.concat(["KEEPTTL"]) if keepttl
 
     synchronize do |client|
       if nx || xx

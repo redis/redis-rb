@@ -74,6 +74,15 @@ module Lint
       end
     end
 
+    def test_set_with_keepttl
+      target_version "6.0.0" do
+        r.set("foo", "qux", :ex => 2)
+        assert_in_range 0..2, r.ttl("foo")
+        r.set("foo", "bar", :keepttl => true)
+        assert_in_range 0..2, r.ttl("foo")
+      end
+    end
+
     def test_setex
       assert r.setex("foo", 1, "bar")
       assert_equal "bar", r.get("foo")

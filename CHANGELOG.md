@@ -9,6 +9,7 @@
 * Increase buffer size in the ruby connector. See #880.
 * Fix thread safety of `Redis.queue`. See #878.
 * Deprecate `Redis::Future#==` as it's likely to be a mistake. See #876.
+* Support `KEEPTTL` option for SET command. See #913.
 
 # 4.1.3
 
