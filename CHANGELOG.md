@@ -1,5 +1,18 @@
 # Unreleased
 
+# 4.2.0
+
+* Convert commands to accept keyword arguments rather than option hashes. This both help catching typos, and reduce needless allocations.
+* Deprecate the synchrony driver. It will be removed in 5.0 and hopefully maintained as a separate gem. See #915.
+* Make `Redis#exists` variadic, will return an Integer if called with multiple keys.
+* Add `Redis#exists?` to get a Boolean if any of the keys exists.
+* `Redis#exists` when called with a single key will warn that future versions will return an Integer.
+  Set `Redis.exists_returns_integer = true` to opt-in to the new behavior.
+* Support `keepttl` ooption in `set`. See #913.
+* Optimized initialization of Redis::Cluster. See #912.
+* Accept sentinel options even with string key. See #599.
+* Verify TLS connections by default. See #900.
+
 # 4.1.4
 
 * Alias `Redis#disconnect` as `#close`. See #901.
