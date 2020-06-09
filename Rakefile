@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 require 'bundler/gem_tasks'
 require 'rake/testtask'
-Rake::TestTask.new 'test' do |t|
+Rake::TestTask.new :test do |t|
   if ENV['SOCKET_PATH'].nil?
     sock_file = Dir.glob("#{__dir__}/**/redis.sock").first
 
@@ -21,7 +21,7 @@ Rake::TestTask.new 'test' do |t|
     t.test_files = ARGV[1..-1]
   end
 
-  t.options = '-v'
+  t.options = '-v' if ENV['CI'] || ENV['VERBOSE']
 end
 
 task default: :test
