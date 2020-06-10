@@ -584,7 +584,9 @@ class Redis
   # @return [Boolean]
   def exists?(*keys)
     synchronize do |client|
-      client.call([:exists, *keys], &Boolify)
+      client.call([:exists, *keys]) do |value|
+        value > 0
+      end
     end
   end
 
