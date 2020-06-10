@@ -40,6 +40,10 @@ module Lint
       r.set("{1}foo", "s1")
 
       assert_equal true, r.exists?("{1}foo")
+
+      r.set("{1}bar", "s1")
+
+      assert_equal true, r.exists?("{1}foo", "{1}bar")
     end
 
     def test_type
