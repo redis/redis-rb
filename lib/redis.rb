@@ -5,7 +5,20 @@ require_relative "redis/errors"
 
 class Redis
   class << self
-    attr_accessor :exists_returns_integer
+    attr_reader :exists_returns_integer
+
+    def exists_returns_integer=(value)
+      unless value
+        message = "`Redis#exists(key)` will return an Integer by default in redis-rb 4.3. The option to explicitly " \
+          "disable this behaviour via `Redis.exists_returns_integer` will be removed in 5.0.  You should use " \
+          "`exists?` instead. "
+
+        ::Kernel.warn(message)
+      end
+
+      @exists_returns_integer = value
+    end
+
     attr_writer :current
   end
 
@@ -561,11 +574,16 @@ class Redis
   # @return [Integer]
   def exists(*keys)
     if !Redis.exists_returns_integer && keys.size == 1
-      message = "`Redis#exists(key)` will return an Integer in redis-rb 4.3, if you want to keep the old behavior, " \
-        "use `exists?` instead. To opt-in to the new behavior now you can set Redis.exists_returns_integer = true. " \
-        "(#{::Kernel.caller(1, 1).first})\n"
+      if Redis.exists_returns_integer.nil?
+        message = "`Redis#exists(key)` will return an Integer in redis-rb 4.3. `exists?` returns a boolean, you " \
+          "should use it instead. To opt-in to the new behavior now you can set Redis.exists_returns_integer =  " \
+          "true. To disable this message and keep the current (boolean) behaviour of 'exists' you can set " \
+          "`Redis.exists_returns_integer = false`, but this option will be removed in 5.0. " \
+          "(#{::Kernel.caller(1, 1).first})\n"
 
-      ::Kernel.warn(message)
+        ::Kernel.warn(message)
+      end
+
       exists?(*keys)
     else
       _exists(*keys)
