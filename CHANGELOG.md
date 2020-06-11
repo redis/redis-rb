@@ -1,6 +1,9 @@
 # Unreleased
 
-* Setting `Redis.exists_returns_integer = false` disables warning message about new behaviour.
+# 4.2.1
+
+* Fix `exists?` returning an actual boolean when called with multiple keys. See #918.
+* Setting `Redis.exists_returns_integer = false` disables warning message about new behaviour. See #920.
 
 # 4.2.0
 
