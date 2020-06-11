@@ -1,5 +1,7 @@
 # Unreleased
 
+* Setting `Redis.exists_returns_integer = false` disables warning message about new behaviour.
+
 # 4.2.0
 
 * Convert commands to accept keyword arguments rather than option hashes. This both help catching typos, and reduce needless allocations.
