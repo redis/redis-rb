@@ -17,6 +17,7 @@
 * Optimized initialization of Redis::Cluster. See #912.
 * Accept sentinel options even with string key. See #599.
 * Verify TLS connections by default. See #900.
+* Make `Redis#hset` variadic. It now returns an integer, not a boolean. See #910.
 
 # 4.1.4
 
