@@ -244,7 +244,7 @@ class TestInternals < Minitest::Test
       else
         raise "Expected SELECT"
       end
-      unless seq.include?(n) # rubocop:disable Style/IfUnlessModifier
+      unless seq.include?(n)
         session.write("+#{n}\r\n") while read_command.call(session)
       end
     end

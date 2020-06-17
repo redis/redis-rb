@@ -57,6 +57,9 @@ Style/ParallelAssignment:
 Style/NumericPredicate:
   Enabled: false
 
+Style/IfUnlessModifier:
+  Enabled: false
+
 Style/SignalException:
   Exclude:
     - 'lib/redis/connection/synchrony.rb'
