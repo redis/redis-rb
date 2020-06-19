@@ -3427,9 +3427,7 @@ class Redis
   private_constant :EMPTY_STREAM_RESPONSE
 
   HashifyStreamEntries = lambda { |reply|
-    return [] if reply == EMPTY_STREAM_RESPONSE
-
-    reply.map do |entry_id, values|
+    reply.compact.map do |entry_id, values|
       [entry_id, values.each_slice(2).to_h]
     end
   }
