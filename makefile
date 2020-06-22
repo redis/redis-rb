@@ -85,7 +85,7 @@ wait_for_sentinel:
 			if [ $$(${REDIS_CLIENT} -p $${port} SENTINEL SLAVES ${HA_GROUP_NAME} | wc -l) -gt 1 ]; then\
 				break;\
 			fi;\
-			echo 'waiting for ready to sentinel tests...';\
+			echo 'Waiting for Redis sentinel to be ready...';\
 			sleep 1;\
 		done;\
 	done
