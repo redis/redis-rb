@@ -3428,7 +3428,7 @@ class Redis
 
   HashifyStreamEntries = lambda { |reply|
     reply.compact.map do |entry_id, values|
-      [entry_id, values&.each_slice(2)&.to_h||{}]
+      [entry_id, values&.each_slice(2)&.to_h || {}]
     end
   }
 
