@@ -379,22 +379,21 @@ class SentinelTest < Minitest::Test
   end
 
   def test_sentinel_nearest
-    sentinels = [{:host => "127.0.0.1", :port => 26381}]
+    sentinels = [{ host: "127.0.0.1", port: 26_381 }]
 
-    master = { :role => lambda { ["master"] }, :node_id => lambda { ["master"] }, :ping => lambda { ["OK"] } }
-    s1     = { :role => lambda { ["slave"] }, :node_id => lambda { ["1"] }, :ping => lambda { sleep 0.1; ["OK"] } }
-    s2     = { :role => lambda { ["slave"] }, :node_id => lambda { ["2"] }, :ping => lambda { sleep 0.2; ["OK"] } }
-    s3     = { :role => lambda { ["slave"] }, :node_id => lambda { ["3"] }, :ping => lambda { sleep 0.3; ["OK"] } }
+    master = { role: -> { ["master"] }, node_id: -> { ["master"] }, ping: -> { ["OK"] } }
+    s1     = { role: -> { ["slave"] }, node_id: -> { ["1"] }, ping: -> { sleep 0.1; ["OK"] } }
+    s2     = { role: -> { ["slave"] }, node_id: -> { ["2"] }, ping: -> { sleep 0.2; ["OK"] } }
+    s3     = { role: -> { ["slave"] }, node_id: -> { ["3"] }, ping: -> { sleep 0.3; ["OK"] } }
 
     5.times do
       RedisMock.start(master) do |master_port|
         RedisMock.start(s1) do |s1_port|
           RedisMock.start(s2) do |s2_port|
             RedisMock.start(s3) do |s3_port|
-
               sentinel = lambda do |port|
                 {
-                  :sentinel => lambda do |command, *args|
+                  sentinel: lambda do |command, *_args|
                     case command
                     when "master"
                       %W[role-reported master ip 127.0.0.1 port #{master_port}]
@@ -413,7 +412,7 @@ class SentinelTest < Minitest::Test
 
               RedisMock.start(sentinel.call(master_port)) do |sen_port|
                 sentinels[0][:port] = sen_port
-                redis = Redis.new(:url => "redis://master1", :sentinels => sentinels, :role => :nearest)
+                redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :nearest)
                 assert_equal ["master"], redis.node_id
               end
             end
