@@ -30,7 +30,8 @@ class Redis
     def node_for(key)
       key = key_tag(key.to_s) || key.to_s
       raise CannotDistribute, :watch if @watch_key && @watch_key != key
-      node = @ring.get_node(key)
+
+      @ring.get_node(key)
     end
 
     def nodes
@@ -818,6 +819,7 @@ class Redis
     # Forget about all watched keys.
     def unwatch
       raise CannotDistribute, :unwatch unless @watch_key
+
       result = node_for(@watch_key).unwatch
       @watch_key = nil
       result
@@ -830,6 +832,7 @@ class Redis
     # Mark the start of a transaction block.
     def multi(&block)
       raise CannotDistribute, :multi unless @watch_key
+
       result = node_for(@watch_key).multi(&block)
       @watch_key = nil if block_given?
       result
@@ -838,6 +841,7 @@ class Redis
     # Execute all commands issued after MULTI.
     def exec
       raise CannotDistribute, :exec unless @watch_key
+
       result = node_for(@watch_key).exec
       @watch_key = nil
       result
@@ -846,6 +850,7 @@ class Redis
     # Discard all commands issued after MULTI.
     def discard
       raise CannotDistribute, :discard unless @watch_key
+
       result = node_for(@watch_key).discard
       @watch_key = nil
       result
