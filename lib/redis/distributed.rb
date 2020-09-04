@@ -808,8 +808,6 @@ class Redis
 
         begin
           node.watch(*keys, &block)
-        rescue ConnectionError
-          raise
         rescue StandardError
           @watch_key = nil
           raise
