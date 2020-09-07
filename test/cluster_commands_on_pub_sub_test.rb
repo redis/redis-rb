@@ -56,13 +56,13 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     messages = {}
 
     wire = Wire.new do
-      redis.psubscribe('cha*', 'her*') do |on|
+      redis.psubscribe('guc*', 'her*') do |on|
         on.psubscribe { |_c, t| sub_cnt = t }
         on.punsubscribe { |_c, t| sub_cnt = t }
         on.pmessage do |_ptn, chn, msg|
           messages[chn] = msg
           # FIXME: blocking occurs when `unsubscribe` method was called with channel arguments
-          redis.punsubscribe if messages.size == 3
+          redis.punsubscribe if messages.size == 2
         end
       end
     end
@@ -72,30 +72,27 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     publisher = build_another_client
 
     assert_equal [], publisher.pubsub(:channels)
-    assert_equal [], publisher.pubsub(:channels, 'cha*')
-    assert_equal [], publisher.pubsub(:channels, 'her*')
+    assert_equal [], publisher.pubsub(:channels, 'bur*')
     assert_equal [], publisher.pubsub(:channels, 'guc*')
+    assert_equal [], publisher.pubsub(:channels, 'her*')
     assert_equal({}, publisher.pubsub(:numsub))
-    assert_equal({ 'channel1' => 0, 'channel2' => 0, 'hermes3' => 0, 'gucci4' => 0 },
-                 publisher.pubsub(:numsub, 'channel1', 'channel2', 'hermes3', 'gucci4'))
+    assert_equal({ 'burberry1' => 0, 'gucci2' => 0, 'hermes3' => 0 }, publisher.pubsub(:numsub, 'burberry1', 'gucci2', 'hermes3'))
     assert_equal 2, publisher.pubsub(:numpat)
 
-    publisher.publish('chanel1', 'one')
-    publisher.publish('chanel2', 'two')
+    publisher.publish('burberry1', 'one')
+    publisher.publish('gucci2', 'two')
     publisher.publish('hermes3', 'three')
-    publisher.publish('gucci4', 'four')
 
     wire.join
 
-    assert_equal({ 'chanel1' => 'one', 'chanel2' => 'two', 'hermes3' => 'three' }, messages.sort.to_h)
+    assert_equal({ 'gucci2' => 'two', 'hermes3' => 'three' }, messages.sort.to_h)
 
     assert_equal [], publisher.pubsub(:channels)
-    assert_equal [], publisher.pubsub(:channels, 'cha*')
-    assert_equal [], publisher.pubsub(:channels, 'her*')
+    assert_equal [], publisher.pubsub(:channels, 'bur*')
     assert_equal [], publisher.pubsub(:channels, 'guc*')
+    assert_equal [], publisher.pubsub(:channels, 'her*')
     assert_equal({}, publisher.pubsub(:numsub))
-    assert_equal({ 'channel1' => 0, 'channel2' => 0, 'hermes3' => 0, 'gucci4' => 0 },
-                 publisher.pubsub(:numsub, 'channel1', 'channel2', 'hermes3', 'gucci4'))
+    assert_equal({ 'burberry1' => 0, 'gucci2' => 0, 'hermes3' => 0 }, publisher.pubsub(:numsub, 'burberry1', 'gucci2', 'hermes3'))
     assert_equal 0, publisher.pubsub(:numpat)
   end
 end

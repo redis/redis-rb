@@ -11,6 +11,7 @@ PORT               := 6381
 SLAVE_PORT         := 6382
 SLAVE_PID_PATH     := ${BUILD_DIR}/redis_slave.pid
 SLAVE_SOCKET_PATH  := ${BUILD_DIR}/redis_slave.sock
+HA_GROUP_NAME      := master1
 SENTINEL_PORTS     := 6400 6401 6402
 SENTINEL_PID_PATHS := $(addprefix ${TMP}/redis,$(addsuffix .pid,${SENTINEL_PORTS}))
 CLUSTER_PORTS      := 7000 7001 7002 7003 7004 7005
@@ -24,7 +25,7 @@ endef
 
 all: start_all test stop_all
 
-start_all: start start_slave start_sentinel start_cluster create_cluster
+start_all: start start_slave start_sentinel wait_for_sentinel start_cluster create_cluster
 
 stop_all: stop_sentinel stop_slave stop stop_cluster
 
@@ -67,15 +68,26 @@ start_sentinel: ${BINARY}
 		conf=${TMP}/sentinel$$port.conf;\
 		touch $$conf;\
 		echo '' >  $$conf;\
-		echo 'sentinel monitor                 master1 127.0.0.1 ${PORT} 2' >> $$conf;\
-		echo 'sentinel down-after-milliseconds master1 5000'                >> $$conf;\
-		echo 'sentinel failover-timeout        master1 30000'               >> $$conf;\
-		echo 'sentinel parallel-syncs          master1 1'                   >> $$conf;\
+		echo 'sentinel monitor                 ${HA_GROUP_NAME} 127.0.0.1 ${PORT} 2' >> $$conf;\
+		echo 'sentinel down-after-milliseconds ${HA_GROUP_NAME} 5000'                >> $$conf;\
+		echo 'sentinel failover-timeout        ${HA_GROUP_NAME} 30000'               >> $$conf;\
+		echo 'sentinel parallel-syncs          ${HA_GROUP_NAME} 1'                   >> $$conf;\
 		${BINARY} $$conf\
 			--daemonize yes\
 			--pidfile   ${TMP}/redis$$port.pid\
 			--port      $$port\
 			--sentinel;\
+	done
+
+wait_for_sentinel:
+	@for port in ${SENTINEL_PORTS}; do\
+		while : ; do\
+			if [ $$(${REDIS_CLIENT} -p $${port} SENTINEL SLAVES ${HA_GROUP_NAME} | wc -l) -gt 1 ]; then\
+				break;\
+			fi;\
+			echo 'Waiting for Redis sentinel to be ready...';\
+			sleep 1;\
+		done;\
 	done
 
 stop_cluster:

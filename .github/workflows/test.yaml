@@ -92,7 +92,7 @@ jobs:
     env:
       VERBOSE: true
       TIMEOUT: 30
-      LOW_TIMEOUT: 0.07
+      LOW_TIMEOUT: 0.14
       DRIVER: ${{ matrix.driver }}
       REDIS_BRANCH: ${{ matrix.redis }}
     steps:

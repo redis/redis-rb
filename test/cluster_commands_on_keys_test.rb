@@ -49,8 +49,7 @@ class TestClusterCommandsOnKeys < Minitest::Test
     assert_equal 1, redis.object('refcount', 'mylist')
     expected_encoding = version < '3.2.0' ? 'ziplist' : 'quicklist'
     assert_equal expected_encoding, redis.object('encoding', 'mylist')
-    expected_instance_type = RUBY_VERSION < '2.4.0' ? Fixnum : Integer
-    assert_instance_of expected_instance_type, redis.object('idletime', 'mylist')
+    assert(redis.object('idletime', 'mylist') >= 0)
 
     redis.set('foo', 1000)
     assert_equal 'int', redis.object('encoding', 'foo')
