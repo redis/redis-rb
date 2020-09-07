@@ -19,8 +19,8 @@ for type in trusted untrusted; do
   mkdir -p ./demoCA/private
   touch ./demoCA/index.txt
 
-  openssl genrsa -out ${type}-ca.key 2048
-  openssl req -new -x509 -days 12500 -key ${type}-ca.key -out ${type}-ca.crt -subj "$(get_subject $type)"
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out ${type}-ca.key
+  openssl req -new -x509 -days 12500 -key ${type}-ca.key -sha256 -out ${type}-ca.crt -subj "$(get_subject $type)"
   openssl x509 -in ${type}-ca.crt -noout -next_serial -out ./demoCA/serial
 
   openssl req -newkey rsa:2048 -keyout ${type}-cert.key -nodes -out ${type}-cert.req -subj "$(get_subject $type)"
