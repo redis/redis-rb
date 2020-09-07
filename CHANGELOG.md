@@ -1,5 +1,10 @@
 # Unreleased
 
+# 4.2.2
+
+* Fix `WATCH` support for `Redis::Distributed`. See #941.
+* Fix handling of empty stream responses. See #905, #929.
+
 # 4.2.1
 
 * Fix `exists?` returning an actual boolean when called with multiple keys. See #918.
