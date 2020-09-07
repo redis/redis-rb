@@ -24,10 +24,14 @@ class Redis
       @default_options = options.dup
       node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
+      @watch_key = nil
     end
 
     def node_for(key)
-      @ring.get_node(key_tag(key.to_s) || key.to_s)
+      key = key_tag(key.to_s) || key.to_s
+      raise CannotDistribute, :watch if @watch_key && @watch_key != key
+
+      @ring.get_node(key)
     end
 
     def nodes
@@ -799,13 +803,26 @@ class Redis
     end
 
     # Watch the given keys to determine execution of the MULTI/EXEC block.
-    def watch(*_keys)
-      raise CannotDistribute, :watch
+    def watch(*keys, &block)
+      ensure_same_node(:watch, keys) do |node|
+        @watch_key = key_tag(keys.first) || keys.first.to_s
+
+        begin
+          node.watch(*keys, &block)
+        rescue StandardError
+          @watch_key = nil
+          raise
+        end
+      end
     end
 
     # Forget about all watched keys.
     def unwatch
-      raise CannotDistribute, :unwatch
+      raise CannotDistribute, :unwatch unless @watch_key
+
+      result = node_for(@watch_key).unwatch
+      @watch_key = nil
+      result
     end
 
     def pipelined
@@ -813,18 +830,30 @@ class Redis
     end
 
     # Mark the start of a transaction block.
-    def multi
-      raise CannotDistribute, :multi
+    def multi(&block)
+      raise CannotDistribute, :multi unless @watch_key
+
+      result = node_for(@watch_key).multi(&block)
+      @watch_key = nil if block_given?
+      result
     end
 
     # Execute all commands issued after MULTI.
     def exec
-      raise CannotDistribute, :exec
+      raise CannotDistribute, :exec unless @watch_key
+
+      result = node_for(@watch_key).exec
+      @watch_key = nil
+      result
     end
 
     # Discard all commands issued after MULTI.
     def discard
-      raise CannotDistribute, :discard
+      raise CannotDistribute, :discard unless @watch_key
+
+      result = node_for(@watch_key).discard
+      @watch_key = nil
+      result
     end
 
     # Control remote script registry.
