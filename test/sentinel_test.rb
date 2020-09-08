@@ -30,7 +30,7 @@ class SentinelTest < Minitest::Test
       end
     }
     RedisMock.start(commands) do |port|
-      redis = build_slave_role_client(sentinels: [{ host: 'localhost', port: port }])
+      redis = build_slave_role_client(sentinels: [{ host: '127.0.0.1', port: port }])
       assert_equal 'PONG', redis.ping
     end
   end
@@ -45,7 +45,7 @@ class SentinelTest < Minitest::Test
       end
     }
     RedisMock.start(commands) do |port|
-      redis = build_slave_role_client(sentinels: [{ host: 'localhost', port: port }])
+      redis = build_slave_role_client(sentinels: [{ host: '127.0.0.1', port: port }])
       assert_raises(Redis::CannotConnectError) { redis.ping }
     end
   end
