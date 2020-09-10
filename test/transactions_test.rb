@@ -196,6 +196,13 @@ class TestTransactions < Minitest::Test
     assert_equal "s1", r.get("foo")
   end
 
+  def test_multi_with_interrupt_preserves_client
+    original = r._client
+    Redis::Pipeline.stubs(:new).raises(Interrupt)
+    assert_raises(Interrupt) { r.multi {} }
+    assert_equal r._client, original
+  end
+
   def test_raise_command_error_when_exec_fails
     redis_mock(exec: ->(*_) { "-ERROR" }) do |redis|
       assert_raises(Redis::CommandError) do

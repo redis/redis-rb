@@ -252,4 +252,11 @@ class TestPipeliningCommands < Minitest::Test
 
     assert_equal 3, r._client.db
   end
+
+  def test_pipeline_interrupt_preserves_client
+    original = r._client
+    Redis::Pipeline.stubs(:new).raises(Interrupt)
+    assert_raises(Interrupt) { r.pipelined {} }
+    assert_equal r._client, original
+  end
 end
