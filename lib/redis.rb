@@ -2438,14 +2438,13 @@ class Redis
   end
 
   def pipelined
-    synchronize do |_client|
+    synchronize do |prior_client|
       begin
-        pipeline = Pipeline.new(@client)
-        original, @client = @client, pipeline
+        @client = Pipeline.new(prior_client)
         yield(self)
-        original.call_pipeline(@client)
+        prior_client.call_pipeline(@client)
       ensure
-        @client = original
+        @client = prior_client
       end
     end
   end
@@ -2481,17 +2480,16 @@ class Redis
   # @see #watch
   # @see #unwatch
   def multi
-    synchronize do |client|
+    synchronize do |prior_client|
       if !block_given?
-        client.call([:multi])
+        prior_client.call([:multi])
       else
         begin
-          pipeline = Pipeline::Multi.new(@client)
-          original, @client = @client, pipeline
+          @client = Pipeline::Multi.new(prior_client)
           yield(self)
-          original.call_pipeline(pipeline)
+          prior_client.call_pipeline(@client)
         ensure
-          @client = original
+          @client = prior_client
         end
       end
     end
