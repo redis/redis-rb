@@ -72,11 +72,11 @@ class Redis
         loop do
           case bytes_written = write_nonblock(data, exception: false)
           when :wait_readable
-            unless IO.select([self], nil, nil, @timeout)
+            unless IO.select([self], nil, nil, @write_timeout)
               raise Redis::TimeoutError
             end
           when :wait_writable
-            unless IO.select(nil, [self], nil, @timeout)
+            unless IO.select(nil, [self], nil, @write_timeout)
               raise Redis::TimeoutError
             end
           when nil
