@@ -49,43 +49,47 @@ class Redis
       end
 
       def _read_from_socket(nbytes)
-        begin
-          read_nonblock(nbytes)
-        rescue IO::WaitReadable
-          if IO.select([self], nil, nil, @timeout)
-            retry
-          else
-            raise Redis::TimeoutError
-          end
-        rescue IO::WaitWritable
-          if IO.select(nil, [self], nil, @timeout)
-            retry
-          else
-            raise Redis::TimeoutError
+        loop do
+          case chunk = read_nonblock(nbytes, exception: false)
+          when :wait_readable
+            unless IO.select([self], nil, nil, @timeout)
+              raise Redis::TimeoutError
+            end
+          when :wait_writable
+            unless IO.select(nil, [self], nil, @timeout)
+              raise Redis::TimeoutError
+            end
+          when nil
+            raise Errno::ECONNRESET
+          when String
+            return chunk
           end
         end
-      rescue EOFError
-        raise Errno::ECONNRESET
       end
 
       def _write_to_socket(data)
-        begin
-          write_nonblock(data)
-        rescue IO::WaitWritable
-          if IO.select(nil, [self], nil, @write_timeout)
-            retry
-          else
-            raise Redis::TimeoutError
-          end
-        rescue IO::WaitReadable
-          if IO.select([self], nil, nil, @write_timeout)
-            retry
-          else
-            raise Redis::TimeoutError
+        total_bytes_written = 0
+        loop do
+          case bytes_written = write_nonblock(data, exception: false)
+          when :wait_readable
+            unless IO.select([self], nil, nil, @timeout)
+              raise Redis::TimeoutError
+            end
+          when :wait_writable
+            unless IO.select(nil, [self], nil, @timeout)
+              raise Redis::TimeoutError
+            end
+          when nil
+            raise Errno::ECONNRESET
+          when Integer
+            total_bytes_written += bytes_written
+            if bytes_written < data.bytesize
+              data.slice!(0, bytes_written)
+            else
+              return total_bytes_written
+            end
           end
         end
-      rescue EOFError
-        raise Errno::ECONNRESET
       end
 
       def write(data)
