@@ -415,7 +415,7 @@ class Redis
       end
 
       url = options[:url]
-      url = defaults[:url] if url.nil?
+      url = defaults[:url] if url.nil? && options.empty?
 
       # Override defaults from URL if given
       if url
