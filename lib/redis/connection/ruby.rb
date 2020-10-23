@@ -22,6 +22,7 @@ class Redis
 
         @timeout = @write_timeout = nil
         @buffer = "".dup
+        @read_bytes_from_socket = nil
       end
 
       def timeout=(timeout)
@@ -30,6 +31,10 @@ class Redis
 
       def write_timeout=(timeout)
         @write_timeout = (timeout if timeout && timeout > 0)
+      end
+
+      def read_bytes_from_socket=(nbytes)
+        @read_bytes_from_socket = (nbytes if nbytes && nbytes > 0)
       end
 
       def read(nbytes)
@@ -42,7 +47,7 @@ class Redis
 
       def gets
         while (crlf = @buffer.index(CRLF)).nil?
-          @buffer << _read_from_socket(16_384)
+          @buffer << _read_from_socket(@read_bytes_from_socket)
         end
 
         @buffer.slice!(0, crlf + CRLF.bytesize)
@@ -308,6 +313,7 @@ class Redis
         instance.write_timeout = config[:write_timeout]
         instance.set_tcp_keepalive config[:tcp_keepalive]
         instance.set_tcp_nodelay if sock.is_a? TCPSocket
+        instance.read_bytes_from_socket = config[:read_bytes_from_socket]
         instance
       end
 
@@ -367,6 +373,10 @@ class Redis
 
       def write_timeout=(timeout)
         @sock.write_timeout = timeout
+      end
+
+      def read_bytes_from_socket=(nbytes)
+        @sock.read_bytes_from_socket = nbytes
       end
 
       def write(command)

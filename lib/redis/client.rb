@@ -23,7 +23,8 @@ class Redis
       reconnect_delay_max: 0.5,
       inherit_socket: false,
       sentinels: nil,
-      role: nil
+      role: nil,
+      read_bytes_from_socket: 16_384
     }.freeze
 
     attr_reader :options
