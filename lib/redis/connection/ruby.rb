@@ -237,12 +237,16 @@ class Redis
       class SSLSocket < ::OpenSSL::SSL::SSLSocket
         include SocketMixin
 
-        def wait_readable(timeout = nil)
-          to_io.wait_readable(timeout)
+        unless method_defined?(:wait_readable)
+          def wait_readable(timeout = nil)
+            to_io.wait_readable(timeout)
+          end
         end
 
-        def wait_writable(timeout = nil)
-          to_io.wait_writable(timeout)
+        unless method_defined?(:wait_writable)
+          def wait_writable(timeout = nil)
+            to_io.wait_writable(timeout)
+          end
         end
 
         def self.connect(host, port, timeout, ssl_params)
