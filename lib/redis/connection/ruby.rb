@@ -237,6 +237,14 @@ class Redis
       class SSLSocket < ::OpenSSL::SSL::SSLSocket
         include SocketMixin
 
+        def wait_readable(timeout = nil)
+          to_io.wait_readable(timeout)
+        end
+
+        def wait_writable(timeout = nil)
+          to_io.wait_writable(timeout)
+        end
+
         def self.connect(host, port, timeout, ssl_params)
           # Note: this is using Redis::Connection::TCPSocket
           tcp_sock = TCPSocket.connect(host, port, timeout)
