@@ -404,14 +404,13 @@ class Redis
       return options if options[:_parsed]
 
       defaults = DEFAULTS.dup
-      options = options.dup
+      options = options.each_with_object({}) do |(key, value), new_option|
+        new_option[key.to_sym] = value # Dup and symbolize keys
+      end
 
       defaults.keys.each do |key|
         # Fill in defaults if needed
         defaults[key] = defaults[key].call if defaults[key].respond_to?(:call)
-
-        # Symbolize only keys that are needed
-        options[key] = options[key.to_s] if options.key?(key.to_s)
       end
 
       url = options[:url]
