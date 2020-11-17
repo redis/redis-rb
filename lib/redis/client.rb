@@ -6,12 +6,16 @@ require "cgi"
 
 class Redis
   class Client
+    # Defaults are also used for converting string keys to symbols.
     DEFAULTS = {
       url: -> { ENV["REDIS_URL"] },
       scheme: "redis",
       host: "127.0.0.1",
       port: 6379,
       path: nil,
+      read_timeout: nil,
+      write_timeout: nil,
+      connect_timeout: nil,
       timeout: 5.0,
       password: nil,
       db: 0,
@@ -22,6 +26,7 @@ class Redis
       reconnect_delay: 0,
       reconnect_delay_max: 0.5,
       inherit_socket: false,
+      logger: nil,
       sentinels: nil,
       role: nil
     }.freeze
