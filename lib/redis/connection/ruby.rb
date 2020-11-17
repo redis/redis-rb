@@ -52,11 +52,11 @@ class Redis
         loop do
           case chunk = read_nonblock(nbytes, exception: false)
           when :wait_readable
-            unless IO.select([self], nil, nil, @timeout)
+            unless wait_readable(@timeout)
               raise Redis::TimeoutError
             end
           when :wait_writable
-            unless IO.select(nil, [self], nil, @timeout)
+            unless wait_writable(@timeout)
               raise Redis::TimeoutError
             end
           when nil
@@ -72,11 +72,11 @@ class Redis
         loop do
           case bytes_written = write_nonblock(data, exception: false)
           when :wait_readable
-            unless IO.select([self], nil, nil, @write_timeout)
+            unless wait_readable(@write_timeout)
               raise Redis::TimeoutError
             end
           when :wait_writable
-            unless IO.select(nil, [self], nil, @write_timeout)
+            unless wait_writable(@write_timeout)
               raise Redis::TimeoutError
             end
           when nil
@@ -139,7 +139,7 @@ class Redis
             raise TimeoutError
           end
 
-          # JRuby raises Errno::EAGAIN on #read_nonblock even when IO.select
+          # JRuby raises Errno::EAGAIN on #read_nonblock even when it
           # says it is readable (1.6.6, in both 1.8 and 1.9 mode).
           # Use the blocking #readpartial method instead.
 
@@ -164,7 +164,7 @@ class Redis
           begin
             sock.connect_nonblock(sockaddr)
           rescue Errno::EINPROGRESS
-            raise TimeoutError if IO.select(nil, [sock], nil, timeout).nil?
+            raise TimeoutError unless sock.wait_writable(timeout)
 
             begin
               sock.connect_nonblock(sockaddr)
@@ -219,7 +219,7 @@ class Redis
           begin
             sock.connect_nonblock(sockaddr)
           rescue Errno::EINPROGRESS
-            raise TimeoutError if IO.select(nil, [sock], nil, timeout).nil?
+            raise TimeoutError unless sock.wait_writable(timeout)
 
             begin
               sock.connect_nonblock(sockaddr)
@@ -236,6 +236,18 @@ class Redis
     if defined?(OpenSSL)
       class SSLSocket < ::OpenSSL::SSL::SSLSocket
         include SocketMixin
+
+        unless method_defined?(:wait_readable)
+          def wait_readable(timeout = nil)
+            to_io.wait_readable(timeout)
+          end
+        end
+
+        unless method_defined?(:wait_writable)
+          def wait_writable(timeout = nil)
+            to_io.wait_writable(timeout)
+          end
+        end
 
         def self.connect(host, port, timeout, ssl_params)
           # Note: this is using Redis::Connection::TCPSocket
@@ -258,13 +270,13 @@ class Redis
             # Instead, you have to retry.
             ssl_sock.connect_nonblock
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, IO::WaitReadable
-            if IO.select([ssl_sock], nil, nil, timeout)
+            if ssl_sock.wait_readable(timeout)
               retry
             else
               raise TimeoutError
             end
           rescue IO::WaitWritable
-            if IO.select(nil, [ssl_sock], nil, timeout)
+            if ssl_sock.wait_writable(timeout)
               retry
             else
               raise TimeoutError
