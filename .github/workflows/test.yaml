@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest"]
-        redis: ["5.0"]
+        redis: ["6.0"]
         ruby: ["2.7", "2.6", "2.5", "2.4"]
         driver: ["ruby", "hiredis", "synchrony"]
     runs-on: ${{ matrix.os }}
