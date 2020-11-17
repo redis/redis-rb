@@ -265,6 +265,7 @@ All timeout values are specified in seconds.
 When using pub/sub, you can subscribe to a channel using a timeout as well:
 
 ```ruby
+redis = Redis.new(reconnect_attempts: 0)
 redis.subscribe_with_timeout(5, "news") do |on|
   on.message do |channel, message|
     # ...
