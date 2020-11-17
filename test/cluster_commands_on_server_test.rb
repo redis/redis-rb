@@ -43,8 +43,8 @@ class TestClusterCommandsOnServer < Minitest::Test
     a_client_info = redis.client(:list).first
     actual = a_client_info.keys.sort
     expected = %w[addr age cmd db events fd flags id idle multi name obl oll omem psub qbuf qbuf-free sub]
-    expected << 'user' if version >= '6'
-    assert_equal expected, actual
+    expected << 'user' << 'argv-mem' << 'tot-mem' if version >= '6'
+    assert_equal expected.sort, actual.sort
   end
 
   def test_client_getname
