@@ -1,5 +1,11 @@
 # Unreleased
 
+# 4.2.3
+
+* Use io/wait instead of IO.select in the ruby connector. See #960.
+* Use exception free non blocking IOs in the ruby connector. See #926.
+* Prevent corruption of the client when an interrupt happen during inside a pipeline block. See #945.
+
 # 4.2.2
 
 * Fix `WATCH` support for `Redis::Distributed`. See #941.
