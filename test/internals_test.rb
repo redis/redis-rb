@@ -12,6 +12,16 @@ class TestInternals < Minitest::Test
     assert log.string =~ /\[Redis\] call_time=\d+\.\d+ ms/
   end
 
+  def test_large_payload
+    # see: https://github.com/redis/redis-rb/issues/962
+    # large payloads will trigger write_nonblock to write a portion
+    # of the payload in connection/ruby.rb _write_to_socket
+    large = "\u3042" * 4_000_000
+    r.setex("foo", 10, large)
+    result = r.get("foo")
+    assert_equal result, large
+  end
+
   def test_logger_with_pipelining
     r.pipelined do
       r.set "foo", "bar"

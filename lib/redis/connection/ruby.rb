@@ -68,6 +68,7 @@ class Redis
       end
 
       def _write_to_socket(data)
+        data = data.b
         total_bytes_written = 0
         loop do
           case bytes_written = write_nonblock(data, exception: false)
@@ -95,7 +96,6 @@ class Redis
       def write(data)
         return super(data) unless @write_timeout
 
-        data = data.b
         length = data.bytesize
         total_count = 0
         loop do
