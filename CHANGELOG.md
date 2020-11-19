@@ -1,5 +1,9 @@
 # Unreleased
 
+# 4.2.4
+
+* Fix bytesize calculations in the ruby connector, and work on a copy of the buffer. Fix #961, #962.
+
 # 4.2.3
 
 * Use io/wait instead of IO.select in the ruby connector. See #960.
