@@ -95,6 +95,7 @@ class Redis
       def write(data)
         return super(data) unless @write_timeout
 
+        data = data.b
         length = data.bytesize
         total_count = 0
         loop do
