@@ -67,10 +67,13 @@ class Redis
         end
       end
 
-      def _write_to_socket(data)
+      def write(buffer)
+        return super(buffer) unless @write_timeout
+
+        bytes_to_write = buffer.bytesize
         total_bytes_written = 0
         loop do
-          case bytes_written = write_nonblock(data, exception: false)
+          case bytes_written = write_nonblock(buffer, exception: false)
           when :wait_readable
             unless wait_readable(@write_timeout)
               raise Redis::TimeoutError
@@ -83,28 +86,13 @@ class Redis
             raise Errno::ECONNRESET
           when Integer
             total_bytes_written += bytes_written
-            if bytes_written < data.bytesize
-              data.slice!(0, bytes_written)
-            else
+
+            if total_bytes_written >= bytes_to_write
               return total_bytes_written
             end
+
+            buffer = buffer.byteslice(bytes_written..-1)
           end
-        end
-      end
-
-      def write(data)
-        return super(data) unless @write_timeout
-
-        data = data.b
-        length = data.bytesize
-        total_count = 0
-        loop do
-          count = _write_to_socket(data)
-
-          total_count += count
-          return total_count if total_count >= length
-
-          data = data.byteslice(count..-1)
         end
       end
     end
