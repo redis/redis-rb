@@ -1,5 +1,9 @@
 # Unreleased
 
+# 4.2.5
+
+* Optimize the ruby connector write buffering. See #964.
+
 # 4.2.4
 
 * Fix bytesize calculations in the ruby connector, and work on a copy of the buffer. Fix #961, #962.
