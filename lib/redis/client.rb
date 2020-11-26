@@ -131,7 +131,7 @@ class Redis
       reply = process([command]) { read }
       raise reply if reply.is_a?(CommandError)
 
-      if block_given?
+      if block_given? && reply != 'QUEUED'
         yield reply
       else
         reply

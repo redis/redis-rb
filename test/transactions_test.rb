@@ -10,6 +10,8 @@ class TestTransactions < Minitest::Test
 
     assert_equal "QUEUED", r.set("foo", "1")
     assert_equal "QUEUED", r.get("foo")
+    assert_equal "QUEUED", r.zincrby("bar", 1,  "baz") # Floatify
+    assert_equal "QUEUED", r.hsetnx("plop", "foo", "bar") # Boolify
 
     r.discard
 
