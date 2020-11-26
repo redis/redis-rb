@@ -3390,6 +3390,8 @@ class Redis
       Float::INFINITY
     when "-inf"
       -Float::INFINITY
+    when "QUEUED"
+      value
     when String
       Float(value)
     else

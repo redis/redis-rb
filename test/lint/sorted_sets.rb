@@ -147,6 +147,9 @@ module Lint
 
       rv = r.zincrby "bar", "+inf", "s2"
       assert_equal(+Float::INFINITY, rv)
+
+      rv = r.zincrby "bar", "QUEUED", "s2"
+      assert_equal("QUEUED", rv)
     end
 
     def test_zrank
