@@ -39,6 +39,7 @@ class Redis
   # @option options [String] :path path to server socket (overrides host and port)
   # @option options [Float] :timeout (5.0) timeout in seconds
   # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
+  # @option options [String] :username Username to authenticate against server
   # @option options [String] :password Password to authenticate against server
   # @option options [Integer] :db (0) Database to select after initial connect
   # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
@@ -143,12 +144,13 @@ class Redis
 
   # Authenticate to the server.
   #
-  # @param [String] password must match the password specified in the
-  #   `requirepass` directive in the configuration file
+  # @param [Array<String>] args includes both username and password
+  #   or only password
   # @return [String] `OK`
-  def auth(password)
+  # @see https://redis.io/commands/auth AUTH command
+  def auth(*args)
     synchronize do |client|
-      client.call([:auth, password])
+      client.call([:auth, *args])
     end
   end
 

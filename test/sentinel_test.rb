@@ -257,6 +257,49 @@ class SentinelTest < Minitest::Test
     assert_equal [%w[auth bar], %w[role]], commands[:m1]
   end
 
+  def test_authentication_with_acl
+    commands = { s1: [], m1: [] }
+
+    sentinel = lambda do |port|
+      {
+        auth: lambda do |user, pass|
+          commands[:s1] << ['auth', user, pass]
+          '+OK'
+        end,
+        select: lambda do |db|
+          commands[:s1] << ['select', db]
+          '-ERR unknown command `select`'
+        end,
+        sentinel: lambda do |command, *args|
+          commands[:s1] << [command, *args]
+          ['127.0.0.1', port.to_s]
+        end
+      }
+    end
+
+    master = {
+      auth: lambda do |user, pass|
+        commands[:m1] << ['auth', user, pass]
+        '+OK'
+      end,
+      role: lambda do
+        commands[:m1] << ['role']
+        ['master']
+      end
+    }
+
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(sentinel.call(master_port)) do |sen_port|
+        s = [{ host: '127.0.0.1', port: sen_port, username: 'bob', password: 'foo' }]
+        r = Redis.new(host: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar')
+        assert r.ping
+      end
+    end
+
+    assert_equal [%w[auth bob foo], %w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[auth alice bar], %w[role]], commands[:m1]
+  end
+
   def test_sentinel_role_mismatch
     sentinels = [{ host: "127.0.0.1", port: 26_381 }]
 

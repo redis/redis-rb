@@ -128,7 +128,7 @@ class Redis
     def send_command(command, &block)
       cmd = command.first.to_s.downcase
       case cmd
-      when 'auth', 'bgrewriteaof', 'bgsave', 'quit', 'save'
+      when 'acl', 'auth', 'bgrewriteaof', 'bgsave', 'quit', 'save'
         @node.call_all(command, &block).first
       when 'flushall', 'flushdb'
         @node.call_master(command, &block).first

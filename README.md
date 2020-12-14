@@ -54,6 +54,12 @@ To connect to a password protected Redis instance, use:
 redis = Redis.new(password: "mysecret")
 ```
 
+To connect a Redis instance using [ACL](https://redis.io/topics/acl), use:
+
+```ruby
+redis = Redis.new(username: 'myname', password: 'mysecret')
+```
+
 The Redis class exports methods that are named identical to the commands
 they execute. The arguments these methods accept are often identical to
 the arguments specified on the [Redis website][redis-commands]. For
