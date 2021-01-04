@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
-# Run with
-#
-#   $ ruby -Ilib benchmarking/speed.rb
-#
+$LOAD_PATH.push File.join(__dir__, 'lib')
 
 require "benchmark"
 require "redis"
@@ -15,8 +12,8 @@ elapsed = Benchmark.realtime do
   # n sets, n gets
   n.times do |i|
     key = "foo#{i}"
-    r[key] = key * 10
-    r[key]
+    r.set(key, key * 10)
+    r.get(key)
   end
 end
 
