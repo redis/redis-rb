@@ -1,20 +1,11 @@
 # frozen_string_literal: true
 
 require_relative "helper"
+require 'lint/authentication'
 
 class TestConnectionHandling < Minitest::Test
   include Helper::Client
-
-  def test_auth
-    commands = {
-      auth: ->(password) { @auth = password; "+OK" },
-      get: ->(_key) { @auth == "secret" ? "$3\r\nbar" : "$-1" }
-    }
-
-    redis_mock(commands, password: "secret") do |redis|
-      assert_equal "bar", redis.get("foo")
-    end
-  end
+  include Lint::Authentication
 
   def test_id
     commands = {

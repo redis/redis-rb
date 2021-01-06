@@ -1,17 +1,13 @@
 # frozen_string_literal: true
 
 require_relative 'helper'
+require 'lint/authentication'
 
 # ruby -w -Itest test/cluster_commands_on_connection_test.rb
 # @see https://redis.io/commands#connection
 class TestClusterCommandsOnConnection < Minitest::Test
   include Helper::Cluster
-
-  def test_auth
-    redis_cluster_mock(auth: ->(*_) { '+OK' }) do |redis|
-      assert_equal 'OK', redis.auth('my-password-123')
-    end
-  end
+  include Lint::Authentication
 
   def test_echo
     assert_equal 'hogehoge', redis.echo('hogehoge')
@@ -36,5 +32,9 @@ class TestClusterCommandsOnConnection < Minitest::Test
     assert_raises(Redis::CommandError, 'ERR SWAPDB is not allowed in cluster mode') do
       redis.swapdb(1, 2)
     end
+  end
+
+  def mock(*args, &block)
+    redis_cluster_mock(*args, &block)
   end
 end

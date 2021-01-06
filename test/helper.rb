@@ -165,6 +165,16 @@ module Helper
     def version
       Version.new(redis.info['redis_version'])
     end
+
+    def with_acl
+      admin = _new_client
+      admin.acl('SETUSER', 'johndoe', 'on',
+                '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes',
+                '>mysecret')
+      yield('johndoe', 'mysecret')
+      admin.acl('DELUSER', 'johndoe')
+      admin.close
+    end
   end
 
   module Client

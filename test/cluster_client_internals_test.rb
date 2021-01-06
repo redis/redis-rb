@@ -74,4 +74,23 @@ class TestClusterClientInternals < Minitest::Test
 
     assert_equal expected, redis.connection
   end
+
+  def test_acl_auth_success
+    target_version "6.0.0" do
+      with_acl do |username, password|
+        r = _new_client(cluster: DEFAULT_PORTS.map { |port| "redis://#{username}:#{password}@#{DEFAULT_HOST}:#{port}" })
+        assert_equal('PONG', r.ping)
+      end
+    end
+  end
+
+  def test_acl_auth_failure
+    target_version "6.0.0" do
+      with_acl do |username, _|
+        assert_raises(Redis::CannotConnectError) do
+          _new_client(cluster: DEFAULT_PORTS.map { |port| "redis://#{username}:wrongpassword@#{DEFAULT_HOST}:#{port}" })
+        end
+      end
+    end
+  end
 end

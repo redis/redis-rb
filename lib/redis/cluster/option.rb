@@ -18,6 +18,7 @@ class Redis
         @node_opts = build_node_options(node_addrs)
         @replica = options.delete(:replica) == true
         add_common_node_option_if_needed(options, @node_opts, :scheme)
+        add_common_node_option_if_needed(options, @node_opts, :username)
         add_common_node_option_if_needed(options, @node_opts, :password)
         @options = options
       end
@@ -63,7 +64,9 @@ class Redis
         raise InvalidClientOptionError, "Invalid uri scheme #{addr}" unless VALID_SCHEMES.include?(uri.scheme)
 
         db = uri.path.split('/')[1]&.to_i
-        { scheme: uri.scheme, password: uri.password, host: uri.host, port: uri.port, db: db }.reject { |_, v| v.nil? }
+
+        { scheme: uri.scheme, username: uri.user, password: uri.password, host: uri.host, port: uri.port, db: db }
+          .reject { |_, v| v.nil? || v == '' }
       rescue URI::InvalidURIError => err
         raise InvalidClientOptionError, err.message
       end
@@ -79,7 +82,7 @@ class Redis
 
       # Redis cluster node returns only host and port information.
       # So we should complement additional information such as:
-      #   scheme, password and so on.
+      #   scheme, username, password and so on.
       def add_common_node_option_if_needed(options, node_opts, key)
         return options if options[key].nil? && node_opts.first[key].nil?
 

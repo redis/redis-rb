@@ -20,10 +20,13 @@ class TestClusterClientOptions < Minitest::Test
     assert_equal false, option.use_replica?
 
     option = Redis::Cluster::Option.new(cluster: %w[rediss://johndoe:foobar@127.0.0.1:7000/1/namespace])
-    assert_equal({ '127.0.0.1:7000' => { scheme: 'rediss', password: 'foobar', host: '127.0.0.1', port: 7000, db: 1 } }, option.per_node_key)
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'rediss', username: 'johndoe', password: 'foobar', host: '127.0.0.1', port: 7000, db: 1 } }, option.per_node_key)
 
     option = Redis::Cluster::Option.new(cluster: %w[rediss://127.0.0.1:7000], scheme: 'redis')
     assert_equal({ '127.0.0.1:7000' => { scheme: 'rediss', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %w[redis://bazzap:@127.0.0.1:7000], username: 'foobar')
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', username: 'bazzap', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
 
     option = Redis::Cluster::Option.new(cluster: %w[redis://:bazzap@127.0.0.1:7000], password: 'foobar')
     assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', password: 'bazzap', host: '127.0.0.1', port: 7000 } }, option.per_node_key)

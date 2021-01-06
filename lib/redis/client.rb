@@ -17,6 +17,7 @@ class Redis
       write_timeout: nil,
       connect_timeout: nil,
       timeout: 5.0,
+      username: nil,
       password: nil,
       db: 0,
       driver: nil,
@@ -59,6 +60,10 @@ class Redis
 
     def timeout
       @options[:read_timeout]
+    end
+
+    def username
+      @options[:username]
     end
 
     def password
@@ -110,7 +115,7 @@ class Redis
       # Don't try to reconnect when the connection is fresh
       with_reconnect(false) do
         establish_connection
-        call [:auth, password] if password
+        call [:auth, username, password].compact if username || password
         call [:select, db] if db != 0
         call [:client, :setname, @options[:id]] if @options[:id]
         @connector.check(self)
@@ -434,7 +439,8 @@ class Redis
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host if uri.host
           defaults[:port]     = uri.port if uri.port
-          defaults[:password] = CGI.unescape(uri.password) if uri.password
+          defaults[:username] = CGI.unescape(uri.user) if uri.user && !uri.user.empty?
+          defaults[:password] = CGI.unescape(uri.password) if uri.password && !uri.password.empty?
           defaults[:db]       = uri.path[1..-1].to_i if uri.path
           defaults[:role] = :master
         else
@@ -579,6 +585,7 @@ class Redis
             client = Client.new(@options.merge({
                                                  host: sentinel[:host] || sentinel["host"],
                                                  port: sentinel[:port] || sentinel["port"],
+                                                 username: sentinel[:username] || sentinel["username"],
                                                  password: sentinel[:password] || sentinel["password"],
                                                  reconnect_attempts: 0
                                                }))
