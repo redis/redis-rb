@@ -1,4 +1,4 @@
-# redis-rb [![Build Status][travis-image]][travis-link] [![Inline docs][inchpages-image]][inchpages-link] ![](https://github.com/redis/redis-rb/workflows/Test/badge.svg?branch=master)
+# redis-rb [![Build Status][gh-actions-image]][gh-actions-link] [![Inline docs][inchpages-image]][inchpages-link]
 
 A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still
 providing an idiomatic interface.
@@ -446,7 +446,7 @@ redis = Redis.new(:driver => :synchrony)
 ## Testing
 
 This library is tested against recent Ruby and Redis versions.
-Check [Travis][travis-link] for the exact versions supported.
+Check [Github Actions][gh-actions-link] for the exact versions supported.
 
 ## See Also
 
@@ -465,12 +465,11 @@ client and evangelized Redis in Rubyland. Thank you, Ezra.
 requests.
 
 
-[inchpages-image]: https://inch-ci.org/github/redis/redis-rb.svg
-[inchpages-link]:  https://inch-ci.org/github/redis/redis-rb
-[redis-commands]:  https://redis.io/commands
-[redis-home]:      https://redis.io
-[redis-url]:       http://www.iana.org/assignments/uri-schemes/prov/redis
-[travis-home]:     https://travis-ci.org/
-[travis-image]:    https://secure.travis-ci.org/redis/redis-rb.svg?branch=master
-[travis-link]:     https://travis-ci.org/redis/redis-rb
-[rubydoc]:         http://www.rubydoc.info/gems/redis
+[inchpages-image]:  https://inch-ci.org/github/redis/redis-rb.svg
+[inchpages-link]:   https://inch-ci.org/github/redis/redis-rb
+[redis-commands]:   https://redis.io/commands
+[redis-home]:       https://redis.io
+[redis-url]:        http://www.iana.org/assignments/uri-schemes/prov/redis
+[gh-actions-image]: https://github.com/redis/redis-rb/workflows/Test/badge.svg
+[gh-actions-link]:  https://github.com/redis/redis-rb/actions
+[rubydoc]:          http://www.rubydoc.info/gems/redis
