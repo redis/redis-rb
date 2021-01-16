@@ -45,7 +45,11 @@ class Builder
     FileUtils.mkdir_p(@build_dir)
     command!('tar', 'xf', tarball_path, '-C', File.expand_path('../', @build_dir))
     Dir.chdir(@build_dir) do
-      command!('make')
+      if ENV['BUILD_TLS'] == 'yes'
+        command!('make BUILD_TLS=yes')
+      else
+        command!('make')
+      end
     end
   end
 

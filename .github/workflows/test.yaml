@@ -131,3 +131,56 @@ jobs:
         run: make test
       - name: Shutting down Redis
         run: make stop_all
+  tls:
+    name: TLS
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        redis: ["6.0"]
+        ruby: ["3.0"]
+        driver: ["ruby"]
+    runs-on: ${{ matrix.os }}
+    env:
+      VERBOSE: true
+      TIMEOUT: 30
+      LOW_TIMEOUT: 0.01
+      DRIVER: ${{ matrix.driver }}
+      REDIS_BRANCH: ${{ matrix.redis }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Print environment variables
+        run: |
+          echo "TIMEOUT=${TIMEOUT}"
+          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
+          echo "DRIVER=${DRIVER}"
+          echo "REDIS_BRANCH=${REDIS_BRANCH}"
+      - name: Set up Ruby
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: Cache dependent gems
+        uses: actions/cache@v1
+        with:
+          path: .bundle
+          key: "local-bundle-ruby-${{ matrix.ruby }}-on-${{ matrix.os }}-0001"
+      - name: Set up Gems
+        run: |
+          gem update --system --no-document
+          gem install bundler --no-document
+          bundle install --jobs 4 --retry 3 --path=.bundle
+      - name: Cache local temporary directory
+        uses: actions/cache@v1
+        with:
+          path: tmp
+          key: "local-tmp-redis-${{ matrix.redis }}-on-${{ matrix.os }}-with-tls"
+      - name: Booting up Redis
+        run: make start BUILD_TLS=yes
+      - name: Test
+        run: env BUILD_TLS=yes bundle exec rake test test/ssl_test.rb
+        env:
+          RUBYOPT: "--enable-frozen-string-literal"
+      - name: Shutting down Redis
+        run: make stop_all

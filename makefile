@@ -1,5 +1,6 @@
 REDIS_BRANCH       ?= 6.0
 TMP                := tmp
+BUILD_TLS          := no
 BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
 TARBALL            := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
 BINARY             := ${BUILD_DIR}/src/redis-server
@@ -9,6 +10,7 @@ PID_PATH           := ${BUILD_DIR}/redis.pid
 SOCKET_PATH        := ${BUILD_DIR}/redis.sock
 PORT               := 6381
 SLAVE_PORT         := 6382
+TLS_PORT           := 6383
 SLAVE_PID_PATH     := ${BUILD_DIR}/redis_slave.pid
 SLAVE_SOCKET_PATH  := ${BUILD_DIR}/redis_slave.sock
 HA_GROUP_NAME      := master1
@@ -33,7 +35,7 @@ ${TMP}:
 	@mkdir -p $@
 
 ${BINARY}: ${TMP}
-	@bin/build ${REDIS_BRANCH} $<
+	@env BUILD_TLS=${BUILD_TLS} bin/build ${REDIS_BRANCH} $<
 
 test:
 	@env SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
@@ -42,11 +44,23 @@ stop:
 	@$(call kill-redis,${PID_PATH})
 
 start: ${BINARY}
-	@${BINARY}\
+ifeq ($(BUILD_TLS),yes)
+	@$<\
+		--daemonize        yes\
+		--pidfile          ${PID_PATH}\
+		--port             ${PORT}\
+		--unixsocket       ${SOCKET_PATH}\
+		--tls-port         ${TLS_PORT}\
+		--tls-cert-file    ./test/support/ssl/trusted-cert.crt\
+		--tls-key-file     ./test/support/ssl/trusted-cert.key\
+		--tls-ca-cert-file ./test/support/ssl/trusted-ca.crt
+else
+	@$<\
 		--daemonize  yes\
 		--pidfile    ${PID_PATH}\
 		--port       ${PORT}\
 		--unixsocket ${SOCKET_PATH}
+endif
 
 stop_slave:
 	@$(call kill-redis,${SLAVE_PID_PATH})
