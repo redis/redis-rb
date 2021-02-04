@@ -516,7 +516,7 @@ class Redis
           require_relative "connection/#{driver}"
         rescue LoadError, NameError
           begin
-            require "connection/#{driver}"
+            require "redis/connection/#{driver}"
           rescue LoadError, NameError => error
             raise "Cannot load driver #{driver.inspect}: #{error.message}"
           end
