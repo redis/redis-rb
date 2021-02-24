@@ -16,7 +16,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
       - name: Set up Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: "2.4"
       - name: Set up Gems
@@ -54,7 +54,7 @@ jobs:
           echo "DRIVER=${DRIVER}"
           echo "REDIS_BRANCH=${REDIS_BRANCH}"
       - name: Set up Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
       - name: Cache dependent gems
