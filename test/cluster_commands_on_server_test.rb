@@ -44,6 +44,7 @@ class TestClusterCommandsOnServer < Minitest::Test
     actual = a_client_info.keys.sort
     expected = %w[addr age cmd db events fd flags id idle multi name obl oll omem psub qbuf qbuf-free sub]
     expected << 'user' << 'argv-mem' << 'tot-mem' if version >= '6'
+    expected << 'laddr' << 'redir' if version >= '6.2'
     assert_equal expected.sort, actual.sort
   end
 
@@ -79,10 +80,16 @@ class TestClusterCommandsOnServer < Minitest::Test
   end
 
   def test_command_info
+    eval_command_flags = if version >= '6.2'
+      %w[noscript may_replicate movablekeys]
+    else
+      %w[noscript movablekeys]
+    end
+
     expected = [
       ['get', 2, %w[readonly fast], 1, 1, 1],
       ['set', -3, %w[write denyoom], 1, 1, 1],
-      ['eval', -3, %w[noscript movablekeys], 0, 0, 0]
+      ['eval', -3, eval_command_flags, 0, 0, 0]
     ]
     if version >= '6'
       expected[0] << ["@read", "@string", "@fast"]
