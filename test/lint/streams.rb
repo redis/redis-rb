@@ -116,10 +116,17 @@ module Lint
     end
 
     def test_xtrim_with_invalid_arguments
-      assert_equal 0, redis.xtrim('', '')
-      assert_equal 0, redis.xtrim(nil, nil)
-      assert_equal 0, redis.xtrim('s1', 0)
-      assert_equal 0, redis.xtrim('s1', -1, approximate: true)
+      if version >= '6.2'
+        assert_raises(Redis::CommandError) { redis.xtrim('', '') }
+        assert_raises(Redis::CommandError) { redis.xtrim(nil, nil) }
+        assert_raises(Redis::CommandError) { redis.xtrim('s1', 0) }
+        assert_raises(Redis::CommandError) { redis.xtrim('s1', -1, approximate: true) }
+      else
+        assert_equal 0, redis.xtrim('', '')
+        assert_equal 0, redis.xtrim(nil, nil)
+        assert_equal 0, redis.xtrim('s1', 0)
+        assert_equal 0, redis.xtrim('s1', -1, approximate: true)
+      end
     end
 
     def test_xdel_with_splatted_entry_ids
