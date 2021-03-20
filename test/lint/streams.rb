@@ -119,7 +119,7 @@ module Lint
       if version >= '6.2'
         assert_raises(Redis::CommandError) { redis.xtrim('', '') }
         assert_raises(Redis::CommandError) { redis.xtrim(nil, nil) }
-        assert_raises(Redis::CommandError) { redis.xtrim('s1', 0) }
+        assert_equal 0, redis.xtrim('s1', 0)
         assert_raises(Redis::CommandError) { redis.xtrim('s1', -1, approximate: true) }
       else
         assert_equal 0, redis.xtrim('', '')
