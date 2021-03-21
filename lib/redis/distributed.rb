@@ -413,14 +413,14 @@ class Redis
       node_for(key).rpushx(key, value)
     end
 
-    # Remove and get the first element in a list.
-    def lpop(key)
-      node_for(key).lpop(key)
+    # Remove and get the first elements in a list.
+    def lpop(key, count = nil)
+      node_for(key).lpop(key, count)
     end
 
-    # Remove and get the last element in a list.
-    def rpop(key)
-      node_for(key).rpop(key)
+    # Remove and get the last elements in a list.
+    def rpop(key, count = nil)
+      node_for(key).rpop(key, count)
     end
 
     # Remove the last element in a list, append it to another list and return
