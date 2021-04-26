@@ -4,6 +4,7 @@
 TARBALL = ARGV[0]
 
 require 'digest/sha1'
+require 'English'
 require 'fileutils'
 
 class Builder
