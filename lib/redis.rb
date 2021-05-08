@@ -2638,12 +2638,13 @@ class Redis
     _eval(:evalsha, args)
   end
 
-  def _scan(command, cursor, args, match: nil, count: nil, &block)
+  def _scan(command, cursor, args, match: nil, count: nil, type: nil, &block)
     # SSCAN/ZSCAN/HSCAN already prepend the key to +args+.
 
     args << cursor
     args << "MATCH" << match if match
     args << "COUNT" << count if count
+    args << "TYPE" << type if type
 
     synchronize do |client|
       client.call([command] + args, &block)
@@ -2658,11 +2659,15 @@ class Redis
   # @example Retrieve a batch of keys matching a pattern
   #   redis.scan(4, :match => "key:1?")
   #     # => ["92", ["key:13", "key:18"]]
+  # @example Retrieve a batch of keys of a certain type
+  #   redis.scan(92, :type => "zset")
+  #     # => ["173", ["sortedset:14", "sortedset:78"]]
   #
   # @param [String, Integer] cursor the cursor of the iteration
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
+  #   - `:type => String`: return keys only of the given type
   #
   # @return [String, Array<String>] the next cursor and all found keys
   def scan(cursor, **options)
@@ -2678,10 +2683,15 @@ class Redis
   #   redis.scan_each(:match => "key:1?") {|key| puts key}
   #     # => key:13
   #     # => key:18
+  # @example Execute block for each key of a type
+  #   redis.scan_each(:type => "hash") {|key| puts redis.type(key)}
+  #     # => "hash"
+  #     # => "hash"
   #
   # @param [Hash] options
   #   - `:match => String`: only return keys matching the pattern
   #   - `:count => Integer`: return count keys at most per iteration
+  #   - `:type => String`: return keys only of the given type
   #
   # @return [Enumerator] an enumerator for all found keys
   def scan_each(**options, &block)

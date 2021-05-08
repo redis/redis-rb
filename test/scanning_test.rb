@@ -53,6 +53,25 @@ class TestScanning < Minitest::Test
     end
   end
 
+  def test_scan_type
+    target_version "6.0.0" do
+      r.debug :populate, 1000
+      r.zadd("foo", [1, "s1", 2, "s2", 3, "s3"])
+      r.zadd("bar", [6, "s1", 5, "s2", 4, "s3"])
+      r.hset("baz", "k1", "v1")
+
+      cursor = 0
+      all_keys = []
+      loop do
+        cursor, keys = r.scan cursor, type: "zset"
+        all_keys += keys
+        break if cursor == "0"
+      end
+
+      assert_equal 2, all_keys.uniq.size
+    end
+  end
+
   def test_scan_each_enumerator
     target_version "2.7.105" do
       r.debug :populate, 1000
@@ -73,6 +92,20 @@ class TestScanning < Minitest::Test
 
       keys_from_scan = r.scan_each(match: "key:1??").to_a.uniq
       all_keys = r.keys "key:1??"
+
+      assert all_keys.sort == keys_from_scan.sort
+    end
+  end
+
+  def test_scan_each_enumerator_type
+    target_version "6.0.0" do
+      r.debug :populate, 1000
+      r.zadd("key:zset", [1, "s1", 2, "s2", 3, "s3"])
+      r.hset("key:hash:1", "k1", "v1")
+      r.hset("key:hash:2", "k2", "v2")
+
+      keys_from_scan = r.scan_each(type: "hash").to_a.uniq
+      all_keys = r.keys "key:hash:*"
 
       assert all_keys.sort == keys_from_scan.sort
     end
