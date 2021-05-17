@@ -626,6 +626,11 @@ class Redis
       node_for(key).zscore(key, member)
     end
 
+    # Get the scores associated with the given members in a sorted set.
+    def zmscore(key, members)
+      node_for(key).zmscore(key, members)
+    end
+
     # Return a range of members in a sorted set, by index.
     def zrange(key, start, stop, **options)
       node_for(key).zrange(key, start, stop, **options)

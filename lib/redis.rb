@@ -1754,6 +1754,21 @@ class Redis
     end
   end
 
+  # Get the scores associated with the given members in a sorted set.
+  #
+  # @example Get the score for member "a"
+  #   redis.zmscore("zset", "a", "no_member", "b")
+  #     # => [32.0, nil, 64.0]
+  #
+  # @param [String] key
+  # @param [Array<String>] members
+  # @return [[Array<Float>] scores of the members
+  def zmscore(key, *members)
+    synchronize do |client|
+      client.call([:zmscore, key] + members)&.map(&:to_f)
+    end
+  end
+
   # Return a range of members in a sorted set, by index.
   #
   # @example Retrieve all members from a sorted set
