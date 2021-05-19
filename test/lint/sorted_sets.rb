@@ -294,11 +294,13 @@ module Lint
     end
 
     def test_zmscore
-      r.zadd "foo", [1, "s1", 2, "s2"]
+      target_version "6.2.0" do
+        r.zadd "foo", [1, "s1", 2, "s2"]
 
-      assert_equal [1.0, 2.0], r.zmscore("foo", "s1", "s2")
-      assert_equal [1.0, 0.0, 2.0], r.zmscore("foo", "s1", "no_member", "s2")
-      assert_equal [0.0], r.zmscore("no_key", "no_member")
+        assert_equal [1.0, 2.0], r.zmscore("foo", "s1", "s2")
+        assert_equal [1.0, 0.0, 2.0], r.zmscore("foo", "s1", "no_member", "s2")
+        assert_equal [0.0], r.zmscore("no_key", "no_member")#
+      end
     end
 
     def test_zremrangebyrank
