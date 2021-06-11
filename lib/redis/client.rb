@@ -115,7 +115,17 @@ class Redis
       # Don't try to reconnect when the connection is fresh
       with_reconnect(false) do
         establish_connection
-        call [:auth, username, password].compact if username || password
+        if password
+          if username
+            begin
+              call [:auth, username, password]
+            rescue CommandError # Likely on Redis < 6
+              call [:auth, password]
+            end
+          else
+            call [:auth, password]
+          end
+        end
         call [:select, db] if db != 0
         call [:client, :setname, @options[:id]] if @options[:id]
         @connector.check(self)
