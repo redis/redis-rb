@@ -1,5 +1,10 @@
 # Unreleased
 
+# 4.3.0
+
+* Add the TYPE argument to scan and scan_each. See #985.
+* Support AUTH command for ACL. See #967.
+
 # 4.2.5
 
 * Optimize the ruby connector write buffering. See #964.
