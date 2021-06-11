@@ -1,5 +1,9 @@
 # Unreleased
 
+# 4.3.1
+
+* Fix password authentication against redis server 5 and older.
+
 # 4.3.0
 
 * Add the TYPE argument to scan and scan_each. See #985.
