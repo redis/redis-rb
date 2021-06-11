@@ -299,7 +299,7 @@ module Lint
 
         assert_equal [1.0, 2.0], r.zmscore("foo", "s1", "s2")
         assert_equal [1.0, 0.0, 2.0], r.zmscore("foo", "s1", "no_member", "s2")
-        assert_equal [0.0], r.zmscore("no_key", "no_member")#
+        assert_equal [0.0], r.zmscore("no_key", "no_member")
       end
     end
 
