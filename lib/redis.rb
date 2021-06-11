@@ -1172,23 +1172,29 @@ class Redis
     end
   end
 
-  # Remove and get the first element in a list.
+  # Remove and get the first elements in a list.
   #
   # @param [String] key
-  # @return [String]
-  def lpop(key)
+  # @param [Integer] count number of elements to remove
+  # @return [String, Array<String>] the values of the first elements
+  def lpop(key, count = nil)
     synchronize do |client|
-      client.call([:lpop, key])
+      command = [:lpop, key]
+      command << count if count
+      client.call(command)
     end
   end
 
-  # Remove and get the last element in a list.
+  # Remove and get the last elements in a list.
   #
   # @param [String] key
-  # @return [String]
-  def rpop(key)
+  # @param [Integer] count number of elements to remove
+  # @return [String, Array<String>] the values of the last elements
+  def rpop(key, count = nil)
     synchronize do |client|
-      client.call([:rpop, key])
+      command = [:rpop, key]
+      command << count if count
+      client.call(command)
     end
   end
 
