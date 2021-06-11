@@ -81,7 +81,7 @@ class TestClusterCommandsOnServer < Minitest::Test
 
   def test_command_info
     eval_command_flags = if version >= '6.2'
-      %w[noscript may_replicate movablekeys]
+      %w[noscript skip_monitor may_replicate movablekeys]
     else
       %w[noscript movablekeys]
     end
