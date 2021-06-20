@@ -432,6 +432,55 @@ module Lint
       assert_equal 5, r.zunionstore('{1}baz', %w[{1}foo {1}bar])
     end
 
+    def test_zinter
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'bar', 2, 's1'
+        r.zadd 'foo', 3, 's3'
+        r.zadd 'bar', 4, 's4'
+
+        assert_equal ['s1'], r.zinter('foo', 'bar')
+        assert_equal [['s1', 3.0]], r.zinter('foo', 'bar', with_scores: true)
+      end
+    end
+
+    def test_zinter_with_weights
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 2, 's2'
+        r.zadd 'foo', 3, 's3'
+        r.zadd 'bar', 20, 's2'
+        r.zadd 'bar', 30, 's3'
+        r.zadd 'bar', 40, 's4'
+
+        assert_equal %w[s2 s3], r.zinter('foo', 'bar')
+        assert_equal [['s2', 22.0], ['s3', 33.0]], r.zinter('foo', 'bar', with_scores: true)
+
+        assert_equal %w[s2 s3], r.zinter('foo', 'bar', weights: [10, 1])
+        assert_equal [['s2', 40.0], ['s3', 60.0]], r.zinter('foo', 'bar', weights: [10, 1], with_scores: true)
+      end
+    end
+
+    def test_zinter_with_aggregate
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 2, 's2'
+        r.zadd 'foo', 3, 's3'
+        r.zadd 'bar', 20, 's2'
+        r.zadd 'bar', 30, 's3'
+        r.zadd 'bar', 40, 's4'
+
+        assert_equal %w[s2 s3], r.zinter('foo', 'bar')
+        assert_equal [['s2', 22.0], ['s3', 33.0]], r.zinter('foo', 'bar', with_scores: true)
+
+        assert_equal %w[s2 s3], r.zinter('foo', 'bar', aggregate: :min)
+        assert_equal [['s2', 2.0], ['s3', 3.0]], r.zinter('foo', 'bar', aggregate: :min, with_scores: true)
+
+        assert_equal %w[s2 s3], r.zinter('foo', 'bar', aggregate: :max)
+        assert_equal [['s2', 20.0], ['s3', 30.0]], r.zinter('foo', 'bar', aggregate: :max, with_scores: true)
+      end
+    end
+
     def test_zinterstore
       r.zadd 'foo', 1, 's1'
       r.zadd 'bar', 2, 's1'

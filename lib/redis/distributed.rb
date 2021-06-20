@@ -674,6 +674,13 @@ class Redis
       node_for(key).zcount(key, min, max)
     end
 
+    # Get the intersection of multiple sorted sets
+    def zinter(*keys, **options)
+      ensure_same_node(:zinter, keys) do |node|
+        node.zinter(*keys, **options)
+      end
+    end
+
     # Intersect multiple sorted sets and store the resulting sorted set in a new
     # key.
     def zinterstore(destination, keys, **options)

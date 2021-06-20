@@ -9,6 +9,18 @@ class TestClusterCommandsOnSortedSets < Minitest::Test
   include Helper::Cluster
   include Lint::SortedSets
 
+  def test_zinter
+    assert_raises(Redis::CommandError) { super }
+  end
+
+  def test_zinter_with_aggregate
+    assert_raises(Redis::CommandError) { super }
+  end
+
+  def test_zinter_with_weights
+    assert_raises(Redis::CommandError) { super }
+  end
+
   def test_zinterstore
     assert_raises(Redis::CommandError) { super }
   end

@@ -2062,6 +2062,45 @@ class Redis
     end
   end
 
+  # Return the intersection of multiple sorted sets
+  #
+  # @example Retrieve the intersection of `2*zsetA` and `1*zsetB`
+  #   redis.zinter("zsetA", "zsetB", :weights => [2.0, 1.0])
+  #     # => ["v1", "v2"]
+  # @example Retrieve the intersection of `2*zsetA` and `1*zsetB`, and their scores
+  #   redis.zinter("zsetA", "zsetB", :weights => [2.0, 1.0], :with_scores => true)
+  #     # => [["v1", 3.0], ["v2", 6.0]]
+  #
+  # @param [String, Array<String>] keys one or more keys to intersect
+  # @param [Hash] options
+  #   - `:weights => [Float, Float, ...]`: weights to associate with source
+  #   sorted sets
+  #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
+  #   - `:with_scores => true`: include scores in output
+  #
+  # @return [Array<String>, Array<[String, Float]>]
+  #   - when `:with_scores` is not specified, an array of members
+  #   - when `:with_scores` is specified, an array with `[member, score]` pairs
+  def zinter(*keys, weights: nil, aggregate: nil, with_scores: false)
+    args = [:zinter, keys.size, *keys]
+
+    if weights
+      args << "WEIGHTS"
+      args.concat(weights)
+    end
+
+    args << "AGGREGATE" << aggregate if aggregate
+
+    if with_scores
+      args << "WITHSCORES"
+      block = FloatifyPairs
+    end
+
+    synchronize do |client|
+      client.call(args, &block)
+    end
+  end
+
   # Intersect multiple sorted sets and store the resulting sorted set in a new
   # key.
   #
