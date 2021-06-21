@@ -7,6 +7,18 @@ class TestDistributedCommandsOnSortedSets < Minitest::Test
   include Helper::Distributed
   include Lint::SortedSets
 
+  def test_zinter
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
+
+  def test_zinter_with_aggregate
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
+
+  def test_zinter_with_weights
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
+
   def test_zinterstore
     assert_raises(Redis::Distributed::CannotDistribute) { super }
   end
