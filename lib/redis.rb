@@ -555,6 +555,7 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Integer] number of keys that were deleted
   def del(*keys)
+    keys.flatten!(1)
     return 0 if keys.empty?
 
     synchronize do |client|
