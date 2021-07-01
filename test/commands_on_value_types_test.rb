@@ -14,6 +14,8 @@ class TestCommandsOnValueTypes < Minitest::Test
 
     assert_equal ["bar", "baz", "foo"], r.keys("*").sort
 
+    assert_equal 0, r.del("")
+
     assert_equal 1, r.del("foo")
 
     assert_equal ["bar", "baz"], r.keys("*").sort
@@ -29,6 +31,8 @@ class TestCommandsOnValueTypes < Minitest::Test
     r.set "baz", "s3"
 
     assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+
+    assert_equal 0, r.del([])
 
     assert_equal 1, r.del(["foo"])
 

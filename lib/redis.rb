@@ -555,9 +555,7 @@ class Redis
   # @param [String, Array<String>] keys
   # @return [Integer] number of keys that were deleted
   def del(*keys)
-    if keys.is_a?(Array) && keys.empty?
-      return 0
-    end
+    return 0 if keys.empty?
 
     synchronize do |client|
       client.call([:del] + keys)
