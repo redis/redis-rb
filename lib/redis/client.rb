@@ -29,7 +29,8 @@ class Redis
       inherit_socket: false,
       logger: nil,
       sentinels: nil,
-      role: nil
+      role: nil,
+      read_bytes_from_socket: 16_384
     }.freeze
 
     attr_reader :options
