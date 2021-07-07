@@ -76,8 +76,9 @@ class Redis
         clients = options.map do |node_key, option|
           next if replica_disabled? && slave?(node_key)
 
+          option = option.merge(readonly: true) if slave?(node_key)
+
           client = Client.new(option)
-          client.call(%i[readonly]) if slave?(node_key)
           [node_key, client]
         end
 

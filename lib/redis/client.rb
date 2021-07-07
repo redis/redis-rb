@@ -126,6 +126,8 @@ class Redis
             call [:auth, password]
           end
         end
+
+        call [:readonly] if @options[:readonly]
         call [:select, db] if db != 0
         call [:client, :setname, @options[:id]] if @options[:id]
         @connector.check(self)
