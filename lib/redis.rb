@@ -3280,6 +3280,38 @@ class Redis
     synchronize { |client| client.call(args, &blk) }
   end
 
+  # Transfers ownership of pending stream entries that match the specified criteria.
+  #
+  # @example Claim next pending message stuck > 5 minutes  and mark as retry
+  #   redis.xautoclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0')
+  # @example Claim 50 next pending messages stuck > 5 minutes  and mark as retry
+  #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0', count: 50)
+  # @example Claim next pending message stuck > 5 minutes and don't mark as retry
+  #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0', justid: true)
+  # @example Claim next pending message after this id stuck > 5 minutes  and mark as retry
+  #   redis.xautoclaim('mystream', 'mygroup', 'consumer1', 3600000, '1641321233-0')
+  #
+  # @param key           [String]        the stream key
+  # @param group         [String]        the consumer group name
+  # @param consumer      [String]        the consumer name
+  # @param min_idle_time [Integer]       the number of milliseconds
+  # @param start         [String]        entry id to start scanning from or 0-0 for everything
+  # @param count         [Integer]       number of messages to claim (default 1)
+  # @param justid        [Boolean]       whether to fetch just an array of entry ids or not.
+  #                                      Does not increment retry count when true
+  #
+  # @return [Hash{String => Hash}] the entries successfully claimed
+  # @return [Array<String>]        the entry ids successfully claimed if justid option is `true`
+  def xautoclaim(key, group, consumer, min_idle_time, start, count: nil, justid: false)
+    args = [:xautoclaim, key, group, consumer, min_idle_time, start]
+    if count
+      args << 'COUNT' << count.to_s
+    end
+    args << 'JUSTID' if justid
+    blk = justid ? HashifyStreamAutoclaimJustId : HashifyStreamAutoclaim
+    synchronize { |client| client.call(args, &blk) }
+  end
+
   # Fetches not acknowledging pending entries
   #
   # @example With key and group
@@ -3488,6 +3520,20 @@ class Redis
     reply.compact.map do |entry_id, values|
       [entry_id, values.each_slice(2).to_h]
     end
+  }
+
+  HashifyStreamAutoclaim = lambda { |reply|
+    {
+      'next' => reply[0],
+      'entries' => reply[1].map { |entry| [entry[0], entry[1].each_slice(2).to_h] }
+    }
+  }
+
+  HashifyStreamAutoclaimJustId = lambda { |reply|
+    {
+      'next' => reply[0],
+      'entries' => reply[1]
+    }
   }
 
   HashifyStreamPendings = lambda { |reply|

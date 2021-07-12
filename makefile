@@ -1,4 +1,4 @@
-REDIS_BRANCH       ?= 6.0
+REDIS_BRANCH       ?= 6.2
 TMP                := tmp
 BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
 TARBALL            := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
