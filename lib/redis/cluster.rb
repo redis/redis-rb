@@ -78,11 +78,13 @@ class Redis
     end
 
     def call_pipeline(pipeline)
-      node_keys, command_keys = extract_keys_in_pipeline(pipeline)
-      raise CrossSlotPipeliningError, command_keys if node_keys.size > 1
+      node_keys = pipeline.commands.map { |cmd| find_node_key(cmd, primary_only: true) }.compact.uniq
+      if node_keys.size > 1
+        raise(CrossSlotPipeliningError,
+              pipeline.commands.map { |cmd| @command.extract_first_key(cmd) }.reject(&:empty?).uniq)
+      end
 
-      node = find_node(node_keys.first)
-      try_send(node, :call_pipeline, pipeline)
+      try_send(find_node(node_keys.first), :call_pipeline, pipeline)
     end
 
     def call_with_timeout(command, timeout, &block)
@@ -253,14 +255,14 @@ class Redis
       find_node(node_key)
     end
 
-    def find_node_key(command)
+    def find_node_key(command, primary_only: false)
       key = @command.extract_first_key(command)
       return if key.empty?
 
       slot = KeySlotConverter.convert(key)
       return unless @slot.exists?(slot)
 
-      if @command.should_send_to_master?(command)
+      if @command.should_send_to_master?(command) || primary_only
         @slot.find_node_key_of_master(slot)
       else
         @slot.find_node_key_of_slave(slot)
@@ -284,12 +286,6 @@ class Redis
 
       @node.map(&:disconnect)
       @node, @slot = fetch_cluster_info!(@option)
-    end
-
-    def extract_keys_in_pipeline(pipeline)
-      node_keys = pipeline.commands.map { |cmd| find_node_key(cmd) }.compact.uniq
-      command_keys = pipeline.commands.map { |cmd| @command.extract_first_key(cmd) }.reject(&:empty?)
-      [node_keys, command_keys]
     end
   end
 end
