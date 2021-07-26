@@ -56,4 +56,26 @@ class TestClusterClientPipelining < Minitest::Test
       end
     end
   end
+
+  def test_pipelining_with_multiple_replicas
+    rc = build_another_client(replica: true)
+    rc.instance_variable_get(:@client).instance_variable_get(:@slot).instance_variable_get(:@map).each do |_, v|
+      v[:slaves] << v[:master] if v[:slaves].size < 2 # reproducing multiple replicas
+    end
+
+    rc.pipelined do |r|
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+      r.get('key1')
+    end
+
+    rc.close
+  end
 end
