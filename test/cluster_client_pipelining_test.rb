@@ -64,16 +64,7 @@ class TestClusterClientPipelining < Minitest::Test
     end
 
     rc.pipelined do |r|
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
-      r.get('key1')
+      10.times { r.get('key1') }
     end
 
     rc.close
