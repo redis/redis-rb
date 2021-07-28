@@ -1,5 +1,13 @@
 # Unreleased
 
+# 4.4.0
+
+* Redis cluster: fix cross-slot validation in pipelines. Fix ##1019.
+* Add support for `XAUTOCLAIM`. See #1018.
+* Properly issue `READONLY` when reconnecting to replicas. Fix #1017.
+* Make `del` a noop if passed an empty list of keys. See #998.
+* Add support for `ZINTER`. See #995.
+
 # 4.3.1
 
 * Fix password authentication against redis server 5 and older.
