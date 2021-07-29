@@ -133,7 +133,7 @@ You can also specify only a subset of the nodes, and the client will discover th
 Redis.new(cluster: %w[redis://127.0.0.1:7000])
 ```
 
-If you want [the connection to be able to read from any replica](https://redis.io/commands/readonly), you must pass the `replica: true`. Note that this connection won't be usable to write keys.
+If you want [the connection to be able to read from any replica](https://redis.io/commands/readonly), you must pass the `replica: true`.
 
 ```ruby
 Redis.new(cluster: nodes, replica: true)
