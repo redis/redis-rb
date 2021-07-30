@@ -9,10 +9,10 @@ class TestStreams < Minitest::Test
     r.xgroup(:create, 'k1', 'g1', '0', mkstream: true)
     entry_id = r.xadd('k1', { value: 'v1' })
 
-    assert_equal r.xreadgroup('g1', 'c1', 'k1', '>'), { 'k1' => [[entry_id, { 'value' => 'v1' }]] }
-    assert_equal r.xreadgroup('g1', 'c1', 'k1', '0'), { 'k1' => [[entry_id, { 'value' => 'v1' }]] }
+    assert_equal({ 'k1' => [[entry_id, { 'value' => 'v1' }]] }, r.xreadgroup('g1', 'c1', 'k1', '>'))
+    assert_equal({ 'k1' => [[entry_id, { 'value' => 'v1' }]] }, r.xreadgroup('g1', 'c1', 'k1', '0'))
     r.xtrim('k1', 0)
 
-    assert_equal r.xreadgroup('g1', 'c1', 'k1', '0'), { 'k1' => [[entry_id, { 'value' => nil }]] }
+    assert_equal({ 'k1' => [[entry_id, nil]] }, r.xreadgroup('g1', 'c1', 'k1', '0'))
   end
 end
