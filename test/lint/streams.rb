@@ -491,6 +491,17 @@ module Lint
       assert_raises(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', %w[> >]) }
     end
 
+    def test_xreadgroup_a_trimmed_entry
+      redis.xgroup(:create, 'k1', 'g1', '0', mkstream: true)
+      entry_id = redis.xadd('k1', { value: 'v1' })
+
+      assert_equal({ 'k1' => [[entry_id, { 'value' => 'v1' }]] }, redis.xreadgroup('g1', 'c1', 'k1', '>'))
+      assert_equal({ 'k1' => [[entry_id, { 'value' => 'v1' }]] }, redis.xreadgroup('g1', 'c1', 'k1', '0'))
+      redis.xtrim('k1', 0)
+
+      assert_equal({ 'k1' => [[entry_id, nil]] }, redis.xreadgroup('g1', 'c1', 'k1', '0'))
+    end
+
     def test_xack_with_a_entry_id
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
