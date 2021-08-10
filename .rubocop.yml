@@ -106,6 +106,9 @@ Lint/EndAlignment:
 Layout/ElseAlignment:
   Enabled: false
 
+Layout/RescueEnsureAlignment:
+  Enabled: false
+
 Naming/HeredocDelimiterNaming:
   Enabled: false
 

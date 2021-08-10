@@ -32,12 +32,30 @@ class Redis
         @write_timeout = (timeout if timeout && timeout > 0)
       end
 
-      def read(nbytes)
-        result = @buffer.slice!(0, nbytes)
+      string_capacity_support = begin
+        String.new(capacity: 0)
+        true # Ruby 2.4+
+      rescue ArgumentError
+        false # Ruby 2.3
+      end
 
-        result << _read_from_socket(nbytes - result.bytesize) while result.bytesize < nbytes
+      if string_capacity_support
+        def read(nbytes)
+          result = @buffer.slice!(0, nbytes)
 
-        result
+          buffer = String.new(capacity: nbytes, encoding: Encoding::ASCII_8BIT)
+          result << _read_from_socket(nbytes - result.bytesize, buffer) while result.bytesize < nbytes
+
+          result
+        end
+      else
+        def read(nbytes)
+          result = @buffer.slice!(0, nbytes)
+
+          result << _read_from_socket(nbytes - result.bytesize, "".b) while result.bytesize < nbytes
+
+          result
+        end
       end
 
       def gets
@@ -48,9 +66,9 @@ class Redis
         @buffer.slice!(0, crlf + CRLF.bytesize)
       end
 
-      def _read_from_socket(nbytes)
+      def _read_from_socket(nbytes, buffer = nil)
         loop do
-          case chunk = read_nonblock(nbytes, exception: false)
+          case chunk = read_nonblock(nbytes, buffer, exception: false)
           when :wait_readable
             unless wait_readable(@timeout)
               raise Redis::TimeoutError
