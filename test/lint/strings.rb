@@ -115,6 +115,14 @@ module Lint
       end
     end
 
+    def test_getdel
+      target_version "6.2" do
+        assert r.set("foo", "bar")
+        assert_equal "bar", r.getdel("foo")
+        assert_equal nil, r.get("foo")
+      end
+    end
+
     def test_getset
       r.set("foo", "bar")
 

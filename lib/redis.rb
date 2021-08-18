@@ -1110,6 +1110,18 @@ class Redis
     end
   end
 
+  # Get the value of key and delete the key. This command is similar to GET,
+  # except for the fact that it also deletes the key on success.
+  #
+  # @param [String] key
+  # @return [String] the old value stored in the key, or `nil` if the key
+  #   did not exist
+  def getdel(key)
+    synchronize do |client|
+      client.call([:getdel, key])
+    end
+  end
+
   # Get the length of the value stored in a key.
   #
   # @param [String] key
