@@ -1122,6 +1122,33 @@ class Redis
     end
   end
 
+  # Get the value of key and optionally set its expiration. GETEX is similar to
+  # GET, but is a write command with additional options. When no options are
+  # provided, GETEX behaves like GET.
+  #
+  # @param [String] key
+  # @param [Hash] options
+  #   - `:ex => Integer`: Set the specified expire time, in seconds.
+  #   - `:px => Integer`: Set the specified expire time, in milliseconds.
+  #   - `:exat => true`: Set the specified Unix time at which the key will
+  #      expire, in seconds.
+  #   - `:pxat => true`: Set the specified Unix time at which the key will
+  #      expire, in milliseconds.
+  #   - `:persist => true`: Remove the time to live associated with the key.
+  # @return [String] The value of key, or nil when key does not exist.
+  def getex(key, ex: nil, px: nil, exat: nil, pxat: nil, persist: false)
+    args = [:getex, key]
+    args << "EX" << ex if ex
+    args << "PX" << px if px
+    args << "EXAT" << exat if exat
+    args << "PXAT" << pxat if pxat
+    args << "PERSIST" if persist
+
+    synchronize do |client|
+      client.call(args)
+    end
+  end
+
   # Get the length of the value stored in a key.
   #
   # @param [String] key

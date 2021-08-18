@@ -321,6 +321,11 @@ class Redis
       node_for(key).getdel(key)
     end
 
+    # Get the value of a key and sets its time to live based on options.
+    def getex(key, **options)
+      node_for(key).getex(key, **options)
+    end
+
     # Get the values of all the given keys as an Array.
     def mget(*keys)
       mapped_mget(*keys).values_at(*keys)
