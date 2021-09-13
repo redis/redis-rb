@@ -51,6 +51,20 @@ module Lint
       end
     end
 
+    def test_set_with_exat
+      target_version "6.2" do
+        r.set("foo", "bar", exat: Time.now.to_i + 2)
+        assert_in_range 0..2, r.ttl("foo")
+      end
+    end
+
+    def test_set_with_pxat
+      target_version "6.2" do
+        r.set("foo", "bar", pxat: (1000 * Time.now.to_i) + 2000)
+        assert_in_range 0..2, r.ttl("foo")
+      end
+    end
+
     def test_set_with_nx
       target_version "2.6.12" do
         r.set("foo", "qux", nx: true)
