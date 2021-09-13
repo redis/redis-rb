@@ -834,14 +834,18 @@ class Redis
   # @param [Hash] options
   #   - `:ex => Integer`: Set the specified expire time, in seconds.
   #   - `:px => Integer`: Set the specified expire time, in milliseconds.
+  #   - `:exat => Integer` : Set the specified Unix time at which the key will expire, in seconds.
+  #   - `:pxat => Integer` : Set the specified Unix time at which the key will expire, in milliseconds.
   #   - `:nx => true`: Only set the key if it does not already exist.
   #   - `:xx => true`: Only set the key if it already exist.
   #   - `:keepttl => true`: Retain the time to live associated with the key.
   # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
-  def set(key, value, ex: nil, px: nil, nx: nil, xx: nil, keepttl: nil)
+  def set(key, value, ex: nil, px: nil, exat: nil, pxat: nil, nx: nil, xx: nil, keepttl: nil)
     args = [:set, key, value.to_s]
     args << "EX" << ex if ex
     args << "PX" << px if px
+    args << "EXAT" << exat if exat
+    args << "PXAT" << pxat if pxat
     args << "NX" if nx
     args << "XX" if xx
     args << "KEEPTTL" if keepttl
