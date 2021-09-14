@@ -6,8 +6,8 @@ require_relative 'helper'
 class TestClusterClientKeyHashTags < Minitest::Test
   include Helper::Cluster
 
-  def build_described_class
-    option = Redis::Cluster::Option.new(cluster: ['redis://127.0.0.1:7000'])
+  def build_described_class(urls = ['redis://127.0.0.1:7000'])
+    option = Redis::Cluster::Option.new(cluster: urls)
     node = Redis::Cluster::Node.new(option.per_node_key)
     details = Redis::Cluster::CommandLoader.load(node)
     Redis::Cluster::Command.new(details)
@@ -84,5 +84,16 @@ class TestClusterClientKeyHashTags < Minitest::Test
       assert_equal false, described_class.should_send_to_master?([:info])
       assert_equal false, described_class.should_send_to_slave?([:info])
     end
+  end
+
+  def test_cannot_build_details_from_bad_urls
+    assert_raises(Redis::CannotConnectError) do
+      build_described_class(['redis://127.0.0.1:7006'])
+    end
+  end
+
+  def test_builds_details_from_a_mix_of_good_and_bad_urls
+    described_class = build_described_class(['redis://127.0.0.1:7006', 'redis://127.0.0.1:7000'])
+    assert_equal 'dogs:1', described_class.extract_first_key(%w[get dogs:1])
   end
 end
