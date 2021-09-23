@@ -119,8 +119,12 @@ class Redis
           if username
             begin
               call [:auth, username, password]
-            rescue CommandError # Likely on Redis < 6
-              call [:auth, password]
+            rescue CommandError => err # Likely on Redis < 6
+              if err.message.match?(/ERR wrong number of arguments for \'auth\' command/)
+                call [:auth, password]
+              else
+                raise
+              end
             end
           else
             call [:auth, password]
