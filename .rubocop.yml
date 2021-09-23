@@ -1,5 +1,5 @@
 AllCops:
-  TargetRubyVersion: 2.3
+  TargetRubyVersion: 2.4
 
 Layout/LineLength:
   Max: 120
@@ -100,7 +100,7 @@ Style/WordArray:
 Lint/NonLocalExitFromIterator:
   Enabled: false
 
-Lint/EndAlignment:
+Layout/EndAlignment:
   EnforcedStyleAlignWith: variable
 
 Layout/ElseAlignment:
