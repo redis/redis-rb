@@ -124,3 +124,6 @@ Naming/AccessorMethodName:
 
 Naming/MethodParameterName:
   Enabled: false
+
+Metrics/BlockNesting:
+  Enabled: false
