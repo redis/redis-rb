@@ -3,11 +3,11 @@
 module Lint
   module ValueTypes
     def test_exists
-      assert_equal false, r.exists("foo")
+      assert_equal 0, r.exists("foo")
 
       r.set("foo", "s1")
 
-      assert_equal true,  r.exists("foo")
+      assert_equal 1, r.exists("foo")
     end
 
     def test_exists_integer
@@ -18,6 +18,18 @@ module Lint
       r.set("foo", "s1")
 
       assert_equal 1,  r.exists("foo")
+    ensure
+      Redis.exists_returns_integer = previous_exists_returns_integer
+    end
+
+    def test_exists_boolean
+      previous_exists_returns_integer = Redis.exists_returns_integer
+      Redis.exists_returns_integer = false
+      assert_equal false, r.exists("foo")
+
+      r.set("foo", "s1")
+
+      assert_equal true, r.exists("foo")
     ensure
       Redis.exists_returns_integer = previous_exists_returns_integer
     end
