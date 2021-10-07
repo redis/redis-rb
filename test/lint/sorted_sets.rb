@@ -45,6 +45,35 @@ module Lint
         # Incompatible options combination
         assert_raises(Redis::CommandError) { r.zadd("foo", 1, "s1", xx: true, nx: true) }
       end
+
+      target_version "6.2" do
+        # LT option
+        r.zadd("foo", 2, "s1")
+
+        r.zadd("foo", 3, "s1", lt: true)
+        assert_equal 2.0, r.zscore("foo", "s1")
+
+        r.zadd("foo", 1, "s1", lt: true)
+        assert_equal 1.0, r.zscore("foo", "s1")
+
+        assert_equal true, r.zadd("foo", 3, "s2", lt: true) # adds new member
+        r.del "foo"
+
+        # GT option
+        r.zadd("foo", 2, "s1")
+
+        r.zadd("foo", 1, "s1", gt: true)
+        assert_equal 2.0, r.zscore("foo", "s1")
+
+        r.zadd("foo", 3, "s1", gt: true)
+        assert_equal 3.0, r.zscore("foo", "s1")
+
+        assert_equal true, r.zadd("foo", 1, "s2", gt: true) # adds new member
+        r.del "foo"
+
+        # Incompatible options combination
+        assert_raises(Redis::CommandError) { r.zadd("foo", 1, "s1", nx: true, gt: true) }
+      end
     end
 
     def test_variadic_zadd
@@ -108,6 +137,28 @@ module Lint
 
         # Incompatible options combination
         assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1"], xx: true, nx: true) }
+      end
+
+      target_version "6.2" do
+        # LT option
+        r.zadd("foo", 2, "s1")
+
+        assert_equal 1, r.zadd("foo", [3, "s1", 2, "s2"], lt: true, ch: true)
+        assert_equal 2.0, r.zscore("foo", "s1")
+
+        assert_equal 1, r.zadd("foo", [1, "s1"], lt: true, ch: true)
+
+        r.del "foo"
+
+        # GT option
+        r.zadd("foo", 2, "s1")
+
+        assert_equal 1, r.zadd("foo", [1, "s1", 2, "s2"], gt: true, ch: true)
+        assert_equal 2.0, r.zscore("foo", "s1")
+
+        assert_equal 1, r.zadd("foo", [3, "s1"], gt: true, ch: true)
+
+        r.del "foo"
       end
     end
 
