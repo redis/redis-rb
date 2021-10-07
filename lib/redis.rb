@@ -4,6 +4,8 @@ require "monitor"
 require_relative "redis/errors"
 
 class Redis
+  @exists_returns_integer = true
+
   class << self
     attr_reader :exists_returns_integer
 
