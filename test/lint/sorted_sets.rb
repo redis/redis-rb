@@ -293,6 +293,20 @@ module Lint
       assert_equal(+Float::INFINITY, r.zscore("bar", "s2"))
     end
 
+    def test_zmscore
+      target_version("6.2") do
+        r.zadd "foo", 1, "s1"
+
+        assert_equal [1.0], r.zmscore("foo", "s1")
+        assert_equal [nil], r.zmscore("foo", "s2")
+
+        r.zadd "foo", "-inf", "s2"
+        r.zadd "foo", "+inf", "s3"
+        assert_equal [1.0, nil], r.zmscore("foo", "s1", "s4")
+        assert_equal [-Float::INFINITY, +Float::INFINITY], r.zmscore("foo", "s2", "s3")
+      end
+    end
+
     def test_zremrangebyrank
       r.zadd "foo", 10, "s1"
       r.zadd "foo", 20, "s2"
