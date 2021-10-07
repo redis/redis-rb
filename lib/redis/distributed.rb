@@ -552,6 +552,11 @@ class Redis
       node_for(key).sismember(key, member)
     end
 
+    # Determine if multiple values are members of a set.
+    def smismember(key, *members)
+      node_for(key).smismember(key, *members)
+    end
+
     # Get all the members in a set.
     def smembers(key)
       node_for(key).smembers(key)
