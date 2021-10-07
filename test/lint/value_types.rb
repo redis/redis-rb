@@ -7,7 +7,7 @@ module Lint
 
       r.set("foo", "s1")
 
-      assert_equal 1,  r.exists("foo")
+      assert_equal 1, r.exists("foo")
     end
 
     def test_exists_integer
