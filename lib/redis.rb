@@ -1641,6 +1641,10 @@ class Redis
   #   add elements)
   #   - `:nx => true`: Don't update already existing elements (always
   #   add new elements)
+  #   - `:lt => true`: Only update existing elements if the new score
+  #   is less than the current score
+  #   - `:gt => true`: Only update existing elements if the new score
+  #   is greater than the current score
   #   - `:ch => true`: Modify the return value from the number of new
   #   elements added, to the total number of elements changed (CH is an
   #   abbreviation of changed); changed elements are new elements added
@@ -1655,10 +1659,12 @@ class Redis
   #   pairs that were **added** to the sorted set.
   #   - `Float` when option :incr is specified, holding the score of the member
   #   after incrementing it.
-  def zadd(key, *args, nx: nil, xx: nil, ch: nil, incr: nil)
+  def zadd(key, *args, nx: nil, xx: nil, lt: nil, gt: nil, ch: nil, incr: nil)
     command = [:zadd, key]
     command << "NX" if nx
     command << "XX" if xx
+    command << "LT" if lt
+    command << "GT" if gt
     command << "CH" if ch
     command << "INCR" if incr
 
