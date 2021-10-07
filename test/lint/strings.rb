@@ -141,7 +141,7 @@ module Lint
       target_version "6.2" do
         assert r.set("foo", "bar")
         assert_equal "bar", r.getdel("foo")
-        assert_equal nil, r.get("foo")
+        assert_nil r.get("foo")
       end
     end
 
