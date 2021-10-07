@@ -1524,6 +1524,19 @@ class Redis
     end
   end
 
+  # Determine if multiple values are members of a set.
+  #
+  # @param [String] key
+  # @param [String, Array<String>] members
+  # @return [Array<Boolean>]
+  def smismember(key, *members)
+    synchronize do |client|
+      client.call([:smismember, key, *members]) do |reply|
+        reply.map(&Boolify)
+      end
+    end
+  end
+
   # Get all the members in a set.
   #
   # @param [String] key

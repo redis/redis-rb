@@ -88,6 +88,18 @@ module Lint
       assert_equal false, r.sismember("foo", "s2")
     end
 
+    def test_smismember
+      target_version("6.2") do
+        assert_equal [false], r.smismember("foo", "s1")
+
+        r.sadd "foo", "s1"
+        assert_equal [true], r.smismember("foo", "s1")
+
+        r.sadd "foo", "s3"
+        assert_equal [true, false, true], r.smismember("foo", "s1", "s2", "s3")
+      end
+    end
+
     def test_smembers
       assert_equal [], r.smembers("foo")
 
