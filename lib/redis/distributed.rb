@@ -403,6 +403,21 @@ class Redis
       node_for(key).llen(key)
     end
 
+    # Remove the first/last element in a list, append/prepend it to another list and return it.
+    def lmove(source, destination, where_source, where_destination)
+      ensure_same_node(:lmove, [source, destination]) do |node|
+        node.lmove(source, destination, where_source, where_destination)
+      end
+    end
+
+    # Remove the first/last element in a list and append/prepend it
+    # to another list and return it, or block until one is available.
+    def blmove(source, destination, where_source, where_destination, timeout: 0)
+      ensure_same_node(:lmove, [source, destination]) do |node|
+        node.blmove(source, destination, where_source, where_destination, timeout: timeout)
+      end
+    end
+
     # Prepend one or more values to a list.
     def lpush(key, value)
       node_for(key).lpush(key, value)

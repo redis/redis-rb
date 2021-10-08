@@ -1176,6 +1176,59 @@ class Redis
     end
   end
 
+  # Remove the first/last element in a list, append/prepend it to another list and return it.
+  #
+  # @param [String] source source key
+  # @param [String] destination destination key
+  # @param [String, Symbol] where_source from where to remove the element from the source list
+  #     e.g. 'LEFT' - from head, 'RIGHT' - from tail
+  # @param [String, Symbol] where_destination where to push the element to the source list
+  #     e.g. 'LEFT' - to head, 'RIGHT' - to tail
+  #
+  # @return [nil, String] the element, or nil when the source key does not exist
+  #
+  # @note This command comes in place of the now deprecated RPOPLPUSH.
+  #     Doing LMOVE RIGHT LEFT is equivalent.
+  def lmove(source, destination, where_source, where_destination)
+    where_source, where_destination = _normalize_move_wheres(where_source, where_destination)
+
+    synchronize do |client|
+      client.call([:lmove, source, destination, where_source, where_destination])
+    end
+  end
+
+  # Remove the first/last element in a list and append/prepend it
+  # to another list and return it, or block until one is available.
+  #
+  # @example With timeout
+  #   element = redis.blmove("foo", "bar", "LEFT", "RIGHT", timeout: 5)
+  #     # => nil on timeout
+  #     # => "element" on success
+  # @example Without timeout
+  #   element = redis.blmove("foo", "bar", "LEFT", "RIGHT")
+  #     # => "element"
+  #
+  # @param [String] source source key
+  # @param [String] destination destination key
+  # @param [String, Symbol] where_source from where to remove the element from the source list
+  #     e.g. 'LEFT' - from head, 'RIGHT' - from tail
+  # @param [String, Symbol] where_destination where to push the element to the source list
+  #     e.g. 'LEFT' - to head, 'RIGHT' - to tail
+  # @param [Hash] options
+  #   - `:timeout => Numeric`: timeout in seconds, defaults to no timeout
+  #
+  # @return [nil, String] the element, or nil when the source key does not exist or the timeout expired
+  #
+  def blmove(source, destination, where_source, where_destination, timeout: 0)
+    where_source, where_destination = _normalize_move_wheres(where_source, where_destination)
+
+    synchronize do |client|
+      command = [:blmove, source, destination, where_source, where_destination, timeout]
+      timeout += client.timeout if timeout > 0
+      client.call_with_timeout(command, timeout)
+    end
+  end
+
   # Prepend one or more values to a list, creating the list if it doesn't exist
   #
   # @param [String] key
@@ -3715,6 +3768,21 @@ class Redis
         client.call_with_timeout(args, timeout, &HashifyStreams)
       end
     end
+  end
+
+  def _normalize_move_wheres(where_source, where_destination)
+    where_source      = where_source.to_s.upcase
+    where_destination = where_destination.to_s.upcase
+
+    if where_source != "LEFT" && where_source != "RIGHT"
+      raise ArgumentError, "where_source must be 'LEFT' or 'RIGHT'"
+    end
+
+    if where_destination != "LEFT" && where_destination != "RIGHT"
+      raise ArgumentError, "where_destination must be 'LEFT' or 'RIGHT'"
+    end
+
+    [where_source, where_destination]
   end
 end
 
