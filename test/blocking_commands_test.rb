@@ -21,6 +21,14 @@ class TestBlockingCommands < Minitest::Test
     end
   end
 
+  def test_blmove_disable_client_timeout
+    target_version "6.2" do
+      assert_takes_longer_than_client_timeout do |r|
+        assert_equal '0', r.blmove('foo', 'bar', 'LEFT', 'RIGHT')
+      end
+    end
+  end
+
   def test_blpop_disable_client_timeout
     assert_takes_longer_than_client_timeout do |r|
       assert_equal %w[foo 0], r.blpop('foo')

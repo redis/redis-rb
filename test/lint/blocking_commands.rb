@@ -32,6 +32,10 @@ module Lint
 
     def build_mock_commands(options = {})
       {
+        blmove: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
+          to_protocol(args.last)
+        end,
         blpop: lambda do |*args|
           sleep options[:delay] if options.key?(:delay)
           to_protocol([args.first, args.last])
@@ -53,6 +57,23 @@ module Lint
           to_protocol([args.first, args.last])
         end
       }
+    end
+
+    def test_blmove
+      target_version "6.2" do
+        assert_equal 's1', r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT')
+        assert_equal ['s2'], r.lrange('{zap}foo', 0, -1)
+        assert_equal ['s1', 's2', 's1'], r.lrange('{zap}bar', 0, -1)
+      end
+    end
+
+    def test_blmove_timeout
+      target_version "6.2" do
+        mock do |r|
+          assert_equal '0', r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT')
+          assert_equal LOW_TIMEOUT.to_s, r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', timeout: LOW_TIMEOUT)
+        end
+      end
     end
 
     def test_blpop
@@ -166,6 +187,16 @@ module Lint
     end
 
     driver(:ruby, :hiredis) do
+      def test_blmove_socket_timeout
+        target_version "6.2" do
+          mock(delay: LOW_TIMEOUT * 5) do |r|
+            assert_raises(Redis::TimeoutError) do
+              r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', timeout: LOW_TIMEOUT)
+            end
+          end
+        end
+      end
+
       def test_blpop_socket_timeout
         mock(delay: LOW_TIMEOUT * 5) do |r|
           assert_raises(Redis::TimeoutError) do

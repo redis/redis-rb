@@ -23,6 +23,19 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     assert_equal "s2", r.get("{qux}bar")
   end
 
+  def test_lmove
+    target_version "6.2" do
+      r.rpush("{qux}foo", "s1")
+      r.rpush("{qux}foo", "s2")
+      r.rpush("{qux}bar", "s3")
+      r.rpush("{qux}bar", "s4")
+
+      assert_equal "s1", r.lmove("{qux}foo", "{qux}bar", "LEFT", "RIGHT")
+      assert_equal ["s2"], r.lrange("{qux}foo", 0, -1)
+      assert_equal ["s3", "s4", "s1"], r.lrange("{qux}bar", 0, -1)
+    end
+  end
+
   def test_brpoplpush
     r.rpush "{qux}foo", "s1"
     r.rpush "{qux}foo", "s2"
