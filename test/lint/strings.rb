@@ -97,6 +97,18 @@ module Lint
       end
     end
 
+    def test_set_with_get
+      target_version "6.2" do
+        r.set("foo", "qux")
+
+        assert_equal "qux", r.set("foo", "bar", get: true)
+        assert_equal "bar", r.get("foo")
+
+        assert_nil r.set("baz", "bar", get: true)
+        assert_equal "bar", r.get("baz")
+      end
+    end
+
     def test_setex
       assert r.setex("foo", 1, "bar")
       assert_equal "bar", r.get("foo")
