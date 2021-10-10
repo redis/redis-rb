@@ -358,6 +358,34 @@ module Lint
       end
     end
 
+    def test_zrandmember
+      target_version("6.2") do
+        assert_nil r.zrandmember("foo")
+
+        r.zadd "foo", 1.0, "s1"
+        r.zrem "foo", "s1"
+        assert_nil r.zrandmember("foo")
+        assert_equal [], r.zrandmember("foo", 1)
+
+        r.zadd "foo", 1.0, "s1"
+        r.zadd "foo", 2.0, "s2"
+        r.zadd "foo", 3.0, "s3"
+
+        3.times do
+          assert ["s1", "s2", "s3"].include?(r.zrandmember("foo"))
+        end
+
+        assert_equal 2, r.zrandmember("foo", 2).size
+        assert_equal 3, r.zrandmember("foo", 4).size
+        assert_equal 5, r.zrandmember("foo", -5).size
+
+        r.zrandmember("foo", 2, with_scores: true).each do |(member, score)|
+          assert ["s1", "s2", "s3"].include?(member)
+          assert_instance_of Float, score
+        end
+      end
+    end
+
     def test_zremrangebyrank
       r.zadd "foo", 10, "s1"
       r.zadd "foo", 20, "s2"
