@@ -656,6 +656,11 @@ class Redis
       node_for(key).zscore(key, member)
     end
 
+    # Get one or more random members from a sorted set.
+    def zrandmember(key, count = nil, **options)
+      node_for(key).zrandmember(key, count, **options)
+    end
+
     # Get the scores associated with the given members in a sorted set.
     def zmscore(key, *members)
       node_for(key).zmscore(key, *members)

@@ -1897,6 +1897,46 @@ class Redis
     end
   end
 
+  # Get one or more random members from a sorted set.
+  #
+  # @example Get one random member
+  #   redis.zrandmember("zset")
+  #     # => "a"
+  # @example Get multiple random members
+  #   redis.zrandmember("zset", 2)
+  #     # => ["a", "b"]
+  # @example Gem multiple random members with scores
+  #   redis.zrandmember("zset", 2, with_scores: true)
+  #     # => [["a", 2.0], ["b", 3.0]]
+  #
+  # @param [String] key
+  # @param [Integer] count
+  # @param [Hash] options
+  #   - `:with_scores => true`: include scores in output
+  #
+  # @return [nil, String, Array<String>, Array<[String, Float]>]
+  #   - when `key` does not exist or set is empty, `nil`
+  #   - when `count` is not specified, a member
+  #   - when `count` is specified and `:with_scores` is not specified, an array of members
+  #   - when `:with_scores` is specified, an array with `[member, score]` pairs
+  def zrandmember(key, count = nil, withscores: false, with_scores: withscores)
+    if with_scores && count.nil?
+      raise ArgumentError, "count argument must be specified"
+    end
+
+    args = [:zrandmember, key]
+    args << count if count
+
+    if with_scores
+      args << "WITHSCORES"
+      block = FloatifyPairs
+    end
+
+    synchronize do |client|
+      client.call(args, &block)
+    end
+  end
+
   # Return a range of members in a sorted set, by index.
   #
   # @example Retrieve all members from a sorted set
