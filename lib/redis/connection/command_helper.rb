@@ -12,11 +12,13 @@ class Redis
           if i.is_a? Array
             i.each do |j|
               j = j.to_s
+              j = j.encoding == Encoding::BINARY ? j : j.b
               command << "$#{j.bytesize}"
               command << j
             end
           else
             i = i.to_s
+            i = i.encoding == Encoding::BINARY ? i : i.b
             command << "$#{i.bytesize}"
             command << i
           end
