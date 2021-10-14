@@ -1,5 +1,20 @@
 # Unreleased
 
+# 4.5.0
+
+* Handle parts of the command using incompatible encodings. See #1037.
+* Add GET option to SET command. See #1036.
+* Add ZRANDMEMBER command. See #1035.
+* Add LMOVE/BLMOVE commands. See #1034.
+* Add ZMSCORE command. See #1032.
+* Add LT/GT options to ZADD. See #1033.
+* Add SMISMEMBER command. See #1031.
+* Add EXAT/PXAT options to SET. See #1028.
+* Add GETDEL/GETEX commands. See #1024.
+* `Redis#exists` now returns an Integer by default, as warned since 4.2.0. The old behavior can be restored with `Redis.exists_returns_integer = false`.
+* Fix Redis < 6 detection during connect. See #1025.
+* Fix fetching command details in Redis cluster when the first node is unhealthy. See #1026.
+
 # 4.4.0
 
 * Redis cluster: fix cross-slot validation in pipelines. Fix ##1019.
