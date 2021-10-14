@@ -73,4 +73,13 @@ class TestClient < Minitest::Test
     end
     assert_equal 'Error connecting to Redis on 127.0.0.5:999 (Errno::ECONNREFUSED)', error.message
   end
+
+  def test_mixed_encoding
+    r.call("MSET", "fée", "\x00\xFF".b, "じ案".encode(Encoding::SHIFT_JIS), "\t".encode(Encoding::ASCII))
+    assert_equal "\x00\xFF", r.call("GET", "fée")
+    assert_equal "\t", r.call("GET", "じ案".encode(Encoding::SHIFT_JIS))
+
+    r.call("SET", "\x00\xFF", "fée")
+    assert_equal "fée", r.call("GET", "\x00\xFF".b)
+  end
 end
