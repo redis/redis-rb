@@ -21,7 +21,7 @@ class Redis
         super(*args)
 
         @timeout = @write_timeout = nil
-        @buffer = "".dup
+        @buffer = "".b
       end
 
       def timeout=(timeout)
@@ -32,30 +32,13 @@ class Redis
         @write_timeout = (timeout if timeout && timeout > 0)
       end
 
-      string_capacity_support = begin
-        String.new(capacity: 0)
-        true # Ruby 2.4+
-      rescue ArgumentError
-        false # Ruby 2.3
-      end
+      def read(nbytes)
+        result = @buffer.slice!(0, nbytes)
 
-      if string_capacity_support
-        def read(nbytes)
-          result = @buffer.slice!(0, nbytes)
+        buffer = String.new(capacity: nbytes, encoding: Encoding::ASCII_8BIT)
+        result << _read_from_socket(nbytes - result.bytesize, buffer) while result.bytesize < nbytes
 
-          buffer = String.new(capacity: nbytes, encoding: Encoding::ASCII_8BIT)
-          result << _read_from_socket(nbytes - result.bytesize, buffer) while result.bytesize < nbytes
-
-          result
-        end
-      else
-        def read(nbytes)
-          result = @buffer.slice!(0, nbytes)
-
-          result << _read_from_socket(nbytes - result.bytesize, "".b) while result.bytesize < nbytes
-
-          result
-        end
+        result
       end
 
       def gets
