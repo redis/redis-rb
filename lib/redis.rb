@@ -1907,7 +1907,7 @@ class Redis
   # @example Get multiple random members
   #   redis.zrandmember("zset", 2)
   #     # => ["a", "b"]
-  # @example Gem multiple random members with scores
+  # @example Get multiple random members with scores
   #   redis.zrandmember("zset", 2, with_scores: true)
   #     # => [["a", 2.0], ["b", 3.0]]
   #
@@ -2453,6 +2453,48 @@ class Redis
         Hash[fields.zip(reply)]
       else
         reply
+      end
+    end
+  end
+
+  # Get one or more random fields from a hash.
+  #
+  # @example Get one random field
+  #   redis.hrandfield("hash")
+  #     # => "f1"
+  # @example Get multiple random fields
+  #   redis.hrandfield("hash", 2)
+  #     # => ["f1, "f2"]
+  # @example Get multiple random fields with values
+  #   redis.hrandfield("hash", 2, with_values: true)
+  #     # => [["f1", "s1"], ["f2", "s2"]]
+  #
+  # @param [String] key
+  # @param [Integer] count
+  # @param [Hash] options
+  #   - `:with_values => true`: include values in output
+  #
+  # @return [nil, String, Array<String>, Array<[String, Float]>]
+  #   - when `key` does not exist, `nil`
+  #   - when `count` is not specified, a field name
+  #   - when `count` is specified and `:with_values` is not specified, an array of field names
+  #   - when `:with_values` is specified, an array with `[field, value]` pairs
+  def hrandfield(key, count = nil, withvalues: false, with_values: withvalues)
+    if with_values && count.nil?
+      raise ArgumentError, "count argument must be specified"
+    end
+
+    args = [:hrandfield, key]
+    args << count if count
+    args << "WITHVALUES" if with_values
+
+    synchronize do |client|
+      client.call(args) do |reply|
+        if with_values
+          Pairify.call(reply)
+        else
+          reply
+        end
       end
     end
   end
@@ -3647,6 +3689,14 @@ class Redis
   Hashify = lambda { |value|
     if value.respond_to?(:each_slice)
       value.each_slice(2).to_h
+    else
+      value
+    end
+  }
+
+  Pairify = lambda { |value|
+    if value.respond_to?(:each_slice)
+      value.each_slice(2).to_a
     else
       value
     end
