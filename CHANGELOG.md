@@ -1,6 +1,8 @@
 # Unreleased
 
-* Restore the accidential auth behavior of redis-rb 4.3.0 with a warning. If provided with the `default` user password, but a wrong username,
+# 4.5.1
+
+* Restore the accidential auth behavior of redis-rb 4.3.0 with a warning. If provided with the `default` user's password, but a wrong username,
   redis-rb will first try to connect as the provided user, but then will fallback to connect as the `default` user with the provided password.
   This behavior is deprecated and will be removed in Redis 4.6.0. Fix #1038.
 
