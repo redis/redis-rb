@@ -2489,13 +2489,8 @@ class Redis
     args << "WITHVALUES" if with_values
 
     synchronize do |client|
-      client.call(args) do |reply|
-        if with_values
-          Pairify.call(reply)
-        else
-          reply
-        end
-      end
+      parser = Pairify if with_values
+      client.call(args, &parser)
     end
   end
 
