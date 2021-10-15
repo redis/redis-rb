@@ -172,7 +172,17 @@ module Helper
                 '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes',
                 '>mysecret')
       yield('johndoe', 'mysecret')
+    ensure
       admin.acl('DELUSER', 'johndoe')
+      admin.close
+    end
+
+    def with_default_user_password
+      admin = _new_client
+      admin.acl('SETUSER', 'default', '>mysecret')
+      yield('default', 'mysecret')
+    ensure
+      admin.acl('SETUSER', 'default', 'nopass')
       admin.close
     end
   end
