@@ -122,6 +122,16 @@ class Redis
             rescue CommandError => err # Likely on Redis < 6
               if err.message.match?(/ERR wrong number of arguments for \'auth\' command/)
                 call [:auth, password]
+              elsif err.message.match?(/WRONGPASS invalid username-password pair/)
+                begin
+                  call [:auth, password]
+                rescue CommandError
+                  raise err
+                end
+                ::Kernel.warn(
+                  "[redis-rb] The Redis connection was configured with username #{username.inspect}, but" \
+                  " the provided password was for the default user. This will start failing in redis-rb 4.6."
+                )
               else
                 raise
               end

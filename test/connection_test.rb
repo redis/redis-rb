@@ -9,6 +9,34 @@ class TestConnection < Minitest::Test
     assert_equal "#<Redis client v#{Redis::VERSION} for redis://127.0.0.1:#{PORT}/15>", r.inspect
   end
 
+  def test_connection_with_user_and_password
+    target_version "6.0" do
+      with_acl do |username, password|
+        redis = Redis.new(OPTIONS.merge(username: username, password: password))
+        assert_equal "PONG", redis.ping
+      end
+    end
+  end
+
+  def test_connection_with_default_user_and_password
+    target_version "6.0" do
+      with_default_user_password do |_username, password|
+        redis = Redis.new(OPTIONS.merge(password: password))
+        assert_equal "PONG", redis.ping
+      end
+    end
+  end
+
+  def test_connection_with_wrong_user_and_password
+    target_version "6.0" do
+      with_default_user_password do |_username, password|
+        Kernel.expects(:warn).once
+        redis = Redis.new(OPTIONS.merge(username: "does-not-exist", password: password))
+        assert_equal "PONG", redis.ping
+      end
+    end
+  end
+
   def test_connection_information
     assert_equal "127.0.0.1",                 r.connection.fetch(:host)
     assert_equal 6381,                        r.connection.fetch(:port)
