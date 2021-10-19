@@ -59,6 +59,18 @@ class TestDistributedCommandsOnSortedSets < Minitest::Test
     # Not implemented yet
   end
 
+  def test_zunion
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
+
+  def test_zunion_with_aggregate
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
+
+  def test_zunion_with_weights
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
+
   def test_zunionstore
     assert_raises(Redis::Distributed::CannotDistribute) { super }
   end

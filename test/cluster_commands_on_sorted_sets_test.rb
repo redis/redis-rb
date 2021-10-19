@@ -33,6 +33,18 @@ class TestClusterCommandsOnSortedSets < Minitest::Test
     assert_raises(Redis::CommandError) { super }
   end
 
+  def test_zunion
+    assert_raises(Redis::CommandError) { super }
+  end
+
+  def test_zunion_with_aggregate
+    assert_raises(Redis::CommandError) { super }
+  end
+
+  def test_zunion_with_weights
+    assert_raises(Redis::CommandError) { super }
+  end
+
   def test_zunionstore
     assert_raises(Redis::CommandError) { super }
   end

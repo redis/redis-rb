@@ -729,6 +729,13 @@ class Redis
       end
     end
 
+    # Return the union of multiple sorted sets.
+    def zunion(*keys, **options)
+      ensure_same_node(:zunion, keys) do |node|
+        node.zunion(*keys, **options)
+      end
+    end
+
     # Add multiple sorted sets and store the resulting sorted set in a new key.
     def zunionstore(destination, keys, **options)
       ensure_same_node(:zunionstore, [destination] + keys) do |node|
