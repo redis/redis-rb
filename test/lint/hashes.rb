@@ -103,6 +103,30 @@ module Lint
       assert_equal ["f1", "f2"], r.hkeys("foo")
     end
 
+    def test_hrandfield
+      target_version("6.2") do
+        assert_nil r.hrandfield("foo")
+        assert_equal [], r.hrandfield("foo", 1)
+
+        error = assert_raises(ArgumentError) do
+          r.hrandfield("foo", with_values: true)
+        end
+        assert_equal "count argument must be specified", error.message
+
+        r.hset("foo", "f1", "s1")
+        r.hset("foo", "f2", "s2")
+
+        assert ["f1", "f2"].include?(r.hrandfield("foo"))
+        assert_equal ["f1", "f2"], r.hrandfield("foo", 2).sort
+        assert_equal 4, r.hrandfield("foo", -4).size
+
+        r.hrandfield("foo", 2, with_values: true) do |(field, value)|
+          assert ["f1", "f2"].include?(field)
+          assert ["s1", "s2"].include?(value)
+        end
+      end
+    end
+
     def test_hvals
       assert_equal [], r.hvals("foo")
 

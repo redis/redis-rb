@@ -774,6 +774,10 @@ class Redis
       Hash[*fields.zip(hmget(key, *fields)).flatten]
     end
 
+    def hrandfield(key, count = nil, **options)
+      node_for(key).hrandfield(key, count, **options)
+    end
+
     # Delete one or more hash fields.
     def hdel(key, *fields)
       node_for(key).hdel(key, *fields)
