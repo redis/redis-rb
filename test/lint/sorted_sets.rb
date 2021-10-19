@@ -480,6 +480,52 @@ module Lint
       assert_equal 2, r.zcount('foo', 2, 3)
     end
 
+    def test_zunion
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 2, 's2'
+        r.zadd 'bar', 3, 's1'
+        r.zadd 'bar', 5, 's3'
+
+        assert_equal %w[s2 s1 s3], r.zunion('foo', 'bar')
+        assert_equal [['s2', 2.0], ['s1', 4.0], ['s3', 5.0]], r.zunion('foo', 'bar', with_scores: true)
+      end
+    end
+
+    def test_zunion_with_weights
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 2, 's2'
+        r.zadd 'foo', 3, 's3'
+        r.zadd 'bar', 20, 's2'
+        r.zadd 'bar', 30, 's3'
+        r.zadd 'bar', 100, 's4'
+
+        assert_equal %w[s1 s2 s3 s4], r.zunion('foo', 'bar')
+        assert_equal [['s1', 1.0], ['s2', 22.0], ['s3', 33.0], ['s4', 100.0]], r.zunion('foo', 'bar', with_scores: true)
+
+        assert_equal %w[s1 s2 s3 s4], r.zunion('foo', 'bar', weights: [10, 1])
+        assert_equal [['s1', 10.0], ['s2', 40.0], ['s3', 60.0], ['s4', 100.0]], r.zunion('foo', 'bar', weights: [10, 1], with_scores: true)
+      end
+    end
+
+    def test_zunion_with_aggregate
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 20, 's2'
+        r.zadd 'foo', 3, 's3'
+        r.zadd 'bar', 2, 's2'
+        r.zadd 'bar', 30, 's3'
+        r.zadd 'bar', 100, 's4'
+
+        assert_equal %w[s1 s2 s3 s4], r.zunion('foo', 'bar', aggregate: :min)
+        assert_equal [['s1', 1.0], ['s2', 2.0], ['s3', 3.0], ['s4', 100.0]], r.zunion('foo', 'bar', aggregate: :min, with_scores: true)
+
+        assert_equal %w[s1 s2 s3 s4], r.zunion('foo', 'bar', aggregate: :max)
+        assert_equal [['s1', 1.0], ['s2', 20.0], ['s3', 30.0], ['s4', 100.0]], r.zunion('foo', 'bar', aggregate: :max, with_scores: true)
+      end
+    end
+
     def test_zunionstore
       r.zadd 'foo', 1, 's1'
       r.zadd 'bar', 2, 's2'
