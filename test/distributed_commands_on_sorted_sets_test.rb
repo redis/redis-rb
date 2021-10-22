@@ -82,4 +82,8 @@ class TestDistributedCommandsOnSortedSets < Minitest::Test
   def test_zunionstore_with_weights
     assert_raises(Redis::Distributed::CannotDistribute) { super }
   end
+
+  def test_zdiff
+    assert_raises(Redis::Distributed::CannotDistribute) { super }
+  end
 end

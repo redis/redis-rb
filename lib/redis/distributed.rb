@@ -743,6 +743,13 @@ class Redis
       end
     end
 
+    # Return the difference between the first and all successive input sorted sets.
+    def zdiff(*keys, **options)
+      ensure_same_node(:zdiff, keys) do |node|
+        node.zdiff(*keys, **options)
+      end
+    end
+
     # Get the number of fields in a hash.
     def hlen(key)
       node_for(key).hlen(key)

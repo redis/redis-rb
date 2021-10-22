@@ -571,6 +571,21 @@ module Lint
       assert_equal 5, r.zunionstore('{1}baz', %w[{1}foo {1}bar])
     end
 
+    def test_zdiff
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 2, 's2'
+        r.zadd 'bar', 3, 's1'
+        r.zadd 'bar', 5, 's3'
+
+        assert_equal [], r.zdiff('foo', 'foo')
+        assert_equal ['s1', 's2'], r.zdiff('foo')
+
+        assert_equal ['s2'], r.zdiff('foo', 'bar')
+        assert_equal [['s2', 2.0]], r.zdiff('foo', 'bar', with_scores: true)
+      end
+    end
+
     def test_zinter
       target_version("6.2") do
         r.zadd 'foo', 1, 's1'
