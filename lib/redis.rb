@@ -2346,6 +2346,30 @@ class Redis
     end
   end
 
+  # Return the difference between the first and all successive input sorted sets
+  #
+  # @example
+  #   redis.zadd("zsetA", [[1.0, "v1"], [2.0, "v2"]])
+  #   redis.zadd("zsetB", [[3.0, "v2"], [2.0, "v3"]])
+  #   redis.zdiff("zsetA", "zsetB")
+  #     => ["v1"]
+  # @example With scores
+  #   redis.zadd("zsetA", [[1.0, "v1"], [2.0, "v2"]])
+  #   redis.zadd("zsetB", [[3.0, "v2"], [2.0, "v3"]])
+  #   redis.zdiff("zsetA", "zsetB", :with_scores => true)
+  #     => [["v1", 1.0]]
+  #
+  # @param [String, Array<String>] keys one or more keys to compute the difference
+  # @param [Hash] options
+  #   - `:with_scores => true`: include scores in output
+  #
+  # @return [Array<String>, Array<[String, Float]>]
+  #   - when `:with_scores` is not specified, an array of members
+  #   - when `:with_scores` is specified, an array with `[member, score]` pairs
+  def zdiff(*keys, with_scores: false)
+    _zsets_operation(:zdiff, *keys, with_scores: with_scores)
+  end
+
   # Get the number of fields in a hash.
   #
   # @param [String] key
