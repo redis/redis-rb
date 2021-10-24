@@ -60,4 +60,8 @@ class TestClusterCommandsOnSortedSets < Minitest::Test
   def test_zdiff
     assert_raises(Redis::CommandError) { super }
   end
+
+  def test_zdiffstore
+    assert_raises(Redis::CommandError) { super }
+  end
 end

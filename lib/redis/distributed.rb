@@ -750,6 +750,14 @@ class Redis
       end
     end
 
+    # Compute the difference between the first and all successive input sorted sets
+    # and store the resulting sorted set in a new key.
+    def zdiffstore(destination, keys, **options)
+      ensure_same_node(:zdiffstore, [destination] + keys) do |node|
+        node.zdiffstore(destination, keys, **options)
+      end
+    end
+
     # Get the number of fields in a hash.
     def hlen(key)
       node_for(key).hlen(key)
