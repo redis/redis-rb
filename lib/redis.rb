@@ -2279,20 +2279,10 @@ class Redis
   #   sorted sets
   #   - `:aggregate => String`: aggregate function to use (sum, min, max)
   # @return [Integer] number of elements in the resulting sorted set
-  def zinterstore(destination, keys, weights: nil, aggregate: nil)
-    args = [:zinterstore, destination, keys.size, *keys]
-
-    if weights
-      args << "WEIGHTS"
-      args.concat(weights)
-    end
-
-    args << "AGGREGATE" << aggregate if aggregate
-
-    synchronize do |client|
-      client.call(args)
-    end
+  def zinterstore(*args)
+    _zsets_operation_store(:zinterstore, *args)
   end
+  ruby2_keywords(:zinterstore) if respond_to?(:ruby2_keywords, true)
 
   # Return the union of multiple sorted sets
   #
@@ -2331,20 +2321,10 @@ class Redis
   #   sorted sets
   #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
   # @return [Integer] number of elements in the resulting sorted set
-  def zunionstore(destination, keys, weights: nil, aggregate: nil)
-    args = [:zunionstore, destination, keys.size, *keys]
-
-    if weights
-      args << "WEIGHTS"
-      args.concat(weights)
-    end
-
-    args << "AGGREGATE" << aggregate if aggregate
-
-    synchronize do |client|
-      client.call(args)
-    end
+  def zunionstore(*args)
+    _zsets_operation_store(:zunionstore, *args)
   end
+  ruby2_keywords(:zunionstore) if respond_to?(:ruby2_keywords, true)
 
   # Return the difference between the first and all successive input sorted sets
   #
@@ -2369,6 +2349,23 @@ class Redis
   def zdiff(*keys, with_scores: false)
     _zsets_operation(:zdiff, *keys, with_scores: with_scores)
   end
+
+  # Compute the difference between the first and all successive input sorted sets
+  # and store the resulting sorted set in a new key
+  #
+  # @example
+  #   redis.zadd("zsetA", [[1.0, "v1"], [2.0, "v2"]])
+  #   redis.zadd("zsetB", [[3.0, "v2"], [2.0, "v3"]])
+  #   redis.zdiffstore("zsetA", "zsetB")
+  #     # => 1
+  #
+  # @param [String] destination destination key
+  # @param [Array<String>] keys source keys
+  # @return [Integer] number of elements in the resulting sorted set
+  def zdiffstore(*args)
+    _zsets_operation_store(:zdiffstore, *args)
+  end
+  ruby2_keywords(:zdiffstore) if respond_to?(:ruby2_keywords, true)
 
   # Get the number of fields in a hash.
   #
@@ -3922,6 +3919,21 @@ class Redis
 
     synchronize do |client|
       client.call(command, &block)
+    end
+  end
+
+  def _zsets_operation_store(cmd, destination, keys, weights: nil, aggregate: nil)
+    command = [cmd, destination, keys.size, *keys]
+
+    if weights
+      command << "WEIGHTS"
+      command.concat(weights)
+    end
+
+    command << "AGGREGATE" << aggregate if aggregate
+
+    synchronize do |client|
+      client.call(command)
     end
   end
 end

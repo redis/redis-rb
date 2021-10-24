@@ -586,6 +586,22 @@ module Lint
       end
     end
 
+    def test_zdiffstore
+      target_version("6.2") do
+        r.zadd 'foo', 1, 's1'
+        r.zadd 'foo', 2, 's2'
+        r.zadd 'bar', 3, 's1'
+        r.zadd 'bar', 5, 's3'
+
+        assert_equal 0, r.zdiffstore('baz', ['foo', 'foo'])
+        assert_equal 2, r.zdiffstore('baz', ['foo'])
+        assert_equal ['s1', 's2'], r.zrange('baz', 0, -1)
+
+        assert_equal 1, r.zdiffstore('baz', ['foo', 'bar'])
+        assert_equal ['s2'], r.zrange('baz', 0, -1)
+      end
+    end
+
     def test_zinter
       target_version("6.2") do
         r.zadd 'foo', 1, 's1'
