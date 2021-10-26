@@ -133,7 +133,9 @@ class Redis
           # says it is readable (1.6.6, in both 1.8 and 1.9 mode).
           # Use the blocking #readpartial method instead.
 
-          def _read_from_socket(nbytes)
+          def _read_from_socket(nbytes, _buffer = nil)
+            # JRuby: Throw away the buffer as we won't need it
+            # but still need to support the max arity of 2
             readpartial(nbytes)
           rescue EOFError
             raise Errno::ECONNRESET
