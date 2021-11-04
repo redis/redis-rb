@@ -215,6 +215,13 @@ class Redis
       node_for(key).move(key, db)
     end
 
+    # Copy a value from one key to another.
+    def copy(source, destination, **options)
+      ensure_same_node(:copy, [source, destination]) do |node|
+        node.copy(source, destination, **options)
+      end
+    end
+
     # Return a random key from the keyspace.
     def randomkey
       raise CannotDistribute, :randomkey

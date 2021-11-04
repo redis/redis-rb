@@ -656,6 +656,41 @@ class Redis
     end
   end
 
+  # Copy a value from one key to another.
+  #
+  # @example Copy a value to another key
+  #   redis.set "foo", "value"
+  #     # => "OK"
+  #   redis.copy "foo", "bar"
+  #     # => true
+  #   redis.get "bar"
+  #     # => "value"
+  #
+  # @example Copy a value to a key in another database
+  #   redis.set "foo", "value"
+  #     # => "OK"
+  #   redis.copy "foo", "bar", db: 2
+  #     # => true
+  #   redis.select 2
+  #     # => "OK"
+  #   redis.get "bar"
+  #     # => "value"
+  #
+  # @param [String] source
+  # @param [String] destination
+  # @param [Integer] db
+  # @param [Boolean] replace removes the `destination` key before copying value to it
+  # @return [Boolean] whether the key was copied or not
+  def copy(source, destination, db: nil, replace: false)
+    command = [:copy, source, destination]
+    command << "DB" << db if db
+    command << "REPLACE" if replace
+
+    synchronize do |client|
+      client.call(command, &Boolify)
+    end
+  end
+
   def object(*args)
     synchronize do |client|
       client.call([:object] + args)

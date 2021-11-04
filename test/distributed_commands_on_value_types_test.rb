@@ -127,4 +127,12 @@ class TestDistributedCommandsOnValueTypes < Minitest::Test
       r.migrate("foo", {})
     end
   end
+
+  def test_copy
+    r.set("foo", "s1")
+
+    assert_raises Redis::Distributed::CannotDistribute do
+      r.copy("foo", "bar")
+    end
+  end
 end
