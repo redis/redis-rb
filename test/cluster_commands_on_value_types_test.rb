@@ -11,4 +11,8 @@ class TestClusterCommandsOnValueTypes < Minitest::Test
   def test_move
     assert_raises(Redis::CommandError) { super }
   end
+
+  def test_copy
+    assert_raises(Redis::CommandError) { super }
+  end
 end

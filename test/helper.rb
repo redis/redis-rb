@@ -158,6 +158,11 @@ module Helper
       end
     end
 
+    def with_db(index)
+      r.select(index)
+      yield
+    end
+
     def omit_version(min_ver)
       skip("Requires Redis > #{min_ver}") if version < min_ver
     end
