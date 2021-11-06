@@ -17,3 +17,5 @@ Gemfile.lock
 /test/test.conf
 appendonly.aof
 temp-rewriteaof-*.aof
+.history
+
