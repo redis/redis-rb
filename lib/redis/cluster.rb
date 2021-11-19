@@ -137,6 +137,7 @@ class Redis
       when 'wait'     then @node.call_master(command, &block).reduce(:+)
       when 'keys'     then @node.call_slave(command, &block).flatten.sort
       when 'dbsize'   then @node.call_slave(command, &block).reduce(:+)
+      when 'scan'     then _scan(command, &block)
       when 'lastsave' then @node.call_all(command, &block).sort
       when 'role'     then @node.call_all(command, &block)
       when 'config'   then send_config_command(command, &block)
@@ -236,6 +237,29 @@ class Redis
     rescue CannotConnectError
       update_cluster_info!
       raise
+    end
+
+    def _scan(command, &block)
+      input_cursor = Integer(command[1])
+
+      client_index = input_cursor % 256
+      raw_cursor = input_cursor >> 8
+
+      clients = @node.scale_reading_clients
+
+      client = clients[client_index]
+      return ['0', []] unless client
+
+      command[1] = raw_cursor.to_s
+
+      result_cursor, result_keys = client.call(command, &block)
+      result_cursor = Integer(result_cursor)
+
+      if result_cursor == 0
+        client_index += 1
+      end
+
+      [((result_cursor << 8) + client_index).to_s, result_keys]
     end
 
     def assign_redirection_node(err_msg)

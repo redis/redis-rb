@@ -136,4 +136,22 @@ class TestClusterCommandsOnKeys < Minitest::Test
 
     assert_equal 2, all_keys.uniq.size
   end
+
+  def test_scan_each
+    require 'securerandom'
+
+    1000.times do |n|
+      redis.set("test-#{::SecureRandom.uuid}", n)
+    end
+
+    1000.times do |n|
+      redis.set("random-#{::SecureRandom.uuid}", n)
+    end
+
+    keys_result = redis.keys('test-*')
+    scan_result = redis.scan_each(match: 'test-*').to_a
+    assert_equal(keys_result.size, 1000)
+    assert_equal(scan_result.size, 1000)
+    assert_equal(scan_result.sort, keys_result.sort)
+  end
 end
