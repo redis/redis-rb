@@ -673,9 +673,17 @@ class Redis
       node_for(key).zmscore(key, *members)
     end
 
-    # Return a range of members in a sorted set, by index.
+    # Return a range of members in a sorted set, by index, score or lexicographical ordering.
     def zrange(key, start, stop, **options)
       node_for(key).zrange(key, start, stop, **options)
+    end
+
+    # Select a range of members in a sorted set, by index, score or lexicographical ordering
+    # and store the resulting sorted set in a new key.
+    def zrangestore(dest_key, src_key, start, stop, **options)
+      ensure_same_node(:zrangestore, [dest_key, src_key]) do |node|
+        node.zrangestore(dest_key, src_key, start, stop, **options)
+      end
     end
 
     # Return a range of members in a sorted set, by index, with scores ordered

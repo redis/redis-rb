@@ -231,6 +231,45 @@ module Lint
       assert_equal [["s1", -Float::INFINITY], ["s2", +Float::INFINITY]], r.zrange("bar", 0, 1, withscores: true)
     end
 
+    def test_zrange_with_byscore
+      target_version("6.2") do
+        r.zadd "foo", 1, "s1"
+        r.zadd "foo", 2, "s2"
+        r.zadd "foo", 3, "s3"
+
+        assert_equal ["s2", "s3"], r.zrange("foo", 2, 3, byscore: true)
+        assert_equal ["s2", "s1"], r.zrange("foo", 2, 1, byscore: true, rev: true)
+      end
+    end
+
+    def test_zrange_with_bylex
+      target_version("6.2") do
+        r.zadd "foo", 0, "aaren"
+        r.zadd "foo", 0, "abagael"
+        r.zadd "foo", 0, "abby"
+        r.zadd "foo", 0, "abbygail"
+
+        assert_equal %w[aaren abagael abby abbygail], r.zrange("foo", "[a", "[a\xff", bylex: true)
+        assert_equal %w[aaren abagael], r.zrange("foo", "[a", "[a\xff", bylex: true, limit: [0, 2])
+        assert_equal %w[abby abbygail], r.zrange("foo", "(abb", "(abb\xff", bylex: true)
+        assert_equal %w[abbygail], r.zrange("foo", "(abby", "(abby\xff", bylex: true)
+      end
+    end
+
+    def test_zrangestore
+      target_version("6.2") do
+        r.zadd "foo", 1, "s1"
+        r.zadd "foo", 2, "s2"
+        r.zadd "foo", 3, "s3"
+
+        assert_equal 2, r.zrangestore("bar", "foo", 0, 1)
+        assert_equal ["s1", "s2"], r.zrange("bar", 0, -1)
+
+        assert_equal 2, r.zrangestore("baz", "foo", 2, 3, by_score: true)
+        assert_equal ["s2", "s3"], r.zrange("baz", 0, -1)
+      end
+    end
+
     def test_zrevrange
       r.zadd "foo", 1, "s1"
       r.zadd "foo", 2, "s2"
