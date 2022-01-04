@@ -1974,9 +1974,9 @@ class Redis
     end
   end
 
-  # Return a range of members in a sorted set, by index.
+  # Return a range of members in a sorted set, by index, score or lexicographical ordering.
   #
-  # @example Retrieve all members from a sorted set
+  # @example Retrieve all members from a sorted set, by index
   #   redis.zrange("zset", 0, -1)
   #     # => ["a", "b"]
   # @example Retrieve all members and their scores from a sorted set
@@ -1987,13 +1987,37 @@ class Redis
   # @param [Integer] start start index
   # @param [Integer] stop stop index
   # @param [Hash] options
+  #   - `:by_score => false`: return members by score
+  #   - `:by_lex => false`: return members by lexicographical ordering
+  #   - `:rev => false`: reverse the ordering, from highest to lowest
+  #   - `:limit => [offset, count]`: skip `offset` members, return a maximum of
+  #   `count` members
   #   - `:with_scores => true`: include scores in output
   #
   # @return [Array<String>, Array<[String, Float]>]
   #   - when `:with_scores` is not specified, an array of members
   #   - when `:with_scores` is specified, an array with `[member, score]` pairs
-  def zrange(key, start, stop, withscores: false, with_scores: withscores)
+  def zrange(key, start, stop, byscore: false, by_score: byscore, bylex: false, by_lex: bylex,
+             rev: false, limit: nil, withscores: false, with_scores: withscores)
+
+    if by_score && by_lex
+      raise ArgumentError, "only one of :by_score or :by_lex can be specified"
+    end
+
     args = [:zrange, key, start, stop]
+
+    if by_score
+      args << "BYSCORE"
+    elsif by_lex
+      args << "BYLEX"
+    end
+
+    args << "REV" if rev
+
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
 
     if with_scores
       args << "WITHSCORES"
@@ -2002,6 +2026,44 @@ class Redis
 
     synchronize do |client|
       client.call(args, &block)
+    end
+  end
+
+  # Select a range of members in a sorted set, by index, score or lexicographical ordering
+  # and store the resulting sorted set in a new key.
+  #
+  # @example
+  #   redis.zadd("foo", [[1.0, "s1"], [2.0, "s2"], [3.0, "s3"]])
+  #   redis.zrangestore("bar", "foo", 0, 1)
+  #     # => 2
+  #   redis.zrange("bar", 0, -1)
+  #     # => ["s1", "s2"]
+  #
+  # @return [Integer] the number of elements in the resulting sorted set
+  # @see #zrange
+  def zrangestore(dest_key, src_key, start, stop, byscore: false, by_score: byscore,
+                  bylex: false, by_lex: bylex, rev: false, limit: nil)
+    if by_score && by_lex
+      raise ArgumentError, "only one of :by_score or :by_lex can be specified"
+    end
+
+    args = [:zrangestore, dest_key, src_key, start, stop]
+
+    if by_score
+      args << "BYSCORE"
+    elsif by_lex
+      args << "BYLEX"
+    end
+
+    args << "REV" if rev
+
+    if limit
+      args << "LIMIT"
+      args.concat(limit)
+    end
+
+    synchronize do |client|
+      client.call(args)
     end
   end
 
