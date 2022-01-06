@@ -1834,8 +1834,10 @@ class Redis
   # @return [Array<Array<String, Float>>] list of popped elements and scores
   def zpopmax(key, count = nil)
     synchronize do |client|
-      members = client.call([:zpopmax, key, count].compact, &FloatifyPairs)
-      count.to_i > 1 ? members : members.first
+      client.call([:zpopmax, key, count].compact) do |members|
+        members = FloatifyPairs.call(members)
+        count.to_i > 1 ? members : members.first
+      end
     end
   end
 
@@ -1855,8 +1857,10 @@ class Redis
   # @return [Array<Array<String, Float>>] list of popped elements and scores
   def zpopmin(key, count = nil)
     synchronize do |client|
-      members = client.call([:zpopmin, key, count].compact, &FloatifyPairs)
-      count.to_i > 1 ? members : members.first
+      client.call([:zpopmin, key, count].compact) do |members|
+        members = FloatifyPairs.call(members)
+        count.to_i > 1 ? members : members.first
+      end
     end
   end
 
