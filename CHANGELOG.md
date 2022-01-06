@@ -1,5 +1,6 @@
 # Unreleased
 
+* Fix `zpopmax` and `zpopmin` when called inside a pipeline. See #1055.
 * Deprecate calling commands on `Redis` inside `Redis#pipelined`. See #1059.
   ```ruby
   redis.pipelined do

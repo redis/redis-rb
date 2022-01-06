@@ -128,8 +128,10 @@ class Redis
       # @return [Array<String, Float>] element and score pair if count is not specified
       # @return [Array<Array<String, Float>>] list of popped elements and scores
       def zpopmax(key, count = nil)
-        members = send_command([:zpopmax, key, count].compact, &FloatifyPairs)
-        count.to_i > 1 ? members : members.first
+        send_command([:zpopmax, key, count].compact) do |members|
+          members = FloatifyPairs.call(members)
+          count.to_i > 1 ? members : members.first
+        end
       end
 
       # Removes and returns up to count members with the lowest scores in the sorted set stored at key.
@@ -147,8 +149,10 @@ class Redis
       # @return [Array<String, Float>] element and score pair if count is not specified
       # @return [Array<Array<String, Float>>] list of popped elements and scores
       def zpopmin(key, count = nil)
-        members = send_command([:zpopmin, key, count].compact, &FloatifyPairs)
-        count.to_i > 1 ? members : members.first
+        send_command([:zpopmin, key, count].compact) do |members|
+          members = FloatifyPairs.call(members)
+          count.to_i > 1 ? members : members.first
+        end
       end
 
       # Removes and returns up to count members with the highest scores in the sorted set stored at keys,
