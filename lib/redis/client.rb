@@ -32,7 +32,7 @@ class Redis
       role: nil
     }.freeze
 
-    attr_reader :options
+    attr_reader :options, :connection, :command_map
 
     def scheme
       @options[:scheme]
@@ -87,8 +87,6 @@ class Redis
     end
 
     attr_accessor :logger
-    attr_reader :connection
-    attr_reader :command_map
 
     def initialize(options = {})
       @options = _parse_options(options)
@@ -120,9 +118,10 @@ class Redis
             begin
               call [:auth, username, password]
             rescue CommandError => err # Likely on Redis < 6
-              if err.message.match?(/ERR wrong number of arguments for \'auth\' command/)
+              case err.message
+              when /ERR wrong number of arguments for 'auth' command/
                 call [:auth, password]
-              elsif err.message.match?(/WRONGPASS invalid username-password pair/)
+              when /WRONGPASS invalid username-password pair/
                 begin
                   call [:auth, password]
                 rescue CommandError
@@ -442,7 +441,7 @@ class Redis
       defaults = DEFAULTS.dup
       options = options.dup
 
-      defaults.keys.each do |key|
+      defaults.each_key do |key|
         # Fill in defaults if needed
         defaults[key] = defaults[key].call if defaults[key].respond_to?(:call)
 
@@ -459,9 +458,10 @@ class Redis
 
         uri = URI(url)
 
-        if uri.scheme == "unix"
+        case uri.scheme
+        when "unix"
           defaults[:path] = uri.path
-        elsif uri.scheme == "redis" || uri.scheme == "rediss"
+        when "redis", "rediss"
           defaults[:scheme]   = uri.scheme
           defaults[:host]     = uri.host if uri.host
           defaults[:port]     = uri.port if uri.port
@@ -477,7 +477,7 @@ class Redis
       end
 
       # Use default when option is not specified or nil
-      defaults.keys.each do |key|
+      defaults.each_key do |key|
         options[key] = defaults[key] if options[key].nil?
       end
 

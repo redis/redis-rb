@@ -1,3 +1,5 @@
+inherit_from: .rubocop_todo.yml
+
 AllCops:
   TargetRubyVersion: 2.4
 
@@ -22,6 +24,9 @@ Lint/UnifiedInteger:
   Enabled: false
 
 Lint/UnderscorePrefixedVariableName:
+  Enabled: false
+
+Lint/MissingSuper:
   Enabled: false
 
 Metrics/ClassLength:
@@ -63,9 +68,6 @@ Style/IfUnlessModifier:
 Style/SignalException:
   Exclude:
     - 'lib/redis/connection/synchrony.rb'
-
-Style/MethodMissingSuper:
-  Enabled: false
 
 Style/StringLiterals:
   Enabled: false
@@ -126,4 +128,7 @@ Naming/MethodParameterName:
   Enabled: false
 
 Metrics/BlockNesting:
+  Enabled: false
+
+Style/HashTransformValues:
   Enabled: false
