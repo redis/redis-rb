@@ -1,3 +1,5 @@
+inherit_from: .rubocop_todo.yml
+
 AllCops:
   TargetRubyVersion: 2.4
 
@@ -128,35 +130,3 @@ Naming/MethodParameterName:
 Metrics/BlockNesting:
   Enabled: false
 
-Lint/HashCompareByIdentity:
-  Enabled: false
-
-Naming/VariableNumber:
-  Enabled: false
-
-Style/AccessorGrouping:
-  Enabled: false
-
-Style/CaseLikeIf:
-  Enabled: false
-
-Style/CommentAnnotation:
-  Enabled: false
-
-Style/ExplicitBlockArgument:
-  Enabled: false
-
-Style/HashEachMethods:
-  Enabled: false
-
-Style/HashTransformValues:
-  Enabled: false
-
-Style/OptionalBooleanParameter:
-  Enabled: false
-
-Style/RedundantRegexpEscape:
-  Enabled: false
-
-Style/StringConcatenation:
-  Enabled: false

@@ -101,11 +101,12 @@ module RedisMock
         # Convert a nil response to :close
         response ||= :close
 
-        if response == :exit
+        case response
+        when :exit
           break :exit
-        elsif response == :close
+        when :close
           break :close
-        elsif response.is_a?(Array)
+        when Array
           session.write("*%d\r\n" % response.size)
 
           response.each do |resp|

@@ -130,7 +130,7 @@ class TestInternals < Minitest::Test
     end
   end
 
-  def close_on_ping(seq, options = {})
+  def close_on_ping(seq, options = {}, &block)
     @request = 0
 
     command = lambda do
@@ -142,9 +142,7 @@ class TestInternals < Minitest::Test
       rv
     end
 
-    redis_mock({ ping: command }, { timeout: 0.1 }.merge(options)) do |redis|
-      yield(redis)
-    end
+    redis_mock({ ping: command }, { timeout: 0.1 }.merge(options), &block)
   end
 
   def test_retry_by_default
@@ -232,7 +230,7 @@ class TestInternals < Minitest::Test
     end
   end
 
-  def close_on_connection(seq)
+  def close_on_connection(seq, &block)
     @n = 0
 
     read_command = lambda do |session|
@@ -259,9 +257,7 @@ class TestInternals < Minitest::Test
       end
     end
 
-    redis_mock_with_handler(handler) do |redis|
-      yield(redis)
-    end
+    redis_mock_with_handler(handler, &block)
   end
 
   def test_retry_on_write_error_by_default

@@ -3857,7 +3857,7 @@ class Redis
     when nil
       {}
     else
-      reply.map { |key, entries| [key, HashifyStreamEntries.call(entries)] }.to_h
+      reply.transform_values { |entries| HashifyStreamEntries.call(entries) }
     end
   }
 

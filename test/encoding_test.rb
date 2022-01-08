@@ -9,7 +9,7 @@ class TestEncoding < Minitest::Test
     with_external_encoding("UTF-8") do
       r.set "foo", "שלום"
 
-      assert_equal "Shalom שלום", "Shalom " + r.get("foo")
+      assert_equal "Shalom שלום", "Shalom #{r.get('foo')}"
     end
   end
 end

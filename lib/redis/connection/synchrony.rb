@@ -129,11 +129,12 @@ class Redis
       def read
         type, payload = @connection.read
 
-        if type == :reply
+        case type
+        when :reply
           payload
-        elsif type == :error
+        when :error
           raise payload
-        elsif type == :timeout
+        when :timeout
           raise TimeoutError
         else
           raise "Unknown type #{type.inspect}"

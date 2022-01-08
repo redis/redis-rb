@@ -242,7 +242,7 @@ class Redis
         end
 
         def self.connect(host, port, timeout, ssl_params)
-          # Note: this is using Redis::Connection::TCPSocket
+          # NOTE: this is using Redis::Connection::TCPSocket
           tcp_sock = TCPSocket.connect(host, port, timeout)
 
           ctx = OpenSSL::SSL::SSLContext.new

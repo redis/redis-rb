@@ -52,7 +52,7 @@ class ConsistencyTester
   def genkey
     # Write more often to a small subset of keys
     ks = rand > 0.5 ? @keyspace : @working_set
-    @prefix + "key_" + rand(ks).to_s
+    "#{@prefix}key_#{rand(ks).to_s}"
   end
 
   def check_consistency(key, value)

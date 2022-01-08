@@ -89,8 +89,7 @@ module Helper
   module Generic
     include Helper
 
-    attr_reader :log
-    attr_reader :redis
+    attr_reader :log, :redis
 
     alias r redis
 
