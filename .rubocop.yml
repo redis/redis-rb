@@ -130,3 +130,5 @@ Naming/MethodParameterName:
 Metrics/BlockNesting:
   Enabled: false
 
+Style/HashTransformValues:
+  Enabled: false

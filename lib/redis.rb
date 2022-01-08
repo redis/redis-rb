@@ -3857,9 +3857,7 @@ class Redis
     when nil
       {}
     else
-      # rubocop:disable Style/HashTransformValues
       reply.map { |key, entries| [key, HashifyStreamEntries.call(entries)] }.to_h
-      # rubocop:enable Style/HashTransformValues
     end
   }
 
