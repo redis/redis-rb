@@ -24,6 +24,9 @@ Lint/UnifiedInteger:
 Lint/UnderscorePrefixedVariableName:
   Enabled: false
 
+Lint/MissingSuper:
+  Enabled: false
+
 Metrics/ClassLength:
   Enabled: false
 
@@ -63,9 +66,6 @@ Style/IfUnlessModifier:
 Style/SignalException:
   Exclude:
     - 'lib/redis/connection/synchrony.rb'
-
-Style/MethodMissingSuper:
-  Enabled: false
 
 Style/StringLiterals:
   Enabled: false
@@ -126,4 +126,37 @@ Naming/MethodParameterName:
   Enabled: false
 
 Metrics/BlockNesting:
+  Enabled: false
+
+Lint/HashCompareByIdentity:
+  Enabled: false
+
+Naming/VariableNumber:
+  Enabled: false
+
+Style/AccessorGrouping:
+  Enabled: false
+
+Style/CaseLikeIf:
+  Enabled: false
+
+Style/CommentAnnotation:
+  Enabled: false
+
+Style/ExplicitBlockArgument:
+  Enabled: false
+
+Style/HashEachMethods:
+  Enabled: false
+
+Style/HashTransformValues:
+  Enabled: false
+
+Style/OptionalBooleanParameter:
+  Enabled: false
+
+Style/RedundantRegexpEscape:
+  Enabled: false
+
+Style/StringConcatenation:
   Enabled: false
