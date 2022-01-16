@@ -68,8 +68,22 @@ class Redis
     super() # Monitor#initialize
   end
 
+  # Acquire the mutex wrapping this client, and yield the locked client to the provided block.
+  # This method is used internally to wrap critical sections of thread-unsafe (and fiber-unsafe)
+  # code, and can be overriden in subclasses to provide a custom concurrency model, such as
+  # a connection pool.
   def synchronize
     mon_synchronize { yield(@client) }
+  end
+
+  # Returns the key used to determine the queue of commands that have been
+  # queued up by the various threads using this Redis client. By default, this
+  # returns the object_id of Thread.current, which ensures that two (or more)
+  # threads enqueuing commands on the same Redis client each maintain their own
+  # queues of commands rather than clobbering each other's.
+  # This method is guaranteed to be called within a `synchronize` block.
+  def queue_key
+    Thread.current.object_id
   end
 
   # Run code with the client reconnecting
@@ -117,7 +131,7 @@ class Redis
   #
   def queue(*command)
     synchronize do
-      @queue[Thread.current.object_id] << command
+      @queue[queue_key] << command
     end
   end
 
@@ -129,13 +143,13 @@ class Redis
     synchronize do |client|
       begin
         pipeline = Pipeline.new(client)
-        @queue[Thread.current.object_id].each do |command|
+        @queue[queue_key].each do |command|
           pipeline.call(command)
         end
 
         client.call_pipelined(pipeline)
       ensure
-        @queue.delete(Thread.current.object_id)
+        @queue.delete(queue_key)
       end
     end
   end
