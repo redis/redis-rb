@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../../../lib/redis'
+require 'redis'
 
 class ClusterOrchestrator
   SLOT_SIZE = 16_384

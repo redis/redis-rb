@@ -251,7 +251,8 @@ class Redis
       result
     end
 
-    def call_with_timeout(command, timeout, &blk)
+    def call_with_timeout(command, extra_timeout, &blk)
+      timeout = extra_timeout == 0 ? 0 : self.timeout + extra_timeout
       with_socket_timeout(timeout) do
         call(command, &blk)
       end
