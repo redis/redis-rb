@@ -1,5 +1,20 @@
 # Unreleased
 
+* Deprecate calling commands on `Redis` inside `Redis#pipelined`. See #1059.
+  ```ruby
+  redis.pipelined do
+    redis.get("key")
+  end
+  ```
+
+  should be replaced by:
+
+  ```ruby
+  redis.pipelined do |pipeline|
+    pipeline.get("key")
+  end
+  ```
+* Deprecate `Redis#queue` and `Redis#commit`. See #1059.
 * Add `Redis.silence_deprecations=` to turn off deprecation warnings.
   If you don't wish to see warnings yet, you can set `Redis.silence_deprecations = false`.
   It is however heavily recommended to fix them instead when possible. 
