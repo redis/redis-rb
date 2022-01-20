@@ -1,5 +1,8 @@
 # Unreleased
 
+* Add `Redis.silence_deprecations=` to turn off deprecation warnings.
+  If you don't wish to see warnings yet, you can set `Redis.silence_deprecations = false`.
+  It is however heavily recommended to fix them instead when possible. 
 * Add new options to ZRANGE. See #1053.
 * Add ZRANGESTORE command. See #1053.
 * Add SCAN support for `Redis::Cluster`. See #1049.

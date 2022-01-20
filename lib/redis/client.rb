@@ -127,9 +127,9 @@ class Redis
                 rescue CommandError
                   raise err
                 end
-                ::Kernel.warn(
+                ::Redis.deprecate!(
                   "[redis-rb] The Redis connection was configured with username #{username.inspect}, but" \
-                  " the provided password was for the default user. This will start failing in redis-rb 4.6."
+                  " the provided password was for the default user. This will start failing in redis-rb 5.0.0."
                 )
               else
                 raise

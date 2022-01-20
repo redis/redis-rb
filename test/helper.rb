@@ -10,6 +10,8 @@ $VERBOSE = true
 ENV["DRIVER"] ||= "ruby"
 
 require_relative "../lib/redis"
+Redis.silence_deprecations = true
+
 require_relative "../lib/redis/distributed"
 require_relative "../lib/redis/connection/#{ENV['DRIVER']}"
 
