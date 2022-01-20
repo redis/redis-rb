@@ -184,9 +184,9 @@ commands to Redis and gathers their replies. These replies are returned
 by the `#pipelined` method.
 
 ```ruby
-redis.pipelined do
-  redis.set "foo", "bar"
-  redis.incr "baz"
+redis.pipelined do |pipeline|
+  pipeline.set "foo", "bar"
+  pipeline.incr "baz"
 end
 # => ["OK", 1]
 ```
@@ -210,15 +210,15 @@ end
 ### Futures
 
 Replies to commands in a pipeline can be accessed via the *futures* they
-emit (since redis-rb 3.0). All calls inside a pipeline block return a
+emit (since redis-rb 3.0). All calls on the pipeline object return a
 `Future` object, which responds to the `#value` method. When the
 pipeline has successfully executed, all futures are assigned their
 respective replies and can be used.
 
 ```ruby
-redis.pipelined do
-  @set = redis.set "foo", "bar"
-  @incr = redis.incr "baz"
+redis.pipelined do |pipeline|
+  @set = pipeline.set "foo", "bar"
+  @incr = pipeline.incr "baz"
 end
 
 @set.value

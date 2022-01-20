@@ -5,6 +5,7 @@ require "redis/errors"
 require "redis/commands"
 
 class Redis
+  BASE_PATH = __dir__
   @exists_returns_integer = true
 
   class << self
@@ -109,6 +110,11 @@ class Redis
   # See http://redis.io/topics/pipelining for more details.
   #
   def queue(*command)
+    ::Redis.deprecate!(
+      "Redis#queue is deprecated and will be removed in Redis 5.0.0. Use Redis#pipelined instead." \
+      "(called from: #{caller(1, 1).first})"
+    )
+
     synchronize do
       @queue[Thread.current.object_id] << command
     end
@@ -119,6 +125,11 @@ class Redis
   # See http://redis.io/topics/pipelining for more details.
   #
   def commit
+    ::Redis.deprecate!(
+      "Redis#commit is deprecated and will be removed in Redis 5.0.0. Use Redis#pipelined instead. " \
+      "(called from: #{Kernel.caller(1, 1).first})"
+    )
+
     synchronize do |client|
       begin
         pipeline = Pipeline.new(client)
@@ -198,12 +209,20 @@ class Redis
     end
   end
 
-  def pipelined
+  def pipelined(&block)
+    deprecation_displayed = false
+    if block&.arity == 0
+      Pipeline.deprecation_warning(Kernel.caller_locations(1, 5))
+      deprecation_displayed = true
+    end
+
     synchronize do |prior_client|
       begin
-        @client = Pipeline.new(prior_client)
-        yield(self)
-        prior_client.call_pipeline(@client)
+        pipeline = Pipeline.new(prior_client)
+        @client = deprecation_displayed ? pipeline : DeprecatedPipeline.new(pipeline)
+        pipelined_connection = PipelinedConnection.new(pipeline)
+        yield pipelined_connection
+        prior_client.call_pipeline(pipeline)
       ensure
         @client = prior_client
       end

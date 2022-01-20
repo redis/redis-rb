@@ -132,3 +132,7 @@ Metrics/BlockNesting:
 
 Style/HashTransformValues:
   Enabled: false
+
+Style/SymbolProc:
+  Exclude:
+    - 'test/**/*'

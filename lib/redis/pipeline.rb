@@ -1,7 +1,70 @@
 # frozen_string_literal: true
 
+require "delegate"
+
 class Redis
+  class PipelinedConnection
+    def initialize(pipeline)
+      @pipeline = pipeline
+    end
+
+    include Commands
+
+    def db
+      @pipeline.db
+    end
+
+    def db=(db)
+      @pipeline.db = db
+    end
+
+    def pipelined
+      yield self
+    end
+
+    private
+
+    def synchronize
+      yield self
+    end
+
+    def send_command(command, &block)
+      @pipeline.call(command, &block)
+    end
+
+    def send_blocking_command(command, timeout, &block)
+      @pipeline.call_with_timeout(command, timeout, &block)
+    end
+  end
+
   class Pipeline
+    REDIS_INTERNAL_PATH = File.expand_path("..", __dir__).freeze
+    # Redis use MonitorMixin#synchronize and this class use DelegateClass which we want to filter out.
+    # Both are in the stdlib so we can simply filter the entire stdlib out.
+    STDLIB_PATH = File.expand_path("..", MonitorMixin.instance_method(:synchronize).source_location.first).freeze
+
+    class << self
+      def deprecation_warning(caller_locations) # :nodoc:
+        callsite = caller_locations.find { |l| !l.path.start_with?(REDIS_INTERNAL_PATH, STDLIB_PATH) }
+        callsite ||= caller_locations.last # The caller_locations should be large enough, but just in case.
+        ::Redis.deprecate! <<~MESSAGE
+          Pipelining commands on a Redis instance is deprecated and will be removed in Redis 5.0.0.
+
+          redis.pipelined do
+            redis.get("key")
+          end
+
+          should be replaced by
+
+          redis.pipelined do |pipeline|
+            pipeline.get("key")
+          end
+
+          (called from #{callsite}}
+        MESSAGE
+      end
+    end
+
     attr_accessor :db
     attr_reader :client
 
@@ -121,6 +184,21 @@ class Redis
           [[:multi]] + super + [[:exec]]
         end
       end
+    end
+  end
+
+  DeprecatedPipeline = DelegateClass(Pipeline) do
+    def initialize(pipeline)
+      super(pipeline)
+      @deprecation_displayed = false
+    end
+
+    def __getobj__
+      unless @deprecation_displayed
+        Pipeline.deprecation_warning(Kernel.caller_locations(1, 10))
+        @deprecation_displayed = true
+      end
+      @delegate_dc_obj
     end
   end
 
