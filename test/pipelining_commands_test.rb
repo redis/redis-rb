@@ -140,9 +140,8 @@ class TestPipeliningCommands < Minitest::Test
       @result = r.sadd("foo", 1)
     end
 
-    assert_output(nil, /deprecated/) do
-      @result == 1
-    end
+    Redis.expects(:deprecate!).once
+    @result == 1
   end
 
   def test_futures_can_be_identified
