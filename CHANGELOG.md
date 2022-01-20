@@ -1,5 +1,14 @@
 # Unreleased
 
+* Add new options to ZRANGE. See #1053.
+* Add ZRANGESTORE command. See #1053.
+* Add SCAN support for `Redis::Cluster`. See #1049.
+* Add COPY command. See #1053. See #1048.
+* Add ZDIFFSTORE command. See #1046.
+* Add ZDIFF command. See #1044.
+* Add ZUNION command. See #1042.
+* Add HRANDFIELD command. See #1040.
+
 # 4.5.1
 
 * Restore the accidential auth behavior of redis-rb 4.3.0 with a warning. If provided with the `default` user's password, but a wrong username,
