@@ -76,8 +76,6 @@ jobs:
         run: make start_all
       - name: Test
         run: make test
-        env:
-          RUBYOPT: "--enable-frozen-string-literal"
       - name: Shutting down Redis
         run: make stop_all
   sub:
