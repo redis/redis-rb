@@ -187,8 +187,7 @@ class Redis
     end
   end
 
-  DeprecatedPipeline = DelegateClass(Pipeline)
-  class DeprecatedPipeline
+  class DeprecatedPipeline < DelegateClass(Pipeline)
     def initialize(pipeline)
       super(pipeline)
       @deprecation_displayed = false
@@ -203,8 +202,7 @@ class Redis
     end
   end
 
-  DeprecatedMulti = DelegateClass(Pipeline::Multi)
-  class DeprecatedMulti
+  class DeprecatedMulti < DelegateClass(Pipeline::Multi)
     def initialize(pipeline)
       super(pipeline)
       @deprecation_displayed = false

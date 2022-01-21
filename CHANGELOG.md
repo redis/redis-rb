@@ -32,6 +32,7 @@
 * Deprecate `Redis#queue` and `Redis#commit`. See #1059.
 
 * Fix `zpopmax` and `zpopmin` when called inside a pipeline. See #1055.
+* `Redis#synchronize` is now private like it should always have been.
 
 * Add `Redis.silence_deprecations=` to turn off deprecation warnings.
   If you don't wish to see warnings yet, you can set `Redis.silence_deprecations = false`.
