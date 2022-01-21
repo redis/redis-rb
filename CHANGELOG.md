@@ -36,7 +36,10 @@
 
 * Add `Redis.silence_deprecations=` to turn off deprecation warnings.
   If you don't wish to see warnings yet, you can set `Redis.silence_deprecations = false`.
-  It is however heavily recommended to fix them instead when possible. 
+  It is however heavily recommended to fix them instead when possible.
+* Add `Redis.raise_deprecations=` to turn deprecation warnings into errors.
+  This makes it easier to identitify the source of deprecated APIs usage.
+  It is recommended to set `Redis.raise_deprecations = true` in development and test environments.
 * Add new options to ZRANGE. See #1053.
 * Add ZRANGESTORE command. See #1053.
 * Add SCAN support for `Redis::Cluster`. See #1049.

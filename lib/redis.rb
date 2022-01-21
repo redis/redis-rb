@@ -8,9 +8,11 @@ class Redis
   BASE_PATH = __dir__
   @exists_returns_integer = true
 
+  Deprecated = Class.new(StandardError)
+
   class << self
     attr_reader :exists_returns_integer
-    attr_accessor :silence_deprecations
+    attr_accessor :silence_deprecations, :raise_deprecations
 
     def exists_returns_integer=(value)
       unless value
@@ -25,7 +27,13 @@ class Redis
     end
 
     def deprecate!(message)
-      ::Kernel.warn(message) unless silence_deprecations
+      unless silence_deprecations
+        if raise_deprecations
+          raise Deprecated, message
+        else
+          ::Kernel.warn(message)
+        end
+      end
     end
 
     def current
