@@ -40,7 +40,6 @@ class Redis
   end
 
   include Commands
-  include MonitorMixin
 
   # Create a new client instance
   #
@@ -76,12 +75,7 @@ class Redis
     client = @cluster_mode ? Cluster : Client
     @original_client = @client = client.new(options)
     @queue = Hash.new { |h, k| h[k] = [] }
-
-    super() # Monitor#initialize
-  end
-
-  def synchronize
-    mon_synchronize { yield(@client) }
+    @monitor = Monitor.new
   end
 
   # Run code with the client reconnecting
@@ -252,15 +246,19 @@ class Redis
 
   private
 
+  def synchronize
+    @monitor.synchronize { yield(@client) }
+  end
+
   def send_command(command, &block)
-    synchronize do |client|
-      client.call(command, &block)
+    @monitor.synchronize do
+      @client.call(command, &block)
     end
   end
 
   def send_blocking_command(command, timeout, &block)
-    synchronize do |client|
-      client.call_with_timeout(command, timeout, &block)
+    @monitor.synchronize do
+      @client.call_with_timeout(command, timeout, &block)
     end
   end
 
