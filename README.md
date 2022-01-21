@@ -200,9 +200,9 @@ the regular pipeline, the replies to the commands are returned by the
 `#multi` method.
 
 ```ruby
-redis.multi do
-  redis.set "foo", "bar"
-  redis.incr "baz"
+redis.multi do |transaction|
+  transaction.set "foo", "bar"
+  transaction.incr "baz"
 end
 # => ["OK", 1]
 ```

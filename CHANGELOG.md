@@ -15,6 +15,20 @@
     pipeline.get("key")
   end
   ```
+* Deprecate calling commands on `Redis` inside `Redis#multi`. See #1059.
+  ```ruby
+  redis.multi do
+    redis.get("key")
+  end
+  ```
+
+  should be replaced by:
+
+  ```ruby
+  redis.multi do |transaction|
+    transaction.get("key")
+  end
+  ```
 * Deprecate `Redis#queue` and `Redis#commit`. See #1059.
 
 * Fix `zpopmax` and `zpopmin` when called inside a pipeline. See #1055.
