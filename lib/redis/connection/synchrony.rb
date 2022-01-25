@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "command_helper"
-require_relative "registry"
-require_relative "../errors"
+require "redis/connection/registry"
+require "redis/connection/command_helper"
+require "redis/errors"
+
 require "em-synchrony"
 require "hiredis/reader"
 

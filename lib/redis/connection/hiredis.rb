@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "registry"
-require_relative "../errors"
+require "redis/connection/registry"
+require "redis/errors"
+
 require "hiredis/connection"
 require "timeout"
 

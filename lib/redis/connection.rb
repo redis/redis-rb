@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "connection/registry"
+require "redis/connection/registry"
 
 # If a connection driver was required before this file, the array
 # Redis::Connection.drivers will contain one or more classes. The last driver

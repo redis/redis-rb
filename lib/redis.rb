@@ -286,9 +286,9 @@ class Redis
   end
 end
 
-require_relative "redis/version"
-require_relative "redis/connection"
-require_relative "redis/client"
-require_relative "redis/cluster"
-require_relative "redis/pipeline"
-require_relative "redis/subscribe"
+require "redis/version"
+require "redis/connection"
+require "redis/client"
+require "redis/cluster"
+require "redis/pipeline"
+require "redis/subscribe"

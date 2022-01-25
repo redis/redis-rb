@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "errors"
 require "socket"
 require "cgi"
+require "redis/errors"
 
 class Redis
   class Client
