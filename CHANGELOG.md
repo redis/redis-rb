@@ -1,5 +1,7 @@
 # Unreleased
 
+# 4.6.0
+
 * Deprecate `Redis.current`.
 * Deprecate calling commands on `Redis` inside `Redis#pipelined`. See #1059.
   ```ruby
