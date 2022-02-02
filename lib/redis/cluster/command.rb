@@ -53,8 +53,6 @@ class Redis
         when 'object' then 2
         when 'memory'
           command[1].to_s.casecmp('usage').zero? ? 2 : 0
-        when 'scan', 'sscan', 'hscan', 'zscan'
-          determine_optional_key_position(command, 'match')
         when 'xread', 'xreadgroup'
           determine_optional_key_position(command, 'streams')
         else

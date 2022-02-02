@@ -22,6 +22,12 @@ class TestClusterClientKeyHashTags < Minitest::Test
     assert_equal 'foo{}{bar}', described_class.extract_first_key(%w[get foo{}{bar}])
     assert_equal '{bar', described_class.extract_first_key(%w[get foo{{bar}}zap])
     assert_equal 'bar', described_class.extract_first_key(%w[get foo{bar}{zap}])
+    assert_equal 'dogs', described_class.extract_first_key([:sscan, 'dogs', 0])
+    assert_equal 'dogs', described_class.extract_first_key([:sscan, 'dogs', 0, 'MATCH', '/poodle/', 'COUNT', 10])
+    assert_equal 'dogs', described_class.extract_first_key([:hscan, 'dogs', 0])
+    assert_equal 'dogs', described_class.extract_first_key([:hscan, 'dogs', 0, 'MATCH', '/poodle/', 'COUNT', 10])
+    assert_equal 'dogs', described_class.extract_first_key([:zscan, 'dogs', 0])
+    assert_equal 'dogs', described_class.extract_first_key([:zscan, 'dogs', 0, 'MATCH', '/poodle/', 'COUNT', 10])
 
     assert_equal '', described_class.extract_first_key([:get, ''])
     assert_equal '', described_class.extract_first_key([:get, nil])
@@ -32,6 +38,8 @@ class TestClusterClientKeyHashTags < Minitest::Test
     assert_equal '', described_class.extract_first_key([:set])
 
     # Keyless commands
+    assert_equal '', described_class.extract_first_key([:scan, 0])
+    assert_equal '', described_class.extract_first_key([:scan, 0, 'MATCH', '/poodle/', 'COUNT', 10])
     assert_equal '', described_class.extract_first_key([:auth, 'password'])
     assert_equal '', described_class.extract_first_key(%i[client kill])
     assert_equal '', described_class.extract_first_key(%i[cluster addslots])
