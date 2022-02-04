@@ -47,8 +47,8 @@ class Redis
         unsubscribed = type == stop && rest.last == 0
         break if unsubscribed
       end
-      # No need to unsubscribe here. The real client closes the connection
-      # whenever an exception is raised (see #ensure_connected).
+    ensure
+      @client.disconnect unless unsubscribed
     end
   end
 
