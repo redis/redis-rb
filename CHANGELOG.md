@@ -37,7 +37,7 @@
 * `Redis#synchronize` is now private like it should always have been.
 
 * Add `Redis.silence_deprecations=` to turn off deprecation warnings.
-  If you don't wish to see warnings yet, you can set `Redis.silence_deprecations = false`.
+  If you don't wish to see warnings yet, you can set `Redis.silence_deprecations = true`.
   It is however heavily recommended to fix them instead when possible.
 * Add `Redis.raise_deprecations=` to turn deprecation warnings into errors.
   This makes it easier to identitify the source of deprecated APIs usage.
