@@ -22,6 +22,11 @@ class Redis
       yield self
     end
 
+    def call_pipeline(pipeline)
+      @pipeline.call_pipeline(pipeline)
+      nil
+    end
+
     private
 
     def synchronize
@@ -69,6 +74,7 @@ class Redis
     attr_reader :client
 
     attr :futures
+    alias materialized_futures futures
 
     def initialize(client)
       @client = client.is_a?(Pipeline) ? client.client : client
@@ -112,7 +118,7 @@ class Redis
 
     def call_pipeline(pipeline)
       @shutdown = true if pipeline.shutdown?
-      @futures.concat(pipeline.futures)
+      @futures.concat(pipeline.materialized_futures)
       @db = pipeline.db
       nil
     end
@@ -166,6 +172,18 @@ class Redis
           # convert an error reply to a CommandError instance itself. This is
           # specific to MULTI/EXEC, so we solve this here.
           reply.is_a?(::RuntimeError) ? CommandError.new(reply.message) : reply
+        end
+      end
+
+      def materialized_futures
+        if empty?
+          []
+        else
+          [
+            Future.new([:multi], nil, 0),
+            *futures,
+            MultiFuture.new(futures)
+          ]
         end
       end
 
@@ -269,6 +287,20 @@ class Redis
 
     def class
       Future
+    end
+  end
+
+  class MultiFuture < Future
+    def initialize(futures)
+      @futures = futures
+      @command = [:exec]
+    end
+
+    def _set(replies)
+      @futures.each_with_index do |future, index|
+        future._set(replies[index])
+      end
+      replies
     end
   end
 end
