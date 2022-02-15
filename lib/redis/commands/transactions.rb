@@ -3,6 +3,53 @@
 class Redis
   module Commands
     module Transactions
+      # Mark the start of a transaction block.
+      #
+      # Passing a block is optional.
+      #
+      # @example With a block
+      #   redis.multi do |multi|
+      #     multi.set("key", "value")
+      #     multi.incr("counter")
+      #   end # => ["OK", 6]
+      #
+      # @example Without a block
+      #   redis.multi
+      #     # => "OK"
+      #   redis.set("key", "value")
+      #     # => "QUEUED"
+      #   redis.incr("counter")
+      #     # => "QUEUED"
+      #   redis.exec
+      #     # => ["OK", 6]
+      #
+      # @yield [multi] the commands that are called inside this block are cached
+      #   and written to the server upon returning from it
+      # @yieldparam [Redis] multi `self`
+      #
+      # @return [String, Array<...>]
+      #   - when a block is not given, `OK`
+      #   - when a block is given, an array with replies
+      #
+      # @see #watch
+      # @see #unwatch
+      def multi(&block) # :nodoc:
+        if block_given?
+          if block&.arity == 0
+            Pipeline.deprecation_warning("multi", Kernel.caller_locations(1, 5))
+          end
+
+          synchronize do |prior_client|
+            pipeline = Pipeline::Multi.new(prior_client)
+            pipelined_connection = PipelinedConnection.new(pipeline)
+            yield pipelined_connection
+            prior_client.call_pipeline(pipeline)
+          end
+        else
+          send_command([:multi])
+        end
+      end
+
       # Watch the given keys to determine execution of the MULTI/EXEC block.
       #
       # Using a block is optional, but is necessary for thread-safety.

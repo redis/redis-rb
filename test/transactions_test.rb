@@ -37,6 +37,66 @@ class TestTransactions < Minitest::Test
     assert_nil nothing_else
   end
 
+  def test_multi_in_pipeline
+    foo_future = bar_future = nil
+    response = r.pipelined do |pipeline|
+      pipeline.multi do |multi|
+        multi.set("foo", "s1")
+        foo_future = multi.get("foo")
+      end
+
+      pipeline.multi do |multi|
+        multi.set("bar", "s2")
+        bar_future = multi.get("bar")
+      end
+    end
+
+    assert_equal "s1", foo_future.value
+    assert_equal "s2", bar_future.value
+
+    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
+  end
+
+  def test_multi_in_pipeline_deprecated
+    foo_future = bar_future = nil
+    response = r.pipelined do
+      r.multi do |multi|
+        multi.set("foo", "s1")
+        foo_future = multi.get("foo")
+      end
+
+      r.multi do |multi|
+        multi.set("bar", "s2")
+        bar_future = multi.get("bar")
+      end
+    end
+
+    assert_equal "s1", foo_future.value
+    assert_equal "s2", bar_future.value
+
+    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
+  end
+
+  def test_multi_in_pipeline_double_deprecated
+    foo_future = bar_future = nil
+    response = r.pipelined do
+      r.multi do
+        r.set("foo", "s1")
+        foo_future = r.get("foo")
+      end
+
+      r.multi do
+        r.set("bar", "s2")
+        bar_future = r.get("bar")
+      end
+    end
+
+    assert_equal "s1", foo_future.value
+    assert_equal "s2", bar_future.value
+
+    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
+  end
+
   def test_assignment_inside_multi_exec_block
     r.multi do |m|
       @first = m.sadd("foo", 1)
