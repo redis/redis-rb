@@ -95,7 +95,7 @@ class TestClusterClientKeyHashTags < Minitest::Test
   end
 
   def test_cannot_build_details_from_bad_urls
-    assert_raises(Redis::CannotConnectError) do
+    assert_raises(Redis::Cluster::InitialSetupError) do
       build_described_class(['redis://127.0.0.1:7006'])
     end
   end

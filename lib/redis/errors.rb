@@ -46,6 +46,15 @@ class Redis
 
   class Cluster
     # Raised when client connected to redis as cluster mode
+    # and failed to fetch cluster state information by commands.
+    class InitialSetupError < BaseError
+      # @param errors [Array<Redis::BaseError>]
+      def initialize(errors)
+        super("Redis client could not fetch cluster information: #{errors.map(&:message).uniq.join(',')}")
+      end
+    end
+
+    # Raised when client connected to redis as cluster mode
     # and some cluster subcommands were called.
     class OrchestrationCommandNotSupported < BaseError
       def initialize(command, subcommand = '')

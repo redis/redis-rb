@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../errors'
+require 'redis/errors'
 
 class Redis
   class Cluster
@@ -10,15 +10,15 @@ class Redis
       module_function
 
       def load(nodes)
-        nodes.each do |node|
+        errors = nodes.map do |node|
           begin
             return fetch_command_details(node)
-          rescue CannotConnectError, ConnectionError, CommandError
-            next # can retry on another node
+          rescue CannotConnectError, ConnectionError, CommandError => error
+            error
           end
         end
 
-        raise CannotConnectError, 'Redis client could not connect to any cluster nodes'
+        raise InitialSetupError, errors
       end
 
       def fetch_command_details(node)

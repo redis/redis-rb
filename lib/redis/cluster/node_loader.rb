@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../errors'
+require 'redis/errors'
 
 class Redis
   class Cluster
@@ -9,16 +9,15 @@ class Redis
       module_function
 
       def load_flags(nodes)
-        info = {}
-
-        nodes.each do |node|
-          info = fetch_node_info(node)
-          info.empty? ? next : break
+        errors = nodes.map do |node|
+          begin
+            return fetch_node_info(node)
+          rescue CannotConnectError, ConnectionError, CommandError => error
+            error
+          end
         end
 
-        return info unless info.empty?
-
-        raise CannotConnectError, 'Redis client could not connect to any cluster nodes'
+        raise InitialSetupError, errors
       end
 
       def fetch_node_info(node)
@@ -27,8 +26,6 @@ class Redis
             .map { |str| str.split(' ') }
             .map { |arr| [arr[1].split('@').first, (arr[2].split(',') & %w[master slave]).first] }
             .to_h
-      rescue CannotConnectError, ConnectionError, CommandError
-        {} # can retry on another node
       end
 
       private_class_method :fetch_node_info
