@@ -49,7 +49,7 @@ class TestClusterAbnormalState < Minitest::Test
   end
 
   def test_raising_error_when_nodes_are_not_cluster_mode
-    assert_raises(Redis::CannotConnectError, 'Redis client could not connect to any cluster nodes') do
+    assert_raises(Redis::Cluster::InitialSetupError) do
       build_another_client(cluster: %W[redis://127.0.0.1:#{PORT}])
     end
   end

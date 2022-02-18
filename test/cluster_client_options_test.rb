@@ -79,11 +79,11 @@ class TestClusterClientOptions < Minitest::Test
   end
 
   def test_client_does_not_accept_db_specified_url
-    assert_raises(Redis::CannotConnectError, 'Could not connect to any nodes') do
+    assert_raises(Redis::Cluster::InitialSetupError) do
       build_another_client(cluster: ['redis://127.0.0.1:7000/1/namespace'])
     end
 
-    assert_raises(Redis::CannotConnectError, 'Could not connect to any nodes') do
+    assert_raises(Redis::Cluster::InitialSetupError) do
       build_another_client(cluster: [{ host: '127.0.0.1', port: '7000' }], db: 1)
     end
   end
@@ -91,7 +91,7 @@ class TestClusterClientOptions < Minitest::Test
   def test_client_does_not_accept_unconnectable_node_url_only
     nodes = ['redis://127.0.0.1:7006']
 
-    assert_raises(Redis::CannotConnectError, 'Could not connect to any nodes') do
+    assert_raises(Redis::Cluster::InitialSetupError) do
       build_another_client(cluster: nodes)
     end
   end

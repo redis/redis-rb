@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative '../errors'
-require_relative 'node_key'
+require 'redis/errors'
+require 'redis/cluster/node_key'
 
 class Redis
   class Cluster
@@ -10,16 +10,15 @@ class Redis
       module_function
 
       def load(nodes)
-        info = {}
-
-        nodes.each do |node|
-          info = fetch_slot_info(node)
-          info.empty? ? next : break
+        errors = nodes.map do |node|
+          begin
+            return fetch_slot_info(node)
+          rescue CannotConnectError, ConnectionError, CommandError => error
+            error
+          end
         end
 
-        return info unless info.empty?
-
-        raise CannotConnectError, 'Redis client could not connect to any cluster nodes'
+        raise InitialSetupError, errors
       end
 
       def fetch_slot_info(node)
@@ -27,8 +26,6 @@ class Redis
         node.call(%i[cluster slots])
             .flat_map { |arr| parse_slot_info(arr, default_ip: node.host) }
             .each_with_object(hash_with_default_arr) { |arr, h| h[arr[0]] << arr[1] }
-      rescue CannotConnectError, ConnectionError, CommandError
-        {} # can retry on another node
       end
 
       def parse_slot_info(arr, default_ip:)
