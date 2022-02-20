@@ -64,8 +64,10 @@ class Redis
         raise InvalidClientOptionError, "Invalid uri scheme #{addr}" unless VALID_SCHEMES.include?(uri.scheme)
 
         db = uri.path.split('/')[1]&.to_i
+        username = uri.user ? URI.decode_www_form_component(uri.user) : nil
+        password = uri.password ? URI.decode_www_form_component(uri.password) : nil
 
-        { scheme: uri.scheme, username: uri.user, password: uri.password, host: uri.host, port: uri.port, db: db }
+        { scheme: uri.scheme, username: username, password: password, host: uri.host, port: uri.port, db: db }
           .reject { |_, v| v.nil? || v == '' }
       rescue URI::InvalidURIError => err
         raise InvalidClientOptionError, err.message

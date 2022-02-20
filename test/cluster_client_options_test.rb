@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative 'helper'
+require 'uri'
+require 'helper'
 
 # ruby -w -Itest test/cluster_client_options_test.rb
 class TestClusterClientOptions < Minitest::Test
@@ -30,6 +31,12 @@ class TestClusterClientOptions < Minitest::Test
 
     option = Redis::Cluster::Option.new(cluster: %w[redis://:bazzap@127.0.0.1:7000], password: 'foobar')
     assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', password: 'bazzap', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %W[redis://#{URI.encode_www_form_component('!&<123-abc>')}:@127.0.0.1:7000])
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', username: '!&<123-abc>', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %W[redis://:#{URI.encode_www_form_component('!&<123-abc>')}@127.0.0.1:7000])
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', password: '!&<123-abc>', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
 
     option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000/0], db: 1)
     assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: '127.0.0.1', port: 7000, db: 0 } }, option.per_node_key)
