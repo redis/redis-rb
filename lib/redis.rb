@@ -37,7 +37,7 @@ class Redis
     end
 
     def current
-      deprecate!("`Redis.current=` is deprecated and will be removed in 5.0. (called from: #{caller(1, 1).first})")
+      deprecate!("`Redis.current` is deprecated and will be removed in 5.0. (called from: #{caller(1, 1).first})")
       @current ||= Redis.new
     end
 
