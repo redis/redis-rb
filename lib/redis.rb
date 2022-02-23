@@ -75,6 +75,7 @@ class Redis
   # @option options [Array<String, Hash{Symbol => String, Integer}>] :cluster List of cluster nodes to contact
   # @option options [Boolean] :replica Whether to use readonly replica nodes in Redis Cluster or not
   # @option options [Class] :connector Class of custom connector
+  # @option options [Boolean] :ssl Whether to enable SSL/TLS support or not
   #
   # @return [Redis] a new client instance
   def initialize(options = {})

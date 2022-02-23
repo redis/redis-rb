@@ -371,7 +371,7 @@ redis = Redis.new(
 [ghostunnel]: https://github.com/square/ghostunnel
 [OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.3.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
 
-*NOTE:* SSL is only supported by the default "Ruby" driver
+*NOTE:* SSL is only supported by the default "Ruby" driver and [hiredis](https://github.com/redis/hiredis)
 
 
 ## Expert-Mode Options
