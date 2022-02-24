@@ -49,19 +49,24 @@ class TestConnection < Minitest::Test
     assert_equal "redis://host:1234/0", redis.connection.fetch(:id)
   end
 
+  def test_default_id_with_host_and_port_and_ssl
+    redis = Redis.new(OPTIONS.merge(host: 'host', port: '1234', db: 0, ssl: true))
+    assert_equal "rediss://host:1234/0", redis.connection.fetch(:id)
+  end
+
   def test_default_id_with_host_and_port_and_explicit_scheme
     redis = Redis.new(OPTIONS.merge(host: "host", port: "1234", db: 0, scheme: "foo"))
-    assert_equal "redis://host:1234/0", redis.connection.fetch(:id)
+    assert_equal "foo://host:1234/0", redis.connection.fetch(:id)
   end
 
   def test_default_id_with_path
     redis = Redis.new(OPTIONS.merge(path: "/tmp/redis.sock", db: 0))
-    assert_equal "redis:///tmp/redis.sock/0", redis.connection.fetch(:id)
+    assert_equal "unix:///tmp/redis.sock/0", redis.connection.fetch(:id)
   end
 
   def test_default_id_with_path_and_explicit_scheme
     redis = Redis.new(OPTIONS.merge(path: "/tmp/redis.sock", db: 0, scheme: "foo"))
-    assert_equal "redis:///tmp/redis.sock/0", redis.connection.fetch(:id)
+    assert_equal "unix:///tmp/redis.sock/0", redis.connection.fetch(:id)
   end
 
   def test_override_id
