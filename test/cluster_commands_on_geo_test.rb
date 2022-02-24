@@ -71,4 +71,18 @@ class TestClusterCommandsOnGeo < Minitest::Test
       assert_equal %w[Agrigento Palermo], redis.georadiusbymember('Sicily', 'Agrigento', 100, 'km')
     end
   end
+
+  def test_geosearch
+    target_version(MIN_REDIS_VERSION) do
+      add_sicily
+
+      # test with FROMLONLAT & BYRADIUS
+      expected = [%w[Palermo 190.4424], %w[Catania 56.4413]]
+      assert_equal expected, redis.geosearch('Sicily', from: [15, 37], by: [200, 'km'], 'WITHDIST')
+
+      # test with FROMMEMBER & BYBOX
+      redis.geoadd('Sicily', 13.583333, 37.316667, 'Agrigento')
+      assert_equal %w[Agrigento Palermo], redis.search('Sicily', from: 'Agrigento', by: [100, 100, 'km'])
+    end
+  end
 end

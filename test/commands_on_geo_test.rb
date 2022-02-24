@@ -77,6 +77,31 @@ class TestCommandsGeo < Minitest::Test
     end
   end
 
+  def test_geosearch_with_same_params
+    target_version "6.2.0" do
+      r.geoadd("Chad", 15, 15, "Kanem")
+      nearest_cities = r.georadius("Chad", 15, 15, 15, 'km', sort: 'asc')
+      assert_equal %w(Kanem), nearest_cities
+    end
+  end
+
+  def test_geosearch_with_sort
+    target_version "6.2.0" do
+      nearest_cities = r.geosearch("Sicily", from: [15, 37], by: [200, 'km'], sort: 'asc')
+      assert_equal %w(Catania Palermo), nearest_cities
+
+      farthest_cities = r.geosearch("Sicily", from: [15, 37], by: [200, 'km'], sort: 'desc')
+      assert_equal %w(Palermo Catania), farthest_cities
+    end
+  end
+
+  def test_geosearch_with_count
+    target_version "6.2.0" do
+      city = r.geosearch("Sicily", from: [15, 37], by: [200, 'km'], count: 1)
+      assert_equal %w(Catania), city
+    end
+  end
+
   def test_geopos
     target_version "3.2.0" do
       location = r.geopos("Sicily", "Catania")
