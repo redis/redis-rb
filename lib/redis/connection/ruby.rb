@@ -6,6 +6,7 @@ require "redis/errors"
 
 require "socket"
 require "timeout"
+require 'resolv'
 
 begin
   require "openssl"
@@ -252,7 +253,7 @@ class Redis
           ctx.set_params(ssl_params || {})
 
           ssl_sock = new(tcp_sock, ctx)
-          ssl_sock.hostname = host
+          ssl_sock.hostname = host unless Resolv::AddressRegex.match?(host)
 
           begin
             # Initiate the socket connection in the background. If it doesn't fail
