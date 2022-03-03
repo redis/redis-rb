@@ -44,6 +44,12 @@ class TestClusterClientOptions < Minitest::Test
     option = Redis::Cluster::Option.new(cluster: [{ host: '127.0.0.1', port: 7000 }])
     assert_equal({ '127.0.0.1:7000' => { host: '127.0.0.1', port: 7000 } }, option.per_node_key)
 
+    option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000], fixed_hostname: 'foo-endpoint.example.com')
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: 'foo-endpoint.example.com', port: 7000 } }, option.per_node_key)
+
+    option = Redis::Cluster::Option.new(cluster: %w[redis://127.0.0.1:7000], fixed_hostname: '')
+    assert_equal({ '127.0.0.1:7000' => { scheme: 'redis', host: '127.0.0.1', port: 7000 } }, option.per_node_key)
+
     assert_raises(Redis::InvalidClientOptionError) do
       Redis::Cluster::Option.new(cluster: nil)
     end

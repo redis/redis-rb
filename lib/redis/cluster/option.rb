@@ -17,6 +17,7 @@ class Redis
         node_addrs = options.delete(:cluster)
         @node_opts = build_node_options(node_addrs)
         @replica = options.delete(:replica) == true
+        @fixed_hostname = options.delete(:fixed_hostname)
         add_common_node_option_if_needed(options, @node_opts, :scheme)
         add_common_node_option_if_needed(options, @node_opts, :username)
         add_common_node_option_if_needed(options, @node_opts, :password)
@@ -24,8 +25,12 @@ class Redis
       end
 
       def per_node_key
-        @node_opts.map { |opt| [NodeKey.build_from_host_port(opt[:host], opt[:port]), @options.merge(opt)] }
-                  .to_h
+        @node_opts.map do |opt|
+          node_key = NodeKey.build_from_host_port(opt[:host], opt[:port])
+          options = @options.merge(opt)
+          options = options.merge(host: @fixed_hostname) if @fixed_hostname && !@fixed_hostname.empty?
+          [node_key, options]
+        end.to_h
       end
 
       def use_replica?
