@@ -155,6 +155,21 @@ redis.mget('{key}1', '{key}2')
 * The client support permanent node failures, and will reroute requests to promoted slaves.
 * The client supports `MOVED` and `ASK` redirections transparently.
 
+## Cluster mode with SSL/TLS
+Since Redis can return FQDN of nodes in reply to client since `7.*` with CLUSTER commands, we can use cluster feature with SSL/TLS connection like this:
+
+```ruby
+Redis.new(cluster: %w[rediss://foo.example.com:6379])
+```
+
+On the other hand, in Redis versions prior to `6.*`, you can specify options like the following if cluster mode is enabled and client has to connect to nodes via single endpoint with SSL/TLS.
+
+```ruby
+Redis.new(cluster: %w[rediss://foo-endpoint.example.com:6379], fixed_hostname: 'foo-endpoint.example.com')
+```
+
+In case of the above architecture, if you don't pass the `fixed_hostname` option to the client and servers return IP addresses of nodes, the client may fail to verify certificates.
+
 ## Storing objects
 
 Redis "string" types can be used to store serialized Ruby objects, for

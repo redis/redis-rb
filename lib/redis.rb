@@ -74,6 +74,8 @@ class Redis
   # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
   # @option options [Array<String, Hash{Symbol => String, Integer}>] :cluster List of cluster nodes to contact
   # @option options [Boolean] :replica Whether to use readonly replica nodes in Redis Cluster or not
+  # @option options [String] :fixed_hostname Specify a FQDN if cluster mode enabled and
+  #   client has to connect nodes via single endpoint with SSL/TLS
   # @option options [Class] :connector Class of custom connector
   #
   # @return [Redis] a new client instance
