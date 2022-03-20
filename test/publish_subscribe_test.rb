@@ -205,6 +205,50 @@ class TestPublishSubscribe < Minitest::Test
     assert_equal ["foo", "bar"], @channels
   end
 
+  def test_return_within_subscribe
+    @channels = []
+    @subscribed_foo = false
+    @subscribed_bar = false
+    
+    wire = Wire.new do
+      def subscribe
+        r.subscribe("foo") do |on|
+          on.subscribe do |_channel, total|
+            @subscribed_foo = true
+
+            return
+          end
+        end
+      end
+
+      subscribe
+      
+      r.subscribe("bar") do |on|
+        on.subscribe do |_channel, total|
+          @subscribed_bar = true
+        end
+
+        on.message do |channel, message|
+          @channels << channel
+
+          r.unsubscribe if message == "s2"
+        end
+      end
+    end
+    
+    # Wait until the subscription is active before publishing
+    Wire.pass until (@subscribed_foo && @subscribed_bar)
+
+    Redis.new(OPTIONS).publish("foo", "s1")
+    Redis.new(OPTIONS).publish("bar", "s2")
+
+    wire.join
+
+    assert @subscribed_foo
+    assert @subscribed_bar
+    assert !@channels.include?("foo")
+  end
+
   def test_other_commands_within_a_subscribe
     assert_raises Redis::CommandError do
       r.subscribe("foo") do |on|
