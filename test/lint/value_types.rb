@@ -66,6 +66,20 @@ module Lint
       r.set("foo", "s1")
       assert r.expire("foo", 2)
       assert_in_range 0..2, r.ttl("foo")
+
+      target_version "7.0.0" do
+        r.set("bar", "s2")
+        refute r.expire("bar", 5, xx: true)
+        assert r.expire("bar", 5, nx: true)
+        refute r.expire("bar", 5, nx: true)
+        assert r.expire("bar", 5, xx: true)
+
+        r.expire("bar", 10)
+        refute r.expire("bar", 15, lt: true)
+        refute r.expire("bar", 5, gt: true)
+        assert r.expire("bar", 15, gt: true)
+        assert r.expire("bar", 5, lt: true)
+      end
     end
 
     def test_pexpire
@@ -74,12 +88,40 @@ module Lint
         assert r.pexpire("foo", 2000)
         assert_in_range 0..2, r.ttl("foo")
       end
+
+      target_version "7.0.0" do
+        r.set("bar", "s2")
+        refute r.pexpire("bar", 5_000, xx: true)
+        assert r.pexpire("bar", 5_000, nx: true)
+        refute r.pexpire("bar", 5_000, nx: true)
+        assert r.pexpire("bar", 5_000, xx: true)
+
+        r.pexpire("bar", 10_000)
+        refute r.pexpire("bar", 15_000, lt: true)
+        refute r.pexpire("bar", 5_000, gt: true)
+        assert r.pexpire("bar", 15_000, gt: true)
+        assert r.pexpire("bar", 5_000, lt: true)
+      end
     end
 
     def test_expireat
       r.set("foo", "s1")
       assert r.expireat("foo", (Time.now + 2).to_i)
       assert_in_range 0..2, r.ttl("foo")
+
+      target_version "7.0.0" do
+        r.set("bar", "s2")
+        refute r.expire_at("bar", (Time.now + 5).to_i, xx: true)
+        assert r.expire_at("bar", (Time.now + 5).to_i, nx: true)
+        refute r.expire_at("bar", (Time.now + 5).to_i, nx: true)
+        assert r.expire_at("bar", (Time.now + 5).to_i, xx: true)
+
+        r.expire_at("bar", 10)
+        refute r.expire_at("bar", (Time.now + 15).to_i, lt: true)
+        refute r.expire_at("bar", (Time.now + 5).to_i, gt: true)
+        assert r.expire_at("bar", (Time.now + 15).to_i, gt: true)
+        assert r.expire_at("bar", (Time.now + 5).to_i, lt: true)
+      end
     end
 
     def test_pexpireat
@@ -87,6 +129,20 @@ module Lint
         r.set("foo", "s1")
         assert r.pexpireat("foo", (Time.now + 2).to_i * 1_000)
         assert_in_range 0..2, r.ttl("foo")
+      end
+
+      target_version "7.0.0" do
+        r.set("bar", "s2")
+        refute r.expire_at("bar", (Time.now + 5).to_i * 1_000, xx: true)
+        assert r.expire_at("bar", (Time.now + 5).to_i * 1_000, nx: true)
+        refute r.expire_at("bar", (Time.now + 5).to_i * 1_000, nx: true)
+        assert r.expire_at("bar", (Time.now + 5).to_i * 1_000, xx: true)
+
+        r.expire_at("bar", 10)
+        refute r.expire_at("bar", (Time.now + 15).to_i * 1_000, lt: true)
+        refute r.expire_at("bar", (Time.now + 5).to_i * 1_000, gt: true)
+        assert r.expire_at("bar", (Time.now + 15).to_i * 1_000, gt: true)
+        assert r.expire_at("bar", (Time.now + 5).to_i * 1_000, lt: true)
       end
     end
 
