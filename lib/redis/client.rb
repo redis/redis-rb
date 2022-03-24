@@ -29,7 +29,8 @@ class Redis
       inherit_socket: false,
       logger: nil,
       sentinels: nil,
-      role: nil
+      role: nil,
+      retry_server_delay: nil
     }.freeze
 
     attr_reader :options, :connection, :command_map
@@ -84,6 +85,10 @@ class Redis
 
     def inherit_socket?
       @options[:inherit_socket]
+    end
+
+    def retry_server_delay
+      @options[:retry_server_delay]
     end
 
     attr_accessor :logger
@@ -166,6 +171,9 @@ class Redis
       else
         reply
       end
+    rescue CannotConnectError
+      @cannot_connect_at = Time.now
+      raise
     end
 
     def call_loop(command, timeout = 0)
@@ -413,7 +421,8 @@ class Redis
                   "You need to reconnect to Redis after forking " \
                   "or set :inherit_socket to true."
           end
-        else
+        elsif attempt_reconnect?
+          @cannot_connect_at = nil
           connect
         end
 
@@ -434,6 +443,17 @@ class Redis
         disconnect
         raise
       end
+    end
+
+    def attempt_reconnect?
+      return true if retry_server_delay.nil?
+      return true if @cannot_connect_at.nil?
+
+      time_to_next_retry = @connect_connect_at + retry_server_delay.seconds - Time.now
+      return true if time_to_next_retry.negative?
+
+      @logger.debug("retry_server_delay not reached for HOST: #{location} - #{time_to_next_retry} seconds remaining")
+      false
     end
 
     def _parse_options(options)
