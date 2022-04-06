@@ -111,6 +111,10 @@ class Redis
   end
   alias disconnect! close
 
+  def with
+    yield self
+  end
+
   # @deprecated Queues a command for pipelining.
   #
   # Commands in the queue are executed with the Redis#commit method.

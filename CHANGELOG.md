@@ -1,5 +1,6 @@
 # Unreleased
 
+* Add `Redis#with` for better compatibility with `connection_pool` usage.
 * Fix the block form of `multi` called inside `pipelined`. Previously the `MUTLI/EXEC` wouldn't be sent. See #1073.
 
 # 4.6.0
