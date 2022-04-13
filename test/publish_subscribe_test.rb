@@ -206,9 +206,9 @@ class TestPublishSubscribe < Minitest::Test
   end
 
   def test_return_within_subscribe
-    @channels = []
     @subscribed_foo = false
     @subscribed_bar = false
+    @invalid_message = false
     
     wire = Wire.new do
       def subscribe
@@ -220,7 +220,7 @@ class TestPublishSubscribe < Minitest::Test
           end
         end
       end
-
+      
       subscribe
       
       r.subscribe("bar") do |on|
@@ -229,9 +229,9 @@ class TestPublishSubscribe < Minitest::Test
         end
 
         on.message do |channel, message|
-          @channels << channel
+          @invalid_message = true if channel == "foo" && message == "m1"
 
-          r.unsubscribe if message == "s2"
+          r.unsubscribe if message == "m2"
         end
       end
     end
@@ -239,14 +239,14 @@ class TestPublishSubscribe < Minitest::Test
     # Wait until the subscription is active before publishing
     Wire.pass until (@subscribed_foo && @subscribed_bar)
 
-    Redis.new(OPTIONS).publish("foo", "s1")
-    Redis.new(OPTIONS).publish("bar", "s2")
+    Redis.new(OPTIONS).publish("foo", "m1")
+    Redis.new(OPTIONS).publish("bar", "m2")
 
     wire.join
 
     assert @subscribed_foo
     assert @subscribed_bar
-    assert !@channels.include?("foo")
+    assert !@invalid_message
   end
 
   def test_other_commands_within_a_subscribe
