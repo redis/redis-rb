@@ -60,8 +60,11 @@ class Redis
         command << "INCR" if incr
 
         if args.size == 1 && args[0].is_a?(Array)
+          members_to_add = args[0]
+          return 0 if members_to_add.empty?
+
           # Variadic: return float if INCR, integer if !INCR
-          send_command(command + args[0], &(incr ? Floatify : nil))
+          send_command(command + members_to_add, &(incr ? Floatify : nil))
         elsif args.size == 2
           # Single pair: return float if INCR, boolean if !INCR
           send_command(command + args, &(incr ? Floatify : Boolify))
@@ -102,6 +105,11 @@ class Redis
       #   - `Integer` when an array of pairs is specified, holding the number of
       #   members that were removed to the sorted set
       def zrem(key, member)
+        if member.is_a?(Array)
+          members_to_remove = member
+          return 0 if members_to_remove.empty?
+        end
+
         send_command([:zrem, key, member]) do |reply|
           if member.is_a? Array
             # Variadic: return integer
