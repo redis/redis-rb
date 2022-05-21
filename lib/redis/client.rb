@@ -464,7 +464,7 @@ class Redis
           defaults[:path] = uri.path
         when "redis", "rediss"
           defaults[:scheme]   = uri.scheme
-          defaults[:host]     = uri.host if uri.host
+          defaults[:host]     = uri.host.sub(/\A\[(.*)\]\z/, '\1') if uri.host
           defaults[:port]     = uri.port if uri.port
           defaults[:username] = CGI.unescape(uri.user) if uri.user && !uri.user.empty?
           defaults[:password] = CGI.unescape(uri.password) if uri.password && !uri.password.empty?

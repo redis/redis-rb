@@ -135,6 +135,12 @@ class TestUrlParam < Minitest::Test
     assert_equal "127.0.0.1", redis._client.host
   end
 
+  def test_ipv6_url
+    redis = Redis.new url: "redis://[::1]"
+
+    assert_equal "::1", redis._client.host
+  end
+
   def test_user_and_password
     redis = Redis.new(url: 'redis://johndoe:mysecret@foo.com:999/2')
 
