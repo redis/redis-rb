@@ -1,5 +1,9 @@
 # Unreleased
 
+# 4.7.0
+
+* Support single endpoint architecture with SSL/TLS in cluster mode. See #1086.
+* `zrem` and `zadd` act as noop when provided an empty list of keys. See #1097.
 * Support IPv6 URLs.
 * Add `Redis#with` for better compatibility with `connection_pool` usage.
 * Fix the block form of `multi` called inside `pipelined`. Previously the `MUTLI/EXEC` wouldn't be sent. See #1073.
