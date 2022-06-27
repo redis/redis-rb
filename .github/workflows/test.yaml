@@ -58,7 +58,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
       - name: Cache dependent gems
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: .bundle
           key: "local-bundle-ruby-${{ matrix.ruby }}-on-${{ matrix.os }}-0001"
@@ -68,7 +68,7 @@ jobs:
           gem install bundler --no-document
           bundle install --jobs 4 --retry 3 --path=.bundle
       - name: Cache local temporary directory
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: tmp
           key: "local-tmp-redis-${{ matrix.redis }}-on-${{ matrix.os }}"
@@ -109,7 +109,7 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
       - name: Cache dependent gems
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: .bundle
           key: "local-bundle-ruby-${{ matrix.ruby }}-on-${{ matrix.os }}-0001"
@@ -119,7 +119,7 @@ jobs:
           gem install bundler --no-document
           bundle install --jobs 4 --retry 3 --path=.bundle
       - name: Cache local temporary directory
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: tmp
           key: "local-tmp-redis-${{ matrix.redis }}-on-${{ matrix.os }}"
