@@ -1,5 +1,10 @@
 # Unreleased
 
+# 4.7.1
+
+* Gracefully handle OpenSSL 3.0 EOF Errors (`OpenSSL::SSL::SSLError: SSL_read: unexpected eof while reading`). See #1106
+  This happens frequently on heroku-22.
+
 # 4.7.0
 
 * Support single endpoint architecture with SSL/TLS in cluster mode. See #1086.
