@@ -384,6 +384,12 @@ class Redis
         format_reply(reply_type, line)
       rescue Errno::EAGAIN
         raise TimeoutError
+      rescue OpenSSL::SSL::SSLError => ssl_error
+        if ssl_error.message.match?(/SSL_read: unexpected eof while reading/i)
+          raise EOFError, ssl_error.message
+        else
+          raise
+        end
       end
 
       def format_reply(reply_type, line)

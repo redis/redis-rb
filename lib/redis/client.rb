@@ -302,7 +302,7 @@ class Redis
       e2 = TimeoutError.new("Connection timed out")
       e2.set_backtrace(e1.backtrace)
       raise e2
-    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL => e
+    rescue Errno::ECONNRESET, Errno::EPIPE, Errno::ECONNABORTED, Errno::EBADF, Errno::EINVAL, EOFError => e
       raise ConnectionError, "Connection lost (%s)" % [e.class.name.split("::").last]
     end
 
