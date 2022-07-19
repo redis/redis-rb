@@ -567,12 +567,15 @@ class Redis
       def check(client); end
 
       class Sentinel < Connector
+        attr_reader :sentinels_resolver
+
         def initialize(options)
           super(options)
 
           @options[:db] = DEFAULTS.fetch(:db)
 
           @sentinels = @options.delete(:sentinels).dup
+          @sentinels_resolver = @options[:sentinels_resolver]
           @role = (@options[:role] || "master").to_s
           @master = @options[:host]
         end
@@ -629,6 +632,11 @@ class Redis
             ensure
               client.disconnect
             end
+          end
+
+          if sentinels_resolver
+            @sentinels = sentinels_resolver.call
+            return sentinel_detect
           end
 
           raise CannotConnectError, "No sentinels available."

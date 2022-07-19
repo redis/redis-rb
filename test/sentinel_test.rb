@@ -331,6 +331,69 @@ class SentinelTest < Minitest::Test
     assert_match(/Instance role mismatch/, ex.message)
   end
 
+  def test_sentinel_retries_with_sentinels_resolver
+    sentinels = [{ host: "127.0.0.1", port: 26_381 },
+                 { host: "127.0.0.1", port: 26_382 }]
+
+    connections = []
+
+    handler = lambda do |id, port|
+      {
+        sentinel: lambda do |_command, *_args|
+          connections << id
+
+          if connections.count(id) < 2
+            :close
+          else
+            ["127.0.0.1", port.to_s]
+          end
+        end
+      }
+    end
+
+    sentinels_resolver = lambda do
+      sentinels
+    end
+
+    master = {
+      role: lambda do
+        ["master"]
+      end
+    }
+
+    RedisMock.start(master) do |master_port|
+      RedisMock.start(handler.call(:s1, master_port)) do |s1_port|
+        RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
+          sentinels[0][:port] = s1_port
+          sentinels[1][:port] = s2_port
+          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 1)
+
+          assert redis.ping
+        end
+      end
+    end
+
+    assert_equal %i[s1 s2 s1], connections
+
+    connections.clear
+
+    ex = assert_raises(LocalJumpError) do
+      RedisMock.start(master) do |master_port|
+        RedisMock.start(handler.call(:s1, master_port)) do |s1_port|
+          RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
+            sentinels[0][:port] = s1_port + 1
+            sentinels[1][:port] = s2_port + 2
+            redis = Redis.new(url: "redis://master1", sentinels_resolver: sentinels_resolver, sentinels: sentinels, role: :master, reconnect_attempts: 0)
+
+            assert redis.ping
+          end
+        end
+      end
+    end
+
+    assert_match(/no block given/, ex.message)
+  end
+
   def test_sentinel_retries
     sentinels = [{ host: "127.0.0.1", port: 26_381 },
                  { host: "127.0.0.1", port: 26_382 }]
