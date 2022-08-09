@@ -246,8 +246,6 @@ class TestScanning < Minitest::Test
 
         r.hmset "hash", *elements
 
-        assert_equal enc.to_s, r.object("encoding", "hash")
-
         cursor = 0
         all_key_values = []
         loop do
@@ -344,8 +342,6 @@ class TestScanning < Minitest::Test
         count.times { |j| elements << j << "key:#{j}" }
 
         r.zadd "zset", elements
-
-        assert_equal enc.to_s, r.object("encoding", "zset")
 
         cursor = 0
         all_key_scores = []

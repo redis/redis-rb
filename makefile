@@ -34,9 +34,6 @@ stop_all: stop_sentinel stop_slave stop stop_cluster
 ${TMP}:
 	@mkdir -p $@
 
-${CONF}:
-	@touch $@
-
 ${BINARY}: ${TMP}
 	@bin/build ${REDIS_BRANCH} $<
 
@@ -47,7 +44,8 @@ stop:
 	@$(call kill-redis,${PID_PATH});\
 
 start: ${BINARY}
-	@${BINARY} ${CONF} \
+	@cp ${CONF} ${TMP}/redis.conf; \
+	${BINARY} ${TMP}/redis.conf \
 		--daemonize  yes\
 		--pidfile    ${PID_PATH}\
 		--port       ${PORT}\
