@@ -45,6 +45,7 @@ class TestClusterCommandsOnServer < Minitest::Test
     expected = %w[addr age cmd db events fd flags id idle multi name obl oll omem psub qbuf qbuf-free sub]
     expected << 'user' << 'argv-mem' << 'tot-mem' if version >= '6'
     expected << 'laddr' << 'redir' if version >= '6.2'
+    expected << "multi-mem" << "rbp" << "rbs" << "resp" << "ssub" if version >= '7.0'
     assert_equal expected.sort, actual.sort
   end
 
