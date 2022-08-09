@@ -1,5 +1,7 @@
-REDIS_BRANCH       ?= 6.2
+REDIS_BRANCH       ?= 7.0
+ROOT_DIR           :=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TMP                := tmp
+CONF               := ${ROOT_DIR}/test/support/conf/redis-${REDIS_BRANCH}.conf
 BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
 TARBALL            := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
 BINARY             := ${BUILD_DIR}/src/redis-server
@@ -39,10 +41,11 @@ test:
 	@env SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
 
 stop:
-	@$(call kill-redis,${PID_PATH})
+	@$(call kill-redis,${PID_PATH});\
 
 start: ${BINARY}
-	@${BINARY}\
+	@cp ${CONF} ${TMP}/redis.conf; \
+	${BINARY} ${TMP}/redis.conf \
 		--daemonize  yes\
 		--pidfile    ${PID_PATH}\
 		--port       ${PORT}\

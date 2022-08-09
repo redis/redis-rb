@@ -27,10 +27,11 @@ class TestRemoteServerControlCommands < Minitest::Test
   def test_info_commandstats
     target_version "2.5.7" do
       r.config(:resetstat)
-      r.config(:get, :port)
+      r.get("foo")
+      r.get("bar")
 
       result = r.info(:commandstats)
-      assert_equal '2', result['config']['calls']
+      assert_equal '2', result['get']['calls']
     end
   end
 
