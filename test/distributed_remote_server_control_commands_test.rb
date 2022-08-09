@@ -30,11 +30,12 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
     target_version "2.5.7" do
       r.nodes.each do |n|
         n.config(:resetstat)
-        n.config(:get, :port)
+        n.get("foo")
+        n.get("bar")
       end
 
       r.info(:commandstats).each do |info|
-        assert_equal '2', info['config']['calls'] # CONFIG RESETSTAT + CONFIG GET = twice
+        assert_equal '2', info['get']['calls']
       end
     end
   end

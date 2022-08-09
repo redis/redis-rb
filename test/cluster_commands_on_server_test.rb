@@ -81,33 +81,15 @@ class TestClusterCommandsOnServer < Minitest::Test
   end
 
   def test_command_info
-    eval_command_flags = if version >= '6.2'
-      %w[noscript skip_monitor may_replicate movablekeys]
-    else
-      %w[noscript movablekeys]
-    end
-
     expected = [
       ['get', 2, %w[readonly fast], 1, 1, 1],
       ['set', -3, %w[write denyoom], 1, 1, 1],
-      ['eval', -3, eval_command_flags, 0, 0, 0]
     ]
-    if version >= '6'
-      expected[0] << ["@read", "@string", "@fast"]
-      expected[1] << ["@write", "@string", "@slow"]
-      expected[2] << ["@slow", "@scripting"]
-    end
-    assert_equal expected, redis.command(:info, :get, :set, :eval)
+    assert_equal(expected, redis.command(:info, :get, :set).map { |c| c.first(6) })
   end
 
   def test_config_get
-    expected_keys = if version < '3.2.0'
-      %w[hash-max-ziplist-entries list-max-ziplist-entries set-max-intset-entries zset-max-ziplist-entries]
-    else
-      %w[hash-max-ziplist-entries set-max-intset-entries zset-max-ziplist-entries]
-    end
-
-    assert_equal expected_keys, redis.config(:get, '*max-*-entries*').keys.sort
+    assert_equal ['hash-max-ziplist-entries'], redis.config(:get, 'hash-max-ziplist-entrie*').keys.sort
   end
 
   def test_config_rewrite
