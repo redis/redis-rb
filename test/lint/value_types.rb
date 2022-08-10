@@ -111,16 +111,16 @@ module Lint
 
       target_version "7.0.0" do
         r.set("bar", "s2")
-        refute r.expire_at("bar", (Time.now + 5).to_i, xx: true)
-        assert r.expire_at("bar", (Time.now + 5).to_i, nx: true)
-        refute r.expire_at("bar", (Time.now + 5).to_i, nx: true)
-        assert r.expire_at("bar", (Time.now + 5).to_i, xx: true)
+        refute r.expireat("bar", (Time.now + 5).to_i, xx: true)
+        assert r.expireat("bar", (Time.now + 5).to_i, nx: true)
+        refute r.expireat("bar", (Time.now + 5).to_i, nx: true)
+        assert r.expireat("bar", (Time.now + 5).to_i, xx: true)
 
-        r.expire_at("bar", 10)
-        refute r.expire_at("bar", (Time.now + 15).to_i, lt: true)
-        refute r.expire_at("bar", (Time.now + 5).to_i, gt: true)
-        assert r.expire_at("bar", (Time.now + 15).to_i, gt: true)
-        assert r.expire_at("bar", (Time.now + 5).to_i, lt: true)
+        r.expireat("bar", (Time.now + 10).to_i)
+        refute r.expireat("bar", (Time.now + 15).to_i, lt: true)
+        refute r.expireat("bar", (Time.now + 5).to_i, gt: true)
+        assert r.expireat("bar", (Time.now + 15).to_i, gt: true)
+        assert r.expireat("bar", (Time.now + 5).to_i, lt: true)
       end
     end
 
@@ -133,16 +133,16 @@ module Lint
 
       target_version "7.0.0" do
         r.set("bar", "s2")
-        refute r.expire_at("bar", (Time.now + 5).to_i * 1_000, xx: true)
-        assert r.expire_at("bar", (Time.now + 5).to_i * 1_000, nx: true)
-        refute r.expire_at("bar", (Time.now + 5).to_i * 1_000, nx: true)
-        assert r.expire_at("bar", (Time.now + 5).to_i * 1_000, xx: true)
+        refute r.pexpireat("bar", (Time.now + 5).to_i * 1_000, xx: true)
+        assert r.pexpireat("bar", (Time.now + 5).to_i * 1_000, nx: true)
+        refute r.pexpireat("bar", (Time.now + 5).to_i * 1_000, nx: true)
+        assert r.pexpireat("bar", (Time.now + 5).to_i * 1_000, xx: true)
 
-        r.expire_at("bar", 10)
-        refute r.expire_at("bar", (Time.now + 15).to_i * 1_000, lt: true)
-        refute r.expire_at("bar", (Time.now + 5).to_i * 1_000, gt: true)
-        assert r.expire_at("bar", (Time.now + 15).to_i * 1_000, gt: true)
-        assert r.expire_at("bar", (Time.now + 5).to_i * 1_000, lt: true)
+        r.pexpireat("bar", (Time.now + 10).to_i * 1_000)
+        refute r.pexpireat("bar", (Time.now + 15).to_i * 1_000, lt: true)
+        refute r.pexpireat("bar", (Time.now + 5).to_i * 1_000, gt: true)
+        assert r.pexpireat("bar", (Time.now + 15).to_i * 1_000, gt: true)
+        assert r.pexpireat("bar", (Time.now + 5).to_i * 1_000, lt: true)
       end
     end
 
