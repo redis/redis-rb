@@ -567,6 +567,11 @@ class Redis
       def check(client); end
 
       class Sentinel < Connector
+        EXPECTED_ROLES = {
+          "nearest_slave" => "slave",
+          "nearest" => "any"
+        }.freeze
+
         def initialize(options)
           super(options)
 
@@ -581,16 +586,17 @@ class Redis
           # Check the instance is really of the role we are looking for.
           # We can't assume the command is supported since it was introduced
           # recently and this client should work with old stuff.
+          expected_role = EXPECTED_ROLES.fetch(@role, @role)
           begin
             role = client.call([:role])[0]
           rescue Redis::CommandError
             # Assume the test is passed if we can't get a reply from ROLE...
-            role = @role
+            role = expected_role
           end
 
-          if role != @role
+          if role != expected_role && expected_role != "any"
             client.disconnect
-            raise ConnectionError, "Instance role mismatch. Expected #{@role}, got #{role}."
+            raise ConnectionError, "Instance role mismatch. Expected #{expected_role}, got #{role}."
           end
         end
 
@@ -600,6 +606,10 @@ class Redis
             resolve_master
           when "slave"
             resolve_slave
+          when "nearest"
+            resolve_nearest
+          when "nearest_slave"
+            resolve_nearest_slave
           else
             raise ArgumentError, "Unknown instance role #{@role}"
           end
@@ -659,6 +669,53 @@ class Redis
                 }
               end
             end
+          end
+        end
+
+        def resolve_nearest
+          resolve_nearest_for %I(master slaves)
+        end
+
+        def resolve_nearest_slave
+          resolve_nearest_for %I(slaves)
+        end
+
+        def resolve_nearest_for(types)
+          sentinel_detect do |client|
+            ok_nodes = []
+            types.each do |type|
+              reply = client.call(["sentinel", type, @master])
+              next unless reply
+
+              reply = [reply] if type == :master
+              ok_nodes += reply.map { |r| Hash[*r] }.select do |r|
+                case type
+                when :master
+                  r["role-reported"] == "master"
+                when :slaves
+                  r["master-link-status"] == "ok" && !r.fetch("flags", "").match(/s_down|disconnected/)
+                end
+              end
+            end
+
+            ok_nodes.each do |node|
+              client = Client.new @options.merge(
+                host: node["ip"],
+                port: node["port"],
+                reconnect_attempts: 0
+              )
+              begin
+                client.call [:ping]
+                start = Time.now
+                client.call [:ping]
+                node["response_time"] = (Time.now - start).to_f
+              ensure
+                client.disconnect
+              end
+            end
+
+            node = ok_nodes.min_by { |n| n["response_time"] }
+            { host: node.fetch("ip"), port: node.fetch("port") } if node
           end
         end
       end
