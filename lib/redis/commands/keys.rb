@@ -69,18 +69,40 @@ class Redis
       #
       # @param [String] key
       # @param [Integer] seconds time to live
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the key has no expiry.
+      #   - `:xx => true`: Set expiry only when the key has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
-      def expire(key, seconds)
-        send_command([:expire, key, seconds], &Boolify)
+      def expire(key, seconds, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:expire, key, seconds]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+
+        send_command(args, &Boolify)
       end
 
       # Set the expiration for a key as a UNIX timestamp.
       #
       # @param [String] key
       # @param [Integer] unix_time expiry time specified as a UNIX timestamp
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the key has no expiry.
+      #   - `:xx => true`: Set expiry only when the key has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
-      def expireat(key, unix_time)
-        send_command([:expireat, key, unix_time], &Boolify)
+      def expireat(key, unix_time, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:expireat, key, unix_time]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+
+        send_command(args, &Boolify)
       end
 
       # Get the time to live (in seconds) for a key.
@@ -103,18 +125,40 @@ class Redis
       #
       # @param [String] key
       # @param [Integer] milliseconds time to live
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the key has no expiry.
+      #   - `:xx => true`: Set expiry only when the key has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
-      def pexpire(key, milliseconds)
-        send_command([:pexpire, key, milliseconds], &Boolify)
+      def pexpire(key, milliseconds, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:pexpire, key, milliseconds]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+
+        send_command(args, &Boolify)
       end
 
       # Set the expiration for a key as number of milliseconds from UNIX Epoch.
       #
       # @param [String] key
       # @param [Integer] ms_unix_time expiry time specified as number of milliseconds from UNIX Epoch.
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the key has no expiry.
+      #   - `:xx => true`: Set expiry only when the key has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
-      def pexpireat(key, ms_unix_time)
-        send_command([:pexpireat, key, ms_unix_time], &Boolify)
+      def pexpireat(key, ms_unix_time, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:pexpireat, key, ms_unix_time]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+
+        send_command(args, &Boolify)
       end
 
       # Get the time to live (in milliseconds) for a key.
