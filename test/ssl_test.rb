@@ -46,6 +46,17 @@ class SslTest < Minitest::Test
     end
   end
 
+  driver(:hiredis, :synchrony) do
+    def test_ssl_not_implemented_exception
+      assert_raises(NotImplementedError) do
+        RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
+          redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
+          redis.ping
+        end
+      end
+    end
+  end
+
   private
 
   def ssl_server_opts(prefix)
