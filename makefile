@@ -82,14 +82,21 @@ start_sentinel: ${BINARY}
 			--sentinel;\
 	done
 
+wait_for_sentinel: MAX_ATTEMPTS_FOR_WAIT ?= 60
 wait_for_sentinel:
 	@for port in ${SENTINEL_PORTS}; do\
+		i=0;\
 		while : ; do\
+			if [ $${i} -ge ${MAX_ATTEMPTS_FOR_WAIT} ]; then\
+				echo "Max attempts exceeded: $${i} times";\
+				exit 1;\
+			fi;\
 			if [ $$(${REDIS_CLIENT} -p $${port} SENTINEL SLAVES ${HA_GROUP_NAME} | wc -l) -gt 1 ]; then\
 				break;\
 			fi;\
 			echo 'Waiting for Redis sentinel to be ready...';\
 			sleep 1;\
+			i=$$(( $${i}+1 ));\
 		done;\
 	done
 
