@@ -23,6 +23,7 @@ class Redis
 
         @timeout = @write_timeout = nil
         @buffer = "".b
+        @offset = 0
       end
 
       def timeout=(timeout)
@@ -34,7 +35,8 @@ class Redis
       end
 
       def read(nbytes)
-        result = @buffer.slice!(0, nbytes)
+        result = @buffer.byteslice(@offset, nbytes)
+        @offset += result.bytesize
 
         buffer = String.new(capacity: nbytes, encoding: Encoding::ASCII_8BIT)
         result << _read_from_socket(nbytes - result.bytesize, buffer) while result.bytesize < nbytes
@@ -42,12 +44,36 @@ class Redis
         result
       end
 
+      def getbyte
+        fill_buffer if empty_buffer?
+
+        @buffer[@offset].tap do
+          @offset += 1
+        end
+      end
+
       def gets
-        while (crlf = @buffer.index(CRLF)).nil?
-          @buffer << _read_from_socket(16_384)
+        while (crlf = @buffer.index(CRLF, @offset)).nil?
+          fill_buffer
         end
 
-        @buffer.slice!(0, crlf + CRLF.bytesize)
+        end_index = crlf + CRLF.bytesize - 1
+        @buffer.byteslice(@offset..end_index).tap do
+          @offset = end_index + 1
+        end
+      end
+
+      def fill_buffer
+        if empty_buffer?
+          @offset = 0
+          @buffer = _read_from_socket(16_384, @buffer)
+        else
+          @buffer << _read_from_socket(16_384)
+        end
+      end
+
+      def empty_buffer?
+        @offset >= @buffer.bytesize
       end
 
       def _read_from_socket(nbytes, buffer = nil)
@@ -379,8 +405,8 @@ class Redis
       end
 
       def read
+        reply_type = @sock.getbyte
         line = @sock.gets
-        reply_type = line.slice!(0, 1)
         format_reply(reply_type, line)
       rescue Errno::EAGAIN
         raise TimeoutError
