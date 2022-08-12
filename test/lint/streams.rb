@@ -357,13 +357,13 @@ module Lint
     def test_xread_does_not_raise_timeout_error_when_the_block_option_is_zero_msec
       prepared = false
       actual = nil
-      wire = Wire.new do
+      thread = Thread.new do
         prepared = true
         actual = redis.xread('s1', 0, block: 0)
       end
-      Wire.pass until prepared
+      Thread.pass until prepared
       redis.dup.xadd('s1', { f: 'v1' }, id: '0-1')
-      wire.join
+      thread.join
 
       assert_equal(['v1'], actual.fetch('s1').map { |i| i.last['f'] })
     end

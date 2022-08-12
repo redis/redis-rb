@@ -36,18 +36,18 @@ class TestRemoteServerControlCommands < Minitest::Test
   def test_monitor_redis
     log = []
 
-    wire = Wire.new do
+    thread = Thread.new do
       Redis.new(OPTIONS).monitor do |line|
         log << line
         break if line =~ /set/
       end
     end
 
-    Wire.pass while log.empty? # Faster than sleep
+    Thread.pass while log.empty? # Faster than sleep
 
     r.set "foo", "s1"
 
-    wire.join
+    thread.join
 
     assert log[-1] =~ /\b15\b.* "set" "foo" "s1"/
   end

@@ -12,7 +12,7 @@ class TestPublishSubscribe < Minitest::Test
     @subscribed = false
     @unsubscribed = false
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.subscribe("foo") do |on|
         on.subscribe do |_channel, total|
           @subscribed = true
@@ -34,11 +34,11 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
-    wire.join
+    thread.join
 
     assert @subscribed
     assert_equal 1, @t1
@@ -51,7 +51,7 @@ class TestPublishSubscribe < Minitest::Test
     @subscribed = false
     @unsubscribed = false
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.psubscribe("f*") do |on|
         on.psubscribe do |_pattern, total|
           @subscribed = true
@@ -73,11 +73,11 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
-    wire.join
+    thread.join
 
     assert @subscribed
     assert_equal 1, @t1
@@ -88,18 +88,18 @@ class TestPublishSubscribe < Minitest::Test
 
   def test_pubsub_with_numpat_subcommand
     @subscribed = false
-    wire = Wire.new do
+    thread = Thread.new do
       r.psubscribe("f*") do |on|
         on.psubscribe { |_channel, _total| @subscribed = true }
         on.pmessage   { |_pattern, _channel, _message| r.punsubscribe }
       end
     end
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
     redis = Redis.new(OPTIONS)
     numpat_result = redis.pubsub(:numpat)
 
     redis.publish("foo", "s1")
-    wire.join
+    thread.join
 
     assert_equal redis.pubsub(:numpat), 0
     assert_equal numpat_result, 1
@@ -107,20 +107,20 @@ class TestPublishSubscribe < Minitest::Test
 
   def test_pubsub_with_channels_and_numsub_subcommnads
     @subscribed = false
-    wire = Wire.new do
+    thread = Thread.new do
       r.subscribe("foo") do |on|
         on.subscribe { |_channel, _total| @subscribed = true }
         on.message   { |_channel, _message| r.unsubscribe }
       end
     end
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
     redis = Redis.new(OPTIONS)
     channels_result = redis.pubsub(:channels)
     channels_result.delete('__sentinel__:hello')
     numsub_result = redis.pubsub(:numsub, 'foo', 'boo')
 
     redis.publish("foo", "s1")
-    wire.join
+    thread.join
 
     assert_equal channels_result, ['foo']
     assert_equal numsub_result, ['foo', 1, 'boo', 0]
@@ -129,7 +129,7 @@ class TestPublishSubscribe < Minitest::Test
   def test_subscribe_connection_usable_after_raise
     @subscribed = false
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.subscribe("foo") do |on|
         on.subscribe do |_channel, _total|
           @subscribed = true
@@ -143,11 +143,11 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
-    wire.join
+    thread.join
 
     assert_equal "PONG", r.ping
   end
@@ -155,7 +155,7 @@ class TestPublishSubscribe < Minitest::Test
   def test_psubscribe_connection_usable_after_raise
     @subscribed = false
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.psubscribe("f*") do |on|
         on.psubscribe do |_pattern, _total|
           @subscribed = true
@@ -169,11 +169,11 @@ class TestPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
 
     Redis.new(OPTIONS).publish("foo", "s1")
 
-    wire.join
+    thread.join
 
     assert_equal "PONG", r.ping
   end
@@ -181,7 +181,7 @@ class TestPublishSubscribe < Minitest::Test
   def test_subscribe_within_subscribe
     @channels = []
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.subscribe("foo") do |on|
         on.subscribe do |channel, _total|
           @channels << channel
@@ -192,7 +192,7 @@ class TestPublishSubscribe < Minitest::Test
       end
     end
 
-    wire.join
+    thread.join
 
     assert_equal ["foo", "bar"], @channels
   end

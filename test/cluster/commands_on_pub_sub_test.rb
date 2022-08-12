@@ -11,7 +11,7 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     sub_cnt = 0
     messages = {}
 
-    wire = Wire.new do
+    thread = Thread.new do
       redis.subscribe('channel1', 'channel2') do |on|
         on.subscribe { |_c, t| sub_cnt = t }
         on.unsubscribe { |_c, t| sub_cnt = t }
@@ -23,7 +23,7 @@ class TestClusterCommandsOnPubSub < Minitest::Test
       end
     end
 
-    Wire.pass until sub_cnt == 2
+    Thread.pass until sub_cnt == 2
 
     publisher = build_another_client
 
@@ -38,7 +38,7 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     publisher.publish('channel1', 'one')
     publisher.publish('channel2', 'two')
 
-    wire.join
+    thread.join
 
     assert_equal({ 'channel1' => 'one', 'channel2' => 'two' }, messages.sort.to_h)
 
@@ -55,7 +55,7 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     sub_cnt = 0
     messages = {}
 
-    wire = Wire.new do
+    thread = Thread.new do
       redis.psubscribe('guc*', 'her*') do |on|
         on.psubscribe { |_c, t| sub_cnt = t }
         on.punsubscribe { |_c, t| sub_cnt = t }
@@ -67,7 +67,7 @@ class TestClusterCommandsOnPubSub < Minitest::Test
       end
     end
 
-    Wire.pass until sub_cnt == 2
+    Thread.pass until sub_cnt == 2
 
     publisher = build_another_client
 
@@ -83,7 +83,7 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     publisher.publish('gucci2', 'two')
     publisher.publish('hermes3', 'three')
 
-    wire.join
+    thread.join
 
     assert_equal({ 'gucci2' => 'two', 'hermes3' => 'three' }, messages.sort.to_h)
 

@@ -16,7 +16,6 @@ require "redis/distributed"
 require "redis/connection/#{ENV['DRIVER']}"
 
 require_relative "support/redis_mock"
-require_relative "support/connection/#{ENV['DRIVER']}"
 require_relative 'support/cluster/orchestrator'
 
 PORT        = 6381

@@ -19,7 +19,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
     @subscribed = false
     @unsubscribed = false
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.subscribe("foo") do |on|
         on.subscribe do |_channel, total|
           @subscribed = true
@@ -41,11 +41,11 @@ class TestDistributedPublishSubscribe < Minitest::Test
     end
 
     # Wait until the subscription is active before publishing
-    Wire.pass until @subscribed
+    Thread.pass until @subscribed
 
     Redis::Distributed.new(NODES).publish("foo", "s1")
 
-    wire.join
+    thread.join
 
     assert @subscribed
     assert_equal 1, @t1
@@ -57,7 +57,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
   def test_subscribe_within_subscribe
     @channels = []
 
-    wire = Wire.new do
+    thread = Thread.new do
       r.subscribe("foo") do |on|
         on.subscribe do |channel, _total|
           @channels << channel
@@ -68,7 +68,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
       end
     end
 
-    wire.join
+    thread.join
 
     assert_equal ["foo", "bar"], @channels
   end
