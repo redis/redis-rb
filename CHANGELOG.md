@@ -2,6 +2,8 @@
 
 # Unreleased 5.0.0
 
+- Removed `Redis.current`. You shouldn't assume there is a single global Redis connection, use a connection pool instead,
+  and libaries using Redis should accept a Redis instance (or connection pool) as a config. E.g. `MyLibrary.redis = Redis.new(...)`.
 - Removed the `synchrony` driver.
 - Removed `Redis.exists_returns_integer`, it's now always enabled.
 

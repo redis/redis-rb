@@ -50,26 +50,6 @@ class TestInternals < Minitest::Test
     end
   end
 
-  def test_redis_current
-    assert_equal "127.0.0.1", Redis.current._client.host
-    assert_equal 6379, Redis.current._client.port
-    assert_equal 0, Redis.current._client.db
-
-    Redis.current = Redis.new(OPTIONS.merge(port: 6380, db: 1))
-
-    t = Thread.new do
-      assert_equal "127.0.0.1", Redis.current._client.host
-      assert_equal 6380, Redis.current._client.port
-      assert_equal 1, Redis.current._client.db
-    end
-
-    t.join
-
-    assert_equal "127.0.0.1", Redis.current._client.host
-    assert_equal 6380, Redis.current._client.port
-    assert_equal 1, Redis.current._client.db
-  end
-
   def test_redis_connected?
     fresh_client = _new_client
     assert !fresh_client.connected?
