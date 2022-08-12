@@ -6,25 +6,10 @@ require "redis/commands"
 
 class Redis
   BASE_PATH = __dir__
-  @exists_returns_integer = true
-
   Deprecated = Class.new(StandardError)
 
   class << self
-    attr_reader :exists_returns_integer
     attr_accessor :silence_deprecations, :raise_deprecations
-
-    def exists_returns_integer=(value)
-      unless value
-        deprecate!(
-          "`Redis#exists(key)` will return an Integer by default in redis-rb 4.3. The option to explicitly " \
-          "disable this behaviour via `Redis.exists_returns_integer` will be removed in 5.0. You should use " \
-          "`exists?` instead."
-        )
-      end
-
-      @exists_returns_integer = value
-    end
 
     def deprecate!(message)
       unless silence_deprecations
