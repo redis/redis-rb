@@ -30,7 +30,6 @@ module RedisMock
 
     def shutdown
       @thread.kill
-      @thread.join
     end
 
     def run
