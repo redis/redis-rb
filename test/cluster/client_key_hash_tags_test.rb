@@ -88,10 +88,8 @@ class TestClusterClientKeyHashTags < Minitest::Test
     assert_equal false, described_class.should_send_to_master?([:get])
     assert_equal true,  described_class.should_send_to_slave?([:get])
 
-    target_version('3.2.0') do
-      assert_equal false, described_class.should_send_to_master?([:info])
-      assert_equal false, described_class.should_send_to_slave?([:info])
-    end
+    assert_equal false, described_class.should_send_to_master?([:info])
+    assert_equal false, described_class.should_send_to_slave?([:info])
   end
 
   def test_cannot_build_details_from_bad_urls

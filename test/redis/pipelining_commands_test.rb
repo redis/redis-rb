@@ -199,16 +199,14 @@ class TestPipeliningCommands < Minitest::Test
   end
 
   def test_zpopmax_in_a_pipeline_produces_future
-    target_version('5.0.0') do
-      r.zadd("sortedset", 1.0, "value")
-      future = nil
-      result = r.pipelined do |pipeline|
-        future = pipeline.zpopmax("sortedset")
-      end
-
-      assert_equal [["value", 1.0]], result
-      assert_equal ["value", 1.0], future.value
+    r.zadd("sortedset", 1.0, "value")
+    future = nil
+    result = r.pipelined do |pipeline|
+      future = pipeline.zpopmax("sortedset")
     end
+
+    assert_equal [["value", 1.0]], result
+    assert_equal ["value", 1.0], future.value
   end
 
   def test_keys_in_a_pipeline

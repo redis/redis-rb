@@ -28,10 +28,8 @@ class TestClusterCommandsOnScripting < Minitest::Test
   end
 
   def test_script_debug
-    target_version('3.2.0') do
-      assert_equal 'OK', redis.script(:debug, 'yes')
-      assert_equal 'OK', redis.script(:debug, 'no')
-    end
+    assert_equal 'OK', redis.script(:debug, 'yes')
+    assert_equal 'OK', redis.script(:debug, 'no')
   end
 
   def test_script_exists

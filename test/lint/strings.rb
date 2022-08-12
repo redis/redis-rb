@@ -38,17 +38,13 @@ module Lint
     end
 
     def test_set_with_ex
-      target_version "2.6.12" do
-        r.set("foo", "bar", ex: 2)
-        assert_in_range 0..2, r.ttl("foo")
-      end
+      r.set("foo", "bar", ex: 2)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_set_with_px
-      target_version "2.6.12" do
-        r.set("foo", "bar", px: 2000)
-        assert_in_range 0..2, r.ttl("foo")
-      end
+      r.set("foo", "bar", px: 2000)
+      assert_in_range 0..2, r.ttl("foo")
     end
 
     def test_set_with_exat
@@ -66,26 +62,22 @@ module Lint
     end
 
     def test_set_with_nx
-      target_version "2.6.12" do
-        r.set("foo", "qux", nx: true)
-        assert !r.set("foo", "bar", nx: true)
-        assert_equal "qux", r.get("foo")
+      r.set("foo", "qux", nx: true)
+      assert !r.set("foo", "bar", nx: true)
+      assert_equal "qux", r.get("foo")
 
-        r.del("foo")
-        assert r.set("foo", "bar", nx: true)
-        assert_equal "bar", r.get("foo")
-      end
+      r.del("foo")
+      assert r.set("foo", "bar", nx: true)
+      assert_equal "bar", r.get("foo")
     end
 
     def test_set_with_xx
-      target_version "2.6.12" do
-        r.set("foo", "qux")
-        assert r.set("foo", "bar", xx: true)
-        assert_equal "bar", r.get("foo")
+      r.set("foo", "qux")
+      assert r.set("foo", "bar", xx: true)
+      assert_equal "bar", r.get("foo")
 
-        r.del("foo")
-        assert !r.set("foo", "bar", xx: true)
-      end
+      r.del("foo")
+      assert !r.set("foo", "bar", xx: true)
     end
 
     def test_set_with_keepttl
@@ -124,21 +116,17 @@ module Lint
     end
 
     def test_psetex
-      target_version "2.5.4" do
-        assert r.psetex("foo", 1000, "bar")
-        assert_equal "bar", r.get("foo")
-        assert [0, 1].include? r.ttl("foo")
-      end
+      assert r.psetex("foo", 1000, "bar")
+      assert_equal "bar", r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
     end
 
     def test_psetex_with_non_string_value
-      target_version "2.5.4" do
-        value = ["b", "a", "r"]
+      value = ["b", "a", "r"]
 
-        assert r.psetex("foo", 1000, value)
-        assert_equal value.to_s, r.get("foo")
-        assert [0, 1].include? r.ttl("foo")
-      end
+      assert r.psetex("foo", 1000, value)
+      assert_equal value.to_s, r.get("foo")
+      assert [0, 1].include? r.ttl("foo")
     end
 
     def test_getex
@@ -208,11 +196,9 @@ module Lint
     end
 
     def test_incrbyfloat
-      target_version "2.5.4" do
-        assert_equal 1.23, r.incrbyfloat("foo", 1.23)
-        assert_equal 2, r.incrbyfloat("foo", 0.77)
-        assert_equal 1.9, r.incrbyfloat("foo", -0.1)
-      end
+      assert_equal 1.23, r.incrbyfloat("foo", 1.23)
+      assert_equal 2, r.incrbyfloat("foo", 0.77)
+      assert_equal 1.9, r.incrbyfloat("foo", -0.1)
     end
 
     def test_decr
@@ -259,12 +245,10 @@ module Lint
     end
 
     def test_bitcount
-      target_version "2.5.10" do
-        r.set("foo", "abcde")
+      r.set("foo", "abcde")
 
-        assert_equal 10, r.bitcount("foo", 1, 3)
-        assert_equal 17, r.bitcount("foo", 0, -1)
-      end
+      assert_equal 10, r.bitcount("foo", 1, 3)
+      assert_equal 17, r.bitcount("foo", 0, -1)
     end
 
     def test_getrange
@@ -299,10 +283,8 @@ module Lint
     end
 
     def test_bitfield
-      target_version('3.2.0') do
-        mock(bitfield: ->(*_) { "*2\r\n:1\r\n:0\r\n" }) do |redis|
-          assert_equal [1, 0], redis.bitfield('foo', 'INCRBY', 'i5', 100, 1, 'GET', 'u4', 0)
-        end
+      mock(bitfield: ->(*_) { "*2\r\n:1\r\n:0\r\n" }) do |redis|
+        assert_equal [1, 0], redis.bitfield('foo', 'INCRBY', 'i5', 100, 1, 'GET', 'u4', 0)
       end
     end
 
@@ -381,19 +363,17 @@ module Lint
 
     def test_bitop
       with_external_encoding('UTF-8') do
-        target_version '2.5.10' do
-          r.set('foo{1}', 'a')
-          r.set('bar{1}', 'b')
+        r.set('foo{1}', 'a')
+        r.set('bar{1}', 'b')
 
-          r.bitop(:and, 'foo&bar{1}', 'foo{1}', 'bar{1}')
-          assert_equal "\x60", r.get('foo&bar{1}')
-          r.bitop(:or, 'foo|bar{1}', 'foo{1}', 'bar{1}')
-          assert_equal "\x63", r.get('foo|bar{1}')
-          r.bitop(:xor, 'foo^bar{1}', 'foo{1}', 'bar{1}')
-          assert_equal "\x03", r.get('foo^bar{1}')
-          r.bitop(:not, '~foo{1}', 'foo{1}')
-          assert_equal "\x9E", r.get('~foo{1}')
-        end
+        r.bitop(:and, 'foo&bar{1}', 'foo{1}', 'bar{1}')
+        assert_equal "\x60", r.get('foo&bar{1}')
+        r.bitop(:or, 'foo|bar{1}', 'foo{1}', 'bar{1}')
+        assert_equal "\x63", r.get('foo|bar{1}')
+        r.bitop(:xor, 'foo^bar{1}', 'foo{1}', 'bar{1}')
+        assert_equal "\x03", r.get('foo^bar{1}')
+        r.bitop(:not, '~foo{1}', 'foo{1}')
+        assert_equal "\x9E", r.get('~foo{1}')
       end
     end
   end

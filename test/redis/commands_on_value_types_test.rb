@@ -43,39 +43,35 @@ class TestCommandsOnValueTypes < Minitest::Test
   end
 
   def test_unlink
-    target_version "4.0.0" do
-      r.set "foo", "s1"
-      r.set "bar", "s2"
-      r.set "baz", "s3"
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+    r.set "baz", "s3"
 
-      assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+    assert_equal ["bar", "baz", "foo"], r.keys("*").sort
 
-      assert_equal 1, r.unlink("foo")
+    assert_equal 1, r.unlink("foo")
 
-      assert_equal ["bar", "baz"], r.keys("*").sort
+    assert_equal ["bar", "baz"], r.keys("*").sort
 
-      assert_equal 2, r.unlink("bar", "baz")
+    assert_equal 2, r.unlink("bar", "baz")
 
-      assert_equal [], r.keys("*").sort
-    end
+    assert_equal [], r.keys("*").sort
   end
 
   def test_unlink_with_array_argument
-    target_version "4.0.0" do
-      r.set "foo", "s1"
-      r.set "bar", "s2"
-      r.set "baz", "s3"
+    r.set "foo", "s1"
+    r.set "bar", "s2"
+    r.set "baz", "s3"
 
-      assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+    assert_equal ["bar", "baz", "foo"], r.keys("*").sort
 
-      assert_equal 1, r.unlink(["foo"])
+    assert_equal 1, r.unlink(["foo"])
 
-      assert_equal ["bar", "baz"], r.keys("*").sort
+    assert_equal ["bar", "baz"], r.keys("*").sort
 
-      assert_equal 2, r.unlink(["bar", "baz"])
+    assert_equal 2, r.unlink(["bar", "baz"])
 
-      assert_equal [], r.keys("*").sort
-    end
+    assert_equal [], r.keys("*").sort
   end
 
   def test_randomkey
@@ -140,19 +136,17 @@ class TestCommandsOnValueTypes < Minitest::Test
     assert_equal 0, r.dbsize
 
     # Test async
-    target_version "3.9.101" do
-      r.set("foo", "s1")
-      r.set("bar", "s2")
+    r.set("foo", "s1")
+    r.set("bar", "s2")
 
-      assert_equal 2, r.dbsize
+    assert_equal 2, r.dbsize
 
-      r.flushdb(async: true)
+    r.flushdb(async: true)
 
-      assert_equal 0, r.dbsize
+    assert_equal 0, r.dbsize
 
-      redis_mock(flushdb: ->(args) { "+FLUSHDB #{args.upcase}" }) do |redis|
-        assert_equal "FLUSHDB ASYNC", redis.flushdb(async: true)
-      end
+    redis_mock(flushdb: ->(args) { "+FLUSHDB #{args.upcase}" }) do |redis|
+      assert_equal "FLUSHDB ASYNC", redis.flushdb(async: true)
     end
   end
 
@@ -168,10 +162,8 @@ class TestCommandsOnValueTypes < Minitest::Test
     end
 
     # Test async
-    target_version "3.9.101" do
-      redis_mock(flushall: ->(args) { "+FLUSHALL #{args.upcase}" }) do |redis|
-        assert_equal "FLUSHALL ASYNC", redis.flushall(async: true)
-      end
+    redis_mock(flushall: ->(args) { "+FLUSHALL #{args.upcase}" }) do |redis|
+      assert_equal "FLUSHALL ASYNC", redis.flushall(async: true)
     end
   end
 
