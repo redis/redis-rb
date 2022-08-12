@@ -434,30 +434,6 @@ When instantiating the client object, specify hiredis:
 redis = Redis.new(:driver => :hiredis)
 ```
 
-### synchrony
-
-The synchrony driver adds support for [em-synchrony][em-synchrony].
-This makes redis-rb work with EventMachine's asynchronous I/O, while not
-changing the exposed API. The hiredis gem needs to be available as
-well, because the synchrony driver uses hiredis for parsing the Redis
-protocol.
-
-[em-synchrony]: https://github.com/igrigorik/em-synchrony
-
-In your Gemfile, include em-synchrony and hiredis:
-
-```ruby
-gem "redis", "~> 3.0.1"
-gem "hiredis", "~> 0.4.5"
-gem "em-synchrony"
-```
-
-When instantiating the client object, specify synchrony:
-
-```ruby
-redis = Redis.new(:driver => :synchrony)
-```
-
 ## Testing
 
 This library is tested against recent Ruby and Redis versions.

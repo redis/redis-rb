@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        driver: ["hiredis", "synchrony"]
+        driver: ["hiredis"]
     runs-on: ubuntu-latest
     env:
       VERBOSE: "true"

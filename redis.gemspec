@@ -45,7 +45,6 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 2.4.0'
 
-  s.add_development_dependency("em-synchrony")
   s.add_development_dependency("hiredis")
   s.add_development_dependency("mocha")
 end

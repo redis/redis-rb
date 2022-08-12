@@ -63,7 +63,7 @@ class Redis
   # @option options [String] :username Username to authenticate against server
   # @option options [String] :password Password to authenticate against server
   # @option options [Integer] :db (0) Database to select after initial connect
-  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`
   # @option options [String] :id ID for the client connection, assigns name to current connection by sending
   #   `CLIENT SETNAME`
   # @option options [Hash, Integer] :tcp_keepalive Keepalive values, if Integer `intvl` and `probe` are calculated
