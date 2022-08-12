@@ -102,13 +102,11 @@ class Redis
         results = {}
 
         @clients.each do |node_key, client|
-          begin
-            reply = yield(node_key, client)
-            results[node_key] = reply unless reply.nil?
-          rescue CommandError => err
-            errors[node_key] = err
-            next
-          end
+          reply = yield(node_key, client)
+          results[node_key] = reply unless reply.nil?
+        rescue CommandError => err
+          errors[node_key] = err
+          next
         end
 
         return results if errors.empty?

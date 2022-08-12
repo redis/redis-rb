@@ -19,40 +19,34 @@ class TestErrorReplies < Minitest::Test
 
   def test_error_reply_for_single_command
     with_reconnection_check do
-      begin
-        r.unknown_command
-      rescue => ex
-      ensure
-        assert ex.message =~ /unknown command/i
-      end
+      r.unknown_command
+    rescue => ex
+    ensure
+      assert ex.message =~ /unknown command/i
     end
   end
 
   def test_raise_first_error_reply_in_pipeline
     with_reconnection_check do
-      begin
-        r.pipelined do
-          r.set("foo", "s1")
-          r.incr("foo") # not an integer
-          r.lpush("foo", "value") # wrong kind of value
-        end
-      rescue => ex
-      ensure
-        assert ex.message =~ /not an integer/i
+      r.pipelined do
+        r.set("foo", "s1")
+        r.incr("foo") # not an integer
+        r.lpush("foo", "value") # wrong kind of value
       end
+    rescue => ex
+    ensure
+      assert ex.message =~ /not an integer/i
     end
   end
 
   def test_recover_from_raise_in__call_loop
     with_reconnection_check do
-      begin
-        r._client.call_loop([:invalid_monitor]) do
-          assert false # Should never be executed
-        end
-      rescue => ex
-      ensure
-        assert ex.message =~ /unknown command/i
+      r._client.call_loop([:invalid_monitor]) do
+        assert false # Should never be executed
       end
+    rescue => ex
+    ensure
+      assert ex.message =~ /unknown command/i
     end
   end
 end

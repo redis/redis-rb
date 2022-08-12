@@ -134,18 +134,16 @@ class TestPublishSubscribe < Minitest::Test
     @subscribed = false
 
     wire = Wire.new do
-      begin
-        r.subscribe("foo") do |on|
-          on.subscribe do |_channel, _total|
-            @subscribed = true
-          end
-
-          on.message do |_channel, _message|
-            raise TestError
-          end
+      r.subscribe("foo") do |on|
+        on.subscribe do |_channel, _total|
+          @subscribed = true
         end
-      rescue TestError
+
+        on.message do |_channel, _message|
+          raise TestError
+        end
       end
+    rescue TestError
     end
 
     # Wait until the subscription is active before publishing
@@ -162,18 +160,16 @@ class TestPublishSubscribe < Minitest::Test
     @subscribed = false
 
     wire = Wire.new do
-      begin
-        r.psubscribe("f*") do |on|
-          on.psubscribe do |_pattern, _total|
-            @subscribed = true
-          end
-
-          on.pmessage do |_pattern, _channel, _message|
-            raise TestError
-          end
+      r.psubscribe("f*") do |on|
+        on.psubscribe do |_pattern, _total|
+          @subscribed = true
         end
-      rescue TestError
+
+        on.pmessage do |_pattern, _channel, _message|
+          raise TestError
+        end
       end
+    rescue TestError
     end
 
     # Wait until the subscription is active before publishing

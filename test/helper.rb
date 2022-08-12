@@ -344,8 +344,7 @@ module Helper
 
       cluster_subcommands = if commands.key?(:cluster)
         commands.delete(:cluster)
-                .map { |k, v| [k.to_s.downcase, v] }
-                .to_h
+                .to_h { |k, v| [k.to_s.downcase, v] }
       else
         {}
       end

@@ -79,7 +79,7 @@ class Redis
       end
 
       def parse_node_option(addr)
-        addr = addr.map { |k, v| [k.to_sym, v] }.to_h
+        addr = addr.to_h { |k, v| [k.to_sym, v] }
         if addr.values_at(:host, :port).any?(&:nil?)
           raise InvalidClientOptionError, 'Redis option of `cluster` must includes `:host` and `:port` keys'
         end

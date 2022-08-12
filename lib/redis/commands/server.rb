@@ -134,12 +134,10 @@ class Redis
       def shutdown
         synchronize do |client|
           client.with_reconnect(false) do
-            begin
-              client.call([:shutdown])
-            rescue ConnectionError
-              # This means Redis has probably exited.
-              nil
-            end
+            client.call([:shutdown])
+          rescue ConnectionError
+            # This means Redis has probably exited.
+            nil
           end
         end
       end

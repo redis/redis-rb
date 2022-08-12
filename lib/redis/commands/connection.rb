@@ -45,12 +45,10 @@ class Redis
       # @return [String] `OK`
       def quit
         synchronize do |client|
-          begin
-            client.call([:quit])
-          rescue ConnectionError
-          ensure
-            client.disconnect
-          end
+          client.call([:quit])
+        rescue ConnectionError
+        ensure
+          client.disconnect
         end
       end
     end

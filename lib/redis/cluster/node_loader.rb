@@ -10,11 +10,9 @@ class Redis
 
       def load_flags(nodes)
         errors = nodes.map do |node|
-          begin
-            return fetch_node_info(node)
-          rescue CannotConnectError, ConnectionError, CommandError => error
-            error
-          end
+          return fetch_node_info(node)
+        rescue CannotConnectError, ConnectionError, CommandError => error
+          error
         end
 
         raise InitialSetupError, errors

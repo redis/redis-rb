@@ -11,17 +11,15 @@ class TestForkSafety < Minitest::Test
       redis.set "foo", 1
 
       child_pid = fork do
-        begin
-          # InheritedError triggers a reconnect,
-          # so we need to disable reconnects to force
-          # the exception bubble up
-          redis.without_reconnect do
-            redis.set "foo", 2
-          end
-          exit! 0
-        rescue Redis::InheritedError
-          exit! 127
+        # InheritedError triggers a reconnect,
+        # so we need to disable reconnects to force
+        # the exception bubble up
+        redis.without_reconnect do
+          redis.set "foo", 2
         end
+        exit! 0
+      rescue Redis::InheritedError
+        exit! 127
       end
 
       _, status = Process.wait2(child_pid)
@@ -37,17 +35,15 @@ class TestForkSafety < Minitest::Test
       redis.set "foo", 1
 
       child_pid = fork do
-        begin
-          # InheritedError triggers a reconnect,
-          # so we need to disable reconnects to force
-          # the exception bubble up
-          redis.without_reconnect do
-            redis.set "foo", 2
-          end
-          exit! 0
-        rescue Redis::InheritedError
-          exit! 127
+        # InheritedError triggers a reconnect,
+        # so we need to disable reconnects to force
+        # the exception bubble up
+        redis.without_reconnect do
+          redis.set "foo", 2
         end
+        exit! 0
+      rescue Redis::InheritedError
+        exit! 127
       end
 
       _, status = Process.wait2(child_pid)

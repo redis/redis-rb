@@ -82,15 +82,13 @@ class ClusterOrchestrator
       break if keys.empty?
 
       keys.each do |k|
-        begin
-          src_client.migrate(k, host: dest_host, port: dest_port)
-        rescue Redis::CommandError => err
-          raise unless err.message.start_with?('IOERR')
+        src_client.migrate(k, host: dest_host, port: dest_port)
+      rescue Redis::CommandError => err
+        raise unless err.message.start_with?('IOERR')
 
-          src_client.migrate(k, host: dest_host, port: dest_port, replace: true) # retry once
-        ensure
-          keys_count -= 1
-        end
+        src_client.migrate(k, host: dest_host, port: dest_port, replace: true) # retry once
+      ensure
+        keys_count -= 1
       end
     end
   end
@@ -108,12 +106,10 @@ class ClusterOrchestrator
 
   def flush_all_data(clients)
     clients.each do |c|
-      begin
-        c.flushall
-      rescue Redis::CommandError
-        # READONLY You can't write against a read only slave.
-        nil
-      end
+      c.flushall
+    rescue Redis::CommandError
+      # READONLY You can't write against a read only slave.
+      nil
     end
   end
 
@@ -138,12 +134,10 @@ class ClusterOrchestrator
 
   def save_config_epoch(clients)
     clients.each_with_index do |c, i|
-      begin
-        c.cluster('set-config-epoch', i + 1)
-      rescue Redis::CommandError
-        # ERR Node config epoch is already non-zero
-        nil
-      end
+      c.cluster('set-config-epoch', i + 1)
+    rescue Redis::CommandError
+      # ERR Node config epoch is already non-zero
+      nil
     end
   end
 
@@ -230,18 +224,16 @@ class ClusterOrchestrator
   def wait_cluster_recovering(clients, max_attempts: 600)
     key = 0
     wait_for_state(clients, max_attempts) do |client|
-      begin
-        client.get(key) if client.role.first == 'master'
+      client.get(key) if client.role.first == 'master'
+      true
+    rescue Redis::CommandError => err
+      if err.message.start_with?('CLUSTERDOWN')
+        false
+      elsif err.message.start_with?('MOVED')
+        key += 1
+        false
+      else
         true
-      rescue Redis::CommandError => err
-        if err.message.start_with?('CLUSTERDOWN')
-          false
-        elsif err.message.start_with?('MOVED')
-          key += 1
-          false
-        else
-          true
-        end
       end
     end
   end

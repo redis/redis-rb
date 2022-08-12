@@ -196,18 +196,16 @@ class Redis
       return [] if pipeline.futures.empty?
 
       with_reconnect pipeline.with_reconnect? do
-        begin
-          pipeline.finish(call_pipelined(pipeline)).tap do
-            self.db = pipeline.db if pipeline.db
-          end
-        rescue ConnectionError => e
-          return nil if pipeline.shutdown?
-
-          # Assume the pipeline was sent in one piece, but execution of
-          # SHUTDOWN caused none of the replies for commands that were executed
-          # prior to it from coming back around.
-          raise e
+        pipeline.finish(call_pipelined(pipeline)).tap do
+          self.db = pipeline.db if pipeline.db
         end
+      rescue ConnectionError => e
+        return nil if pipeline.shutdown?
+
+        # Assume the pipeline was sent in one piece, but execution of
+        # SHUTDOWN caused none of the replies for commands that were executed
+        # prior to it from coming back around.
+        raise e
       end
     end
 

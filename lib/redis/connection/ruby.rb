@@ -192,12 +192,10 @@ class Redis
           #   within getaddrinfo() is defined in RFC 3484 [...].
           #
           addrinfo.each_with_index do |ai, i|
-            begin
-              return connect_addrinfo(ai, port, timeout)
-            rescue SystemCallError
-              # Raise if this was our last attempt.
-              raise if addrinfo.length == i + 1
-            end
+            return connect_addrinfo(ai, port, timeout)
+          rescue SystemCallError
+            # Raise if this was our last attempt.
+            raise if addrinfo.length == i + 1
           end
         end
       end

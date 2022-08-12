@@ -11,11 +11,9 @@ class Redis
 
       def load(nodes)
         errors = nodes.map do |node|
-          begin
-            return fetch_command_details(node)
-          rescue CannotConnectError, ConnectionError, CommandError => error
-            error
-          end
+          return fetch_command_details(node)
+        rescue CannotConnectError, ConnectionError, CommandError => error
+          error
         end
 
         raise InitialSetupError, errors
