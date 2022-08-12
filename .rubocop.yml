@@ -117,6 +117,9 @@ Layout/RescueEnsureAlignment:
 Naming/HeredocDelimiterNaming:
   Enabled: false
 
+Naming/VariableNumber:
+  Enabled: false
+
 Naming/FileName:
   Enabled: false
 

@@ -8,7 +8,7 @@ BINARY             := ${BUILD_DIR}/src/redis-server
 REDIS_CLIENT       := ${BUILD_DIR}/src/redis-cli
 REDIS_TRIB         := ${BUILD_DIR}/src/redis-trib.rb
 PID_PATH           := ${BUILD_DIR}/redis.pid
-SOCKET_PATH        := ${BUILD_DIR}/redis.sock
+SOCKET_PATH        := ${TMP}/redis.sock
 PORT               := 6381
 SLAVE_PORT         := 6382
 SLAVE_PID_PATH     := ${BUILD_DIR}/redis_slave.pid
@@ -38,7 +38,7 @@ ${BINARY}: ${TMP}
 	@bin/build ${REDIS_BRANCH} $<
 
 test:
-	@env SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
+	@env REDIS_SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
 
 stop:
 	@$(call kill-redis,${PID_PATH});\
