@@ -47,18 +47,18 @@ class TestBlockingCommands < Minitest::Test
   end
 
   def test_brpoplpush_in_transaction
-    results = r.multi do
-      r.brpoplpush('foo', 'bar')
-      r.brpoplpush('foo', 'bar', timeout: 2)
+    results = r.multi do |transaction|
+      transaction.brpoplpush('foo', 'bar')
+      transaction.brpoplpush('foo', 'bar', timeout: 2)
     end
     assert_equal [nil, nil], results
   end
 
   def test_brpoplpush_in_pipeline
     mock do |r|
-      results = r.pipelined do
-        r.brpoplpush('foo', 'bar')
-        r.brpoplpush('foo', 'bar', timeout: 2)
+      results = r.pipelined do |transaction|
+        transaction.brpoplpush('foo', 'bar')
+        transaction.brpoplpush('foo', 'bar', timeout: 2)
       end
       assert_equal ['0', '2'], results
     end

@@ -57,46 +57,6 @@ class TestTransactions < Minitest::Test
     assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
   end
 
-  def test_multi_in_pipeline_deprecated
-    foo_future = bar_future = nil
-    response = r.pipelined do
-      r.multi do |multi|
-        multi.set("foo", "s1")
-        foo_future = multi.get("foo")
-      end
-
-      r.multi do |multi|
-        multi.set("bar", "s2")
-        bar_future = multi.get("bar")
-      end
-    end
-
-    assert_equal "s1", foo_future.value
-    assert_equal "s2", bar_future.value
-
-    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
-  end
-
-  def test_multi_in_pipeline_double_deprecated
-    foo_future = bar_future = nil
-    response = r.pipelined do
-      r.multi do
-        r.set("foo", "s1")
-        foo_future = r.get("foo")
-      end
-
-      r.multi do
-        r.set("bar", "s2")
-        bar_future = r.get("bar")
-      end
-    end
-
-    assert_equal "s1", foo_future.value
-    assert_equal "s2", bar_future.value
-
-    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
-  end
-
   def test_assignment_inside_multi_exec_block
     r.multi do |m|
       @first = m.sadd("foo", 1)
@@ -149,16 +109,16 @@ class TestTransactions < Minitest::Test
   end
 
   def test_transformed_replies_as_return_values_for_multi_exec_block
-    info, = r.multi do |_m|
-      r.info
+    info, = r.multi do |transaction|
+      transaction.info
     end
 
-    assert info.is_a?(Hash)
+    assert_instance_of Hash, info
   end
 
   def test_transformed_replies_inside_multi_exec_block
-    r.multi do |_m|
-      @info = r.info
+    r.multi do |transaction|
+      @info = transaction.info
     end
 
     assert @info.value.is_a?(Hash)

@@ -135,23 +135,12 @@ class Redis
     @client
   end
 
-  def pipelined(&block)
-    deprecation_displayed = false
-    if block&.arity == 0
-      Pipeline.deprecation_warning("pipelined", Kernel.caller_locations(1, 5))
-      deprecation_displayed = true
-    end
-
-    synchronize do |prior_client|
-      begin
-        pipeline = Pipeline.new(prior_client)
-        @client = deprecation_displayed ? pipeline : DeprecatedPipeline.new(pipeline)
-        pipelined_connection = PipelinedConnection.new(pipeline)
-        yield pipelined_connection
-        prior_client.call_pipeline(pipeline)
-      ensure
-        @client = prior_client
-      end
+  def pipelined
+    pipeline = Pipeline.new(@client)
+    pipelined_connection = PipelinedConnection.new(pipeline)
+    yield pipelined_connection
+    synchronize do |client|
+      client.call_pipeline(pipeline)
     end
   end
 
@@ -185,24 +174,13 @@ class Redis
   #
   # @see #watch
   # @see #unwatch
-  def multi(&block)
+  def multi
     if block_given?
-      deprecation_displayed = false
-      if block&.arity == 0
-        Pipeline.deprecation_warning("multi", Kernel.caller_locations(1, 5))
-        deprecation_displayed = true
-      end
-
-      synchronize do |prior_client|
-        begin
-          pipeline = Pipeline::Multi.new(prior_client)
-          @client = deprecation_displayed ? pipeline : DeprecatedMulti.new(pipeline)
-          pipelined_connection = PipelinedConnection.new(pipeline)
-          yield pipelined_connection
-          prior_client.call_pipeline(pipeline)
-        ensure
-          @client = prior_client
-        end
+      pipeline = Pipeline::Multi.new(@client)
+      pipelined_connection = PipelinedConnection.new(pipeline)
+      yield pipelined_connection
+      synchronize do |client|
+        client.call_pipeline(pipeline)
       end
     else
       send_command([:multi])

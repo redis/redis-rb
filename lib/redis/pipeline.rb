@@ -48,28 +48,6 @@ class Redis
     # Both are in the stdlib so we can simply filter the entire stdlib out.
     STDLIB_PATH = File.expand_path("..", MonitorMixin.instance_method(:synchronize).source_location.first).freeze
 
-    class << self
-      def deprecation_warning(method, caller_locations) # :nodoc:
-        callsite = caller_locations.find { |l| !l.path.start_with?(REDIS_INTERNAL_PATH, STDLIB_PATH) }
-        callsite ||= caller_locations.last # The caller_locations should be large enough, but just in case.
-        ::Redis.deprecate! <<~MESSAGE
-          Pipelining commands on a Redis instance is deprecated and will be removed in Redis 5.0.0.
-
-          redis.#{method} do
-            redis.get("key")
-          end
-
-          should be replaced by
-
-          redis.#{method} do |pipeline|
-            pipeline.get("key")
-          end
-
-          (called from #{callsite}}
-        MESSAGE
-      end
-    end
-
     attr_accessor :db
     attr_reader :client
 
@@ -206,33 +184,9 @@ class Redis
   end
 
   class DeprecatedPipeline < DelegateClass(Pipeline)
-    def initialize(pipeline)
-      super(pipeline)
-      @deprecation_displayed = false
-    end
-
-    def __getobj__
-      unless @deprecation_displayed
-        Pipeline.deprecation_warning("pipelined", Kernel.caller_locations(1, 10))
-        @deprecation_displayed = true
-      end
-      @delegate_dc_obj
-    end
   end
 
   class DeprecatedMulti < DelegateClass(Pipeline::Multi)
-    def initialize(pipeline)
-      super(pipeline)
-      @deprecation_displayed = false
-    end
-
-    def __getobj__
-      unless @deprecation_displayed
-        Pipeline.deprecation_warning("multi", Kernel.caller_locations(1, 10))
-        @deprecation_displayed = true
-      end
-      @delegate_dc_obj
-    end
   end
 
   class FutureNotReady < RuntimeError

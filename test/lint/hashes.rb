@@ -186,8 +186,8 @@ module Lint
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
 
-      result = r.pipelined do
-        r.mapped_hmget("foo", "f1", "f2")
+      result = r.pipelined do |pipeline|
+        pipeline.mapped_hmget("foo", "f1", "f2")
       end
 
       assert_equal result[0], { "f1" => "s1", "f2" => "s2" }

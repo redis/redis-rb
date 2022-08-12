@@ -102,7 +102,7 @@ class TestPipeliningCommands < Minitest::Test
     r.pipelined do |p|
       @first = p.sadd("foo", 1)
 
-      r.pipelined do |p2|
+      p.pipelined do |p2|
         @second = p2.sadd("foo", 1)
       end
     end
@@ -202,8 +202,8 @@ class TestPipeliningCommands < Minitest::Test
     target_version('5.0.0') do
       r.zadd("sortedset", 1.0, "value")
       future = nil
-      result = r.pipelined do
-        future = r.zpopmax("sortedset")
+      result = r.pipelined do |pipeline|
+        future = pipeline.zpopmax("sortedset")
       end
 
       assert_equal [["value", 1.0]], result

@@ -200,13 +200,13 @@ class TestInternals < Minitest::Test
   def test_don_t_retry_when_second_read_in_pipeline_raises_econnreset
     close_on_ping([1]) do |redis|
       assert_raises Redis::ConnectionError do
-        redis.pipelined do
-          redis.ping
-          redis.ping # Second #read times out
+        redis.pipelined do |pipeline|
+          pipeline.ping
+          pipeline.ping # Second #read times out
         end
       end
 
-      assert !redis._client.connected?
+      refute_predicate redis._client, :connected?
     end
   end
 

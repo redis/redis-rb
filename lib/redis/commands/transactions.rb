@@ -33,17 +33,13 @@ class Redis
       #
       # @see #watch
       # @see #unwatch
-      def multi(&block) # :nodoc:
+      def multi # :nodoc:
         if block_given?
-          if block&.arity == 0
-            Pipeline.deprecation_warning("multi", Kernel.caller_locations(1, 5))
-          end
-
-          synchronize do |prior_client|
-            pipeline = Pipeline::Multi.new(prior_client)
+          synchronize do |client|
+            pipeline = Pipeline::Multi.new(client)
             pipelined_connection = PipelinedConnection.new(pipeline)
             yield pipelined_connection
-            prior_client.call_pipeline(pipeline)
+            client.call_pipeline(pipeline)
           end
         else
           send_command([:multi])

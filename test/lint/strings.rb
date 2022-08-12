@@ -334,8 +334,8 @@ module Lint
       r.set('{1}foo', 's1')
       r.set('{1}bar', 's2')
 
-      result = r.pipelined do
-        r.mapped_mget('{1}foo', '{1}bar')
+      result = r.pipelined do |pipeline|
+        pipeline.mapped_mget('{1}foo', '{1}bar')
       end
 
       assert_equal({ '{1}foo' => 's1', '{1}bar' => 's2' }, result[0])
