@@ -90,47 +90,6 @@ class Redis
     yield self
   end
 
-  # @deprecated Queues a command for pipelining.
-  #
-  # Commands in the queue are executed with the Redis#commit method.
-  #
-  # See http://redis.io/topics/pipelining for more details.
-  #
-  def queue(*command)
-    ::Redis.deprecate!(
-      "Redis#queue is deprecated and will be removed in Redis 5.0.0. Use Redis#pipelined instead." \
-      "(called from: #{caller(1, 1).first})"
-    )
-
-    synchronize do
-      @queue[Thread.current.object_id] << command
-    end
-  end
-
-  # @deprecated Sends all commands in the queue.
-  #
-  # See http://redis.io/topics/pipelining for more details.
-  #
-  def commit
-    ::Redis.deprecate!(
-      "Redis#commit is deprecated and will be removed in Redis 5.0.0. Use Redis#pipelined instead. " \
-      "(called from: #{Kernel.caller(1, 1).first})"
-    )
-
-    synchronize do |client|
-      begin
-        pipeline = Pipeline.new(client)
-        @queue[Thread.current.object_id].each do |command|
-          pipeline.call(command)
-        end
-
-        client.call_pipelined(pipeline)
-      ensure
-        @queue.delete(Thread.current.object_id)
-      end
-    end
-  end
-
   def _client
     @client
   end

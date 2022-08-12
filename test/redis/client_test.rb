@@ -26,38 +26,6 @@ class TestClient < Minitest::Test
     end
   end
 
-  def test_queue_commit
-    r.queue("SET", "foo", "bar")
-    r.queue("GET", "foo")
-    result = r.commit
-
-    assert_equal result, ["OK", "bar"]
-  end
-
-  def test_commit_raise
-    r.queue("SET", "foo", "bar")
-    r.queue("INCR")
-
-    assert_raises(Redis::CommandError) do
-      r.commit
-    end
-  end
-
-  def test_queue_after_error
-    r.queue("SET", "foo", "bar")
-    r.queue("INCR")
-
-    assert_raises(Redis::CommandError) do
-      r.commit
-    end
-
-    r.queue("SET",  "foo", "bar")
-    r.queue("INCR", "baz")
-    result = r.commit
-
-    assert_equal result, ["OK", 1]
-  end
-
   def test_client_with_custom_connector
     custom_connector = Class.new(Redis::Client::Connector) do
       def resolve
