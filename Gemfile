@@ -7,3 +7,5 @@ gemspec
 gem 'minitest'
 gem 'rake'
 gem 'rubocop', '~> 1.25.1'
+gem 'mocha'
+gem 'hiredis'
