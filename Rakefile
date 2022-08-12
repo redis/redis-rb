@@ -3,18 +3,6 @@
 require 'bundler/gem_tasks'
 require 'rake/testtask'
 
-Rake::TestTask.new :test do |t|
-  t.libs = %w(lib test)
-
-  if ARGV.size == 1
-    t.pattern = 'test/*_test.rb'
-  else
-    t.test_files = ARGV[1..-1]
-  end
-
-  t.options = '-v' if ENV['CI'] || ENV['VERBOSE']
-end
-
 namespace :test do
   groups = %i(redis distributed sentinel cluster)
   groups.each do |group|
@@ -22,6 +10,7 @@ namespace :test do
       t.libs << "test"
       t.libs << "lib"
       t.test_files = FileList["test/#{group}/**/*_test.rb"]
+      t.options = '-v' if ENV['CI'] || ENV['VERBOSE']
     end
   end
 
