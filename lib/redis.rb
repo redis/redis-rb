@@ -64,7 +64,8 @@ class Redis
     inherit_socket = @options.delete(:inherit_socket)
     @cluster_mode = options.key?(:cluster)
     client = @cluster_mode ? Cluster : Client
-    @original_client = @client = client.new(@options)
+    @subscription_client = nil
+    @client = client.new(@options)
     @client.inherit_socket! if inherit_socket
     @queue = Hash.new { |h, k| h[k] = [] }
     @monitor = Monitor.new
@@ -72,17 +73,18 @@ class Redis
 
   # Run code without the client reconnecting
   def without_reconnect(&block)
-    @original_client.disable_reconnection(&block)
+    @client.disable_reconnection(&block)
   end
 
   # Test whether or not the client is connected
   def connected?
-    @original_client.connected?
+    @client.connected? || @subscription_client&.connected?
   end
 
   # Disconnect the client as quickly and silently as possible.
   def close
-    @original_client.close
+    @client.close
+    @subscription_client&.close
   end
   alias disconnect! close
 
@@ -103,7 +105,7 @@ class Redis
   end
 
   def id
-    @original_client.config.id || @original_client.config.server_url
+    @client.config.id || @client.config.server_url
   end
 
   def inspect
@@ -115,14 +117,14 @@ class Redis
   end
 
   def connection
-    return @original_client.connection_info if @cluster_mode
+    return @client.connection_info if @cluster_mode
 
     {
-      host: @original_client.host,
-      port: @original_client.port,
-      db: @original_client.db,
+      host: @client.host,
+      port: @client.port,
+      db: @client.db,
       id: id,
-      location: "#{@original_client.host}:#{@original_client.port}"
+      location: "#{@client.host}:#{@client.port}"
     }
   end
 
@@ -145,17 +147,19 @@ class Redis
   end
 
   def _subscription(method, timeout, channels, block)
-    return @client.call([method] + channels) if subscribed?
+    if @subscription_client
+      return @subscription_client.call([method] + channels)
+    end
 
     begin
-      original, @client = @client, SubscribedClient.new(@client.pubsub)
+      @subscription_client = SubscribedClient.new(@client.pubsub)
       if timeout > 0
-        @client.send(method, timeout, *channels, &block)
+        @subscription_client.send(method, timeout, *channels, &block)
       else
-        @client.send(method, *channels, &block)
+        @subscription_client.send(method, *channels, &block)
       end
     ensure
-      @client = original
+      @subscription_client = nil
     end
   end
 end

@@ -9,9 +9,7 @@ class Redis
       end
 
       def subscribed?
-        synchronize do |client|
-          client.is_a? SubscribedClient
-        end
+        !@subscription_client.nil?
       end
 
       # Listen for messages published to the given channels.
@@ -31,10 +29,10 @@ class Redis
 
       # Stop listening for messages posted to the given channels.
       def unsubscribe(*channels)
-        synchronize do |client|
-          raise "Can't unsubscribe if not subscribed." unless subscribed?
+        raise "Can't unsubscribe if not subscribed." unless subscribed?
 
-          client.unsubscribe(*channels)
+        synchronize do |_client|
+          _subscription(:unsubscribe, 0, channels, nil)
         end
       end
 
@@ -55,10 +53,10 @@ class Redis
 
       # Stop listening for messages posted to channels matching the given patterns.
       def punsubscribe(*channels)
-        synchronize do |client|
-          raise "Can't unsubscribe if not subscribed." unless subscribed?
+        raise "Can't unsubscribe if not subscribed." unless subscribed?
 
-          client.punsubscribe(*channels)
+        synchronize do |_client|
+          _subscription(:punsubscribe, 0, channels, nil)
         end
       end
 

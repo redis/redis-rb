@@ -198,11 +198,10 @@ class TestPublishSubscribe < Minitest::Test
   end
 
   def test_other_commands_within_a_subscribe
-    assert_raises Redis::CommandError do
-      r.subscribe("foo") do |on|
-        on.subscribe do |_channel, _total|
-          r.set("bar", "s2")
-        end
+    r.subscribe("foo") do |on|
+      on.subscribe do |_channel, _total|
+        r.set("bar", "s2")
+        r.unsubscribe("foo")
       end
     end
   end
