@@ -334,6 +334,8 @@ class Redis
       #   redis.xpending('mystream', 'mygroup')
       # @example With range options
       #   redis.xpending('mystream', 'mygroup', '-', '+', 10)
+      # @example With range and idle time options
+      #   redis.xpending('mystream', 'mygroup', '-', '+', 10, idle: 9000)
       # @example With range and consumer options
       #   redis.xpending('mystream', 'mygroup', '-', '+', 10, 'consumer1')
       #
@@ -344,10 +346,13 @@ class Redis
       # @param count    [Integer] count the number of entries as limit
       # @param consumer [String]  the consumer name
       #
+      # @option opts [Integer] :idle       pending message minimum idle time in milliseconds
+      #
       # @return [Hash]        the summary of pending entries
       # @return [Array<Hash>] the pending entries details if options were specified
-      def xpending(key, group, *args)
+      def xpending(key, group, *args, **opts)
         command_args = [:xpending, key, group]
+        command_args.concat(['IDLE', opts[:idle].to_i])  if opts[:idle]
         case args.size
         when 0, 3, 4
           command_args.concat(args)

@@ -752,6 +752,42 @@ module Lint
       assert_equal 1, actual[2]['count']
     end
 
+    def test_xpending_with_range_and_idle_options
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xgroup(:create, 's1', 'g1', '$')
+      redis.xadd('s1', { f: 'v2' }, id: '0-2')
+      redis.xadd('s1', { f: 'v3' }, id: '0-3')
+      redis.xreadgroup('g1', 'c1', 's1', '>')
+      actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
+      assert_equal 0, actual.size
+
+      sleep 0.1
+      actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
+      assert_equal 2, actual.size
+
+      redis.xadd('s1', { f: 'v4' }, id: '0-4')
+      redis.xreadgroup('g1', 'c2', 's1', '>')
+
+      actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
+      assert_equal 2, actual.size
+      sleep 0.01
+      actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
+      assert_equal 3, actual.size
+
+      assert_equal '0-2', actual[0]['entry_id']
+      assert_equal 'c1', actual[0]['consumer']
+      assert_equal true, actual[0]['elapsed'] >= 0
+      assert_equal 1, actual[0]['count']
+      assert_equal '0-3', actual[1]['entry_id']
+      assert_equal 'c1', actual[1]['consumer']
+      assert_equal true, actual[1]['elapsed'] >= 0
+      assert_equal 1, actual[1]['count']
+      assert_equal '0-4', actual[2]['entry_id']
+      assert_equal 'c2', actual[2]['consumer']
+      assert_equal true, actual[2]['elapsed'] >= 0
+      assert_equal 1, actual[2]['count']
+    end
+
     def test_xpending_with_range_and_consumer_options
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
