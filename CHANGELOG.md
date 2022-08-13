@@ -5,6 +5,7 @@
 - Use `MD5` for hashing server nodes in `Redis::Distributed`. This should improve keys distribution among servers. See #1089.
 - Changed `sadd` and `srem` to now always return an Integer.
 - Added `sadd?` and `srem?` which always return a Boolean.
+- Added support for `IDLE` paramter in `xpending`.
 - Cluster support has been moved to a `redis_cluster` companion gem.
 - `select` no longer record the current database. If the client has to reconnect after `select` was used, it will reconnect to the original database.
 - Better support Float timeout in blocking commands. See #977.
