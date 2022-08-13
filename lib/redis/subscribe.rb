@@ -7,7 +7,7 @@ class Redis
     end
 
     def call(command)
-      @client.process([command])
+      @client.call(command)
     end
 
     def subscribe(*channels, &block)
@@ -39,13 +39,15 @@ class Redis
     def subscription(start, stop, channels, block, timeout = 0)
       sub = Subscription.new(&block)
 
-      unsubscribed = false
+      @client.call([start, *channels])
+      while event = @client.next_event(timeout)
+        if event.is_a?(::RedisClient::CommandError)
+          raise Client::ERROR_MAPPING.fetch(event.class), event.message
+        end
 
-      @client.call_loop([start, *channels], timeout) do |line|
-        type, *rest = line
+        type, *rest = event
         sub.callbacks[type].call(*rest)
-        unsubscribed = type == stop && rest.last == 0
-        break if unsubscribed
+        break if type == stop && rest.last == 0
       end
       # No need to unsubscribe here. The real client closes the connection
       # whenever an exception is raised (see #ensure_connected).

@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require_relative 'errors'
-require_relative 'client'
-require_relative 'cluster/command'
-require_relative 'cluster/command_loader'
-require_relative 'cluster/key_slot_converter'
-require_relative 'cluster/node'
-require_relative 'cluster/node_key'
-require_relative 'cluster/node_loader'
-require_relative 'cluster/option'
-require_relative 'cluster/slot'
-require_relative 'cluster/slot_loader'
+require 'redis/errors'
+require 'redis/client'
+require 'redis/cluster/command'
+require 'redis/cluster/command_loader'
+require 'redis/cluster/key_slot_converter'
+require 'redis/cluster/node'
+require 'redis/cluster/node_key'
+require 'redis/cluster/node_loader'
+require 'redis/cluster/option'
+require 'redis/cluster/slot'
+require 'redis/cluster/slot_loader'
 
 class Redis
   # Redis Cluster client
@@ -30,14 +30,6 @@ class Redis
     def id
       @node.map(&:id).sort.join(' ')
     end
-
-    # db feature is disabled in cluster mode
-    def db
-      0
-    end
-
-    # db feature is disabled in cluster mode
-    def db=(_db); end
 
     def timeout
       @node.first.timeout

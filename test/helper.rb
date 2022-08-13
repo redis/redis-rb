@@ -13,7 +13,6 @@ require "redis"
 Redis.silence_deprecations = true
 
 require "redis/distributed"
-require "redis/connection/#{ENV['DRIVER']}"
 
 require_relative "support/redis_mock"
 require_relative 'support/cluster/orchestrator'
@@ -109,7 +108,6 @@ module Helper
     alias r redis
 
     def setup
-      @log = StringIO.new
       @redis = init _new_client
 
       # Run GC to make sure orphaned connections are closed.
@@ -212,7 +210,7 @@ module Helper
     private
 
     def _format_options(options)
-      OPTIONS.merge(logger: ::Logger.new(@log)).merge(options)
+      OPTIONS.merge(options)
     end
 
     def _new_client(options = {})
@@ -231,7 +229,7 @@ module Helper
     LOCALHOST = '127.0.0.1'
 
     def build_sentinel_client(options = {})
-      opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT, logger: ::Logger.new(@log) }
+      opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT }
       Redis.new(opts.merge(options))
     end
 
@@ -245,7 +243,7 @@ module Helper
       {
         url: "redis://#{MASTER_NAME}",
         sentinels: [{ host: LOCALHOST, port: SENTINEL_PORT }],
-        role: :master, timeout: TIMEOUT, logger: ::Logger.new(@log)
+        role: :master, timeout: TIMEOUT,
       }.merge(options)
     end
 
@@ -268,7 +266,6 @@ module Helper
     def _format_options(options)
       {
         timeout: OPTIONS[:timeout],
-        logger: ::Logger.new(@log)
       }.merge(options)
     end
 
@@ -420,7 +417,6 @@ module Helper
     def _format_options(options)
       {
         timeout: OPTIONS[:timeout],
-        logger: ::Logger.new(@log),
         cluster: _default_nodes
       }.merge(options)
     end

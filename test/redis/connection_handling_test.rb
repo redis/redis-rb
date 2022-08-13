@@ -17,7 +17,7 @@ class TestConnectionHandling < Minitest::Test
       assert_equal "PONG", redis.ping
     end
 
-    assert_equal ["setname", "client-name"], @name
+    assert_equal ["SETNAME", "client-name"], @name
   end
 
   def test_ping
@@ -30,9 +30,9 @@ class TestConnectionHandling < Minitest::Test
     r.select 14
     assert_nil r.get("foo")
 
-    r._client.disconnect
+    r._client.close
 
-    assert_nil r.get("foo")
+    assert_equal "bar", r.get("foo")
   end
 
   def test_quit
@@ -155,26 +155,5 @@ class TestConnectionHandling < Minitest::Test
     assert_equal "100", r.config(:get, "*")["timeout"]
   ensure
     r.config :set, "timeout", 300
-  end
-
-  driver(:ruby, :hiredis) do
-    def test_consistency_on_multithreaded_env
-      t = nil
-
-      commands = {
-        set: ->(_key, _value) { t.kill; "+OK\r\n" },
-        incr: ->(_key) { ":1\r\n" }
-      }
-
-      redis_mock(commands) do |redis|
-        t = Thread.new do
-          redis.set("foo", "bar")
-        end
-
-        t.join
-
-        assert_equal 1, redis.incr("baz")
-      end
-    end
   end
 end

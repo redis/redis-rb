@@ -20,7 +20,7 @@ class Redis
     def initialize(node_configs, options = {})
       @tag = options[:tag] || /^\{(.+?)\}/
       @ring = options[:ring] || HashRing.new
-      @node_configs = node_configs.dup
+      @node_configs = node_configs.map(&:dup)
       @default_options = options.dup
       node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
@@ -41,6 +41,8 @@ class Redis
     def add_node(options)
       options = { url: options } if options.is_a?(String)
       options = @default_options.merge(options)
+      options.delete(:tag)
+      options.delete(:ring)
       @ring.add_node Redis.new(options)
     end
 
@@ -908,9 +910,7 @@ class Redis
     def multi(&block)
       raise CannotDistribute, :multi unless @watch_key
 
-      result = node_for(@watch_key).multi(&block)
-      @watch_key = nil if block_given?
-      result
+      node_for(@watch_key).multi(&block)
     end
 
     # Execute all commands issued after MULTI.

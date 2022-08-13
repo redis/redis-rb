@@ -44,4 +44,6 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- exe/*`.split("\n").map { |f| File.basename(f) }
 
   s.required_ruby_version = '>= 2.5.0'
+
+  s.add_runtime_dependency('redis-client')
 end

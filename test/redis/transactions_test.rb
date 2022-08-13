@@ -6,16 +6,9 @@ class TestTransactions < Minitest::Test
   include Helper::Client
 
   def test_multi_discard
-    r.multi
-
-    assert_equal "QUEUED", r.set("foo", "1")
-    assert_equal "QUEUED", r.get("foo")
-    assert_equal "QUEUED", r.zincrby("bar", 1,  "baz") # Floatify
-    assert_equal "QUEUED", r.hsetnx("plop", "foo", "bar") # Boolify
-
-    r.discard
-
-    assert_nil r.get("foo")
+    assert_raises(LocalJumpError) do
+      r.multi
+    end
   end
 
   def test_multi_exec_with_a_block
@@ -39,8 +32,9 @@ class TestTransactions < Minitest::Test
 
   def test_multi_in_pipeline
     foo_future = bar_future = nil
+    multi_future = nil
     response = r.pipelined do |pipeline|
-      pipeline.multi do |multi|
+      multi_future = pipeline.multi do |multi|
         multi.set("foo", "s1")
         foo_future = multi.get("foo")
       end
@@ -51,10 +45,12 @@ class TestTransactions < Minitest::Test
       end
     end
 
+    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
+
+    assert_equal ["OK", "s1"], multi_future.value
+
     assert_equal "s1", foo_future.value
     assert_equal "s2", bar_future.value
-
-    assert_equal(["OK", "QUEUED", "QUEUED", ["OK", "s1"], "OK", "QUEUED", "QUEUED", ["OK", "s2"]], response)
   end
 
   def test_assignment_inside_multi_exec_block
@@ -67,20 +63,16 @@ class TestTransactions < Minitest::Test
     assert_equal false, @second.value
   end
 
-  # Although we could support accessing the values in these futures,
-  # it doesn't make a lot of sense.
   def test_assignment_inside_multi_exec_block_with_delayed_command_errors
     assert_raises(Redis::CommandError) do
       r.multi do |m|
         @first = m.set("foo", "s1")
         @second = m.incr("foo") # not an integer
-        @third = m.lpush("foo", "value") # wrong kind of value
       end
     end
 
     assert_equal "OK", @first.value
-    assert_raises(Redis::CommandError) { @second.value }
-    assert_raises(Redis::FutureNotReady) { @third.value }
+    assert_raises(Redis::FutureNotReady) { @second.value }
   end
 
   def test_assignment_inside_multi_exec_block_with_immediate_command_errors
@@ -220,7 +212,7 @@ class TestTransactions < Minitest::Test
 
   def test_multi_with_interrupt_preserves_client
     original = r._client
-    Redis::Pipeline.stubs(:new).raises(Interrupt)
+    Redis::MultiConnection.stubs(:new).raises(Interrupt)
     assert_raises(Interrupt) { r.multi {} }
     assert_equal r._client, original
   end

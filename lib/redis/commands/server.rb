@@ -117,9 +117,13 @@ class Redis
       #
       # @yield a block to be called for every line of output
       # @yieldparam [String] line timestamp and command that was executed
-      def monitor(&block)
+      def monitor
         synchronize do |client|
-          client.call_loop([:monitor], &block)
+          client = client.pubsub
+          client.call([:monitor])
+          loop do
+            yield client.next_event
+          end
         end
       end
 
@@ -133,7 +137,7 @@ class Redis
       # Synchronously save the dataset to disk and then shut down the server.
       def shutdown
         synchronize do |client|
-          client.with_reconnect(false) do
+          client.disable_reconnection do
             client.call([:shutdown])
           rescue ConnectionError
             # This means Redis has probably exited.

@@ -131,12 +131,12 @@ module Lint
     end
 
     def test_hgetall
-      assert(r.hgetall("foo") == {})
+      assert_equal({}, r.hgetall("foo"))
 
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
 
-      assert(r.hgetall("foo") == { "f1" => "s1", "f2" => "s2" })
+      assert_equal({ "f1" => "s1", "f2" => "s2" }, r.hgetall("foo"))
     end
 
     def test_hmset

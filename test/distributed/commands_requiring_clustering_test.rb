@@ -169,6 +169,6 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     r.bitop(:xor, "{qux}foo^bar", "{qux}foo", "{qux}bar")
     assert_equal "\x03", r.get("{qux}foo^bar")
     r.bitop(:not, "{qux}~foo", "{qux}foo")
-    assert_equal "\x9E", r.get("{qux}~foo")
+    assert_equal "\x9E".b, r.get("{qux}~foo")
   end
 end

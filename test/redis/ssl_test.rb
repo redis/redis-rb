@@ -15,13 +15,13 @@ class SslTest < Minitest::Test
 
     def test_verified_ssl_connection
       RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
-        redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
+        redis = Redis.new(host: "127.0.0.1", port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
         assert_equal redis.ping, "PONG"
       end
     end
 
     def test_unverified_ssl_connection
-      assert_raises(OpenSSL::SSL::SSLError) do
+      assert_raises(Redis::CannotConnectError) do
         RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
           redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
           redis.ping
@@ -30,7 +30,7 @@ class SslTest < Minitest::Test
     end
 
     def test_verify_certificates_by_default
-      assert_raises(OpenSSL::SSL::SSLError) do
+      assert_raises(Redis::CannotConnectError) do
         RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("untrusted")) do |port|
           redis = Redis.new(port: port, ssl: true)
           redis.ping
@@ -40,7 +40,7 @@ class SslTest < Minitest::Test
 
     def test_ssl_blocking
       RedisMock.start({}, ssl_server_opts("trusted")) do |port|
-        redis = Redis.new(port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
+        redis = Redis.new(host: "127.0.0.1", port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
         assert_equal redis.set("boom", "a" * 10_000_000), "OK"
       end
     end

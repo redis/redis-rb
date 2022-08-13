@@ -373,7 +373,7 @@ module Lint
         r.bitop(:xor, 'foo^bar{1}', 'foo{1}', 'bar{1}')
         assert_equal "\x03", r.get('foo^bar{1}')
         r.bitop(:not, '~foo{1}', 'foo{1}')
-        assert_equal "\x9E", r.get('~foo{1}')
+        assert_equal "\x9E".b, r.get('~foo{1}')
       end
     end
   end

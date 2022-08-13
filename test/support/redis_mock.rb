@@ -93,7 +93,7 @@ module RedisMock
         end
 
         command = argv.shift
-        blk = commands[command.to_sym]
+        blk = commands[command.downcase.to_sym]
         blk ||= ->(*_) { "+OK" }
 
         response = blk.call(*argv)

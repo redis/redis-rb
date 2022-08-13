@@ -191,11 +191,13 @@ class TestPipeliningCommands < Minitest::Test
 
   def test_hgetall_in_a_pipeline_returns_hash
     r.hmset("hash", "field", "value")
+    future = nil
     result = r.pipelined do |p|
-      p.hgetall("hash")
+      future = p.hgetall("hash")
     end
 
-    assert_equal result.first, { "field" => "value" }
+    assert_equal([{ "field" => "value" }], result)
+    assert_equal({ "field" => "value" }, future.value)
   end
 
   def test_zpopmax_in_a_pipeline_produces_future
@@ -242,30 +244,9 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal "2", r.get("db")
   end
 
-  def test_pipeline_select_client_db
-    r.select 1
-    r.pipelined do |p2|
-      p2.select 2
-    end
-
-    assert_equal 2, r._client.db
-  end
-
-  def test_nested_pipeline_select_client_db
-    r.select 1
-    r.pipelined do |p2|
-      p2.select 2
-      p2.pipelined do |p3|
-        p3.select 3
-      end
-    end
-
-    assert_equal 3, r._client.db
-  end
-
   def test_pipeline_interrupt_preserves_client
     original = r._client
-    Redis::Pipeline.stubs(:new).raises(Interrupt)
+    Redis::PipelinedConnection.stubs(:new).raises(Interrupt)
     assert_raises(Interrupt) { r.pipelined {} }
     assert_equal r._client, original
   end

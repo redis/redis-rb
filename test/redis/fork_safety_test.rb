@@ -5,6 +5,10 @@ require "helper"
 class TestForkSafety < Minitest::Test
   include Helper::Client
 
+  def setup
+    skip("Fork unavailable") unless Process.respond_to?(:fork)
+  end
+
   driver(:ruby, :hiredis) do
     def test_fork_safety
       redis = Redis.new(OPTIONS)
@@ -26,8 +30,6 @@ class TestForkSafety < Minitest::Test
 
       assert_equal 127, status.exitstatus
       assert_equal "1", redis.get("foo")
-    rescue NotImplementedError => error
-      raise unless error.message =~ /fork is not available/
     end
 
     def test_fork_safety_with_enabled_inherited_socket
@@ -50,8 +52,6 @@ class TestForkSafety < Minitest::Test
 
       assert_equal 0, status.exitstatus
       assert_equal "2", redis.get("foo")
-    rescue NotImplementedError => error
-      raise unless error.message =~ /fork is not available/
     end
   end
 end

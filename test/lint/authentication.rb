@@ -15,7 +15,7 @@ module Lint
     def test_auth_for_acl
       target_version "6.0.0" do
         with_acl do |username, password|
-          assert_raises(Redis::BaseError) { redis.auth(username, 'wrongpassword') }
+          assert_raises(Redis::CannotConnectError) { redis.auth(username, 'wrongpassword') }
           assert_equal 'OK', redis.auth(username, password)
           assert_equal 'PONG', redis.ping
           assert_raises(Redis::BaseError) { redis.echo('foo') }

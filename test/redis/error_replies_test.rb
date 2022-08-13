@@ -38,15 +38,4 @@ class TestErrorReplies < Minitest::Test
       assert ex.message =~ /not an integer/i
     end
   end
-
-  def test_recover_from_raise_in__call_loop
-    with_reconnection_check do
-      r._client.call_loop([:invalid_monitor]) do
-        assert false # Should never be executed
-      end
-    rescue => ex
-    ensure
-      assert ex.message =~ /unknown command/i
-    end
-  end
 end

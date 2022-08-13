@@ -24,6 +24,8 @@ class Redis
 
   include Commands
 
+  SERVER_URL_OPTIONS = %i(url host port path).freeze
+
   # Create a new client instance
   #
   # @param [Hash] options
@@ -37,13 +39,12 @@ class Redis
   # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
   # @option options [String] :username Username to authenticate against server
   # @option options [String] :password Password to authenticate against server
-  # @option options [Integer] :db (0) Database to select after initial connect
+  # @option options [Integer] :db (0) Database to select after connect and on reconnects
   # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`
   # @option options [String] :id ID for the client connection, assigns name to current connection by sending
   #   `CLIENT SETNAME`
-  # @option options [Hash, Integer] :tcp_keepalive Keepalive values, if Integer `intvl` and `probe` are calculated
-  #   based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Integer
-  # @option options [Integer] :reconnect_attempts Number of attempts trying to connect
+  # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,
+  #   or a list of sleep duration between attempts.
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
   # @option options [Array] :sentinels List of sentinels to contact
   # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
@@ -56,23 +57,22 @@ class Redis
   # @return [Redis] a new client instance
   def initialize(options = {})
     @options = options.dup
+    @options[:reconnect_attempts] = 1 unless @options.key?(:reconnect_attempts)
+    if ENV["REDIS_URL"] && SERVER_URL_OPTIONS.none? { |o| @options.key?(o) }
+      @options[:url] = ENV["REDIS_URL"]
+    end
+    inherit_socket = @options.delete(:inherit_socket)
     @cluster_mode = options.key?(:cluster)
     client = @cluster_mode ? Cluster : Client
-    @original_client = @client = client.new(options)
+    @original_client = @client = client.new(@options)
+    @client.inherit_socket! if inherit_socket
     @queue = Hash.new { |h, k| h[k] = [] }
     @monitor = Monitor.new
   end
 
-  # Run code with the client reconnecting
-  def with_reconnect(val = true, &blk)
-    synchronize do |client|
-      client.with_reconnect(val, &blk)
-    end
-  end
-
   # Run code without the client reconnecting
-  def without_reconnect(&blk)
-    with_reconnect(false, &blk)
+  def without_reconnect(&block)
+    @original_client.disable_reconnection(&block)
   end
 
   # Test whether or not the client is connected
@@ -82,7 +82,7 @@ class Redis
 
   # Disconnect the client as quickly and silently as possible.
   def close
-    @original_client.disconnect
+    @original_client.close
   end
   alias disconnect! close
 
@@ -95,59 +95,15 @@ class Redis
   end
 
   def pipelined
-    pipeline = Pipeline.new(@client)
-    pipelined_connection = PipelinedConnection.new(pipeline)
-    yield pipelined_connection
     synchronize do |client|
-      client.call_pipeline(pipeline)
-    end
-  end
-
-  # Mark the start of a transaction block.
-  #
-  # Passing a block is optional.
-  #
-  # @example With a block
-  #   redis.multi do |multi|
-  #     multi.set("key", "value")
-  #     multi.incr("counter")
-  #   end # => ["OK", 6]
-  #
-  # @example Without a block
-  #   redis.multi
-  #     # => "OK"
-  #   redis.set("key", "value")
-  #     # => "QUEUED"
-  #   redis.incr("counter")
-  #     # => "QUEUED"
-  #   redis.exec
-  #     # => ["OK", 6]
-  #
-  # @yield [multi] the commands that are called inside this block are cached
-  #   and written to the server upon returning from it
-  # @yieldparam [Redis] multi `self`
-  #
-  # @return [String, Array<...>]
-  #   - when a block is not given, `OK`
-  #   - when a block is given, an array with replies
-  #
-  # @see #watch
-  # @see #unwatch
-  def multi
-    if block_given?
-      pipeline = Pipeline::Multi.new(@client)
-      pipelined_connection = PipelinedConnection.new(pipeline)
-      yield pipelined_connection
-      synchronize do |client|
-        client.call_pipeline(pipeline)
+      client.pipelined do |raw_pipeline|
+        yield PipelinedConnection.new(raw_pipeline)
       end
-    else
-      send_command([:multi])
     end
   end
 
   def id
-    @original_client.id
+    @original_client.config.id || @original_client.config.server_url
   end
 
   def inspect
@@ -165,8 +121,8 @@ class Redis
       host: @original_client.host,
       port: @original_client.port,
       db: @original_client.db,
-      id: @original_client.id,
-      location: @original_client.location
+      id: id,
+      location: "#{@original_client.host}:#{@original_client.port}"
     }
   end
 
@@ -184,7 +140,7 @@ class Redis
 
   def send_blocking_command(command, timeout, &block)
     @monitor.synchronize do
-      @client.call_with_timeout(command, timeout, &block)
+      @client.blocking_call(timeout, command, &block)
     end
   end
 
@@ -192,7 +148,7 @@ class Redis
     return @client.call([method] + channels) if subscribed?
 
     begin
-      original, @client = @client, SubscribedClient.new(@client)
+      original, @client = @client, SubscribedClient.new(@client.pubsub)
       if timeout > 0
         @client.send(method, timeout, *channels, &block)
       else
@@ -205,7 +161,6 @@ class Redis
 end
 
 require "redis/version"
-require "redis/connection"
 require "redis/client"
 require "redis/cluster"
 require "redis/pipeline"

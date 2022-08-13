@@ -246,28 +246,24 @@ class TestPublishSubscribe < Minitest::Test
   def test_subscribe_with_timeout
     received = false
 
-    assert_raises Redis::TimeoutError do
-      r.subscribe_with_timeout(LOW_TIMEOUT, "foo") do |on|
-        on.message do |_channel, _message|
-          received = true
-        end
+    r.subscribe_with_timeout(LOW_TIMEOUT, "foo") do |on|
+      on.message do |_channel, _message|
+        received = true
       end
     end
 
-    assert !received
+    refute received
   end
 
   def test_psubscribe_with_timeout
     received = false
 
-    assert_raises Redis::TimeoutError do
-      r.psubscribe_with_timeout(LOW_TIMEOUT, "f*") do |on|
-        on.message do |_channel, _message|
-          received = true
-        end
+    r.psubscribe_with_timeout(LOW_TIMEOUT, "f*") do |on|
+      on.message do |_channel, _message|
+        received = true
       end
     end
 
-    assert !received
+    refute received
   end
 end

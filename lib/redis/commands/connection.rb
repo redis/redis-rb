@@ -34,10 +34,7 @@ class Redis
       # @param [Integer] db zero-based index of the DB to use (0 to 15)
       # @return [String] `OK`
       def select(db)
-        synchronize do |client|
-          client.db = db
-          client.call([:select, db])
-        end
+        send_command([:select, db])
       end
 
       # Close the connection.
@@ -48,7 +45,7 @@ class Redis
           client.call([:quit])
         rescue ConnectionError
         ensure
-          client.disconnect
+          client.close
         end
       end
     end

@@ -20,6 +20,12 @@ class Redis
   class CommandError < BaseError
   end
 
+  class PermissionError < CommandError
+  end
+
+  class WrongTypeError < CommandError
+  end
+
   # Base error for connection related errors.
   class BaseConnectionError < BaseError
   end

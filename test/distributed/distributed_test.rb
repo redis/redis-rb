@@ -21,15 +21,12 @@ class TestDistributed < Minitest::Test
   end
 
   def test_add_nodes
-    logger = Logger.new("/dev/null")
-
-    @r = Redis::Distributed.new NODES, logger: logger, timeout: 10
+    @r = Redis::Distributed.new NODES, timeout: 10
 
     assert_equal "127.0.0.1", @r.nodes[0]._client.host
     assert_equal PORT, @r.nodes[0]._client.port
     assert_equal 15, @r.nodes[0]._client.db
     assert_equal 10, @r.nodes[0]._client.timeout
-    assert_equal logger, @r.nodes[0]._client.logger
 
     @r.add_node("redis://127.0.0.1:6380/14")
 
@@ -37,7 +34,6 @@ class TestDistributed < Minitest::Test
     assert_equal 6380, @r.nodes[1]._client.port
     assert_equal 14, @r.nodes[1]._client.db
     assert_equal 10, @r.nodes[1]._client.timeout
-    assert_equal logger, @r.nodes[1]._client.logger
   end
 
   def test_pipelining_commands_cannot_be_distributed

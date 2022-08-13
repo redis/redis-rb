@@ -2,6 +2,9 @@
 
 # Unreleased 5.0.0
 
+- `select` no longer record the current database. If the client has to reconnect after `select` was used, it will reconnect to the original database.
+- Removed `logger` option.
+- Removed `reconnect_delay_max` and `reconnect_delay`, you can pass precise sleep durations to `reconnect_attempts` instead.
 - Require Ruby 2.5+.
 - Removed the deprecated `queue` and `commit` methods. Use `pipelined` instead.
 - Removed the deprecated `pipelined` and `multi` signature. Commands now MUST be called on the block argument, not the original redis instance.
