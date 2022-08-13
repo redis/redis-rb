@@ -179,7 +179,7 @@ jobs:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
       - name: Booting up Redis
-        run: make start_all
+        run: make start_sentinel wait_for_sentinel
       - name: Test
         run: bundle exec rake test:sentinel
       - name: Shutting down Redis
@@ -217,7 +217,7 @@ jobs:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
       - name: Booting up Redis
-        run: make start_all
+        run: make start_cluster
       - name: Test
         run: bundle exec rake test:cluster
       - name: Shutting down Redis

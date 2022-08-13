@@ -10,6 +10,7 @@ class Redis
       RedisClient::ReadTimeoutError => Redis::TimeoutError,
       RedisClient::CannotConnectError => Redis::CannotConnectError,
       RedisClient::AuthenticationError => Redis::CannotConnectError,
+      RedisClient::FailoverError => Redis::CannotConnectError,
       RedisClient::PermissionError => Redis::PermissionError,
       RedisClient::WrongTypeError => Redis::WrongTypeError,
       RedisClient::RESP3::UnknownType => Redis::ProtocolError,
@@ -17,7 +18,11 @@ class Redis
 
     class << self
       def config(**kwargs)
-        ::RedisClient.config(protocol: 2, **kwargs)
+        super(protocol: 2, **kwargs)
+      end
+
+      def sentinel(**kwargs)
+        super(protocol: 2, **kwargs)
       end
     end
 

@@ -46,6 +46,7 @@ class Redis
   # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,
   #   or a list of sleep duration between attempts.
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [String] :name The name of the server group to connect to.
   # @option options [Array] :sentinels List of sentinels to contact
   # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
   # @option options [Array<String, Hash{Symbol => String, Integer}>] :cluster List of cluster nodes to contact
@@ -56,19 +57,38 @@ class Redis
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
+    @monitor = Monitor.new
     @options = options.dup
     @options[:reconnect_attempts] = 1 unless @options.key?(:reconnect_attempts)
     if ENV["REDIS_URL"] && SERVER_URL_OPTIONS.none? { |o| @options.key?(o) }
       @options[:url] = ENV["REDIS_URL"]
     end
     inherit_socket = @options.delete(:inherit_socket)
-    @cluster_mode = options.key?(:cluster)
-    client = @cluster_mode ? Cluster : Client
     @subscription_client = nil
-    @client = client.new(@options)
+
+    @client = if @cluster_mode = options.key?(:cluster)
+      Cluster.new(@options)
+    elsif @options.key?(:sentinels)
+      if url = @options.delete(:url)
+        uri = URI.parse(url)
+        if !@options.key?(:name) && uri.host
+          @options[:name] = uri.host
+        end
+
+        if !@options.key?(:password) && uri.password && !uri.password.empty?
+          @options[:password] = uri.password
+        end
+
+        if !@options.key?(:username) && uri.user && !uri.user.empty?
+          @options[:username] = uri.user
+        end
+      end
+
+      Client.sentinel(**@options).new_client
+    else
+      Client.new(@options)
+    end
     @client.inherit_socket! if inherit_socket
-    @queue = Hash.new { |h, k| h[k] = [] }
-    @monitor = Monitor.new
   end
 
   # Run code without the client reconnecting

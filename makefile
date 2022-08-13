@@ -54,7 +54,7 @@ start: ${BINARY}
 stop_slave:
 	@$(call kill-redis,${SLAVE_PID_PATH})
 
-start_slave: ${BINARY}
+start_slave: start
 	@${BINARY}\
 		--daemonize  yes\
 		--pidfile    ${SLAVE_PID_PATH}\
@@ -62,11 +62,11 @@ start_slave: ${BINARY}
 		--unixsocket ${SLAVE_SOCKET_PATH}\
 		--slaveof    127.0.0.1 ${PORT}
 
-stop_sentinel:
+stop_sentinel: stop_slave stop
 	@$(call kill-redis,${SENTINEL_PID_PATHS})
 	@rm -f ${TMP}/sentinel*.conf || true
 
-start_sentinel: ${BINARY}
+start_sentinel: start start_slave
 	@for port in ${SENTINEL_PORTS}; do\
 		conf=${TMP}/sentinel$$port.conf;\
 		touch $$conf;\

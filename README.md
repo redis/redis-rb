@@ -111,7 +111,7 @@ If you want to [authenticate](https://redis.io/topics/sentinel#configuring-senti
 SENTINELS = [{ host: '127.0.0.1', port: 26380, password: 'mysecret' },
              { host: '127.0.0.1', port: 26381, password: 'mysecret' }]
 
-redis = Redis.new(host: 'mymaster', sentinels: SENTINELS, role: :master)
+redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master)
 ```
 
 ## Cluster support
