@@ -350,9 +350,9 @@ class Redis
       #
       # @return [Hash]        the summary of pending entries
       # @return [Array<Hash>] the pending entries details if options were specified
-      def xpending(key, group, *args, **opts)
+      def xpending(key, group, *args, idle: nil)
         command_args = [:xpending, key, group]
-        command_args.concat(['IDLE', opts[:idle].to_i])  if opts[:idle]
+        command_args << 'IDLE' << Integer(idle) if idle
         case args.size
         when 0, 3, 4
           command_args.concat(args)
