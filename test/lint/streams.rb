@@ -758,9 +758,11 @@ module Lint
       redis.xadd('s1', { f: 'v2' }, id: '0-2')
       redis.xadd('s1', { f: 'v3' }, id: '0-3')
       redis.xreadgroup('g1', 'c1', 's1', '>')
+      
+      actual = redis.xpending('s1', 'g1', '-', '+', 10)
+      assert_equal 2, actual.size
       actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
       assert_equal 0, actual.size
-
       sleep 0.1
       actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
       assert_equal 2, actual.size
@@ -768,6 +770,11 @@ module Lint
       redis.xadd('s1', { f: 'v4' }, id: '0-4')
       redis.xreadgroup('g1', 'c2', 's1', '>')
 
+      actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 1000)
+      assert_equal 0, actual.size
+
+      actual = redis.xpending('s1', 'g1', '-', '+', 10)
+      assert_equal 3, actual.size
       actual = redis.xpending('s1', 'g1', '-', '+', 10, idle: 10)
       assert_equal 2, actual.size
       sleep 0.01
