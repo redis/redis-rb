@@ -1,12 +1,13 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+puts ARGV.join(" ")
 require 'bundler/setup'
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require_relative '../test/support/cluster/orchestrator'
 
 urls = ARGV.map { |host_port| "redis://#{host_port}" }
-orchestrator = ClusterOrchestrator.new(urls, timeout: 30.0)
+orchestrator = ClusterOrchestrator.new(urls, timeout: 3.0)
 orchestrator.rebuild
 orchestrator.close

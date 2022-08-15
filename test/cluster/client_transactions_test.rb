@@ -7,6 +7,7 @@ class TestClusterClientTransactions < Minitest::Test
   include Helper::Cluster
 
   def test_transaction_with_hash_tag
+    skip("redis-cluster-client doesn't support transaction")
     rc1 = redis
     rc2 = build_another_client
 
@@ -22,7 +23,7 @@ class TestClusterClientTransactions < Minitest::Test
     rc1 = redis
     rc2 = build_another_client
 
-    assert_raises(Redis::Cluster::CrossSlotPipeliningError) do
+    assert_raises(Redis::Cluster::AmbiguousNodeError) do
       rc1.multi do |cli|
         100.times { |i| cli.set("key#{i}", i) }
       end
@@ -33,6 +34,7 @@ class TestClusterClientTransactions < Minitest::Test
   end
 
   def test_transaction_with_replicas
+    skip("redis-cluster-client doesn't support transaction")
     rc1 = build_another_client(replica: true)
     rc2 = build_another_client(replica: true)
 
@@ -47,6 +49,7 @@ class TestClusterClientTransactions < Minitest::Test
   end
 
   def test_transaction_with_watch
+    skip("redis-cluster-client doesn't support transaction")
     rc1 = redis
     rc2 = build_another_client
 

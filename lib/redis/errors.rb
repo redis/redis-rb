@@ -57,10 +57,6 @@ class Redis
     # Raised when client connected to redis as cluster mode
     # and failed to fetch cluster state information by commands.
     class InitialSetupError < BaseError
-      # @param errors [Array<Redis::BaseError>]
-      def initialize(errors)
-        super("Redis client could not fetch cluster information: #{errors.map(&:message).uniq.join(',')}")
-      end
     end
 
     # Raised when client connected to redis as cluster mode
@@ -90,17 +86,6 @@ class Redis
 
     # Raised when cluster client can't select node.
     class AmbiguousNodeError < BaseError
-      def initialize(command)
-        super("Cluster client doesn't know which node the #{command} command should be sent to.")
-      end
-    end
-
-    # Raised when commands in pipelining include cross slot keys.
-    class CrossSlotPipeliningError < BaseError
-      def initialize(keys)
-        super("Cluster client couldn't send pipelining to single node. "\
-              "The commands include cross slot keys. #{keys}")
-      end
     end
   end
 end

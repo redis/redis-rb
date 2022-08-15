@@ -8,6 +8,8 @@ class Redis
   BASE_PATH = __dir__
   Deprecated = Class.new(StandardError)
 
+  autoload :ClusterClient, "redis/cluster_client"
+
   class << self
     attr_accessor :silence_deprecations, :raise_deprecations
 
@@ -67,7 +69,13 @@ class Redis
     @subscription_client = nil
 
     @client = if @cluster_mode = options.key?(:cluster)
-      Cluster.new(@options)
+      @options[:nodes] ||= @options.delete(:cluster)
+      cluster_config = RedisClient.cluster(**@options, protocol: 2, client_implementation: ClusterClient)
+      begin
+        cluster_config.new_client
+      rescue ::RedisClient::Error => error
+        raise ClusterClient::ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+      end
     elsif @options.key?(:sentinels)
       if url = @options.delete(:url)
         uri = URI.parse(url)
@@ -86,7 +94,7 @@ class Redis
 
       Client.sentinel(**@options).new_client
     else
-      Client.new(@options)
+      Client.config(**@options).new_client
     end
     @client.inherit_socket! if inherit_socket
   end
@@ -125,7 +133,7 @@ class Redis
   end
 
   def id
-    @client.config.id || @client.config.server_url
+    @client.id || @client.server_url
   end
 
   def inspect
@@ -137,7 +145,9 @@ class Redis
   end
 
   def connection
-    return @client.connection_info if @cluster_mode
+    if @cluster_mode
+      raise NotImplementedError, "Redis::Cluster doesn't implement #connection"
+    end
 
     {
       host: @client.host,
@@ -186,6 +196,5 @@ end
 
 require "redis/version"
 require "redis/client"
-require "redis/cluster"
 require "redis/pipeline"
 require "redis/subscribe"

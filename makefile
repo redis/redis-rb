@@ -16,7 +16,7 @@ SLAVE_SOCKET_PATH  := ${BUILD_DIR}/redis_slave.sock
 HA_GROUP_NAME      := master1
 SENTINEL_PORTS     := 6400 6401 6402
 SENTINEL_PID_PATHS := $(addprefix ${TMP}/redis,$(addsuffix .pid,${SENTINEL_PORTS}))
-CLUSTER_PORTS      := 7000 7001 7002 7003 7004 7005
+CLUSTER_PORTS      := 16380 16381 16382 16383 16384 16385
 CLUSTER_PID_PATHS  := $(addprefix ${TMP}/redis,$(addsuffix .pid,${CLUSTER_PORTS}))
 CLUSTER_CONF_PATHS := $(addprefix ${TMP}/nodes,$(addsuffix .conf,${CLUSTER_PORTS}))
 CLUSTER_ADDRS      := $(addprefix 127.0.0.1:,${CLUSTER_PORTS})
@@ -109,7 +109,7 @@ start_cluster: ${BINARY}
 	@for port in ${CLUSTER_PORTS}; do\
 		${BINARY}\
 			--daemonize            yes\
-			--appendonly           yes\
+			--appendonly           no\
 			--cluster-enabled      yes\
 			--cluster-config-file  ${TMP}/nodes$$port.conf\
 			--cluster-node-timeout 5000\

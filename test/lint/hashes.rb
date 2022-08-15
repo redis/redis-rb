@@ -172,8 +172,8 @@ module Lint
       r.hset("foo", "f2", "s2")
       r.hset("foo", "f3", "s3")
 
-      assert(r.mapped_hmget("foo", "f1") == { "f1" => "s1" })
-      assert(r.mapped_hmget("foo", "f1", "f2") == { "f1" => "s1", "f2" => "s2" })
+      assert_equal({ "f1" => "s1" }, r.mapped_hmget("foo", "f1"))
+      assert_equal({ "f1" => "s1", "f2" => "s2" }, r.mapped_hmget("foo", "f1", "f2"))
     end
 
     def test_mapped_hmget_in_a_pipeline_returns_hash
@@ -184,7 +184,7 @@ module Lint
         pipeline.mapped_hmget("foo", "f1", "f2")
       end
 
-      assert_equal result[0], { "f1" => "s1", "f2" => "s2" }
+      assert_equal({ "f1" => "s1", "f2" => "s2" }, result[0])
     end
 
     def test_hincrby

@@ -197,6 +197,7 @@ jobs:
       LOW_TIMEOUT: "0.14"
       DRIVER: ruby
       REDIS_BRANCH: "7.0"
+      REDIS_CLUSTER: "true"
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -209,7 +210,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "2.5"
+          ruby-version: "2.7"
           bundler-cache: true
       - name: Cache local temporary directory
         uses: actions/cache@v3
@@ -217,7 +218,7 @@ jobs:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
       - name: Booting up Redis
-        run: make start_cluster
+        run: make start start_cluster create_cluster
       - name: Test
         run: bundle exec rake test:cluster
       - name: Shutting down Redis

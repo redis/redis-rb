@@ -282,7 +282,7 @@ module Helper
     include Generic
 
     DEFAULT_HOST = '127.0.0.1'
-    DEFAULT_PORTS = (7000..7005).freeze
+    DEFAULT_PORTS = (16_380..16_385).freeze
 
     ClusterSlotsRawReply = lambda { |host, port|
       # @see https://redis.io/topics/protocol
@@ -350,10 +350,11 @@ module Helper
       end
 
       commands[:cluster] = lambda { |subcommand, *args|
+        subcommand = subcommand.downcase
         if cluster_subcommands.key?(subcommand)
           cluster_subcommands[subcommand].call(*args)
         else
-          case subcommand
+          case subcommand.downcase
           when 'slots' then ClusterSlotsRawReply.call(host, port)
           when 'nodes' then ClusterNodesRawReply.call(host, port)
           else '+OK'

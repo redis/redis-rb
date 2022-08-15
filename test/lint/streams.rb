@@ -362,8 +362,9 @@ module Lint
         actual = redis.xread('s1', 0, block: 0)
       end
       Thread.pass until prepared
-      redis.dup.xadd('s1', { f: 'v1' }, id: '0-1')
-      thread.join
+      redis2 = init _new_client
+      redis2.xadd('s1', { f: 'v1' }, id: '0-1')
+      thread.join(3)
 
       assert_equal(['v1'], actual.fetch('s1').map { |i| i.last['f'] })
     end

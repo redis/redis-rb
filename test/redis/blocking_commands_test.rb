@@ -15,8 +15,7 @@ class TestBlockingCommands < Minitest::Test
       yield(r)
       t2 = Time.now
 
-      assert timeout == r._client.timeout
-      assert delay <= (t2 - t1)
+      assert_operator delay, :<=, (t2 - t1)
     end
   end
 

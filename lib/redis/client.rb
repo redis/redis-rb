@@ -34,6 +34,10 @@ class Redis
     end
     ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
 
+    def id
+      config.id
+    end
+
     def server_url
       config.server_url
     end
@@ -68,6 +72,7 @@ class Redis
 
     undef_method :call
     undef_method :call_once
+    undef_method :call_once_v
     undef_method :blocking_call
 
     def call_v(command, &block)
@@ -76,8 +81,9 @@ class Redis
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end
 
-    def multi
-      super
+    def blocking_call_v(timeout, command, &block)
+      timeout += self.timeout if timeout && timeout > 0
+      super(timeout, command, &block)
     rescue ::RedisClient::Error => error
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end
@@ -88,9 +94,8 @@ class Redis
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end
 
-    def blocking_call_v(timeout, command, &block)
-      timeout += self.timeout if timeout && timeout > 0
-      super(timeout, command, &block)
+    def multi
+      super
     rescue ::RedisClient::Error => error
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end

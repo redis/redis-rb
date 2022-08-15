@@ -63,14 +63,6 @@ class TestClusterCommandsOnCluster < Minitest::Test
     assert_equal '3', info.fetch('cluster_size')
   end
 
-  def test_cluster_keyslot
-    assert_equal Redis::Cluster::KeySlotConverter.convert('hogehoge'), redis.cluster(:keyslot, 'hogehoge')
-    assert_equal Redis::Cluster::KeySlotConverter.convert('12345'), redis.cluster(:keyslot, '12345')
-    assert_equal Redis::Cluster::KeySlotConverter.convert('foo'), redis.cluster(:keyslot, 'boo{foo}woo')
-    assert_equal Redis::Cluster::KeySlotConverter.convert('antirez.is.cool'), redis.cluster(:keyslot, 'antirez.is.cool')
-    assert_equal Redis::Cluster::KeySlotConverter.convert(''), redis.cluster(:keyslot, '')
-  end
-
   def test_cluster_meet
     assert_raises(Redis::Cluster::OrchestrationCommandNotSupported, 'CLUSTER MEET command should be...') do
       redis.cluster(:meet, '127.0.0.1', 11_211)
