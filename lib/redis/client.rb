@@ -13,7 +13,7 @@ class Redis
       RedisClient::FailoverError => Redis::CannotConnectError,
       RedisClient::PermissionError => Redis::PermissionError,
       RedisClient::WrongTypeError => Redis::WrongTypeError,
-      RedisClient::RESP3::UnknownType => Redis::ProtocolError,
+      RedisClient::ProtocolError => Redis::ProtocolError,
     }.freeze
 
     class << self
