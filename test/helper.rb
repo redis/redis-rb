@@ -17,6 +17,10 @@ require "redis/distributed"
 require_relative "support/redis_mock"
 require_relative 'support/cluster/orchestrator'
 
+if ENV["DRIVER"] == "hiredis"
+  require "hiredis-client"
+end
+
 PORT        = 6381
 DB          = 15
 TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
