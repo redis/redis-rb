@@ -9,6 +9,5 @@ gem 'rake'
 gem 'rubocop', '~> 1.25.1'
 gem 'mocha'
 
-# RESP2 supportnot yet released
-gem 'redis-client', github: 'redis-rb/redis-client'
-gem 'hiredis-client', github: 'redis-rb/redis-client'
+gem 'redis-client'
+gem 'hiredis-client', platform: :ruby
