@@ -120,7 +120,7 @@ class Redis
       def monitor
         synchronize do |client|
           client = client.pubsub
-          client.call([:monitor])
+          client.call_v([:monitor])
           loop do
             yield client.next_event
           end
@@ -138,7 +138,7 @@ class Redis
       def shutdown
         synchronize do |client|
           client.disable_reconnection do
-            client.call([:shutdown])
+            client.call_v([:shutdown])
           rescue ConnectionError
             # This means Redis has probably exited.
             nil
@@ -157,11 +157,9 @@ class Redis
       # @param [Integer] length maximum number of entries to return
       # @return [Array<String>, Integer, String] depends on subcommand
       def slowlog(subcommand, length = nil)
-        synchronize do |client|
-          args = [:slowlog, subcommand]
-          args << length if length
-          client.call args
-        end
+        args = [:slowlog, subcommand]
+        args << length if length
+        send_command(args)
       end
 
       # Internal command used for replication.

@@ -65,8 +65,12 @@ class Redis
       config.password
     end
 
-    def call(command, &block)
-      super(*command, &block)
+    undef_method :call
+    undef_method :call_once
+    undef_method :blocking_call
+
+    def call_v(command, &block)
+      super(command, &block)
     rescue ::RedisClient::Error => error
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end
@@ -83,9 +87,9 @@ class Redis
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end
 
-    def blocking_call(timeout, command, &block)
+    def blocking_call_v(timeout, command, &block)
       timeout += self.timeout if timeout && timeout > 0
-      super(timeout, *command, &block)
+      super(timeout, command, &block)
     rescue ::RedisClient::Error => error
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
     end

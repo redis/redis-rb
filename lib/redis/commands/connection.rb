@@ -42,7 +42,7 @@ class Redis
       # @return [String] `OK`
       def quit
         synchronize do |client|
-          client.call([:quit])
+          client.call_v([:quit])
         rescue ConnectionError
         ensure
           client.close

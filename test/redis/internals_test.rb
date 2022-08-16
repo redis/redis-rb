@@ -196,7 +196,7 @@ class TestInternals < Minitest::Test
 
   def test_retry_on_write_error_by_default
     close_on_connection([0]) do |redis|
-      assert_equal "1", redis._client.call(["x" * 128 * 1024])
+      assert_equal "1", redis._client.call_v(["x" * 128 * 1024])
     end
   end
 
@@ -204,7 +204,7 @@ class TestInternals < Minitest::Test
     close_on_connection([0]) do |redis|
       assert_raises Redis::ConnectionError do
         redis.without_reconnect do
-          redis._client.call(["x" * 128 * 1024])
+          redis._client.call_v(["x" * 128 * 1024])
         end
       end
     end

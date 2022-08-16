@@ -244,7 +244,7 @@ class Redis
 
       command[1] = raw_cursor.to_s
 
-      result_cursor, result_keys = client.call(command, &block)
+      result_cursor, result_keys = client.call_v(command, &block)
       result_cursor = Integer(result_cursor)
 
       if result_cursor == 0

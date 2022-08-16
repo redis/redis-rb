@@ -6,8 +6,8 @@ class Redis
       @client = client
     end
 
-    def call(command)
-      @client.call(command)
+    def call_v(command)
+      @client.call_v(command)
     end
 
     def subscribe(*channels, &block)
@@ -27,11 +27,11 @@ class Redis
     end
 
     def unsubscribe(*channels)
-      call([:unsubscribe, *channels])
+      call_v([:unsubscribe, *channels])
     end
 
     def punsubscribe(*channels)
-      call([:punsubscribe, *channels])
+      call_v([:punsubscribe, *channels])
     end
 
     protected
@@ -39,7 +39,7 @@ class Redis
     def subscription(start, stop, channels, block, timeout = 0)
       sub = Subscription.new(&block)
 
-      @client.call([start, *channels])
+      @client.call_v([start, *channels])
       while event = @client.next_event(timeout)
         if event.is_a?(::RedisClient::CommandError)
           raise Client::ERROR_MAPPING.fetch(event.class), event.message

@@ -23,7 +23,7 @@ class Redis
       size = @futures.size
       yield transaction
       multi_future = MultiFuture.new(@futures[size..-1])
-      @pipeline.call(:exec) do |result|
+      @pipeline.call_v([:exec]) do |result|
         multi_future._set(result)
       end
       @futures << multi_future
@@ -38,7 +38,7 @@ class Redis
 
     def send_command(command, &block)
       future = Future.new(command, block)
-      @pipeline.call(*command) do |result|
+      @pipeline.call_v(command) do |result|
         future._set(result)
       end
       @futures << future
@@ -47,7 +47,7 @@ class Redis
 
     def send_blocking_command(command, timeout, &block)
       future = Future.new(command, block)
-      @pipeline.blocking_call(timeout, *command) do |result|
+      @pipeline.blocking_call_v(timeout, command) do |result|
         future._set(result)
       end
       @futures << future

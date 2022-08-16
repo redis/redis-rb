@@ -156,19 +156,19 @@ class Redis
 
   def send_command(command, &block)
     @monitor.synchronize do
-      @client.call(command, &block)
+      @client.call_v(command, &block)
     end
   end
 
   def send_blocking_command(command, timeout, &block)
     @monitor.synchronize do
-      @client.blocking_call(timeout, command, &block)
+      @client.blocking_call_v(timeout, command, &block)
     end
   end
 
   def _subscription(method, timeout, channels, block)
     if @subscription_client
-      return @subscription_client.call([method] + channels)
+      return @subscription_client.call_v([method] + channels)
     end
 
     begin
