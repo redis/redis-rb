@@ -26,6 +26,9 @@ class Redis
   class WrongTypeError < CommandError
   end
 
+  class ReadOnlyError < CommandError
+  end
+
   # Base error for connection related errors.
   class BaseConnectionError < BaseError
   end
