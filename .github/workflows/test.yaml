@@ -37,7 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERBOSE: "true"
-      TIMEOUT: "30"
       LOW_TIMEOUT: "0.01"
       DRIVER: ruby
       REDIS_BRANCH: "7.0"
@@ -78,7 +77,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERBOSE: "true"
-      TIMEOUT: "30"
       LOW_TIMEOUT: "0.01"
       DRIVER: ${{ matrix.driver }}
       REDIS_BRANCH: "7.0"
@@ -118,7 +116,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERBOSE: "true"
-      TIMEOUT: "30"
       LOW_TIMEOUT: "0.14"
       DRIVER: ruby
       REDIS_BRANCH: ${{ matrix.redis }}
@@ -156,7 +153,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERBOSE: "true"
-      TIMEOUT: "30"
       LOW_TIMEOUT: "0.14"
       DRIVER: ruby
       REDIS_BRANCH: "7.0"
@@ -194,7 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERBOSE: "true"
-      TIMEOUT: "30"
+      TIMEOUT: "15"
       LOW_TIMEOUT: "0.14"
       DRIVER: ruby
       REDIS_BRANCH: "7.0"

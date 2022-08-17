@@ -9,6 +9,10 @@ class TestInternals < Minitest::Test
     # see: https://github.com/redis/redis-rb/issues/962
     # large payloads will trigger write_nonblock to write a portion
     # of the payload in connection/ruby.rb _write_to_socket
+
+    # We use a larger timeout for TruffleRuby
+    # https://github.com/redis/redis-rb/pull/1128#issuecomment-1218490684
+    r = init(_new_client(timeout: TIMEOUT * 5))
     large = "\u3042" * 4_000_000
     r.setex("foo", 10, large)
     result = r.get("foo")
