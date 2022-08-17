@@ -7,6 +7,8 @@ class SentinelCommandsTest < Minitest::Test
   include Helper::Sentinel
 
   def test_sentinel_command_master
+    wait_for_quorum
+
     redis = build_sentinel_client
     result = redis.sentinel('master', MASTER_NAME)
 
@@ -15,6 +17,8 @@ class SentinelCommandsTest < Minitest::Test
   end
 
   def test_sentinel_command_masters
+    wait_for_quorum
+
     redis = build_sentinel_client
     result = redis.sentinel('masters')
 
@@ -24,6 +28,8 @@ class SentinelCommandsTest < Minitest::Test
   end
 
   def test_sentinel_command_slaves
+    wait_for_quorum
+
     redis = build_sentinel_client
     result = redis.sentinel('slaves', MASTER_NAME)
 
@@ -33,6 +39,8 @@ class SentinelCommandsTest < Minitest::Test
   end
 
   def test_sentinel_command_sentinels
+    wait_for_quorum
+
     redis = build_sentinel_client
     result = redis.sentinel('sentinels', MASTER_NAME)
 
@@ -51,9 +59,10 @@ class SentinelCommandsTest < Minitest::Test
   end
 
   def test_sentinel_command_ckquorum
+    wait_for_quorum
+
     redis = build_sentinel_client
     result = redis.sentinel('ckquorum', MASTER_NAME)
-
     assert_equal result, 'OK 3 usable Sentinels. Quorum and failover authorization can be reached'
   end
 end

@@ -239,6 +239,20 @@ module Helper
 
     private
 
+    def wait_for_quorum
+      redis = build_sentinel_client
+      50.times do
+        if redis.sentinel('ckquorum', MASTER_NAME).start_with?('OK 3 usable Sentinels')
+          return
+        else
+          sleep 0.1
+        end
+      rescue
+        sleep 0.1
+      end
+      raise "ckquorum timeout"
+    end
+
     def _format_options(options = {})
       {
         url: "redis://#{MASTER_NAME}",

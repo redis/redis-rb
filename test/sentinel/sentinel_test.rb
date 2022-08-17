@@ -6,13 +6,16 @@ class SentinelTest < Minitest::Test
   include Helper::Sentinel
 
   def test_sentinel_master_role_connection
+    wait_for_quorum
+
     actual = redis.role
 
     assert_equal 'master', actual[0]
-    assert_equal SLAVE_PORT, actual[2][0][1]
   end
 
   def test_sentinel_slave_role_connection
+    wait_for_quorum
+
     redis = build_slave_role_client
     actual = redis.role
 
