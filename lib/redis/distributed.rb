@@ -1004,7 +1004,8 @@ class Redis
     end
 
     def key_tag(key)
-      key.to_s[@tag, 1] if @tag
+      key = key.to_s
+      key[@tag, 1] if key.match?(@tag)
     end
 
     def ensure_same_node(command, keys)
