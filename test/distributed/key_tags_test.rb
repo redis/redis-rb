@@ -28,7 +28,7 @@ class TestDistributedKeyTags < Minitest::Test
   end
 
   def test_distributes_keys_if_no_clustering_is_used
-    r.add_node("redis://127.0.0.1:#{PORT}/14")
+    r.add_node("redis://127.0.0.1:#{PORT}/13")
     r.flushdb
 
     r.set "users:1", 1

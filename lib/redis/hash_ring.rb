@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'zlib'
+require 'digest/md5'
 
 class Redis
   class HashRing
@@ -25,7 +26,7 @@ class Redis
     def add_node(node)
       @nodes << node
       @replicas.times do |i|
-        key = Zlib.crc32("#{node.id}:#{i}")
+        key = server_hash_for("#{node.id}:#{i}")
         @ring[key] = node
         @sorted_keys << key
       end
@@ -35,7 +36,7 @@ class Redis
     def remove_node(node)
       @nodes.reject! { |n| n.id == node.id }
       @replicas.times do |i|
-        key = Zlib.crc32("#{node.id}:#{i}")
+        key = server_hash_for("#{node.id}:#{i}")
         @ring.delete(key)
         @sorted_keys.reject! { |k| k == key }
       end
@@ -49,8 +50,8 @@ class Redis
     def get_node_pos(key)
       return [nil, nil] if @ring.empty?
 
-      crc = Zlib.crc32(key)
-      idx = HashRing.binary_search(@sorted_keys, crc)
+      hash = hash_for(key)
+      idx = HashRing.binary_search(@sorted_keys, hash)
       [@ring[@sorted_keys[idx]], idx]
     end
 
@@ -84,6 +85,16 @@ class Redis
 
       upper = ary.size - 1 if upper < 0
       upper
+    end
+
+    private
+
+    def hash_for(key)
+      Zlib.crc32(key)
+    end
+
+    def server_hash_for(key)
+      Digest::MD5.digest(key).unpack1("L>")
     end
   end
 end

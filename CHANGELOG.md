@@ -2,6 +2,7 @@
 
 # Unreleased 5.0.0
 
+- Use `MD5` for hashing server nodes in `Redis::Distributed`. This should improve keys distribution among servers. See #1089.
 - Cluster support has been moved to a `redis_cluster` companion gem.
 - `select` no longer record the current database. If the client has to reconnect after `select` was used, it will reconnect to the original database.
 - Removed `logger` option.
