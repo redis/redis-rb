@@ -76,7 +76,8 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     assert_equal [], publisher.pubsub(:channels, 'guc*')
     assert_equal [], publisher.pubsub(:channels, 'her*')
     assert_equal({}, publisher.pubsub(:numsub))
-    assert_equal({ 'burberry1' => 0, 'gucci2' => 0, 'hermes3' => 0 }, publisher.pubsub(:numsub, 'burberry1', 'gucci2', 'hermes3'))
+    assert_equal({ 'burberry1' => 0, 'gucci2' => 0, 'hermes3' => 0 },
+                 publisher.pubsub(:numsub, 'burberry1', 'gucci2', 'hermes3'))
     assert_equal 2, publisher.pubsub(:numpat)
 
     publisher.publish('burberry1', 'one')
@@ -92,7 +93,8 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     assert_equal [], publisher.pubsub(:channels, 'guc*')
     assert_equal [], publisher.pubsub(:channels, 'her*')
     assert_equal({}, publisher.pubsub(:numsub))
-    assert_equal({ 'burberry1' => 0, 'gucci2' => 0, 'hermes3' => 0 }, publisher.pubsub(:numsub, 'burberry1', 'gucci2', 'hermes3'))
+    assert_equal({ 'burberry1' => 0, 'gucci2' => 0, 'hermes3' => 0 },
+                 publisher.pubsub(:numsub, 'burberry1', 'gucci2', 'hermes3'))
     assert_equal 0, publisher.pubsub(:numpat)
   end
 end

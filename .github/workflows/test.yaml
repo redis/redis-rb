@@ -197,7 +197,7 @@ jobs:
       LOW_TIMEOUT: "0.14"
       DRIVER: ruby
       REDIS_BRANCH: "7.0"
-      REDIS_CLUSTER: "true"
+      BUNDLE_GEMFILE: redis_cluster/Gemfile
     steps:
       - name: Check out code
         uses: actions/checkout@v3

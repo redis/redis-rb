@@ -8,8 +8,6 @@ class Redis
   BASE_PATH = __dir__
   Deprecated = Class.new(StandardError)
 
-  autoload :ClusterClient, "redis/cluster_client"
-
   class << self
     attr_accessor :silence_deprecations, :raise_deprecations
 
@@ -50,12 +48,6 @@ class Redis
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
   # @option options [String] :name The name of the server group to connect to.
   # @option options [Array] :sentinels List of sentinels to contact
-  # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
-  # @option options [Array<String, Hash{Symbol => String, Integer}>] :cluster List of cluster nodes to contact
-  # @option options [Boolean] :replica Whether to use readonly replica nodes in Redis Cluster or not
-  # @option options [String] :fixed_hostname Specify a FQDN if cluster mode enabled and
-  #   client has to connect nodes via single endpoint with SSL/TLS
-  # @option options [Class] :connector Class of custom connector
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
@@ -68,34 +60,7 @@ class Redis
     inherit_socket = @options.delete(:inherit_socket)
     @subscription_client = nil
 
-    @client = if @cluster_mode = options.key?(:cluster)
-      @options[:nodes] ||= @options.delete(:cluster)
-      cluster_config = RedisClient.cluster(**@options, protocol: 2, client_implementation: ClusterClient)
-      begin
-        cluster_config.new_client
-      rescue ::RedisClient::Error => error
-        raise ClusterClient::ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
-      end
-    elsif @options.key?(:sentinels)
-      if url = @options.delete(:url)
-        uri = URI.parse(url)
-        if !@options.key?(:name) && uri.host
-          @options[:name] = uri.host
-        end
-
-        if !@options.key?(:password) && uri.password && !uri.password.empty?
-          @options[:password] = uri.password
-        end
-
-        if !@options.key?(:username) && uri.user && !uri.user.empty?
-          @options[:username] = uri.user
-        end
-      end
-
-      Client.sentinel(**@options).new_client
-    else
-      Client.config(**@options).new_client
-    end
+    @client = initialize_client(@options)
     @client.inherit_socket! if inherit_socket
   end
 
@@ -145,10 +110,6 @@ class Redis
   end
 
   def connection
-    if @cluster_mode
-      raise NotImplementedError, "Redis::Cluster doesn't implement #connection"
-    end
-
     {
       host: @client.host,
       port: @client.port,
@@ -159,6 +120,33 @@ class Redis
   end
 
   private
+
+  def initialize_client(options)
+    if options.key?(:cluster)
+      raise "Redis Cluster support was moved to the `redis_cluster` gem."
+    end
+
+    if options.key?(:sentinels)
+      if url = options.delete(:url)
+        uri = URI.parse(url)
+        if !options.key?(:name) && uri.host
+          options[:name] = uri.host
+        end
+
+        if !options.key?(:password) && uri.password && !uri.password.empty?
+          options[:password] = uri.password
+        end
+
+        if !options.key?(:username) && uri.user && !uri.user.empty?
+          options[:username] = uri.user
+        end
+      end
+
+      Client.sentinel(**options).new_client
+    else
+      Client.config(**options).new_client
+    end
+  end
 
   def synchronize
     @monitor.synchronize { yield(@client) }
