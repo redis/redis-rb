@@ -148,3 +148,7 @@ Style/SymbolProc:
 
 Bundler/OrderedGems:
   Enabled: false
+
+Gemspec/RequiredRubyVersion:
+  Exclude:
+    - redis_cluster/redis_cluster.gemspec

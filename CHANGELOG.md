@@ -2,6 +2,7 @@
 
 # Unreleased 5.0.0
 
+- Cluster support has been moved to a `redis_cluster` companion gem.
 - `select` no longer record the current database. If the client has to reconnect after `select` was used, it will reconnect to the original database.
 - Removed `logger` option.
 - Removed `reconnect_delay_max` and `reconnect_delay`, you can pass precise sleep durations to `reconnect_attempts` instead.

@@ -12,24 +12,7 @@ class Redis
       #
       # @return [Object] depends on the subcommand
       def cluster(subcommand, *args)
-        subcommand = subcommand.to_s.downcase
-        block = case subcommand
-        when 'slots'
-          HashifyClusterSlots
-        when 'nodes'
-          HashifyClusterNodes
-        when 'slaves'
-          HashifyClusterSlaves
-        when 'info'
-          HashifyInfo
-        else
-          Noop
-        end
-
-        # @see https://github.com/antirez/redis/blob/unstable/src/redis-trib.rb#L127 raw reply expected
-        block = Noop unless @cluster_mode
-
-        send_command([:cluster, subcommand] + args, &block)
+        send_command([:cluster, subcommand] + args)
       end
 
       # Sends `ASKING` command to random node and returns its reply.

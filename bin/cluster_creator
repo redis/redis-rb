@@ -5,7 +5,7 @@ puts ARGV.join(" ")
 require 'bundler/setup'
 
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
-require_relative '../test/support/cluster/orchestrator'
+require_relative '../redis_cluster/test/support/orchestrator'
 
 urls = ARGV.map { |host_port| "redis://#{host_port}" }
 orchestrator = ClusterOrchestrator.new(urls, timeout: 3.0)
