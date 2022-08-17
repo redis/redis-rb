@@ -135,15 +135,6 @@ class TestPipeliningCommands < Minitest::Test
     end
   end
 
-  def test_futures_warn_when_tested_for_equality
-    r.pipelined do |p|
-      @result = p.sadd("foo", 1)
-    end
-
-    Redis.expects(:deprecate!).once
-    @result == 1
-  end
-
   def test_futures_can_be_identified
     r.pipelined do |p|
       @result = p.sadd("foo", 1)

@@ -85,16 +85,6 @@ class Redis
       @coerce = coerce
     end
 
-    def ==(_other)
-      message = +"The methods == and != are deprecated for Redis::Future and will be removed in 5.0.0"
-      message << " - You probably meant to call .value == or .value !="
-      message << " (#{::Kernel.caller(1, 1).first})\n"
-
-      ::Redis.deprecate!(message)
-
-      super
-    end
-
     def inspect
       "<Redis::Future #{@command.inspect}>"
     end
