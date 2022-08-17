@@ -6,25 +6,12 @@ require "redis/commands"
 
 class Redis
   BASE_PATH = __dir__
-  @exists_returns_integer = true
-
   Deprecated = Class.new(StandardError)
 
+  autoload :ClusterClient, "redis/cluster_client"
+
   class << self
-    attr_reader :exists_returns_integer
     attr_accessor :silence_deprecations, :raise_deprecations
-
-    def exists_returns_integer=(value)
-      unless value
-        deprecate!(
-          "`Redis#exists(key)` will return an Integer by default in redis-rb 4.3. The option to explicitly " \
-          "disable this behaviour via `Redis.exists_returns_integer` will be removed in 5.0. You should use " \
-          "`exists?` instead."
-        )
-      end
-
-      @exists_returns_integer = value
-    end
 
     def deprecate!(message)
       unless silence_deprecations
@@ -35,19 +22,11 @@ class Redis
         end
       end
     end
-
-    def current
-      deprecate!("`Redis.current` is deprecated and will be removed in 5.0. (called from: #{caller(1, 1).first})")
-      @current ||= Redis.new
-    end
-
-    def current=(redis)
-      deprecate!("`Redis.current=` is deprecated and will be removed in 5.0. (called from: #{caller(1, 1).first})")
-      @current = redis
-    end
   end
 
   include Commands
+
+  SERVER_URL_OPTIONS = %i(url host port path).freeze
 
   # Create a new client instance
   #
@@ -62,14 +41,14 @@ class Redis
   # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
   # @option options [String] :username Username to authenticate against server
   # @option options [String] :password Password to authenticate against server
-  # @option options [Integer] :db (0) Database to select after initial connect
-  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`, `:synchrony`
+  # @option options [Integer] :db (0) Database to select after connect and on reconnects
+  # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`
   # @option options [String] :id ID for the client connection, assigns name to current connection by sending
   #   `CLIENT SETNAME`
-  # @option options [Hash, Integer] :tcp_keepalive Keepalive values, if Integer `intvl` and `probe` are calculated
-  #   based on the value, if Hash `time`, `intvl` and `probes` can be specified as a Integer
-  # @option options [Integer] :reconnect_attempts Number of attempts trying to connect
+  # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,
+  #   or a list of sleep duration between attempts.
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [String] :name The name of the server group to connect to.
   # @option options [Array] :sentinels List of sentinels to contact
   # @option options [Symbol] :role (:master) Role to fetch via Sentinel, either `:master` or `:slave`
   # @option options [Array<String, Hash{Symbol => String, Integer}>] :cluster List of cluster nodes to contact
@@ -80,34 +59,60 @@ class Redis
   #
   # @return [Redis] a new client instance
   def initialize(options = {})
-    @options = options.dup
-    @cluster_mode = options.key?(:cluster)
-    client = @cluster_mode ? Cluster : Client
-    @original_client = @client = client.new(options)
-    @queue = Hash.new { |h, k| h[k] = [] }
     @monitor = Monitor.new
-  end
-
-  # Run code with the client reconnecting
-  def with_reconnect(val = true, &blk)
-    synchronize do |client|
-      client.with_reconnect(val, &blk)
+    @options = options.dup
+    @options[:reconnect_attempts] = 1 unless @options.key?(:reconnect_attempts)
+    if ENV["REDIS_URL"] && SERVER_URL_OPTIONS.none? { |o| @options.key?(o) }
+      @options[:url] = ENV["REDIS_URL"]
     end
+    inherit_socket = @options.delete(:inherit_socket)
+    @subscription_client = nil
+
+    @client = if @cluster_mode = options.key?(:cluster)
+      @options[:nodes] ||= @options.delete(:cluster)
+      cluster_config = RedisClient.cluster(**@options, protocol: 2, client_implementation: ClusterClient)
+      begin
+        cluster_config.new_client
+      rescue ::RedisClient::Error => error
+        raise ClusterClient::ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+      end
+    elsif @options.key?(:sentinels)
+      if url = @options.delete(:url)
+        uri = URI.parse(url)
+        if !@options.key?(:name) && uri.host
+          @options[:name] = uri.host
+        end
+
+        if !@options.key?(:password) && uri.password && !uri.password.empty?
+          @options[:password] = uri.password
+        end
+
+        if !@options.key?(:username) && uri.user && !uri.user.empty?
+          @options[:username] = uri.user
+        end
+      end
+
+      Client.sentinel(**@options).new_client
+    else
+      Client.config(**@options).new_client
+    end
+    @client.inherit_socket! if inherit_socket
   end
 
   # Run code without the client reconnecting
-  def without_reconnect(&blk)
-    with_reconnect(false, &blk)
+  def without_reconnect(&block)
+    @client.disable_reconnection(&block)
   end
 
   # Test whether or not the client is connected
   def connected?
-    @original_client.connected?
+    @client.connected? || @subscription_client&.connected?
   end
 
   # Disconnect the client as quickly and silently as possible.
   def close
-    @original_client.disconnect
+    @client.close
+    @subscription_client&.close
   end
   alias disconnect! close
 
@@ -115,127 +120,20 @@ class Redis
     yield self
   end
 
-  # @deprecated Queues a command for pipelining.
-  #
-  # Commands in the queue are executed with the Redis#commit method.
-  #
-  # See http://redis.io/topics/pipelining for more details.
-  #
-  def queue(*command)
-    ::Redis.deprecate!(
-      "Redis#queue is deprecated and will be removed in Redis 5.0.0. Use Redis#pipelined instead." \
-      "(called from: #{caller(1, 1).first})"
-    )
-
-    synchronize do
-      @queue[Thread.current.object_id] << command
-    end
-  end
-
-  # @deprecated Sends all commands in the queue.
-  #
-  # See http://redis.io/topics/pipelining for more details.
-  #
-  def commit
-    ::Redis.deprecate!(
-      "Redis#commit is deprecated and will be removed in Redis 5.0.0. Use Redis#pipelined instead. " \
-      "(called from: #{Kernel.caller(1, 1).first})"
-    )
-
-    synchronize do |client|
-      begin
-        pipeline = Pipeline.new(client)
-        @queue[Thread.current.object_id].each do |command|
-          pipeline.call(command)
-        end
-
-        client.call_pipelined(pipeline)
-      ensure
-        @queue.delete(Thread.current.object_id)
-      end
-    end
-  end
-
   def _client
     @client
   end
 
-  def pipelined(&block)
-    deprecation_displayed = false
-    if block&.arity == 0
-      Pipeline.deprecation_warning("pipelined", Kernel.caller_locations(1, 5))
-      deprecation_displayed = true
-    end
-
-    synchronize do |prior_client|
-      begin
-        pipeline = Pipeline.new(prior_client)
-        @client = deprecation_displayed ? pipeline : DeprecatedPipeline.new(pipeline)
-        pipelined_connection = PipelinedConnection.new(pipeline)
-        yield pipelined_connection
-        prior_client.call_pipeline(pipeline)
-      ensure
-        @client = prior_client
+  def pipelined
+    synchronize do |client|
+      client.pipelined do |raw_pipeline|
+        yield PipelinedConnection.new(raw_pipeline)
       end
-    end
-  end
-
-  # Mark the start of a transaction block.
-  #
-  # Passing a block is optional.
-  #
-  # @example With a block
-  #   redis.multi do |multi|
-  #     multi.set("key", "value")
-  #     multi.incr("counter")
-  #   end # => ["OK", 6]
-  #
-  # @example Without a block
-  #   redis.multi
-  #     # => "OK"
-  #   redis.set("key", "value")
-  #     # => "QUEUED"
-  #   redis.incr("counter")
-  #     # => "QUEUED"
-  #   redis.exec
-  #     # => ["OK", 6]
-  #
-  # @yield [multi] the commands that are called inside this block are cached
-  #   and written to the server upon returning from it
-  # @yieldparam [Redis] multi `self`
-  #
-  # @return [String, Array<...>]
-  #   - when a block is not given, `OK`
-  #   - when a block is given, an array with replies
-  #
-  # @see #watch
-  # @see #unwatch
-  def multi(&block)
-    if block_given?
-      deprecation_displayed = false
-      if block&.arity == 0
-        Pipeline.deprecation_warning("multi", Kernel.caller_locations(1, 5))
-        deprecation_displayed = true
-      end
-
-      synchronize do |prior_client|
-        begin
-          pipeline = Pipeline::Multi.new(prior_client)
-          @client = deprecation_displayed ? pipeline : DeprecatedMulti.new(pipeline)
-          pipelined_connection = PipelinedConnection.new(pipeline)
-          yield pipelined_connection
-          prior_client.call_pipeline(pipeline)
-        ensure
-          @client = prior_client
-        end
-      end
-    else
-      send_command([:multi])
     end
   end
 
   def id
-    @original_client.id
+    @client.id || @client.server_url
   end
 
   def inspect
@@ -247,14 +145,16 @@ class Redis
   end
 
   def connection
-    return @original_client.connection_info if @cluster_mode
+    if @cluster_mode
+      raise NotImplementedError, "Redis::Cluster doesn't implement #connection"
+    end
 
     {
-      host: @original_client.host,
-      port: @original_client.port,
-      db: @original_client.db,
-      id: @original_client.id,
-      location: @original_client.location
+      host: @client.host,
+      port: @client.port,
+      db: @client.db,
+      id: id,
+      location: "#{@client.host}:#{@client.port}"
     }
   end
 
@@ -266,35 +166,35 @@ class Redis
 
   def send_command(command, &block)
     @monitor.synchronize do
-      @client.call(command, &block)
+      @client.call_v(command, &block)
     end
   end
 
   def send_blocking_command(command, timeout, &block)
     @monitor.synchronize do
-      @client.call_with_timeout(command, timeout, &block)
+      @client.blocking_call_v(timeout, command, &block)
     end
   end
 
   def _subscription(method, timeout, channels, block)
-    return @client.call([method] + channels) if subscribed?
+    if @subscription_client
+      return @subscription_client.call_v([method] + channels)
+    end
 
     begin
-      original, @client = @client, SubscribedClient.new(@client)
+      @subscription_client = SubscribedClient.new(@client.pubsub)
       if timeout > 0
-        @client.send(method, timeout, *channels, &block)
+        @subscription_client.send(method, timeout, *channels, &block)
       else
-        @client.send(method, *channels, &block)
+        @subscription_client.send(method, *channels, &block)
       end
     ensure
-      @client = original
+      @subscription_client = nil
     end
   end
 end
 
 require "redis/version"
-require "redis/connection"
 require "redis/client"
-require "redis/cluster"
 require "redis/pipeline"
 require "redis/subscribe"

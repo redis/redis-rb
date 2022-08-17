@@ -17,7 +17,7 @@ class TestConnectionHandling < Minitest::Test
       assert_equal "PONG", redis.ping
     end
 
-    assert_equal ["setname", "client-name"], @name
+    assert_equal ["SETNAME", "client-name"], @name
   end
 
   def test_ping
@@ -30,9 +30,9 @@ class TestConnectionHandling < Minitest::Test
     r.select 14
     assert_nil r.get("foo")
 
-    r._client.disconnect
+    r._client.close
 
-    assert_nil r.get("foo")
+    assert_equal "bar", r.get("foo")
   end
 
   def test_quit
@@ -127,91 +127,6 @@ class TestConnectionHandling < Minitest::Test
     end
   end
 
-  def test_shutdown_from_pipeline
-    commands = {
-      shutdown: -> { :exit }
-    }
-
-    redis_mock(commands) do |redis|
-      result = redis.pipelined do
-        redis.shutdown
-      end
-
-      assert_nil result
-      assert !redis._client.connected?
-    end
-  end
-
-  def test_shutdown_with_error_from_pipeline
-    connections = 0
-    commands = {
-      select: ->(*_) { connections += 1; "+OK\r\n" },
-      connections: -> { ":#{connections}\r\n" },
-      shutdown: -> { "-ERR could not shutdown\r\n" }
-    }
-
-    redis_mock(commands) do |redis|
-      connections = redis.connections
-
-      # SHUTDOWN replies with an error: test that it gets raised
-      assert_raises Redis::CommandError do
-        redis.pipelined do
-          redis.shutdown
-        end
-      end
-
-      # The connection should remain in tact
-      assert_equal connections, redis.connections
-    end
-  end
-
-  def test_shutdown_from_multi_exec
-    commands = {
-      multi: -> { "+OK\r\n" },
-      shutdown: -> { "+QUEUED\r\n" },
-      exec: -> { :exit }
-    }
-
-    redis_mock(commands) do |redis|
-      result = redis.multi do
-        redis.shutdown
-      end
-
-      assert_nil result
-      assert !redis._client.connected?
-    end
-  end
-
-  def test_shutdown_with_error_from_multi_exec
-    connections = 0
-    commands = {
-      select: ->(*_) { connections += 1; "+OK\r\n" },
-      connections: -> { ":#{connections}\r\n" },
-      multi: -> { "+OK\r\n" },
-      shutdown: -> { "+QUEUED\r\n" },
-      exec: -> { "*1\r\n-ERR could not shutdown\r\n" }
-    }
-
-    redis_mock(commands) do |redis|
-      connections = redis.connections
-
-      # SHUTDOWN replies with an error: test that it gets returned
-      # We should test for Redis::CommandError here, but hiredis doesn't yet do
-      # custom error classes.
-      err = nil
-
-      begin
-        redis.multi { redis.shutdown }
-      rescue => err
-      end
-
-      assert err.is_a?(StandardError)
-
-      # The connection should remain intact
-      assert_equal connections, redis.connections
-    end
-  end
-
   def test_slaveof
     redis_mock(slaveof: ->(host, port) { "+SLAVEOF #{host} #{port}" }) do |redis|
       assert_equal "SLAVEOF somehost 6381", redis.slaveof("somehost", 6381)
@@ -240,26 +155,5 @@ class TestConnectionHandling < Minitest::Test
     assert_equal "100", r.config(:get, "*")["timeout"]
   ensure
     r.config :set, "timeout", 300
-  end
-
-  driver(:ruby, :hiredis) do
-    def test_consistency_on_multithreaded_env
-      t = nil
-
-      commands = {
-        set: ->(_key, _value) { t.kill; "+OK\r\n" },
-        incr: ->(_key) { ":1\r\n" }
-      }
-
-      redis_mock(commands) do |redis|
-        t = Thread.new do
-          redis.set("foo", "bar")
-        end
-
-        t.join
-
-        assert_equal 1, redis.incr("baz")
-      end
-    end
   end
 end

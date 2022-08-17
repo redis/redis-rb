@@ -21,24 +21,16 @@ class TestClusterClientInternals < Minitest::Test
     end
   end
 
-  def test_with_reconnect
-    assert_equal('Hello World', redis.with_reconnect { 'Hello World' })
-  end
-
-  def test_without_reconnect
-    assert_equal('Hello World', redis.without_reconnect { 'Hello World' })
-  end
-
   def test_connected?
     assert_equal true, redis.connected?
   end
 
   def test_close
-    assert_equal true, redis.close
+    redis.close
   end
 
   def test_disconnect!
-    assert_equal true, redis.disconnect!
+    redis.disconnect!
   end
 
   def test_asking
@@ -46,33 +38,19 @@ class TestClusterClientInternals < Minitest::Test
   end
 
   def test_id
-    expected = 'redis://127.0.0.1:7000/0 '\
-               'redis://127.0.0.1:7001/0 '\
-               'redis://127.0.0.1:7002/0'
+    expected = '127.0.0.1:16380 '\
+               '127.0.0.1:16381 '\
+               '127.0.0.1:16382'
     assert_equal expected, redis.id
   end
 
   def test_inspect
     expected = "#<Redis client v#{Redis::VERSION} for "\
-               'redis://127.0.0.1:7000/0 '\
-               'redis://127.0.0.1:7001/0 '\
-               'redis://127.0.0.1:7002/0>'
+                  '127.0.0.1:16380 '\
+                  '127.0.0.1:16381 '\
+                  '127.0.0.1:16382>'
 
     assert_equal expected, redis.inspect
-  end
-
-  def test_dup
-    assert_instance_of Redis, redis.dup
-  end
-
-  def test_connection
-    expected = [
-      { host: '127.0.0.1', port: 7000, db: 0, id: 'redis://127.0.0.1:7000/0', location: '127.0.0.1:7000' },
-      { host: '127.0.0.1', port: 7001, db: 0, id: 'redis://127.0.0.1:7001/0', location: '127.0.0.1:7001' },
-      { host: '127.0.0.1', port: 7002, db: 0, id: 'redis://127.0.0.1:7002/0', location: '127.0.0.1:7002' }
-    ]
-
-    assert_equal expected, redis.connection
   end
 
   def test_acl_auth_success

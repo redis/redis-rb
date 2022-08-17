@@ -47,8 +47,7 @@ class TestClusterCommandsOnKeys < Minitest::Test
   def test_object
     redis.lpush('mylist', 'Hello World')
     assert_equal 1, redis.object('refcount', 'mylist')
-    expected_encoding = version < '3.2.0' ? 'ziplist' : 'quicklist'
-    assert_equal expected_encoding, redis.object('encoding', 'mylist')
+    assert_equal 'quicklist', redis.object('encoding', 'mylist')
     assert(redis.object('idletime', 'mylist') >= 0)
 
     redis.set('foo', 1000)
@@ -93,29 +92,25 @@ class TestClusterCommandsOnKeys < Minitest::Test
   end
 
   def test_touch
-    target_version('3.2.1') do
-      set_some_keys
-      assert_equal 1, redis.touch('key1')
-      assert_equal 1, redis.touch('key2')
-      if version < '6'
-        assert_equal 1, redis.touch('key1', 'key2')
-      else
-        assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
-          redis.touch('key1', 'key2')
-        end
+    set_some_keys
+    assert_equal 1, redis.touch('key1')
+    assert_equal 1, redis.touch('key2')
+    if version < '6'
+      assert_equal 1, redis.touch('key1', 'key2')
+    else
+      assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+        redis.touch('key1', 'key2')
       end
-      assert_equal 2, redis.touch('{key}1', '{key}2')
     end
+    assert_equal 2, redis.touch('{key}1', '{key}2')
   end
 
   def test_unlink
-    target_version('4.0.0') do
-      set_some_keys
-      assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
-        redis.unlink('key1', 'key2', 'key3')
-      end
-      assert_equal 2, redis.unlink('{key}1', '{key}2', '{key}3')
+    set_some_keys
+    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+      redis.unlink('key1', 'key2', 'key3')
     end
+    assert_equal 2, redis.unlink('{key}1', '{key}2', '{key}3')
   end
 
   def test_wait

@@ -117,9 +117,13 @@ class Redis
       #
       # @yield a block to be called for every line of output
       # @yieldparam [String] line timestamp and command that was executed
-      def monitor(&block)
+      def monitor
         synchronize do |client|
-          client.call_loop([:monitor], &block)
+          client = client.pubsub
+          client.call_v([:monitor])
+          loop do
+            yield client.next_event
+          end
         end
       end
 
@@ -133,13 +137,11 @@ class Redis
       # Synchronously save the dataset to disk and then shut down the server.
       def shutdown
         synchronize do |client|
-          client.with_reconnect(false) do
-            begin
-              client.call([:shutdown])
-            rescue ConnectionError
-              # This means Redis has probably exited.
-              nil
-            end
+          client.disable_reconnection do
+            client.call_v([:shutdown])
+          rescue ConnectionError
+            # This means Redis has probably exited.
+            nil
           end
         end
       end
@@ -155,11 +157,9 @@ class Redis
       # @param [Integer] length maximum number of entries to return
       # @return [Array<String>, Integer, String] depends on subcommand
       def slowlog(subcommand, length = nil)
-        synchronize do |client|
-          args = [:slowlog, subcommand]
-          args << length if length
-          client.call args
-        end
+        args = [:slowlog, subcommand]
+        args << length if length
+        send_command(args)
       end
 
       # Internal command used for replication.

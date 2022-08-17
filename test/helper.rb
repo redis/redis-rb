@@ -13,11 +13,13 @@ require "redis"
 Redis.silence_deprecations = true
 
 require "redis/distributed"
-require "redis/connection/#{ENV['DRIVER']}"
 
 require_relative "support/redis_mock"
-require_relative "support/connection/#{ENV['DRIVER']}"
 require_relative 'support/cluster/orchestrator'
+
+if ENV["DRIVER"] == "hiredis"
+  require "hiredis-client"
+end
 
 PORT        = 6381
 DB          = 15
@@ -33,10 +35,6 @@ if ENV['REDIS_SOCKET_PATH'].nil?
   end
 
   ENV['REDIS_SOCKET_PATH'] = sock_file
-end
-
-def driver(*drivers, &blk)
-  class_eval(&blk) if drivers.map(&:to_s).include?(ENV["DRIVER"])
 end
 
 Dir[File.expand_path('lint/**/*.rb', __dir__)].sort.each do |f|
@@ -110,7 +108,6 @@ module Helper
     alias r redis
 
     def setup
-      @log = StringIO.new
       @redis = init _new_client
 
       # Run GC to make sure orphaned connections are closed.
@@ -119,7 +116,7 @@ module Helper
     end
 
     def teardown
-      redis&.quit
+      redis&.close
       super
     end
 
@@ -213,7 +210,7 @@ module Helper
     private
 
     def _format_options(options)
-      OPTIONS.merge(logger: ::Logger.new(@log)).merge(options)
+      OPTIONS.merge(options)
     end
 
     def _new_client(options = {})
@@ -232,7 +229,7 @@ module Helper
     LOCALHOST = '127.0.0.1'
 
     def build_sentinel_client(options = {})
-      opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT, logger: ::Logger.new(@log) }
+      opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT }
       Redis.new(opts.merge(options))
     end
 
@@ -242,11 +239,25 @@ module Helper
 
     private
 
+    def wait_for_quorum
+      redis = build_sentinel_client
+      50.times do
+        if redis.sentinel('ckquorum', MASTER_NAME).start_with?('OK 3 usable Sentinels')
+          return
+        else
+          sleep 0.1
+        end
+      rescue
+        sleep 0.1
+      end
+      raise "ckquorum timeout"
+    end
+
     def _format_options(options = {})
       {
         url: "redis://#{MASTER_NAME}",
         sentinels: [{ host: LOCALHOST, port: SENTINEL_PORT }],
-        role: :master, timeout: TIMEOUT, logger: ::Logger.new(@log)
+        role: :master, timeout: TIMEOUT,
       }.merge(options)
     end
 
@@ -269,7 +280,6 @@ module Helper
     def _format_options(options)
       {
         timeout: OPTIONS[:timeout],
-        logger: ::Logger.new(@log)
       }.merge(options)
     end
 
@@ -282,7 +292,7 @@ module Helper
     include Generic
 
     DEFAULT_HOST = '127.0.0.1'
-    DEFAULT_PORTS = (7000..7005).freeze
+    DEFAULT_PORTS = (16_380..16_385).freeze
 
     ClusterSlotsRawReply = lambda { |host, port|
       # @see https://redis.io/topics/protocol
@@ -344,17 +354,17 @@ module Helper
 
       cluster_subcommands = if commands.key?(:cluster)
         commands.delete(:cluster)
-                .map { |k, v| [k.to_s.downcase, v] }
-                .to_h
+                .to_h { |k, v| [k.to_s.downcase, v] }
       else
         {}
       end
 
       commands[:cluster] = lambda { |subcommand, *args|
+        subcommand = subcommand.downcase
         if cluster_subcommands.key?(subcommand)
           cluster_subcommands[subcommand].call(*args)
         else
-          case subcommand
+          case subcommand.downcase
           when 'slots' then ClusterSlotsRawReply.call(host, port)
           when 'nodes' then ClusterNodesRawReply.call(host, port)
           else '+OK'
@@ -422,7 +432,6 @@ module Helper
     def _format_options(options)
       {
         timeout: OPTIONS[:timeout],
-        logger: ::Logger.new(@log),
         cluster: _default_nodes
       }.merge(options)
     end

@@ -102,7 +102,7 @@ class TestPipeliningCommands < Minitest::Test
     r.pipelined do |p|
       @first = p.sadd("foo", 1)
 
-      r.pipelined do |p2|
+      p.pipelined do |p2|
         @second = p2.sadd("foo", 1)
       end
     end
@@ -133,15 +133,6 @@ class TestPipeliningCommands < Minitest::Test
         @result = p.zrange("a", "b", 5, with_scores: true)
       end
     end
-  end
-
-  def test_futures_warn_when_tested_for_equality
-    r.pipelined do |p|
-      @result = p.sadd("foo", 1)
-    end
-
-    Redis.expects(:deprecate!).once
-    @result == 1
   end
 
   def test_futures_can_be_identified
@@ -191,24 +182,24 @@ class TestPipeliningCommands < Minitest::Test
 
   def test_hgetall_in_a_pipeline_returns_hash
     r.hmset("hash", "field", "value")
+    future = nil
     result = r.pipelined do |p|
-      p.hgetall("hash")
+      future = p.hgetall("hash")
     end
 
-    assert_equal result.first, { "field" => "value" }
+    assert_equal([{ "field" => "value" }], result)
+    assert_equal({ "field" => "value" }, future.value)
   end
 
   def test_zpopmax_in_a_pipeline_produces_future
-    target_version('5.0.0') do
-      r.zadd("sortedset", 1.0, "value")
-      future = nil
-      result = r.pipelined do
-        future = r.zpopmax("sortedset")
-      end
-
-      assert_equal [["value", 1.0]], result
-      assert_equal ["value", 1.0], future.value
+    r.zadd("sortedset", 1.0, "value")
+    future = nil
+    result = r.pipelined do |pipeline|
+      future = pipeline.zpopmax("sortedset")
     end
+
+    assert_equal [["value", 1.0]], result
+    assert_equal ["value", 1.0], future.value
   end
 
   def test_keys_in_a_pipeline
@@ -244,30 +235,9 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal "2", r.get("db")
   end
 
-  def test_pipeline_select_client_db
-    r.select 1
-    r.pipelined do |p2|
-      p2.select 2
-    end
-
-    assert_equal 2, r._client.db
-  end
-
-  def test_nested_pipeline_select_client_db
-    r.select 1
-    r.pipelined do |p2|
-      p2.select 2
-      p2.pipelined do |p3|
-        p3.select 3
-      end
-    end
-
-    assert_equal 3, r._client.db
-  end
-
   def test_pipeline_interrupt_preserves_client
     original = r._client
-    Redis::Pipeline.stubs(:new).raises(Interrupt)
+    Redis::PipelinedConnection.stubs(:new).raises(Interrupt)
     assert_raises(Interrupt) { r.pipelined {} }
     assert_equal r._client, original
   end

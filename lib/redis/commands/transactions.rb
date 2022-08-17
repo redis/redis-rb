@@ -5,48 +5,26 @@ class Redis
     module Transactions
       # Mark the start of a transaction block.
       #
-      # Passing a block is optional.
-      #
       # @example With a block
       #   redis.multi do |multi|
       #     multi.set("key", "value")
       #     multi.incr("counter")
       #   end # => ["OK", 6]
       #
-      # @example Without a block
-      #   redis.multi
-      #     # => "OK"
-      #   redis.set("key", "value")
-      #     # => "QUEUED"
-      #   redis.incr("counter")
-      #     # => "QUEUED"
-      #   redis.exec
-      #     # => ["OK", 6]
-      #
       # @yield [multi] the commands that are called inside this block are cached
       #   and written to the server upon returning from it
       # @yieldparam [Redis] multi `self`
       #
-      # @return [String, Array<...>]
-      #   - when a block is not given, `OK`
-      #   - when a block is given, an array with replies
+      # @return [Array<...>]
+      #   - an array with replies
       #
       # @see #watch
       # @see #unwatch
-      def multi(&block) # :nodoc:
-        if block_given?
-          if block&.arity == 0
-            Pipeline.deprecation_warning("multi", Kernel.caller_locations(1, 5))
+      def multi
+        synchronize do |client|
+          client.multi do |raw_transaction|
+            yield MultiConnection.new(raw_transaction)
           end
-
-          synchronize do |prior_client|
-            pipeline = Pipeline::Multi.new(prior_client)
-            pipelined_connection = PipelinedConnection.new(pipeline)
-            yield pipelined_connection
-            prior_client.call_pipeline(pipeline)
-          end
-        else
-          send_command([:multi])
         end
       end
 
@@ -82,7 +60,7 @@ class Redis
       # @see #multi
       def watch(*keys)
         synchronize do |client|
-          res = client.call([:watch, *keys])
+          res = client.call_v([:watch] + keys)
 
           if block_given?
             begin
@@ -124,8 +102,6 @@ class Redis
       end
 
       # Discard all commands issued after MULTI.
-      #
-      # Only call this method when `#multi` was called **without** a block.
       #
       # @return [String] `"OK"`
       #

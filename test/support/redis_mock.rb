@@ -8,6 +8,8 @@ module RedisMock
       tcp_server = TCPServer.new(options[:host] || "127.0.0.1", 0)
       tcp_server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
 
+      @concurrent = options.delete(:concurrent)
+
       if options[:ssl]
         ctx = OpenSSL::SSL::SSLContext.new
 
@@ -32,14 +34,21 @@ module RedisMock
       @thread.kill
     end
 
-    def run
+    def run(&block)
       loop do
-        session = @server.accept
-
-        begin
-          return if yield(session) == :exit
-        ensure
-          session.close
+        if @concurrent
+          Thread.new(@server.accept) do |session|
+            block.call(session)
+          ensure
+            session.close
+          end
+        else
+          session = @server.accept
+          begin
+            return if yield(session) == :exit
+          ensure
+            session.close
+          end
         end
       end
     rescue => ex
@@ -93,7 +102,7 @@ module RedisMock
         end
 
         command = argv.shift
-        blk = commands[command.to_sym]
+        blk = commands[command.downcase.to_sym]
         blk ||= ->(*_) { "+OK" }
 
         response = blk.call(*argv)

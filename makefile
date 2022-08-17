@@ -16,7 +16,7 @@ SLAVE_SOCKET_PATH  := ${BUILD_DIR}/redis_slave.sock
 HA_GROUP_NAME      := master1
 SENTINEL_PORTS     := 6400 6401 6402
 SENTINEL_PID_PATHS := $(addprefix ${TMP}/redis,$(addsuffix .pid,${SENTINEL_PORTS}))
-CLUSTER_PORTS      := 7000 7001 7002 7003 7004 7005
+CLUSTER_PORTS      := 16380 16381 16382 16383 16384 16385
 CLUSTER_PID_PATHS  := $(addprefix ${TMP}/redis,$(addsuffix .pid,${CLUSTER_PORTS}))
 CLUSTER_CONF_PATHS := $(addprefix ${TMP}/nodes,$(addsuffix .conf,${CLUSTER_PORTS}))
 CLUSTER_ADDRS      := $(addprefix 127.0.0.1:,${CLUSTER_PORTS})
@@ -54,7 +54,7 @@ start: ${BINARY}
 stop_slave:
 	@$(call kill-redis,${SLAVE_PID_PATH})
 
-start_slave: ${BINARY}
+start_slave: start
 	@${BINARY}\
 		--daemonize  yes\
 		--pidfile    ${SLAVE_PID_PATH}\
@@ -62,11 +62,11 @@ start_slave: ${BINARY}
 		--unixsocket ${SLAVE_SOCKET_PATH}\
 		--slaveof    127.0.0.1 ${PORT}
 
-stop_sentinel:
+stop_sentinel: stop_slave stop
 	@$(call kill-redis,${SENTINEL_PID_PATHS})
 	@rm -f ${TMP}/sentinel*.conf || true
 
-start_sentinel: ${BINARY}
+start_sentinel: start start_slave
 	@for port in ${SENTINEL_PORTS}; do\
 		conf=${TMP}/sentinel$$port.conf;\
 		touch $$conf;\
@@ -109,7 +109,7 @@ start_cluster: ${BINARY}
 	@for port in ${CLUSTER_PORTS}; do\
 		${BINARY}\
 			--daemonize            yes\
-			--appendonly           yes\
+			--appendonly           no\
 			--cluster-enabled      yes\
 			--cluster-config-file  ${TMP}/nodes$$port.conf\
 			--cluster-node-timeout 5000\

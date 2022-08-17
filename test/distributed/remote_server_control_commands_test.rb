@@ -27,16 +27,14 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
   end
 
   def test_info_commandstats
-    target_version "2.5.7" do
-      r.nodes.each do |n|
-        n.config(:resetstat)
-        n.get("foo")
-        n.get("bar")
-      end
+    r.nodes.each do |n|
+      n.config(:resetstat)
+      n.get("foo")
+      n.get("bar")
+    end
 
-      r.info(:commandstats).each do |info|
-        assert_equal '2', info['get']['calls']
-      end
+    r.info(:commandstats).each do |info|
+      assert_equal '2', info['get']['calls']
     end
   end
 
@@ -52,15 +50,13 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
   end
 
   def test_time
-    target_version "2.5.4" do
-      # Test that the difference between the time that Ruby reports and the time
-      # that Redis reports is minimal (prevents the test from being racy).
-      r.time.each do |rv|
-        redis_usec = rv[0] * 1_000_000 + rv[1]
-        ruby_usec = Integer(Time.now.to_f * 1_000_000)
+    # Test that the difference between the time that Ruby reports and the time
+    # that Redis reports is minimal (prevents the test from being racy).
+    r.time.each do |rv|
+      redis_usec = rv[0] * 1_000_000 + rv[1]
+      ruby_usec = Integer(Time.now.to_f * 1_000_000)
 
-        assert((ruby_usec - redis_usec).abs < 500_000)
-      end
+      assert((ruby_usec - redis_usec).abs < 500_000)
     end
   end
 end

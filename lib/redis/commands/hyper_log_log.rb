@@ -20,7 +20,7 @@ class Redis
       # @param [String, Array<String>] keys
       # @return [Integer]
       def pfcount(*keys)
-        send_command([:pfcount] + keys)
+        send_command([:pfcount] + keys.flatten(1))
       end
 
       # Merge multiple HyperLogLog values into an unique value that will approximate the cardinality of the union of

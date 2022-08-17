@@ -9,17 +9,15 @@ module Lint
     end
 
     def test_variadic_hset
-      target_version "4.0.0" do
-        assert_equal 2, r.hset("foo", "f1", "s1", "f2", "s2")
+      assert_equal 2, r.hset("foo", "f1", "s1", "f2", "s2")
 
-        assert_equal "s1", r.hget("foo", "f1")
-        assert_equal "s2", r.hget("foo", "f2")
+      assert_equal "s1", r.hget("foo", "f1")
+      assert_equal "s2", r.hget("foo", "f2")
 
-        assert_equal 2, r.hset("bar", { "f1" => "s1", "f2" => "s2" })
+      assert_equal 2, r.hset("bar", { "f1" => "s1", "f2" => "s2" })
 
-        assert_equal "s1", r.hget("bar", "f1")
-        assert_equal "s2", r.hget("bar", "f2")
-      end
+      assert_equal "s1", r.hget("bar", "f1")
+      assert_equal "s2", r.hget("bar", "f2")
     end
 
     def test_hsetnx
@@ -45,33 +43,29 @@ module Lint
     end
 
     def test_splat_hdel
-      target_version "2.3.9" do
-        r.hset("foo", "f1", "s1")
-        r.hset("foo", "f2", "s2")
+      r.hset("foo", "f1", "s1")
+      r.hset("foo", "f2", "s2")
 
-        assert_equal "s1", r.hget("foo", "f1")
-        assert_equal "s2", r.hget("foo", "f2")
+      assert_equal "s1", r.hget("foo", "f1")
+      assert_equal "s2", r.hget("foo", "f2")
 
-        assert_equal 2, r.hdel("foo", "f1", "f2")
+      assert_equal 2, r.hdel("foo", "f1", "f2")
 
-        assert_nil r.hget("foo", "f1")
-        assert_nil r.hget("foo", "f2")
-      end
+      assert_nil r.hget("foo", "f1")
+      assert_nil r.hget("foo", "f2")
     end
 
     def test_variadic_hdel
-      target_version "2.3.9" do
-        r.hset("foo", "f1", "s1")
-        r.hset("foo", "f2", "s2")
+      r.hset("foo", "f1", "s1")
+      r.hset("foo", "f2", "s2")
 
-        assert_equal "s1", r.hget("foo", "f1")
-        assert_equal "s2", r.hget("foo", "f2")
+      assert_equal "s1", r.hget("foo", "f1")
+      assert_equal "s2", r.hget("foo", "f2")
 
-        assert_equal 2, r.hdel("foo", ["f1", "f2"])
+      assert_equal 2, r.hdel("foo", ["f1", "f2"])
 
-        assert_nil r.hget("foo", "f1")
-        assert_nil r.hget("foo", "f2")
-      end
+      assert_nil r.hget("foo", "f1")
+      assert_nil r.hget("foo", "f2")
     end
 
     def test_hexists
@@ -137,12 +131,12 @@ module Lint
     end
 
     def test_hgetall
-      assert(r.hgetall("foo") == {})
+      assert_equal({}, r.hgetall("foo"))
 
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
 
-      assert(r.hgetall("foo") == { "f1" => "s1", "f2" => "s2" })
+      assert_equal({ "f1" => "s1", "f2" => "s2" }, r.hgetall("foo"))
     end
 
     def test_hmset
@@ -178,19 +172,19 @@ module Lint
       r.hset("foo", "f2", "s2")
       r.hset("foo", "f3", "s3")
 
-      assert(r.mapped_hmget("foo", "f1") == { "f1" => "s1" })
-      assert(r.mapped_hmget("foo", "f1", "f2") == { "f1" => "s1", "f2" => "s2" })
+      assert_equal({ "f1" => "s1" }, r.mapped_hmget("foo", "f1"))
+      assert_equal({ "f1" => "s1", "f2" => "s2" }, r.mapped_hmget("foo", "f1", "f2"))
     end
 
     def test_mapped_hmget_in_a_pipeline_returns_hash
       r.hset("foo", "f1", "s1")
       r.hset("foo", "f2", "s2")
 
-      result = r.pipelined do
-        r.mapped_hmget("foo", "f1", "f2")
+      result = r.pipelined do |pipeline|
+        pipeline.mapped_hmget("foo", "f1", "f2")
       end
 
-      assert_equal result[0], { "f1" => "s1", "f2" => "s2" }
+      assert_equal({ "f1" => "s1", "f2" => "s2" }, result[0])
     end
 
     def test_hincrby
@@ -208,28 +202,24 @@ module Lint
     end
 
     def test_hincrbyfloat
-      target_version "2.5.4" do
-        r.hincrbyfloat("foo", "f1", 1.23)
+      r.hincrbyfloat("foo", "f1", 1.23)
 
-        assert_equal 1.23, Float(r.hget("foo", "f1"))
+      assert_equal 1.23, Float(r.hget("foo", "f1"))
 
-        r.hincrbyfloat("foo", "f1", 0.77)
+      r.hincrbyfloat("foo", "f1", 0.77)
 
-        assert_equal "2", r.hget("foo", "f1")
+      assert_equal "2", r.hget("foo", "f1")
 
-        r.hincrbyfloat("foo", "f1", -0.1)
+      r.hincrbyfloat("foo", "f1", -0.1)
 
-        assert_equal 1.9, Float(r.hget("foo", "f1"))
-      end
+      assert_equal 1.9, Float(r.hget("foo", "f1"))
     end
 
     def test_hstrlen
-      target_version('3.2.0') do
-        redis.hmset('foo', 'f1', 'HelloWorld', 'f2', 99, 'f3', -256)
-        assert_equal 10, r.hstrlen('foo', 'f1')
-        assert_equal 2, r.hstrlen('foo', 'f2')
-        assert_equal 4, r.hstrlen('foo', 'f3')
-      end
+      redis.hmset('foo', 'f1', 'HelloWorld', 'f2', 99, 'f3', -256)
+      assert_equal 10, r.hstrlen('foo', 'f1')
+      assert_equal 2, r.hstrlen('foo', 'f2')
+      assert_equal 4, r.hstrlen('foo', 'f3')
     end
 
     def test_hscan

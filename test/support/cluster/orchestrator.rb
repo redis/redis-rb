@@ -9,11 +9,7 @@ class ClusterOrchestrator
     raise 'Redis Cluster requires at least 3 master nodes.' if node_addrs.size < 3
 
     @clients = node_addrs.map do |addr|
-      Redis.new(url: addr,
-                timeout: timeout,
-                reconnect_attempts: 10,
-                reconnect_delay: 1.5,
-                reconnect_delay_max: 10.0)
+      Redis.new(url: addr, timeout: timeout, reconnect_attempts: [0, 0.5, 1, 1.5])
     end
     @timeout = timeout
   end
@@ -82,15 +78,13 @@ class ClusterOrchestrator
       break if keys.empty?
 
       keys.each do |k|
-        begin
-          src_client.migrate(k, host: dest_host, port: dest_port)
-        rescue Redis::CommandError => err
-          raise unless err.message.start_with?('IOERR')
+        src_client.migrate(k, host: dest_host, port: dest_port)
+      rescue Redis::CommandError => err
+        raise unless err.message.start_with?('IOERR')
 
-          src_client.migrate(k, host: dest_host, port: dest_port, replace: true) # retry once
-        ensure
-          keys_count -= 1
-        end
+        src_client.migrate(k, host: dest_host, port: dest_port, replace: true) # retry once
+      ensure
+        keys_count -= 1
       end
     end
   end
@@ -108,12 +102,10 @@ class ClusterOrchestrator
 
   def flush_all_data(clients)
     clients.each do |c|
-      begin
-        c.flushall
-      rescue Redis::CommandError
-        # READONLY You can't write against a read only slave.
-        nil
-      end
+      c.flushall(async: true)
+    rescue Redis::CommandError
+      # READONLY You can't write against a read only slave.
+      nil
     end
   end
 
@@ -138,12 +130,10 @@ class ClusterOrchestrator
 
   def save_config_epoch(clients)
     clients.each_with_index do |c, i|
-      begin
-        c.cluster('set-config-epoch', i + 1)
-      rescue Redis::CommandError
-        # ERR Node config epoch is already non-zero
-        nil
-      end
+      c.cluster('set-config-epoch', i + 1)
+    rescue Redis::CommandError
+      # ERR Node config epoch is already non-zero
+      nil
     end
   end
 
@@ -160,7 +150,7 @@ class ClusterOrchestrator
     end
   end
 
-  def wait_meeting(clients, max_attempts: 600)
+  def wait_meeting(clients, max_attempts: 60)
     size = clients.size.to_s
 
     wait_for_state(clients, max_attempts) do |client|
@@ -198,21 +188,21 @@ class ClusterOrchestrator
     clients.each { |c| c.cluster(:saveconfig) }
   end
 
-  def wait_cluster_building(clients, max_attempts: 600)
+  def wait_cluster_building(clients, max_attempts: 60)
     wait_for_state(clients, max_attempts) do |client|
       info = hashify_cluster_info(client)
       info['cluster_state'] == 'ok'
     end
   end
 
-  def wait_replication(clients, max_attempts: 600)
+  def wait_replication(clients, max_attempts: 60)
     wait_for_state(clients, max_attempts) do |client|
       flags = hashify_cluster_node_flags(client)
       flags.values.select { |f| f == 'slave' }.size == 3
     end
   end
 
-  def wait_failover(master_key, slave_key, clients, max_attempts: 600)
+  def wait_failover(master_key, slave_key, clients, max_attempts: 60)
     wait_for_state(clients, max_attempts) do |client|
       flags = hashify_cluster_node_flags(client)
       flags[master_key] == 'slave' && flags[slave_key] == 'master'
@@ -227,21 +217,19 @@ class ClusterOrchestrator
     end
   end
 
-  def wait_cluster_recovering(clients, max_attempts: 600)
+  def wait_cluster_recovering(clients, max_attempts: 60)
     key = 0
     wait_for_state(clients, max_attempts) do |client|
-      begin
-        client.get(key) if client.role.first == 'master'
+      client.get(key) if client.role.first == 'master'
+      true
+    rescue Redis::CommandError => err
+      if err.message.start_with?('CLUSTERDOWN')
+        false
+      elsif err.message.start_with?('MOVED')
+        key += 1
+        false
+      else
         true
-      rescue Redis::CommandError => err
-        if err.message.start_with?('CLUSTERDOWN')
-          false
-        elsif err.message.start_with?('MOVED')
-          key += 1
-          false
-        else
-          true
-        end
       end
     end
   end

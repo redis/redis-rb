@@ -38,11 +38,9 @@ module Lint
     end
 
     def test_variadic_lpush
-      target_version "2.3.9" do # 2.4-rc6
-        assert_equal 3, r.lpush("foo", ["s1", "s2", "s3"])
-        assert_equal 3, r.llen("foo")
-        assert_equal "s3", r.lpop("foo")
-      end
+      assert_equal 3, r.lpush("foo", ["s1", "s2", "s3"])
+      assert_equal 3, r.llen("foo")
+      assert_equal "s3", r.lpop("foo")
     end
 
     def test_lpushx
@@ -63,11 +61,9 @@ module Lint
     end
 
     def test_variadic_rpush
-      target_version "2.3.9" do # 2.4-rc6
-        assert_equal 3, r.rpush("foo", ["s1", "s2", "s3"])
-        assert_equal 3, r.llen("foo")
-        assert_equal "s3", r.rpop("foo")
-      end
+      assert_equal 3, r.rpush("foo", ["s1", "s2", "s3"])
+      assert_equal 3, r.llen("foo")
+      assert_equal "s3", r.rpop("foo")
     end
 
     def test_rpushx

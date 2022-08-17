@@ -9,6 +9,6 @@ class TestClusterBlockingCommands < Minitest::Test
 
   def mock(options = {}, &blk)
     commands = build_mock_commands(options)
-    redis_cluster_mock(commands, { timeout: LOW_TIMEOUT }, &blk)
+    redis_cluster_mock(commands, { timeout: LOW_TIMEOUT, concurrent: true }, &blk)
   end
 end

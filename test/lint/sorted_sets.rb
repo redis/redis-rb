@@ -9,43 +9,43 @@ module Lint
       assert_equal 1, r.zcard("foo")
       r.del "foo"
 
-      target_version "3.0.2" do
-        # XX option
-        assert_equal 0, r.zcard("foo")
-        assert_equal false, r.zadd("foo", 1, "s1", xx: true)
-        r.zadd("foo", 1, "s1")
-        assert_equal false, r.zadd("foo", 2, "s1", xx: true)
-        assert_equal 2, r.zscore("foo", "s1")
-        r.del "foo"
+      # XX option
+      assert_equal 0, r.zcard("foo")
+      assert_equal false, r.zadd("foo", 1, "s1", xx: true)
+      r.zadd("foo", 1, "s1")
+      assert_equal false, r.zadd("foo", 2, "s1", xx: true)
+      assert_equal 2, r.zscore("foo", "s1")
+      r.del "foo"
 
-        # NX option
-        assert_equal 0, r.zcard("foo")
-        assert_equal true, r.zadd("foo", 1, "s1", nx: true)
-        assert_equal false, r.zadd("foo", 2, "s1", nx: true)
-        assert_equal 1, r.zscore("foo", "s1")
-        assert_equal 1, r.zcard("foo")
-        r.del "foo"
+      # NX option
+      assert_equal 0, r.zcard("foo")
+      assert_equal true, r.zadd("foo", 1, "s1", nx: true)
+      assert_equal false, r.zadd("foo", 2, "s1", nx: true)
+      assert_equal 1, r.zscore("foo", "s1")
+      assert_equal 1, r.zcard("foo")
+      r.del "foo"
 
-        # CH option
-        assert_equal 0, r.zcard("foo")
-        assert_equal true, r.zadd("foo", 1, "s1", ch: true)
-        assert_equal false, r.zadd("foo", 1, "s1", ch: true)
-        assert_equal true, r.zadd("foo", 2, "s1", ch: true)
-        assert_equal 1, r.zcard("foo")
-        r.del "foo"
+      # CH option
+      assert_equal 0, r.zcard("foo")
+      assert_equal true, r.zadd("foo", 1, "s1", ch: true)
+      assert_equal false, r.zadd("foo", 1, "s1", ch: true)
+      assert_equal true, r.zadd("foo", 2, "s1", ch: true)
+      assert_equal 1, r.zcard("foo")
+      r.del "foo"
 
-        # INCR option
-        assert_equal 1.0, r.zadd("foo", 1, "s1", incr: true)
-        assert_equal 11.0, r.zadd("foo", 10, "s1", incr: true)
-        assert_equal(-Float::INFINITY, r.zadd("bar", "-inf", "s1", incr: true))
-        assert_equal(+Float::INFINITY, r.zadd("bar", "+inf", "s2", incr: true))
-        r.del 'foo'
-        r.del 'bar'
+      # INCR option
+      assert_equal 1.0, r.zadd("foo", 1, "s1", incr: true)
+      assert_equal 11.0, r.zadd("foo", 10, "s1", incr: true)
+      assert_equal(-Float::INFINITY, r.zadd("bar", "-inf", "s1", incr: true))
+      assert_equal(+Float::INFINITY, r.zadd("bar", "+inf", "s2", incr: true))
+      r.del 'foo'
+      r.del 'bar'
 
-        # Incompatible options combination
-        assert_raises(Redis::CommandError) { r.zadd("foo", 1, "s1", xx: true, nx: true) }
-      end
+      # Incompatible options combination
+      assert_raises(Redis::CommandError) { r.zadd("foo", 1, "s1", xx: true, nx: true) }
+    end
 
+    def test_zadd_keywords
       target_version "6.2" do
         # LT option
         r.zadd("foo", 2, "s1")
@@ -77,84 +77,82 @@ module Lint
     end
 
     def test_variadic_zadd
-      target_version "2.3.9" do # 2.4-rc6
-        # Non-nested array with pairs
-        assert_equal 0, r.zcard("foo")
+      # Non-nested array with pairs
+      assert_equal 0, r.zcard("foo")
 
-        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"])
-        assert_equal 2, r.zcard("foo")
+      assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"])
+      assert_equal 2, r.zcard("foo")
 
-        assert_equal 1, r.zadd("foo", [4, "s1", 5, "s2", 6, "s3"])
-        assert_equal 3, r.zcard("foo")
+      assert_equal 1, r.zadd("foo", [4, "s1", 5, "s2", 6, "s3"])
+      assert_equal 3, r.zcard("foo")
 
-        r.del "foo"
+      r.del "foo"
 
-        # Nested array with pairs
-        assert_equal 0, r.zcard("foo")
+      # Nested array with pairs
+      assert_equal 0, r.zcard("foo")
 
-        assert_equal 2, r.zadd("foo", [[1, "s1"], [2, "s2"]])
-        assert_equal 2, r.zcard("foo")
+      assert_equal 2, r.zadd("foo", [[1, "s1"], [2, "s2"]])
+      assert_equal 2, r.zcard("foo")
 
-        assert_equal 1, r.zadd("foo", [[4, "s1"], [5, "s2"], [6, "s3"]])
-        assert_equal 3, r.zcard("foo")
+      assert_equal 1, r.zadd("foo", [[4, "s1"], [5, "s2"], [6, "s3"]])
+      assert_equal 3, r.zcard("foo")
 
-        r.del "foo"
+      r.del "foo"
 
-        # Empty array
-        assert_equal 0, r.zcard("foo")
+      # Empty array
+      assert_equal 0, r.zcard("foo")
 
-        assert_equal 0, r.zadd("foo", [])
-        assert_equal 0, r.zcard("foo")
+      assert_equal 0, r.zadd("foo", [])
+      assert_equal 0, r.zcard("foo")
 
-        r.del "foo"
+      r.del "foo"
 
-        # Wrong number of arguments
-        assert_raises(Redis::CommandError) { r.zadd("foo", ["bar"]) }
-        assert_raises(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
-      end
+      # Wrong number of arguments
+      assert_raises(Redis::CommandError) { r.zadd("foo", ["bar"]) }
+      assert_raises(Redis::CommandError) { r.zadd("foo", ["bar", "qux", "zap"]) }
 
-      target_version "3.0.2" do
-        # XX option
-        assert_equal 0, r.zcard("foo")
-        assert_equal 0, r.zadd("foo", [1, "s1", 2, "s2"], xx: true)
-        r.zadd("foo", [1, "s1", 2, "s2"])
-        assert_equal 0, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], xx: true)
-        assert_equal 2, r.zscore("foo", "s1")
-        assert_equal 3, r.zscore("foo", "s2")
-        assert_nil r.zscore("foo", "s3")
-        assert_equal 2, r.zcard("foo")
-        r.del "foo"
+      # XX option
+      assert_equal 0, r.zcard("foo")
+      assert_equal 0, r.zadd("foo", [1, "s1", 2, "s2"], xx: true)
+      r.zadd("foo", [1, "s1", 2, "s2"])
+      assert_equal 0, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], xx: true)
+      assert_equal 2, r.zscore("foo", "s1")
+      assert_equal 3, r.zscore("foo", "s2")
+      assert_nil r.zscore("foo", "s3")
+      assert_equal 2, r.zcard("foo")
+      r.del "foo"
 
-        # NX option
-        assert_equal 0, r.zcard("foo")
-        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], nx: true)
-        assert_equal 1, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], nx: true)
-        assert_equal 1, r.zscore("foo", "s1")
-        assert_equal 2, r.zscore("foo", "s2")
-        assert_equal 4, r.zscore("foo", "s3")
-        assert_equal 3, r.zcard("foo")
-        r.del "foo"
+      # NX option
+      assert_equal 0, r.zcard("foo")
+      assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], nx: true)
+      assert_equal 1, r.zadd("foo", [2, "s1", 3, "s2", 4, "s3"], nx: true)
+      assert_equal 1, r.zscore("foo", "s1")
+      assert_equal 2, r.zscore("foo", "s2")
+      assert_equal 4, r.zscore("foo", "s3")
+      assert_equal 3, r.zcard("foo")
+      r.del "foo"
 
-        # CH option
-        assert_equal 0, r.zcard("foo")
-        assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], ch: true)
-        assert_equal 2, r.zadd("foo", [1, "s1", 3, "s2", 4, "s3"], ch: true)
-        assert_equal 3, r.zcard("foo")
-        r.del "foo"
+      # CH option
+      assert_equal 0, r.zcard("foo")
+      assert_equal 2, r.zadd("foo", [1, "s1", 2, "s2"], ch: true)
+      assert_equal 2, r.zadd("foo", [1, "s1", 3, "s2", 4, "s3"], ch: true)
+      assert_equal 3, r.zcard("foo")
+      r.del "foo"
 
-        # INCR option
-        assert_equal 1.0, r.zadd("foo", [1, "s1"], incr: true)
-        assert_equal 11.0, r.zadd("foo", [10, "s1"], incr: true)
-        assert_equal(-Float::INFINITY, r.zadd("bar", ["-inf", "s1"], incr: true))
-        assert_equal(+Float::INFINITY, r.zadd("bar", ["+inf", "s2"], incr: true))
-        assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1", 2, "s2"], incr: true) }
-        r.del 'foo'
-        r.del 'bar'
+      # INCR option
+      assert_equal 1.0, r.zadd("foo", [1, "s1"], incr: true)
+      assert_equal 11.0, r.zadd("foo", [10, "s1"], incr: true)
+      assert_equal(-Float::INFINITY, r.zadd("bar", ["-inf", "s1"], incr: true))
+      assert_equal(+Float::INFINITY, r.zadd("bar", ["+inf", "s2"], incr: true))
+      assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1", 2, "s2"], incr: true) }
+      r.del 'foo'
+      r.del 'bar'
 
-        # Incompatible options combination
-        assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1"], xx: true, nx: true) }
-      end
+      # Incompatible options combination
+      assert_raises(Redis::CommandError) { r.zadd("foo", [1, "s1"], xx: true, nx: true) }
+    end
 
+    def test_variadic_zadd_keywords
       target_version "6.2" do
         # LT option
         r.zadd("foo", 2, "s1")
@@ -189,25 +187,23 @@ module Lint
     end
 
     def test_variadic_zrem
-      target_version "2.3.9" do # 2.4-rc6
-        r.zadd("foo", 1, "s1")
-        r.zadd("foo", 2, "s2")
-        r.zadd("foo", 3, "s3")
+      r.zadd("foo", 1, "s1")
+      r.zadd("foo", 2, "s2")
+      r.zadd("foo", 3, "s3")
 
-        assert_equal 3, r.zcard("foo")
+      assert_equal 3, r.zcard("foo")
 
-        assert_equal 0, r.zrem("foo", [])
-        assert_equal 3, r.zcard("foo")
+      assert_equal 0, r.zrem("foo", [])
+      assert_equal 3, r.zcard("foo")
 
-        assert_equal 1, r.zrem("foo", ["s1", "aaa"])
-        assert_equal 2, r.zcard("foo")
+      assert_equal 1, r.zrem("foo", ["s1", "aaa"])
+      assert_equal 2, r.zcard("foo")
 
-        assert_equal 0, r.zrem("foo", ["bbb", "ccc", "ddd"])
-        assert_equal 2, r.zcard("foo")
+      assert_equal 0, r.zrem("foo", ["bbb", "ccc", "ddd"])
+      assert_equal 2, r.zcard("foo")
 
-        assert_equal 1, r.zrem("foo", ["eee", "s3"])
-        assert_equal 1, r.zcard("foo")
-      end
+      assert_equal 1, r.zrem("foo", ["eee", "s3"])
+      assert_equal 1, r.zcard("foo")
     end
 
     def test_zincrby
@@ -470,21 +466,17 @@ module Lint
     end
 
     def test_zpopmax
-      target_version('5.0.0') do
-        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
-        assert_equal ['d', 3.0], r.zpopmax('foo')
-        assert_equal [['c', 2.0], ['b', 1.0]], r.zpopmax('foo', 2)
-        assert_equal [['a', 0.0]], r.zrange('foo', 0, -1, with_scores: true)
-      end
+      r.zadd('foo', %w[0 a 1 b 2 c 3 d])
+      assert_equal ['d', 3.0], r.zpopmax('foo')
+      assert_equal [['c', 2.0], ['b', 1.0]], r.zpopmax('foo', 2)
+      assert_equal [['a', 0.0]], r.zrange('foo', 0, -1, with_scores: true)
     end
 
     def test_zpopmin
-      target_version('5.0.0') do
-        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
-        assert_equal ['a', 0.0], r.zpopmin('foo')
-        assert_equal [['b', 1.0], ['c', 2.0]], r.zpopmin('foo', 2)
-        assert_equal [['d', 3.0]], r.zrange('foo', 0, -1, with_scores: true)
-      end
+      r.zadd('foo', %w[0 a 1 b 2 c 3 d])
+      assert_equal ['a', 0.0], r.zpopmin('foo')
+      assert_equal [['b', 1.0], ['c', 2.0]], r.zpopmin('foo', 2)
+      assert_equal [['d', 3.0]], r.zrange('foo', 0, -1, with_scores: true)
     end
 
     def test_zremrangebylex
@@ -493,46 +485,40 @@ module Lint
     end
 
     def test_zlexcount
-      target_version '2.8.9' do
-        r.zadd 'foo', 0, 'aaren'
-        r.zadd 'foo', 0, 'abagael'
-        r.zadd 'foo', 0, 'abby'
-        r.zadd 'foo', 0, 'abbygail'
+      r.zadd 'foo', 0, 'aaren'
+      r.zadd 'foo', 0, 'abagael'
+      r.zadd 'foo', 0, 'abby'
+      r.zadd 'foo', 0, 'abbygail'
 
-        assert_equal 4, r.zlexcount('foo', '[a', "[a\xff")
-        assert_equal 4, r.zlexcount('foo', '[aa', "[ab\xff")
-        assert_equal 3, r.zlexcount('foo', '(aaren', "[ab\xff")
-        assert_equal 2, r.zlexcount('foo', '[aba', '(abbygail')
-        assert_equal 1, r.zlexcount('foo', '(aaren', '(abby')
-      end
+      assert_equal 4, r.zlexcount('foo', '[a', "[a\xff")
+      assert_equal 4, r.zlexcount('foo', '[aa', "[ab\xff")
+      assert_equal 3, r.zlexcount('foo', '(aaren', "[ab\xff")
+      assert_equal 2, r.zlexcount('foo', '[aba', '(abbygail')
+      assert_equal 1, r.zlexcount('foo', '(aaren', '(abby')
     end
 
     def test_zrangebylex
-      target_version '2.8.9' do
-        r.zadd 'foo', 0, 'aaren'
-        r.zadd 'foo', 0, 'abagael'
-        r.zadd 'foo', 0, 'abby'
-        r.zadd 'foo', 0, 'abbygail'
+      r.zadd 'foo', 0, 'aaren'
+      r.zadd 'foo', 0, 'abagael'
+      r.zadd 'foo', 0, 'abby'
+      r.zadd 'foo', 0, 'abbygail'
 
-        assert_equal %w[aaren abagael abby abbygail], r.zrangebylex('foo', '[a', "[a\xff")
-        assert_equal %w[aaren abagael], r.zrangebylex('foo', '[a', "[a\xff", limit: [0, 2])
-        assert_equal %w[abby abbygail], r.zrangebylex('foo', '(abb', "(abb\xff")
-        assert_equal %w[abbygail], r.zrangebylex('foo', '(abby', "(abby\xff")
-      end
+      assert_equal %w[aaren abagael abby abbygail], r.zrangebylex('foo', '[a', "[a\xff")
+      assert_equal %w[aaren abagael], r.zrangebylex('foo', '[a', "[a\xff", limit: [0, 2])
+      assert_equal %w[abby abbygail], r.zrangebylex('foo', '(abb', "(abb\xff")
+      assert_equal %w[abbygail], r.zrangebylex('foo', '(abby', "(abby\xff")
     end
 
     def test_zrevrangebylex
-      target_version '2.9.9' do
-        r.zadd 'foo', 0, 'aaren'
-        r.zadd 'foo', 0, 'abagael'
-        r.zadd 'foo', 0, 'abby'
-        r.zadd 'foo', 0, 'abbygail'
+      r.zadd 'foo', 0, 'aaren'
+      r.zadd 'foo', 0, 'abagael'
+      r.zadd 'foo', 0, 'abby'
+      r.zadd 'foo', 0, 'abbygail'
 
-        assert_equal %w[abbygail abby abagael aaren], r.zrevrangebylex('foo', "[a\xff", '[a')
-        assert_equal %w[abbygail abby], r.zrevrangebylex('foo', "[a\xff", '[a', limit: [0, 2])
-        assert_equal %w[abbygail abby], r.zrevrangebylex('foo', "(abb\xff", '(abb')
-        assert_equal %w[abbygail], r.zrevrangebylex('foo', "(abby\xff", '(abby')
-      end
+      assert_equal %w[abbygail abby abagael aaren], r.zrevrangebylex('foo', "[a\xff", '[a')
+      assert_equal %w[abbygail abby], r.zrevrangebylex('foo', "[a\xff", '[a', limit: [0, 2])
+      assert_equal %w[abbygail abby], r.zrevrangebylex('foo', "(abb\xff", '(abb')
+      assert_equal %w[abbygail], r.zrevrangebylex('foo', "(abby\xff", '(abby')
     end
 
     def test_zcount

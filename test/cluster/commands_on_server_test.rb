@@ -59,9 +59,7 @@ class TestClusterCommandsOnServer < Minitest::Test
   end
 
   def test_client_reply
-    target_version('3.2.0') do
-      assert_equal 'OK', redis.client(:reply, 'ON')
-    end
+    assert_equal 'OK', redis.client(:reply, 'ON')
   end
 
   def test_client_setname
@@ -143,40 +141,28 @@ class TestClusterCommandsOnServer < Minitest::Test
   end
 
   def test_memory_doctor
-    target_version('4.0.0') do
-      assert_instance_of String, redis.memory(:doctor)
-    end
+    assert_instance_of String, redis.memory(:doctor)
   end
 
   def test_memory_help
-    target_version('4.0.0') do
-      assert_instance_of Array, redis.memory(:help)
-    end
+    assert_instance_of Array, redis.memory(:help)
   end
 
   def test_memory_malloc_stats
-    target_version('4.0.0') do
-      assert_instance_of String, redis.memory('malloc-stats')
-    end
+    assert_instance_of String, redis.memory('malloc-stats')
   end
 
   def test_memory_purge
-    target_version('4.0.0') do
-      assert_equal 'OK', redis.memory(:purge)
-    end
+    assert_equal 'OK', redis.memory(:purge)
   end
 
   def test_memory_stats
-    target_version('4.0.0') do
-      assert_instance_of Array, redis.memory(:stats)
-    end
+    assert_instance_of Array, redis.memory(:stats)
   end
 
   def test_memory_usage
-    target_version('4.0.0') do
-      redis.set('key1', 'Hello World')
-      assert_operator redis.memory(:usage, 'key1'), :>, 0
-    end
+    redis.set('key1', 'Hello World')
+    assert_operator redis.memory(:usage, 'key1'), :>, 0
   end
 
   def test_monitor

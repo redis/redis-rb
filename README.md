@@ -111,7 +111,7 @@ If you want to [authenticate](https://redis.io/topics/sentinel#configuring-senti
 SENTINELS = [{ host: '127.0.0.1', port: 26380, password: 'mysecret' },
              { host: '127.0.0.1', port: 26381, password: 'mysecret' }]
 
-redis = Redis.new(host: 'mymaster', sentinels: SENTINELS, role: :master)
+redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master)
 ```
 
 ## Cluster support
@@ -432,30 +432,6 @@ When instantiating the client object, specify hiredis:
 
 ```ruby
 redis = Redis.new(:driver => :hiredis)
-```
-
-### synchrony
-
-The synchrony driver adds support for [em-synchrony][em-synchrony].
-This makes redis-rb work with EventMachine's asynchronous I/O, while not
-changing the exposed API. The hiredis gem needs to be available as
-well, because the synchrony driver uses hiredis for parsing the Redis
-protocol.
-
-[em-synchrony]: https://github.com/igrigorik/em-synchrony
-
-In your Gemfile, include em-synchrony and hiredis:
-
-```ruby
-gem "redis", "~> 3.0.1"
-gem "hiredis", "~> 0.4.5"
-gem "em-synchrony"
-```
-
-When instantiating the client object, specify synchrony:
-
-```ruby
-redis = Redis.new(:driver => :synchrony)
 ```
 
 ## Testing

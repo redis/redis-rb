@@ -21,15 +21,12 @@ class Redis
       # @return [Array<Hash>] information of the consumers if subcommand is `consumers`
       def xinfo(subcommand, key, group = nil)
         args = [:xinfo, subcommand, key, group].compact
-        synchronize do |client|
-          client.call(args) do |reply|
-            case subcommand.to_s.downcase
-            when 'stream'              then Hashify.call(reply)
-            when 'groups', 'consumers' then reply.map { |arr| Hashify.call(arr) }
-            else reply
-            end
-          end
+        block = case subcommand.to_s.downcase
+        when 'stream'              then Hashify
+        when 'groups', 'consumers' then proc { |r| r.map(&Hashify) }
         end
+
+        send_command(args, &block)
       end
 
       # Add new entry to the stream.
@@ -113,7 +110,7 @@ class Redis
       def xrange(key, start = '-', range_end = '+', count: nil)
         args = [:xrange, key, start, range_end]
         args.concat(['COUNT', count]) if count
-        synchronize { |client| client.call(args, &HashifyStreamEntries) }
+        send_command(args, &HashifyStreamEntries)
       end
 
       # Fetches entries of the stream in descending order.

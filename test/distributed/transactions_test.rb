@@ -5,22 +5,6 @@ require "helper"
 class TestDistributedTransactions < Minitest::Test
   include Helper::Distributed
 
-  def test_multi_discard
-    r.set("foo", 1)
-
-    r.watch("foo")
-    r.multi
-    r.set("foo", 2)
-
-    assert_raises Redis::Distributed::CannotDistribute do
-      r.set("bar", 1)
-    end
-
-    r.discard
-
-    assert_equal('1', r.get("foo"))
-  end
-
   def test_multi_discard_without_watch
     @foo = nil
 
@@ -74,31 +58,13 @@ class TestDistributedTransactions < Minitest::Test
     r.watch("{qux}foo", "{qux}bar", "{qux}baz") do
       assert_equal '1', r.get("{qux}baz")
 
-      result = r.multi do
-        r.incrby("{qux}foo", 3)
-        r.incrby("{qux}bar", 6)
-        r.incrby("{qux}baz", 9)
+      result = r.multi do |transaction|
+        transaction.incrby("{qux}foo", 3)
+        transaction.incrby("{qux}bar", 6)
+        transaction.incrby("{qux}baz", 9)
       end
 
       assert_equal [3, 6, 10], result
     end
-  end
-
-  def test_watch_multi_exec_without_block
-    r.set("{qux}baz", 1)
-
-    assert_equal "OK", r.watch("{qux}foo", "{qux}bar", "{qux}baz")
-    assert_equal '1', r.get("{qux}baz")
-
-    assert_raises Redis::Distributed::CannotDistribute do
-      r.get("{foo}baz")
-    end
-
-    assert_equal "OK", r.multi
-    assert_equal "QUEUED", r.incrby("{qux}baz", 1)
-    assert_equal "QUEUED", r.incrby("{qux}baz", 1)
-    assert_equal [2, 3], r.exec
-
-    assert_equal "OK", r.set("{other}baz", 1)
   end
 end

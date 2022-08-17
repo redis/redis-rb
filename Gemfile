@@ -6,4 +6,9 @@ gemspec
 
 gem 'minitest'
 gem 'rake'
-gem 'rubocop', '~> 1.0', '< 1.12'
+gem 'rubocop', '~> 1.25.1'
+gem 'mocha'
+
+gem 'redis-client', github: 'redis-rb/redis-client'
+gem 'hiredis-client'
+gem 'redis-cluster-client', github: 'redis-rb/redis-cluster-client' if ENV['REDIS_CLUSTER']

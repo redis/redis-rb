@@ -38,35 +38,24 @@ class TestClusterClientPipelining < Minitest::Test
   end
 
   def test_pipelining_without_hash_tags
-    assert_raises(Redis::Cluster::CrossSlotPipeliningError) do
-      redis.pipelined do
-        redis.set(:a, 1)
-        redis.set(:b, 2)
-        redis.set(:c, 3)
-        redis.set(:d, 4)
-        redis.set(:e, 5)
-        redis.set(:f, 6)
-
-        redis.get(:a)
-        redis.get(:b)
-        redis.get(:c)
-        redis.get(:d)
-        redis.get(:e)
-        redis.get(:f)
-      end
+    result = redis.pipelined do |pipeline|
+      pipeline.set(:a, 1)
+      pipeline.set(:b, 2)
+      pipeline.set(:c, 3)
+      pipeline.set(:d, 4)
+      pipeline.set(:e, 5)
+      pipeline.set(:f, 6)
     end
-  end
+    assert_equal ["OK"] * 6, result
 
-  def test_pipelining_with_multiple_replicas
-    rc = build_another_client(replica: true)
-    rc.instance_variable_get(:@client).instance_variable_get(:@slot).instance_variable_get(:@map).each do |_, v|
-      v[:slaves] << v[:master] if v[:slaves].size < 2 # reproducing multiple replicas
+    result = redis.pipelined do |pipeline|
+      pipeline.get(:a)
+      pipeline.get(:b)
+      pipeline.get(:c)
+      pipeline.get(:d)
+      pipeline.get(:e)
+      pipeline.get(:f)
     end
-
-    rc.pipelined do |r|
-      10.times { r.get('key1') }
-    end
-
-    rc.close
+    assert_equal 1.upto(6).map(&:to_s), result
   end
 end

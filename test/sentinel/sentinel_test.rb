@@ -6,13 +6,16 @@ class SentinelTest < Minitest::Test
   include Helper::Sentinel
 
   def test_sentinel_master_role_connection
+    wait_for_quorum
+
     actual = redis.role
 
     assert_equal 'master', actual[0]
-    assert_equal SLAVE_PORT, actual[2][0][1]
   end
 
   def test_sentinel_slave_role_connection
+    wait_for_quorum
+
     redis = build_slave_role_client
     actual = redis.role
 
@@ -124,8 +127,8 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
-    assert_equal commands[:s2], [%w[get-master-addr-by-name master1], %w[get-master-addr-by-name master1]]
+    assert_equal [%w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[get-master-addr-by-name master1]], commands[:s2]
   end
 
   def test_sentinel_with_non_sentinel_options
@@ -133,8 +136,8 @@ class SentinelTest < Minitest::Test
 
     sentinel = lambda do |port|
       {
-        auth: lambda do |pass|
-          commands[:s1] << ['auth', pass]
+        auth: lambda do |*args|
+          commands[:s1] << ['auth', *args]
           '+OK'
         end,
         select: lambda do |db|
@@ -149,8 +152,8 @@ class SentinelTest < Minitest::Test
     end
 
     master = {
-      auth: lambda do |pass|
-        commands[:m1] << ['auth', pass]
+      auth: lambda do |*args|
+        commands[:m1] << ['auth', *args]
         '+OK'
       end,
       role: lambda do
@@ -176,8 +179,8 @@ class SentinelTest < Minitest::Test
 
     sentinel = lambda do |port|
       {
-        auth: lambda do |pass|
-          commands[:s1] << ['auth', pass]
+        auth: lambda do |*args|
+          commands[:s1] << ['auth', *args]
           '+OK'
         end,
         select: lambda do |db|
@@ -192,8 +195,8 @@ class SentinelTest < Minitest::Test
     end
 
     master = {
-      auth: lambda do |pass|
-        commands[:m1] << ['auth', pass]
+      auth: lambda do |*args|
+        commands[:s1] << ['auth', *args]
         '-ERR Client sent AUTH, but no password is set'
       end,
       role: lambda do
@@ -205,7 +208,7 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port, password: 'foo' }]
-        r = Redis.new(host: 'master1', sentinels: s, role: :master)
+        r = Redis.new(name: 'master1', sentinels: s, role: :master)
         assert r.ping
       end
     end
@@ -219,8 +222,8 @@ class SentinelTest < Minitest::Test
 
     sentinel = lambda do |port|
       {
-        auth: lambda do |pass|
-          commands[:s1] << ['auth', pass]
+        auth: lambda do |*args|
+          commands[:s1] << ['auth', *args]
           '+OK'
         end,
         select: lambda do |db|
@@ -235,8 +238,8 @@ class SentinelTest < Minitest::Test
     end
 
     master = {
-      auth: lambda do |pass|
-        commands[:m1] << ['auth', pass]
+      auth: lambda do |*args|
+        commands[:m1] << ['auth', *args]
         '+OK'
       end,
       role: lambda do
@@ -248,7 +251,7 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port, password: 'foo' }]
-        r = Redis.new(host: 'master1', sentinels: s, role: :master, password: 'bar')
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, password: 'bar')
         assert r.ping
       end
     end
@@ -291,7 +294,7 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port, username: 'bob', password: 'foo' }]
-        r = Redis.new(host: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar')
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar')
         assert r.ping
       end
     end
@@ -317,18 +320,18 @@ class SentinelTest < Minitest::Test
       end
     }
 
-    ex = assert_raises(Redis::ConnectionError) do
+    ex = assert_raises(Redis::CannotConnectError) do
       RedisMock.start(master) do |master_port|
         RedisMock.start(sentinel.call(master_port)) do |sen_port|
           sentinels[0][:port] = sen_port
-          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master)
+          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 0)
 
           assert redis.ping
         end
       end
     end
 
-    assert_match(/Instance role mismatch/, ex.message)
+    assert_match(/Expected to connect to a master, but the server is a replica/, ex.message)
   end
 
   def test_sentinel_retries
@@ -388,36 +391,5 @@ class SentinelTest < Minitest::Test
     end
 
     assert_match(/No sentinels available/, ex.message)
-  end
-
-  def test_sentinel_with_string_option_keys
-    commands = []
-
-    master = {
-      role: lambda do
-        ['master']
-      end
-    }
-
-    sentinel = lambda do |port|
-      {
-        sentinel: lambda do |command, *args|
-          commands << [command, *args]
-          ['127.0.0.1', port.to_s]
-        end
-      }
-    end
-
-    RedisMock.start(master) do |master_port|
-      RedisMock.start(sentinel.call(master_port)) do |sen_port|
-        sentinels = [{ 'host' => '127.0.0.1', 'port' => sen_port }]
-
-        redis = Redis.new(url: 'redis://master1', 'sentinels' => sentinels, 'role' => :master)
-
-        assert redis.ping
-      end
-    end
-
-    assert_equal [%w[get-master-addr-by-name master1]], commands
   end
 end

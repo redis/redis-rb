@@ -43,9 +43,7 @@ Gem::Specification.new do |s|
   s.files         = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
   s.executables   = `git ls-files -- exe/*`.split("\n").map { |f| File.basename(f) }
 
-  s.required_ruby_version = '>= 2.4.0'
+  s.required_ruby_version = '>= 2.5.0'
 
-  s.add_development_dependency("em-synchrony")
-  s.add_development_dependency("hiredis")
-  s.add_development_dependency("mocha")
+  s.add_runtime_dependency('redis-client', '~> 0.6')
 end

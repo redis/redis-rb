@@ -20,7 +20,7 @@ class Redis
     def initialize(node_configs, options = {})
       @tag = options[:tag] || /^\{(.+?)\}/
       @ring = options[:ring] || HashRing.new
-      @node_configs = node_configs.dup
+      @node_configs = node_configs.map(&:dup)
       @default_options = options.dup
       node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
@@ -41,6 +41,8 @@ class Redis
     def add_node(options)
       options = { url: options } if options.is_a?(String)
       options = @default_options.merge(options)
+      options.delete(:tag)
+      options.delete(:ring)
       @ring.add_node Redis.new(options)
     end
 
@@ -62,6 +64,10 @@ class Redis
     # Close the connection.
     def quit
       on_each_node :quit
+    end
+
+    def close
+      on_each_node :close
     end
 
     # Asynchronously save the dataset to disk.
@@ -177,18 +183,9 @@ class Redis
 
     # Determine if a key exists.
     def exists(*args)
-      if !Redis.exists_returns_integer && args.size == 1
-        ::Redis.deprecate!(
-          "`Redis#exists(key)` will return an Integer in redis-rb 4.3, if you want to keep the old behavior, " \
-          "use `exists?` instead. To opt-in to the new behavior now you can set Redis.exists_returns_integer = true. " \
-          "(#{::Kernel.caller(1, 1).first})\n"
-        )
-        exists?(*args)
-      else
-        keys_per_node = args.group_by { |key| node_for(key) }
-        keys_per_node.inject(0) do |sum, (node, keys)|
-          sum + node._exists(*keys)
-        end
+      keys_per_node = args.group_by { |key| node_for(key) }
+      keys_per_node.inject(0) do |sum, (node, keys)|
+        sum + node.exists(*keys)
       end
     end
 
@@ -917,9 +914,7 @@ class Redis
     def multi(&block)
       raise CannotDistribute, :multi unless @watch_key
 
-      result = node_for(@watch_key).multi(&block)
-      @watch_key = nil if block_given?
-      result
+      node_for(@watch_key).multi(&block)
     end
 
     # Execute all commands issued after MULTI.

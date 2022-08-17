@@ -31,6 +31,7 @@ class TestClusterAbnormalState < Minitest::Test
   end
 
   def test_the_state_of_cluster_node_failure
+    # FIXME: this test takes 60 seconds
     redis_cluster_fail_master do
       assert_raises(Redis::CannotConnectError, 'Error connecting to Redis on 127.0.0.1:7002') do
         r.set('key0', 0)

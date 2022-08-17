@@ -1,7 +1,7 @@
 inherit_from: .rubocop_todo.yml
 
 AllCops:
-  TargetRubyVersion: 2.4
+  TargetRubyVersion: 2.5
 
 Layout/LineLength:
   Max: 120
@@ -139,6 +139,12 @@ Metrics/BlockNesting:
 Style/HashTransformValues:
   Enabled: false
 
+Style/TrailingCommaInHashLiteral:
+  Enabled: false
+
 Style/SymbolProc:
   Exclude:
     - 'test/**/*'
+
+Bundler/OrderedGems:
+  Enabled: false

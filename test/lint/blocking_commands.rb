@@ -27,7 +27,7 @@ module Lint
 
     def mock(options = {}, &blk)
       commands = build_mock_commands(options)
-      redis_mock(commands, { timeout: LOW_TIMEOUT }, &blk)
+      redis_mock(commands, { timeout: TIMEOUT }, &blk)
     end
 
     def build_mock_commands(options = {})
@@ -173,51 +173,45 @@ module Lint
     end
 
     def test_bzpopmin
-      target_version('5.0.0') do
-        assert_equal ['{szap}foo', 'a', 0.0], r.bzpopmin('{szap}foo', '{szap}bar', 1)
-        assert_nil r.bzpopmin('{szap}aaa', '{szap}bbb', 2)
-      end
+      assert_equal ['{szap}foo', 'a', 0.0], r.bzpopmin('{szap}foo', '{szap}bar', 1)
+      assert_nil r.bzpopmin('{szap}aaa', '{szap}bbb', 2)
     end
 
     def test_bzpopmax
-      target_version('5.0.0') do
-        assert_equal ['{szap}foo', 'c', 2.0], r.bzpopmax('{szap}foo', '{szap}bar', 1)
-        assert_nil r.bzpopmax('{szap}aaa', '{szap}bbb', 1)
+      assert_equal ['{szap}foo', 'c', 2.0], r.bzpopmax('{szap}foo', '{szap}bar', 1)
+      assert_nil r.bzpopmax('{szap}aaa', '{szap}bbb', 1)
+    end
+
+    def test_blmove_socket_timeout
+      target_version "6.2" do
+        mock(delay: TIMEOUT * 5) do |r|
+          assert_raises(Redis::TimeoutError) do
+            r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', timeout: LOW_TIMEOUT)
+          end
+        end
       end
     end
 
-    driver(:ruby, :hiredis) do
-      def test_blmove_socket_timeout
-        target_version "6.2" do
-          mock(delay: LOW_TIMEOUT * 5) do |r|
-            assert_raises(Redis::TimeoutError) do
-              r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', timeout: LOW_TIMEOUT)
-            end
-          end
+    def test_blpop_socket_timeout
+      mock(delay: TIMEOUT * 5) do |r|
+        assert_raises(Redis::TimeoutError) do
+          r.blpop('{zap}foo', timeout: LOW_TIMEOUT)
         end
       end
+    end
 
-      def test_blpop_socket_timeout
-        mock(delay: LOW_TIMEOUT * 5) do |r|
-          assert_raises(Redis::TimeoutError) do
-            r.blpop('{zap}foo', timeout: LOW_TIMEOUT)
-          end
+    def test_brpop_socket_timeout
+      mock(delay: TIMEOUT * 5) do |r|
+        assert_raises(Redis::TimeoutError) do
+          r.brpop('{zap}foo', timeout: LOW_TIMEOUT)
         end
       end
+    end
 
-      def test_brpop_socket_timeout
-        mock(delay: LOW_TIMEOUT * 5) do |r|
-          assert_raises(Redis::TimeoutError) do
-            r.brpop('{zap}foo', timeout: LOW_TIMEOUT)
-          end
-        end
-      end
-
-      def test_brpoplpush_socket_timeout
-        mock(delay: LOW_TIMEOUT * 5) do |r|
-          assert_raises(Redis::TimeoutError) do
-            r.brpoplpush('{zap}foo', '{zap}bar', timeout: LOW_TIMEOUT)
-          end
+    def test_brpoplpush_socket_timeout
+      mock(delay: TIMEOUT * 5) do |r|
+        assert_raises(Redis::TimeoutError) do
+          r.brpoplpush('{zap}foo', '{zap}bar', timeout: LOW_TIMEOUT)
         end
       end
     end

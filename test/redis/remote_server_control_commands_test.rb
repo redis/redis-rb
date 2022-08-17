@@ -25,54 +25,29 @@ class TestRemoteServerControlCommands < Minitest::Test
   end
 
   def test_info_commandstats
-    target_version "2.5.7" do
-      r.config(:resetstat)
-      r.get("foo")
-      r.get("bar")
+    r.config(:resetstat)
+    r.get("foo")
+    r.get("bar")
 
-      result = r.info(:commandstats)
-      assert_equal '2', result['get']['calls']
-    end
+    result = r.info(:commandstats)
+    assert_equal '2', result['get']['calls']
   end
 
-  def test_monitor_redis_lt_2_5_0
-    return unless version < "2.5.0"
-
+  def test_monitor_redis
     log = []
 
-    wire = Wire.new do
-      Redis.new(OPTIONS).monitor do |line|
-        log << line
-        break if log.size == 3
-      end
-    end
-
-    Wire.pass while log.empty? # Faster than sleep
-
-    r.set "foo", "s1"
-
-    wire.join
-
-    assert log[-1]['(db 15) "set" "foo" "s1"']
-  end
-
-  def test_monitor_redis_gte_2_5_0
-    return unless version >= "2.5.0"
-
-    log = []
-
-    wire = Wire.new do
+    thread = Thread.new do
       Redis.new(OPTIONS).monitor do |line|
         log << line
         break if line =~ /set/
       end
     end
 
-    Wire.pass while log.empty? # Faster than sleep
+    Thread.pass while log.empty? # Faster than sleep
 
     r.set "foo", "s1"
 
-    wire.join
+    thread.join
 
     assert log[-1] =~ /\b15\b.* "set" "foo" "s1"/
   end
@@ -121,8 +96,6 @@ class TestRemoteServerControlCommands < Minitest::Test
   end
 
   def test_client_list
-    return if version < "2.4.0"
-
     keys = [
       "addr",
       "fd",
@@ -153,8 +126,6 @@ class TestRemoteServerControlCommands < Minitest::Test
   end
 
   def test_client_kill
-    return if version < "2.6.9"
-
     r.client(:setname, 'redis-rb')
     clients = r.client(:list)
     i = clients.index { |client| client['name'] == 'redis-rb' }
@@ -166,8 +137,6 @@ class TestRemoteServerControlCommands < Minitest::Test
   end
 
   def test_client_getname_and_setname
-    return if version < "2.6.9"
-
     assert_nil r.client(:getname)
 
     r.client(:setname, 'redis-rb')

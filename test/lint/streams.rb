@@ -91,7 +91,7 @@ module Lint
     end
 
     def test_xadd_with_invalid_arguments
-      assert_raises(Redis::CommandError) { redis.xadd(nil, {}) }
+      assert_raises(TypeError) { redis.xadd(nil, {}) }
       assert_raises(Redis::CommandError) { redis.xadd('', {}) }
       assert_raises(Redis::CommandError) { redis.xadd('s1', {}) }
     end
@@ -146,8 +146,8 @@ module Lint
     end
 
     def test_xdel_with_invalid_arguments
-      assert_equal 0, redis.xdel(nil, nil)
-      assert_equal 0, redis.xdel(nil, [nil])
+      assert_raises(TypeError) { redis.xdel(nil, nil) }
+      assert_raises(TypeError) { redis.xdel(nil, [nil]) }
       assert_equal 0, redis.xdel('', '')
       assert_equal 0, redis.xdel('', [''])
       assert_raises(Redis::CommandError) { redis.xdel('s1', []) }
@@ -222,7 +222,7 @@ module Lint
     end
 
     def test_xrange_with_invalid_arguments
-      assert_equal([], redis.xrange(nil))
+      assert_raises(TypeError) { redis.xrange(nil) }
       assert_equal([], redis.xrange(''))
     end
 
@@ -298,7 +298,7 @@ module Lint
     end
 
     def test_xrevrange_with_invalid_arguments
-      assert_equal([], redis.xrevrange(nil))
+      assert_raises(TypeError) { redis.xrevrange(nil) }
       assert_equal([], redis.xrevrange(''))
     end
 
@@ -313,7 +313,7 @@ module Lint
     end
 
     def test_xlen_with_invalid_key
-      assert_equal 0, redis.xlen(nil)
+      assert_raises(TypeError) { redis.xlen(nil) }
       assert_equal 0, redis.xlen('')
     end
 
@@ -357,19 +357,20 @@ module Lint
     def test_xread_does_not_raise_timeout_error_when_the_block_option_is_zero_msec
       prepared = false
       actual = nil
-      wire = Wire.new do
+      thread = Thread.new do
         prepared = true
         actual = redis.xread('s1', 0, block: 0)
       end
-      Wire.pass until prepared
-      redis.dup.xadd('s1', { f: 'v1' }, id: '0-1')
-      wire.join
+      Thread.pass until prepared
+      redis2 = init _new_client
+      redis2.xadd('s1', { f: 'v1' }, id: '0-1')
+      thread.join(3)
 
       assert_equal(['v1'], actual.fetch('s1').map { |i| i.last['f'] })
     end
 
     def test_xread_with_invalid_arguments
-      assert_raises(Redis::CommandError) { redis.xread(nil, nil) }
+      assert_raises(TypeError) { redis.xread(nil, nil) }
       assert_raises(Redis::CommandError) { redis.xread('', '') }
       assert_raises(Redis::CommandError) { redis.xread([], []) }
       assert_raises(Redis::CommandError) { redis.xread([''], ['']) }
@@ -481,7 +482,7 @@ module Lint
     end
 
     def test_xreadgroup_with_invalid_arguments
-      assert_raises(Redis::CommandError) { redis.xreadgroup(nil, nil, nil, nil) }
+      assert_raises(TypeError) { redis.xreadgroup(nil, nil, nil, nil) }
       assert_raises(Redis::CommandError) { redis.xreadgroup('', '', '', '') }
       assert_raises(Redis::CommandError) { redis.xreadgroup('', '', [], []) }
       assert_raises(Redis::CommandError) { redis.xreadgroup('', '', [''], ['']) }
@@ -534,7 +535,7 @@ module Lint
     end
 
     def test_xack_with_invalid_arguments
-      assert_equal 0, redis.xack(nil, nil, nil)
+      assert_raises(TypeError) { redis.xack(nil, nil, nil) }
       assert_equal 0, redis.xack('', '', '')
       assert_raises(Redis::CommandError) { redis.xack('', '', []) }
       assert_equal 0, redis.xack('', '', [''])
@@ -641,7 +642,7 @@ module Lint
     end
 
     def test_xclaim_with_invalid_arguments
-      assert_raises(Redis::CommandError) { redis.xclaim(nil, nil, nil, nil, nil) }
+      assert_raises(TypeError) { redis.xclaim(nil, nil, nil, nil, nil) }
       assert_raises(Redis::CommandError) { redis.xclaim('', '', '', '', '') }
     end
 
