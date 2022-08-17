@@ -138,9 +138,11 @@ class TestClusterCommandsOnCluster < Minitest::Test
     assert_equal true, sample_slot.fetch('master').key?('node_id')
     assert_equal true, sample_slot.key?('replicas')
     assert_equal true, sample_slot.fetch('replicas').is_a?(Array)
-    assert_equal true, sample_slot.fetch('replicas').first.key?('ip')
-    assert_equal true, sample_slot.fetch('replicas').first.key?('port')
-    assert_equal true, sample_slot.fetch('replicas').first.key?('node_id')
+    sample_slot.fetch('replicas').each do |replica|
+      assert_equal true, replica.key?('ip')
+      assert_equal true, replica.key?('port')
+      assert_equal true, replica.key?('node_id')
+    end
   end
 
   def test_readonly
