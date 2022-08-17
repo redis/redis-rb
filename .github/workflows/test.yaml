@@ -10,7 +10,7 @@ on:
 jobs:
   lint:
     name: Rubocop
-    timeout-minutes: 30
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -29,16 +29,15 @@ jobs:
 
   rubies:
     name: Ruby
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.1", "3.0", "2.7", "2.6", "2.5", "jruby-9.3.6.0", "truffleruby-22.2.0"]
+        ruby: ["3.1", "3.0", "2.7", "2.6", "2.5", "jruby-9.3.6.0"]
     runs-on: ubuntu-latest
     env:
       LOW_TIMEOUT: "0.01"
       REDIS_BRANCH: "7.0"
-      TRUFFLERUBYOPT: "--engine.Mode=latency"
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -65,9 +64,47 @@ jobs:
       - name: Shutting down Redis
         run: make stop
 
+  truffle:
+    name: TruffleRuby
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ["redis", "distributed"]
+    runs-on: ubuntu-latest
+    env:
+      LOW_TIMEOUT: "0.01"
+      REDIS_BRANCH: "7.0"
+      TRUFFLERUBYOPT: "--engine.Mode=latency"
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Print environment variables
+        run: |
+          echo "TIMEOUT=${TIMEOUT}"
+          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
+          echo "DRIVER=${DRIVER}"
+          echo "REDIS_BRANCH=${REDIS_BRANCH}"
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: truffleruby-22.2.0
+          bundler-cache: true
+      - name: Cache local temporary directory
+        uses: actions/cache@v3
+        with:
+          path: tmp
+          key: "local-tmp-redis-7.0-on-ubuntu-latest"
+      - name: Booting up Redis
+        run: make start
+      - name: Test
+        run: bundle exec rake test:${{ matrix.suite }}
+      - name: Shutting down Redis
+        run: make stop
+
   drivers:
     name: Driver
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -105,7 +142,7 @@ jobs:
 
   redises:
     name: Redis
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -142,7 +179,7 @@ jobs:
 
   sentinel:
     name: Sentinel
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
@@ -177,7 +214,7 @@ jobs:
 
   cluster:
     name: Cluster
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
     runs-on: ubuntu-latest
