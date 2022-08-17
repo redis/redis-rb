@@ -66,6 +66,10 @@ class Redis
       on_each_node :quit
     end
 
+    def close
+      on_each_node :close
+    end
+
     # Asynchronously save the dataset to disk.
     def bgsave
       on_each_node :bgsave

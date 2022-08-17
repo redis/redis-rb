@@ -34,6 +34,10 @@ class Redis
       call_v([:punsubscribe, *channels])
     end
 
+    def close
+      @client.close
+    end
+
     protected
 
     def subscription(start, stop, channels, block, timeout = 0)

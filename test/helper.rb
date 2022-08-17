@@ -116,7 +116,7 @@ module Helper
     end
 
     def teardown
-      redis&.quit
+      redis&.close
       super
     end
 
