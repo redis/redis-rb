@@ -37,10 +37,6 @@ if ENV['REDIS_SOCKET_PATH'].nil?
   ENV['REDIS_SOCKET_PATH'] = sock_file
 end
 
-def driver(*drivers, &blk)
-  class_eval(&blk) if drivers.map(&:to_s).include?(ENV["DRIVER"])
-end
-
 Dir[File.expand_path('lint/**/*.rb', __dir__)].sort.each do |f|
   require f
 end

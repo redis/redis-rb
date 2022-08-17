@@ -214,18 +214,16 @@ class TestInternals < Minitest::Test
     Redis.new(OPTIONS.merge(path: ENV.fetch("REDIS_SOCKET_PATH"))).ping
   end
 
-  driver(:ruby, :hiredis) do
-    def test_bubble_timeout_without_retrying
-      serv = TCPServer.new(6380)
+  def test_bubble_timeout_without_retrying
+    serv = TCPServer.new(6380)
 
-      redis = Redis.new(port: 6380, timeout: 0.1)
+    redis = Redis.new(port: 6380, timeout: 0.1)
 
-      assert_raises(Redis::TimeoutError) do
-        redis.ping
-      end
-    ensure
-      serv&.close
+    assert_raises(Redis::TimeoutError) do
+      redis.ping
     end
+  ensure
+    serv&.close
   end
 
   def test_client_options
@@ -282,19 +280,15 @@ class TestInternals < Minitest::Test
     redis_mock(commands, host: host, &:ping)
   end
 
-  driver(:ruby) do
-    af_family_supported(Socket::AF_INET) do
-      def test_connect_ipv4
-        af_test("127.0.0.1")
-      end
+  af_family_supported(Socket::AF_INET) do
+    def test_connect_ipv4
+      af_test("127.0.0.1")
     end
   end
 
-  driver(:ruby) do
-    af_family_supported(Socket::AF_INET6) do
-      def test_connect_ipv6
-        af_test("::1")
-      end
+  af_family_supported(Socket::AF_INET6) do
+    def test_connect_ipv6
+      af_test("::1")
     end
   end
 
