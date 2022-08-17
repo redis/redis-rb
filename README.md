@@ -154,6 +154,17 @@ end
 # => ["OK", 1]
 ```
 
+Commands must be called on the yielded objects. If you call methods
+on the original client objects from inside a pipeline, they willb e sent immediately:
+
+```ruby
+redis.pipelined do |pipeline|
+  pipeline.set "foo", "bar"
+  redis.incr "baz" # => 1
+end
+# => ["OK"]
+```
+
 ### Executing commands atomically
 
 You can use `MULTI/EXEC` to run a number of commands in an atomic
@@ -173,7 +184,7 @@ end
 ### Futures
 
 Replies to commands in a pipeline can be accessed via the *futures* they
-emit (since redis-rb 3.0). All calls on the pipeline object return a
+emit. All calls on the pipeline object return a
 `Future` object, which responds to the `#value` method. When the
 pipeline has successfully executed, all futures are assigned their
 respective replies and can be used.
@@ -199,7 +210,7 @@ it can't connect to the server a `Redis::CannotConnectError` error will be raise
 ```ruby
 begin
   redis.ping
-rescue StandardError => e
+rescue Redis::BaseError => e
   e.inspect
 # => #<Redis::CannotConnectError: Timed out connecting to Redis on 10.0.1.1:6380>
 
@@ -246,55 +257,27 @@ If no message is received after 5 seconds, the client will unsubscribe.
 
 ## Reconnections
 
-The client allows you to configure how many `reconnect_attempts` it should
-complete before declaring a connection as failed. Furthermore, you may want
-to control the maximum duration between reconnection attempts with
-`reconnect_delay` and `reconnect_delay_max`.
+**By default**, this gem will only **retry a connection once** and then fail, but
+the client allows you to configure how many `reconnect_attempts` it should
+complete before declaring a connection as failed.
 
 ```ruby
-Redis.new(
-  :reconnect_attempts => 10,
-  :reconnect_delay => 1.5,
-  :reconnect_delay_max => 10.0,
-)
+Redis.new(reconnect_attempts: 0)
+Redis.new(reconnect_attempts: 3)
 ```
 
-The delay values are specified in seconds. With the above configuration, the
-client would attempt 10 reconnections, exponentially increasing the duration
-between each attempt but it never waits longer than `reconnect_delay_max`.
-
-This is the retry algorithm:
+If you wish to wait between reconnection attempts, you can instead pass a list
+of durations:
 
 ```ruby
-attempt_wait_time = [(reconnect_delay * 2**(attempt-1)), reconnect_delay_max].min
+Redis.new(reconnect_attempts: [
+  0, # retry immediately
+  0.25 # retry a second time after 250ms
+  1 # retry a third and final time after another 1s
+])
 ```
-
-**By default**, this gem will only **retry a connection once** and then fail, but with the
-above configuration the reconnection attempt would look like this:
-
-#|Attempt wait time|Total wait time
-:-:|:-:|:-:
-1|1.5s|1.5s
-2|3.0s|4.5s
-3|6.0s|10.5s
-4|10.0s|20.5s
-5|10.0s|30.5s
-6|10.0s|40.5s
-7|10.0s|50.5s
-8|10.0s|60.5s
-9|10.0s|70.5s
-10|10.0s|80.5s
-
-So if the reconnection attempt #10 succeeds 70 seconds have elapsed trying
-to reconnect, this is likely fine in long-running background processes, but if
-you use Redis to drive your website you might want to have a lower
-`reconnect_delay_max` or have less `reconnect_attempts`.
 
 ## SSL/TLS Support
-
-This library supports natively terminating client side SSL/TLS connections
-when talking to Redis via a server-side proxy such as [stunnel], [hitch],
-or [ghostunnel].
 
 To enable SSL support, pass the `:ssl => true` option when configuring the
 Redis client, or pass in `:url => "rediss://..."` (like HTTPS for Redis).
@@ -349,17 +332,9 @@ redis = Redis.new(
    Improper use of `inherit_socket` will result in corrupted and/or incorrect
    responses.
 
-## Alternate drivers
+## hiredis binding
 
 By default, redis-rb uses Ruby's socket library to talk with Redis.
-To use an alternative connection driver it should be specified as option
-when instantiating the client object. These instructions are only valid
-for **redis-rb 3.0**. For instructions on how to use alternate drivers from
-**redis-rb 2.2**, please refer to an [older README][readme-2.2.2].
-
-[readme-2.2.2]: https://github.com/redis/redis-rb/blob/v2.2.2/README.md
-
-### hiredis
 
 The hiredis driver uses the connection facility of hiredis-rb. In turn,
 hiredis-rb is a binding to the official hiredis client library. It
@@ -369,17 +344,17 @@ extension, JRuby is not supported (by default).
 It is best to use hiredis when you have large replies (for example:
 `LRANGE`, `SMEMBERS`, `ZRANGE`, etc.) and/or use big pipelines.
 
-In your Gemfile, include hiredis:
+In your Gemfile, include `hiredis-client`:
 
 ```ruby
-gem "redis", "~> 3.0.1"
-gem "hiredis", "~> 0.4.5"
+gem "redis"
+gem "hiredis-client"
 ```
 
 When instantiating the client object, specify hiredis:
 
 ```ruby
-redis = Redis.new(:driver => :hiredis)
+redis = Redis.new(driver: :hiredis)
 ```
 
 ## Testing
