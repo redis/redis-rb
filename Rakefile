@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'bundler/gem_tasks'
-Bundler::GemHelper.install_tasks(dir: "redis_cluster", name: "redis_cluster")
+Bundler::GemHelper.install_tasks(dir: "cluster", name: "rediscluster")
 
 require 'rake/testtask'
 
@@ -22,9 +22,9 @@ namespace :test do
   end
 
   Rake::TestTask.new(:cluster) do |t|
-    t.libs << "redis_cluster/test" << "test"
-    t.libs << "redis_cluster/lib" << "lib"
-    t.test_files = FileList["redis_cluster/test/**/*_test.rb"]
+    t.libs << "cluster/test" << "test"
+    t.libs << "cluster/lib" << "lib"
+    t.test_files = FileList["cluster/test/**/*_test.rb"]
     t.options = '-v' if ENV['CI'] || ENV['VERBOSE']
   end
 end

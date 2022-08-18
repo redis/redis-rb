@@ -222,7 +222,7 @@ jobs:
       TIMEOUT: "15"
       LOW_TIMEOUT: "0.14"
       REDIS_BRANCH: "7.0"
-      BUNDLE_GEMFILE: redis_cluster/Gemfile
+      BUNDLE_GEMFILE: cluster/Gemfile
     steps:
       - name: Check out code
         uses: actions/checkout@v3
