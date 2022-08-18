@@ -46,7 +46,6 @@ class TestBlockingCommands < Minitest::Test
   end
 
   def test_brpoplpush_in_transaction
-    # TODO: redis-client transactions don't support blocking calls.
     results = r.multi do |transaction|
       transaction.brpoplpush('foo', 'bar')
       transaction.brpoplpush('foo', 'bar', timeout: 2)

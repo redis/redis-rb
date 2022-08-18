@@ -155,19 +155,6 @@ class TestInternals < Minitest::Test
     end
   end
 
-  def test_don_t_retry_when_second_read_in_pipeline_raises_econnreset
-    skip("TODO: decide if this is really worth it")
-    close_on_ping([1]) do |redis|
-      assert_raises Redis::ConnectionError do
-        redis.pipelined do |pipeline|
-          pipeline.ping
-          pipeline.ping # Second #read times out
-        end
-      end
-      refute_predicate redis._client, :connected?
-    end
-  end
-
   def close_on_connection(seq, &block)
     @n = 0
 
