@@ -460,13 +460,6 @@ class Redis
       timeout = if args.last.is_a?(Hash)
         options = args.pop
         options[:timeout]
-      elsif args.last.respond_to?(:to_int)
-        # Issue deprecation notice in obnoxious mode...
-        args.pop.to_int
-      end
-
-      if args.size > 1
-        # Issue deprecation notice in obnoxious mode...
       end
 
       keys = args.flatten
@@ -486,6 +479,18 @@ class Redis
       _bpop(:blpop, args)
     end
 
+    def bzpopmax(*args)
+      _bpop(:bzpopmax, args) do |reply|
+        reply.is_a?(Array) ? [reply[0], reply[1], Floatify.call(reply[2])] : reply
+      end
+    end
+
+    def bzpopmin(*args)
+      _bpop(:bzpopmin, args) do |reply|
+        reply.is_a?(Array) ? [reply[0], reply[1], Floatify.call(reply[2])] : reply
+      end
+    end
+
     # Remove and get the last element in a list, or block until one is
     # available.
     def brpop(*args)
@@ -494,9 +499,9 @@ class Redis
 
     # Pop a value from a list, push it to another list and return it; or block
     # until one is available.
-    def brpoplpush(source, destination, deprecated_timeout = 0, **options)
+    def brpoplpush(source, destination, **options)
       ensure_same_node(:brpoplpush, [source, destination]) do |node|
-        node.brpoplpush(source, destination, deprecated_timeout, **options)
+        node.brpoplpush(source, destination, **options)
       end
     end
 

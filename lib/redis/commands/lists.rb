@@ -48,7 +48,7 @@ class Redis
       # @param [String, Symbol] where_destination where to push the element to the source list
       #     e.g. 'LEFT' - to head, 'RIGHT' - to tail
       # @param [Hash] options
-      #   - `:timeout => Numeric`: timeout in seconds, defaults to no timeout
+      #   - `:timeout => [Float, Integer]`: timeout in seconds, defaults to no timeout
       #
       # @return [nil, String] the element, or nil when the source key does not exist or the timeout expired
       #
@@ -142,7 +142,7 @@ class Redis
       # @param [String, Array<String>] keys one or more keys to perform the
       #   blocking pop on
       # @param [Hash] options
-      #   - `:timeout => Integer`: timeout in seconds, defaults to no timeout
+      #   - `:timeout => [Float, Integer]`: timeout in seconds, defaults to no timeout
       #
       # @return [nil, [String, String]]
       #   - `nil` when the operation timed out
@@ -156,7 +156,7 @@ class Redis
       # @param [String, Array<String>] keys one or more keys to perform the
       #   blocking pop on
       # @param [Hash] options
-      #   - `:timeout => Integer`: timeout in seconds, defaults to no timeout
+      #   - `:timeout => [Float, Integer]`: timeout in seconds, defaults to no timeout
       #
       # @return [nil, [String, String]]
       #   - `nil` when the operation timed out
@@ -173,12 +173,12 @@ class Redis
       # @param [String] source source key
       # @param [String] destination destination key
       # @param [Hash] options
-      #   - `:timeout => Integer`: timeout in seconds, defaults to no timeout
+      #   - `:timeout => [Float, Integer]`: timeout in seconds, defaults to no timeout
       #
       # @return [nil, String]
       #   - `nil` when the operation timed out
       #   - the element was popped and pushed otherwise
-      def brpoplpush(source, destination, deprecated_timeout = 0, timeout: deprecated_timeout)
+      def brpoplpush(source, destination, timeout: 0)
         command = [:brpoplpush, source, destination, timeout]
         send_blocking_command(command, timeout)
       end
@@ -253,20 +253,16 @@ class Redis
         timeout = if args.last.is_a?(Hash)
           options = args.pop
           options[:timeout]
-        elsif args.last.respond_to?(:to_int)
-          # Issue deprecation notice in obnoxious mode...
-          args.pop.to_int
         end
 
         timeout ||= 0
-
-        if args.size > 1
-          # Issue deprecation notice in obnoxious mode...
+        unless timeout.is_a?(Integer) || timeout.is_a?(Float)
+          raise ArgumentError, "timeout must be an Integer or Float, got: #{timeout.class}"
         end
 
-        keys = args.flatten
-
-        command = [cmd, keys, timeout]
+        command = [cmd]
+        command.concat(args.flatten)
+        command << timeout
         send_blocking_command(command, timeout, &blk)
       end
 

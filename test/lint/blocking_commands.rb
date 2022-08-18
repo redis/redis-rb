@@ -101,22 +101,8 @@ module Lint
     end
 
     def test_blpop_integer_like_timeout
-      mock do |r|
-        assert_equal ["{zap}foo", "1"], r.blpop("{zap}foo", FakeDuration.new(1))
-      end
-    end
-
-    def test_blpop_with_old_prototype
-      assert_equal ['{zap}foo', 's1'], r.blpop('{zap}foo', 0)
-      assert_equal ['{zap}foo', 's2'], r.blpop('{zap}foo', 0)
-      assert_equal ['{zap}bar', 's1'], r.blpop('{zap}bar', '{zap}foo', 0)
-      assert_equal ['{zap}bar', 's2'], r.blpop('{zap}foo', '{zap}bar', 0)
-    end
-
-    def test_blpop_timeout_with_old_prototype
-      mock do |r|
-        assert_equal ['{zap}foo', '0'], r.blpop('{zap}foo', 0)
-        assert_equal ['{zap}foo', '1'], r.blpop('{zap}foo', 1)
+      assert_raises ArgumentError do
+        assert_equal ["{zap}foo", "1"], r.blpop("{zap}foo", timeout: FakeDuration.new(1))
       end
     end
 
@@ -134,20 +120,6 @@ module Lint
       end
     end
 
-    def test_brpop_with_old_prototype
-      assert_equal ['{zap}foo', 's2'], r.brpop('{zap}foo', 0)
-      assert_equal ['{zap}foo', 's1'], r.brpop('{zap}foo', 0)
-      assert_equal ['{zap}bar', 's2'], r.brpop('{zap}bar', '{zap}foo', 0)
-      assert_equal ['{zap}bar', 's1'], r.brpop('{zap}foo', '{zap}bar', 0)
-    end
-
-    def test_brpop_timeout_with_old_prototype
-      mock do |r|
-        assert_equal ['{zap}foo', '0'], r.brpop('{zap}foo', 0)
-        assert_equal ['{zap}foo', '1'], r.brpop('{zap}foo', 1)
-      end
-    end
-
     def test_brpoplpush
       assert_equal 's2', r.brpoplpush('{zap}foo', '{zap}qux')
       assert_equal ['s2'], r.lrange('{zap}qux', 0, -1)
@@ -160,26 +132,24 @@ module Lint
       end
     end
 
-    def test_brpoplpush_with_old_prototype
-      assert_equal 's2', r.brpoplpush('{zap}foo', '{zap}qux', 0)
-      assert_equal ['s2'], r.lrange('{zap}qux', 0, -1)
+    def test_bzpopmin
+      assert_equal ['{szap}foo', 'a', 0.0], r.bzpopmin('{szap}foo', '{szap}bar', timeout: 1)
     end
 
-    def test_brpoplpush_timeout_with_old_prototype
-      mock do |r|
-        assert_equal '0', r.brpoplpush('{zap}foo', '{zap}bar', 0)
-        assert_equal '1', r.brpoplpush('{zap}foo', '{zap}bar', 1)
+    def test_bzpopmin_float_timeout
+      target_version "6.0" do
+        assert_nil r.bzpopmin('{szap}aaa', '{szap}bbb', timeout: LOW_TIMEOUT)
       end
     end
 
-    def test_bzpopmin
-      assert_equal ['{szap}foo', 'a', 0.0], r.bzpopmin('{szap}foo', '{szap}bar', 1)
-      assert_nil r.bzpopmin('{szap}aaa', '{szap}bbb', 2)
+    def test_bzpopmax
+      assert_equal ['{szap}foo', 'c', 2.0], r.bzpopmax('{szap}foo', '{szap}bar', timeout: 1)
     end
 
-    def test_bzpopmax
-      assert_equal ['{szap}foo', 'c', 2.0], r.bzpopmax('{szap}foo', '{szap}bar', 1)
-      assert_nil r.bzpopmax('{szap}aaa', '{szap}bbb', 1)
+    def test_bzpopmax_float_timeout
+      target_version "6.0" do
+        assert_nil r.bzpopmax('{szap}aaa', '{szap}bbb', timeout: LOW_TIMEOUT)
+      end
     end
 
     def test_blmove_socket_timeout
