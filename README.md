@@ -133,7 +133,7 @@ redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master)
 
 ## Cluster support
 
-[Clustering](https://redis.io/topics/cluster-spec). is supported via the [`rediscluster` gem](cluster/).
+[Clustering](https://redis.io/topics/cluster-spec). is supported via the [`redis-clustering` gem](cluster/).
 
 ## Pipelining
 

@@ -3,7 +3,7 @@
 require_relative "../lib/redis/version"
 
 Gem::Specification.new do |s|
-  s.name = "rediscluster"
+  s.name = "redis-clustering"
 
   s.version = Redis::VERSION
 

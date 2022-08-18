@@ -5,13 +5,13 @@
 Install with:
 
 ```
-$ gem install rediscluster
+$ gem install redis-clustering
 ```
 
-You can connect to Redis by instantiating the `Redis::Cluter` class:
+You can connect to Redis by instantiating the `Redis::Cluster` class:
 
 ```ruby
-require "rediscluster"
+require "redis-clustering"
 
 redis = Redis::Cluter.new(nodes: (7000..7005).map { |port| "redis://127.0.0.1:#{port}" })
 ```

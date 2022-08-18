@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'bundler/gem_tasks'
-Bundler::GemHelper.install_tasks(dir: "cluster", name: "rediscluster")
+Bundler::GemHelper.install_tasks(dir: "cluster", name: "redis-clustering")
 
 require 'rake/testtask'
 

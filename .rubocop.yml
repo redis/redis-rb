@@ -151,4 +151,4 @@ Bundler/OrderedGems:
 
 Gemspec/RequiredRubyVersion:
   Exclude:
-    - cluster/rediscluster.gemspec
+    - cluster/redis-clustering.gemspec
