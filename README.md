@@ -1,7 +1,6 @@
 # redis-rb [![Build Status][gh-actions-image]][gh-actions-link] [![Inline docs][inchpages-image]][inchpages-link]
 
-A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still
-providing an idiomatic interface.
+A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still providing an idiomatic interface.
 
 See [RubyDoc.info][rubydoc] for the API docs of the latest published gem.
 
@@ -38,10 +37,6 @@ redis = Redis.new(url: "redis://:p4ssw0rd@10.0.1.1:6380/15")
 The client expects passwords with special chracters to be URL-encoded (i.e.
 `CGI.escape(password)`).
 
-By default, the client will try to read the `REDIS_URL` environment variable
-and use that as URL to connect to. The above statement is therefore equivalent
-to setting this environment variable and calling `Redis.new` without arguments.
-
 To connect to Redis listening on a Unix socket, try:
 
 ```ruby
@@ -75,6 +70,28 @@ redis.get("mykey")
 
 All commands, their arguments, and return values are documented and
 available on [RubyDoc.info][rubydoc].
+
+## Connection Pooling and Thread safety
+
+The client does not provide connection pooling. Each `Redis` instance
+has one and only one connection to the server, and use of this connection
+is protected by a mutex.
+
+As such it is heavilly recommended to use the [`connection_pool` gem], e.g.:
+
+```ruby
+module MyApp
+  def self.redis
+    @redis ||= ConnectionPool.new do
+      Redis.new(url: ENV["REDIS_URL"])
+    end
+  end
+end
+
+MyApp.redis.incr("some-counter")
+```
+
+[`connection_pool` gem](https://github.com/mperham/connection_pool)
 
 ## Sentinel support
 
@@ -117,21 +134,6 @@ redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master)
 ## Cluster support
 
 [Clustering](https://redis.io/topics/cluster-spec). is supported via the [`redis_cluster` gem](redis_cluster/).
-
-## Storing objects
-
-Redis "string" types can be used to store serialized Ruby objects, for
-example with JSON:
-
-```ruby
-require "json"
-
-redis.set "foo", [1, 2, 3].to_json
-# => OK
-
-JSON.parse(redis.get("foo"))
-# => [1, 2, 3]
-```
 
 ## Pipelining
 
@@ -190,15 +192,16 @@ pipeline has successfully executed, all futures are assigned their
 respective replies and can be used.
 
 ```ruby
+set = incr = nil
 redis.pipelined do |pipeline|
-  @set = pipeline.set "foo", "bar"
-  @incr = pipeline.incr "baz"
+  set = pipeline.set "foo", "bar"
+  incr = pipeline.incr "baz"
 end
 
-@set.value
+set.value
 # => "OK"
 
-@incr.value
+incr.value
 # => 1
 ```
 
@@ -277,6 +280,16 @@ Redis.new(reconnect_attempts: [
 ])
 ```
 
+If you wish to disable reconnection only for some commands, you can use
+`disable_reconnection`:
+
+```ruby
+redis.get("some-key") # this may be retried
+redis.disable_reconnection do
+  redis.incr("some-counter") # this won't be retried.
+end
+```
+
 ## SSL/TLS Support
 
 To enable SSL support, pass the `:ssl => true` option when configuring the
@@ -312,13 +325,7 @@ redis = Redis.new(
 )
 ```
 
-[stunnel]: https://www.stunnel.org/
-[hitch]: https://hitch-tls.org/
-[ghostunnel]: https://github.com/square/ghostunnel
-[OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.3.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
-
-*NOTE:* SSL is only supported by the default "Ruby" driver
-
+[OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.5.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
 
 ## Expert-Mode Options
 
@@ -351,7 +358,17 @@ gem "redis"
 gem "hiredis-client"
 ```
 
-When instantiating the client object, specify hiredis:
+If your application doesn't call `Bundler.require`, you may have
+to require it explictly:
+
+```ruby
+require "hiredis-client"
+````
+
+This makes the hiredis driver the default.
+
+If you want to be certain hiredis is being used, when instantiating
+the client object, specify hiredis:
 
 ```ruby
 redis = Redis.new(driver: :hiredis)

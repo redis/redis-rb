@@ -45,5 +45,5 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 2.5.0'
 
-  s.add_runtime_dependency('redis-client', '~> 0.6')
+  s.add_runtime_dependency('redis-client', '~> 0.7')
 end
