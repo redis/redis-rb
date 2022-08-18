@@ -27,13 +27,11 @@ module Lint
     end
 
     def test_set_and_get_with_ascii_characters
-      with_external_encoding("ASCII-8BIT") do
-        (0..255).each do |i|
-          str = "#{i.chr}---#{i.chr}"
-          r.set("foo", str)
+      (0..255).each do |i|
+        str = "#{i.chr}---#{i.chr}"
+        r.set("foo", str)
 
-          assert_equal str, r.get("foo")
-        end
+        assert_equal str, r.get("foo")
       end
     end
 
@@ -363,23 +361,21 @@ module Lint
     end
 
     def test_bitop
-      with_external_encoding('UTF-8') do
-        r.set('foo{1}', 'a')
-        r.set('bar{1}', 'b')
+      r.set('foo{1}', 'a')
+      r.set('bar{1}', 'b')
 
-        r.bitop(:and, 'foo&bar{1}', 'foo{1}', 'bar{1}')
-        assert_equal "\x60", r.get('foo&bar{1}')
+      r.bitop(:and, 'foo&bar{1}', 'foo{1}', 'bar{1}')
+      assert_equal "\x60", r.get('foo&bar{1}')
 
-        r.bitop(:and, 'foo&bar{1}', ['foo{1}', 'bar{1}'])
-        assert_equal "\x60", r.get('foo&bar{1}')
+      r.bitop(:and, 'foo&bar{1}', ['foo{1}', 'bar{1}'])
+      assert_equal "\x60", r.get('foo&bar{1}')
 
-        r.bitop(:or, 'foo|bar{1}', 'foo{1}', 'bar{1}')
-        assert_equal "\x63", r.get('foo|bar{1}')
-        r.bitop(:xor, 'foo^bar{1}', 'foo{1}', 'bar{1}')
-        assert_equal "\x03", r.get('foo^bar{1}')
-        r.bitop(:not, '~foo{1}', 'foo{1}')
-        assert_equal "\x9E".b, r.get('~foo{1}')
-      end
+      r.bitop(:or, 'foo|bar{1}', 'foo{1}', 'bar{1}')
+      assert_equal "\x63", r.get('foo|bar{1}')
+      r.bitop(:xor, 'foo^bar{1}', 'foo{1}', 'bar{1}')
+      assert_equal "\x03", r.get('foo^bar{1}')
+      r.bitop(:not, '~foo{1}', 'foo{1}')
+      assert_equal "\x9E".b, r.get('~foo{1}')
     end
   end
 end

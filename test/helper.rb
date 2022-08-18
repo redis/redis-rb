@@ -61,17 +61,6 @@ module Helper
     end
   end
 
-  def with_external_encoding(encoding)
-    original_encoding = Encoding.default_external
-
-    begin
-      silent { Encoding.default_external = Encoding.find(encoding) }
-      yield
-    ensure
-      silent { Encoding.default_external = original_encoding }
-    end
-  end
-
   class Version
     include Comparable
 
