@@ -3,7 +3,7 @@
 require_relative "../../test/helper"
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 
-require "redis_cluster"
+require "redis-clustering"
 require_relative 'support/orchestrator'
 
 module Helper
