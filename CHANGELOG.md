@@ -1,6 +1,6 @@
 # Unreleased
 
-# Unreleased 5.0.0.beta1
+# 5.0.0.beta1
 
 - Use `MD5` for hashing server nodes in `Redis::Distributed`. This should improve keys distribution among servers. See #1089.
 - Changed `sadd` and `srem` to now always return an Integer.
