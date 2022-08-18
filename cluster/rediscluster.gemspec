@@ -3,12 +3,12 @@
 require_relative "../lib/redis/version"
 
 Gem::Specification.new do |s|
-  s.name = "redis_cluster"
+  s.name = "rediscluster"
 
   s.version = Redis::VERSION
 
   github_root = "https://github.com/redis/redis-rb"
-  s.homepage = "#{github_root}/blob/master/redis_cluster"
+  s.homepage = "#{github_root}/blob/master/cluster"
 
   s.summary = "A Ruby client library for Redis Cluster"
 
@@ -38,7 +38,7 @@ Gem::Specification.new do |s|
     "changelog_uri" => "#{s.homepage}/CHANGELOG.md",
     "documentation_uri" => "https://www.rubydoc.info/gems/redis/#{s.version}",
     "homepage_uri" => s.homepage,
-    "source_code_uri" => "#{github_root}/tree/v#{s.version}/redis_cluster"
+    "source_code_uri" => "#{github_root}/tree/v#{s.version}/cluster"
   }
 
   s.files         = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
