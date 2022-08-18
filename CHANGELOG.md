@@ -1,5 +1,7 @@
 # Unreleased
 
+- Fix `redis-clustering` gem to specify the dependency on `redis`
+
 # 5.0.0.beta3
 
 - Use `MD5` for hashing server nodes in `Redis::Distributed`. This should improve keys distribution among servers. See #1089.

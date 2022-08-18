@@ -4,6 +4,7 @@ source 'https://rubygems.org'
 
 gemspec
 
+gem 'redis', path: File.expand_path("..", __dir__)
 gem 'minitest'
 gem 'rake'
 gem 'rubocop', '~> 1.25.1'

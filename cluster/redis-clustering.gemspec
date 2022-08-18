@@ -46,5 +46,6 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 2.7.0'
 
+  s.add_runtime_dependency('redis', s.version)
   s.add_runtime_dependency('redis-cluster-client', '~> 0.2')
 end
