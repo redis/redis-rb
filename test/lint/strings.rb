@@ -294,6 +294,7 @@ module Lint
 
       assert_equal %w[s1 s2],         r.mget('{1}foo', '{1}bar')
       assert_equal ['s1', 's2', nil], r.mget('{1}foo', '{1}bar', '{1}baz')
+      assert_equal ['s1', 's2', nil], r.mget(['{1}foo', '{1}bar', '{1}baz'])
     end
 
     def test_mget_mapped
@@ -368,6 +369,10 @@ module Lint
 
         r.bitop(:and, 'foo&bar{1}', 'foo{1}', 'bar{1}')
         assert_equal "\x60", r.get('foo&bar{1}')
+
+        r.bitop(:and, 'foo&bar{1}', ['foo{1}', 'bar{1}'])
+        assert_equal "\x60", r.get('foo&bar{1}')
+
         r.bitop(:or, 'foo|bar{1}', 'foo{1}', 'bar{1}')
         assert_equal "\x63", r.get('foo|bar{1}')
         r.bitop(:xor, 'foo^bar{1}', 'foo{1}', 'bar{1}')

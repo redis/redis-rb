@@ -12,6 +12,7 @@ class TestDistributedCommandsOnStrings < Minitest::Test
 
     assert_equal ["s1", "s2"], r.mget("foo", "bar")
     assert_equal ["s1", "s2", nil], r.mget("foo", "bar", "baz")
+    assert_equal ["s1", "s2", nil], r.mget(["foo", "bar", "baz"])
   end
 
   def test_mget_mapped

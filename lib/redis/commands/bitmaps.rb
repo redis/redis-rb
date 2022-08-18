@@ -39,7 +39,10 @@ class Redis
       # @param [String, Array<String>] keys one or more source keys to perform `operation`
       # @return [Integer] the length of the string stored in `destkey`
       def bitop(operation, destkey, *keys)
-        send_command([:bitop, operation, destkey, *keys])
+        keys.flatten!(1)
+        command = [:bitop, operation, destkey]
+        command.concat(keys)
+        send_command(command)
       end
 
       # Return the position of the first bit set to 1 or 0 in a string.

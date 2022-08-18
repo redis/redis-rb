@@ -55,8 +55,8 @@ class TestTransactions < Minitest::Test
 
   def test_assignment_inside_multi_exec_block
     r.multi do |m|
-      @first = m.sadd("foo", 1)
-      @second = m.sadd("foo", 1)
+      @first = m.sadd?("foo", 1)
+      @second = m.sadd?("foo", 1)
     end
 
     assert_equal true, @first.value

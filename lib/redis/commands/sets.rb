@@ -15,40 +15,40 @@ class Redis
       #
       # @param [String] key
       # @param [String, Array<String>] member one member, or array of members
-      # @return [Boolean, Integer] `Boolean` when a single member is specified,
-      #   holding whether or not adding the member succeeded, or `Integer` when an
-      #   array of members is specified, holding the number of members that were
-      #   successfully added
-      def sadd(key, member)
-        send_command([:sadd, key, member]) do |reply|
-          if member.is_a? Array
-            # Variadic: return integer
-            reply
-          else
-            # Single argument: return boolean
-            Boolify.call(reply)
-          end
-        end
+      # @return [Integer] The number of members that were successfully added
+      def sadd(key, *members)
+        members.flatten!(1)
+        send_command([:sadd, key].concat(members))
+      end
+
+      # Add one or more members to a set.
+      #
+      # @param [String] key
+      # @param [String, Array<String>] member one member, or array of members
+      # @return [Boolean] Wether at least one member was successfully added.
+      def sadd?(key, *members)
+        members.flatten!(1)
+        send_command([:sadd, key].concat(members), &Boolify)
       end
 
       # Remove one or more members from a set.
       #
       # @param [String] key
       # @param [String, Array<String>] member one member, or array of members
-      # @return [Boolean, Integer] `Boolean` when a single member is specified,
-      #   holding whether or not removing the member succeeded, or `Integer` when an
-      #   array of members is specified, holding the number of members that were
-      #   successfully removed
-      def srem(key, member)
-        send_command([:srem, key, member]) do |reply|
-          if member.is_a? Array
-            # Variadic: return integer
-            reply
-          else
-            # Single argument: return boolean
-            Boolify.call(reply)
-          end
-        end
+      # @return [Integer] The number of members that were successfully removed
+      def srem(key, *members)
+        members.flatten!(1)
+        send_command([:srem, key].concat(members))
+      end
+
+      # Remove one or more members from a set.
+      #
+      # @param [String] key
+      # @param [String, Array<String>] member one member, or array of members
+      # @return [Boolean] Wether at least one member was successfully removed.
+      def srem?(key, *members)
+        members.flatten!(1)
+        send_command([:srem, key].concat(members), &Boolify)
       end
 
       # Remove and return one or more random member from a set.
@@ -102,7 +102,8 @@ class Redis
       # @param [String, Array<String>] members
       # @return [Array<Boolean>]
       def smismember(key, *members)
-        send_command([:smismember, key, *members]) do |reply|
+        members.flatten!(1)
+        send_command([:smismember, key].concat(members)) do |reply|
           reply.map(&Boolify)
         end
       end
@@ -120,7 +121,8 @@ class Redis
       # @param [String, Array<String>] keys keys pointing to sets to subtract
       # @return [Array<String>] members in the difference
       def sdiff(*keys)
-        send_command([:sdiff, *keys])
+        keys.flatten!(1)
+        send_command([:sdiff].concat(keys))
       end
 
       # Subtract multiple sets and store the resulting set in a key.
@@ -129,7 +131,8 @@ class Redis
       # @param [String, Array<String>] keys keys pointing to sets to subtract
       # @return [Integer] number of elements in the resulting set
       def sdiffstore(destination, *keys)
-        send_command([:sdiffstore, destination, *keys])
+        keys.flatten!(1)
+        send_command([:sdiffstore, destination].concat(keys))
       end
 
       # Intersect multiple sets.
@@ -137,7 +140,8 @@ class Redis
       # @param [String, Array<String>] keys keys pointing to sets to intersect
       # @return [Array<String>] members in the intersection
       def sinter(*keys)
-        send_command([:sinter, *keys])
+        keys.flatten!(1)
+        send_command([:sinter].concat(keys))
       end
 
       # Intersect multiple sets and store the resulting set in a key.
@@ -146,7 +150,8 @@ class Redis
       # @param [String, Array<String>] keys keys pointing to sets to intersect
       # @return [Integer] number of elements in the resulting set
       def sinterstore(destination, *keys)
-        send_command([:sinterstore, destination, *keys])
+        keys.flatten!(1)
+        send_command([:sinterstore, destination].concat(keys))
       end
 
       # Add multiple sets.
@@ -154,7 +159,8 @@ class Redis
       # @param [String, Array<String>] keys keys pointing to sets to unify
       # @return [Array<String>] members in the union
       def sunion(*keys)
-        send_command([:sunion, *keys])
+        keys.flatten!(1)
+        send_command([:sunion].concat(keys))
       end
 
       # Add multiple sets and store the resulting set in a key.
@@ -163,7 +169,8 @@ class Redis
       # @param [String, Array<String>] keys keys pointing to sets to unify
       # @return [Integer] number of elements in the resulting set
       def sunionstore(destination, *keys)
-        send_command([:sunionstore, destination, *keys])
+        keys.flatten!(1)
+        send_command([:sunionstore, destination].concat(keys))
       end
 
       # Scan a set

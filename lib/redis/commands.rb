@@ -40,14 +40,7 @@ class Redis
     # where the method call will return nil. Propagate the nil instead of falsely
     # returning false.
     Boolify = lambda { |value|
-      case value
-      when 1
-        true
-      when 0
-        false
-      else
-        value
-      end
+      value != 0 unless value.nil?
     }
 
     BoolifySet = lambda { |value|

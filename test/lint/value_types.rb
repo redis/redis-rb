@@ -8,6 +8,7 @@ module Lint
       r.set("foo", "s1")
 
       assert_equal 1, r.exists("foo")
+      assert_equal 1, r.exists(["foo"])
     end
 
     def test_variadic_exists
@@ -20,6 +21,7 @@ module Lint
       r.set("{1}bar", "s2")
 
       assert_equal 2, r.exists("{1}foo", "{1}bar")
+      assert_equal 2, r.exists(["{1}foo", "{1}bar"])
     end
 
     def test_exists?
@@ -28,10 +30,12 @@ module Lint
       r.set("{1}foo", "s1")
 
       assert_equal true, r.exists?("{1}foo")
+      assert_equal true, r.exists?(["{1}foo"])
 
       r.set("{1}bar", "s1")
 
       assert_equal true, r.exists?("{1}foo", "{1}bar")
+      assert_equal true, r.exists?(["{1}foo", "{1}bar"])
     end
 
     def test_type

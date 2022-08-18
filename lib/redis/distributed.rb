@@ -167,6 +167,7 @@ class Redis
 
     # Delete a key.
     def del(*args)
+      args.flatten!(1)
       keys_per_node = args.group_by { |key| node_for(key) }
       keys_per_node.inject(0) do |sum, (node, keys)|
         sum + node.del(*keys)
@@ -175,6 +176,7 @@ class Redis
 
     # Unlink keys.
     def unlink(*args)
+      args.flatten!(1)
       keys_per_node = args.group_by { |key| node_for(key) }
       keys_per_node.inject(0) do |sum, (node, keys)|
         sum + node.unlink(*keys)
@@ -183,6 +185,7 @@ class Redis
 
     # Determine if a key exists.
     def exists(*args)
+      args.flatten!(1)
       keys_per_node = args.group_by { |key| node_for(key) }
       keys_per_node.inject(0) do |sum, (node, keys)|
         sum + node.exists(*keys)
@@ -191,6 +194,7 @@ class Redis
 
     # Determine if any of the keys exists.
     def exists?(*args)
+      args.flatten!(1)
       keys_per_node = args.group_by { |key| node_for(key) }
       keys_per_node.each do |node, keys|
         return true if node.exists?(*keys)
@@ -294,7 +298,7 @@ class Redis
     end
 
     # Set multiple keys to multiple values.
-    def mset(*_args)
+    def mset(*)
       raise CannotDistribute, :mset
     end
 
@@ -303,7 +307,7 @@ class Redis
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
-    def msetnx(*_args)
+    def msetnx(*)
       raise CannotDistribute, :msetnx
     end
 
@@ -328,11 +332,13 @@ class Redis
 
     # Get the values of all the given keys as an Array.
     def mget(*keys)
+      keys.flatten!(1)
       mapped_mget(*keys).values_at(*keys)
     end
 
     # Get the values of all the given keys as a Hash.
     def mapped_mget(*keys)
+      keys.flatten!(1)
       keys.group_by { |k| node_for k }.inject({}) do |results, (node, subkeys)|
         results.merge! node.mapped_mget(*subkeys)
       end
@@ -370,8 +376,9 @@ class Redis
 
     # Perform a bitwise operation between strings and store the resulting string in a key.
     def bitop(operation, destkey, *keys)
+      keys.flatten!(1)
       ensure_same_node(:bitop, [destkey] + keys) do |node|
-        node.bitop(operation, destkey, *keys)
+        node.bitop(operation, destkey, keys)
       end
     end
 
@@ -462,13 +469,13 @@ class Redis
         options[:timeout]
       end
 
-      keys = args.flatten
+      args.flatten!(1)
 
-      ensure_same_node(cmd, keys) do |node|
+      ensure_same_node(cmd, args) do |node|
         if timeout
-          node.__send__(cmd, keys, timeout: timeout)
+          node.__send__(cmd, args, timeout: timeout)
         else
-          node.__send__(cmd, keys)
+          node.__send__(cmd, args)
         end
       end
     end
@@ -541,13 +548,23 @@ class Redis
     end
 
     # Add one or more members to a set.
-    def sadd(key, member)
-      node_for(key).sadd(key, member)
+    def sadd(key, *members)
+      node_for(key).sadd(key, *members)
+    end
+
+    # Add one or more members to a set.
+    def sadd?(key, *members)
+      node_for(key).sadd?(key, *members)
     end
 
     # Remove one or more members from a set.
-    def srem(key, member)
-      node_for(key).srem(key, member)
+    def srem(key, *members)
+      node_for(key).srem(key, *members)
+    end
+
+    # Remove one or more members from a set.
+    def srem?(key, *members)
+      node_for(key).srem?(key, *members)
     end
 
     # Remove and return a random member from a set.
@@ -594,43 +611,49 @@ class Redis
 
     # Subtract multiple sets.
     def sdiff(*keys)
+      keys.flatten!(1)
       ensure_same_node(:sdiff, keys) do |node|
-        node.sdiff(*keys)
+        node.sdiff(keys)
       end
     end
 
     # Subtract multiple sets and store the resulting set in a key.
     def sdiffstore(destination, *keys)
-      ensure_same_node(:sdiffstore, [destination] + keys) do |node|
-        node.sdiffstore(destination, *keys)
+      keys.flatten!(1)
+      ensure_same_node(:sdiffstore, [destination].concat(keys)) do |node|
+        node.sdiffstore(destination, keys)
       end
     end
 
     # Intersect multiple sets.
     def sinter(*keys)
+      keys.flatten!(1)
       ensure_same_node(:sinter, keys) do |node|
-        node.sinter(*keys)
+        node.sinter(keys)
       end
     end
 
     # Intersect multiple sets and store the resulting set in a key.
     def sinterstore(destination, *keys)
-      ensure_same_node(:sinterstore, [destination] + keys) do |node|
-        node.sinterstore(destination, *keys)
+      keys.flatten!(1)
+      ensure_same_node(:sinterstore, [destination].concat(keys)) do |node|
+        node.sinterstore(destination, keys)
       end
     end
 
     # Add multiple sets.
     def sunion(*keys)
+      keys.flatten!(1)
       ensure_same_node(:sunion, keys) do |node|
-        node.sunion(*keys)
+        node.sunion(keys)
       end
     end
 
     # Add multiple sets and store the resulting set in a key.
     def sunionstore(destination, *keys)
-      ensure_same_node(:sunionstore, [destination] + keys) do |node|
-        node.sunionstore(destination, *keys)
+      keys.flatten!(1)
+      ensure_same_node(:sunionstore, [destination].concat(keys)) do |node|
+        node.sunionstore(destination, keys)
       end
     end
 
@@ -729,43 +752,49 @@ class Redis
 
     # Get the intersection of multiple sorted sets
     def zinter(*keys, **options)
+      keys.flatten!(1)
       ensure_same_node(:zinter, keys) do |node|
-        node.zinter(*keys, **options)
+        node.zinter(keys, **options)
       end
     end
 
     # Intersect multiple sorted sets and store the resulting sorted set in a new
     # key.
-    def zinterstore(destination, keys, **options)
-      ensure_same_node(:zinterstore, [destination] + keys) do |node|
+    def zinterstore(destination, *keys, **options)
+      keys.flatten!(1)
+      ensure_same_node(:zinterstore, [destination].concat(keys)) do |node|
         node.zinterstore(destination, keys, **options)
       end
     end
 
     # Return the union of multiple sorted sets.
     def zunion(*keys, **options)
+      keys.flatten!(1)
       ensure_same_node(:zunion, keys) do |node|
-        node.zunion(*keys, **options)
+        node.zunion(keys, **options)
       end
     end
 
     # Add multiple sorted sets and store the resulting sorted set in a new key.
-    def zunionstore(destination, keys, **options)
-      ensure_same_node(:zunionstore, [destination] + keys) do |node|
+    def zunionstore(destination, *keys, **options)
+      keys.flatten!(1)
+      ensure_same_node(:zunionstore, [destination].concat(keys)) do |node|
         node.zunionstore(destination, keys, **options)
       end
     end
 
     # Return the difference between the first and all successive input sorted sets.
     def zdiff(*keys, **options)
+      keys.flatten!(1)
       ensure_same_node(:zdiff, keys) do |node|
-        node.zdiff(*keys, **options)
+        node.zdiff(keys, **options)
       end
     end
 
     # Compute the difference between the first and all successive input sorted sets
     # and store the resulting sorted set in a new key.
-    def zdiffstore(destination, keys, **options)
+    def zdiffstore(destination, *keys, **options)
+      keys.flatten!(1)
       ensure_same_node(:zdiffstore, [destination] + keys) do |node|
         node.zdiffstore(destination, keys, **options)
       end
@@ -792,7 +821,7 @@ class Redis
     end
 
     def mapped_hmset(key, hash)
-      node_for(key).hmset(key, *hash.to_a.flatten)
+      node_for(key).hmset(key, hash)
     end
 
     # Get the value of a hash field.
@@ -802,11 +831,13 @@ class Redis
 
     # Get the values of all the given hash fields.
     def hmget(key, *fields)
-      node_for(key).hmget(key, *fields)
+      fields.flatten!(1)
+      node_for(key).hmget(key, fields)
     end
 
     def mapped_hmget(key, *fields)
-      Hash[*fields.zip(hmget(key, *fields)).flatten]
+      fields.flatten!(1)
+      node_for(key).mapped_hmget(key, fields)
     end
 
     def hrandfield(key, count = nil, **options)
@@ -815,7 +846,8 @@ class Redis
 
     # Delete one or more hash fields.
     def hdel(key, *fields)
-      node_for(key).hdel(key, *fields)
+      fields.flatten!(1)
+      node_for(key).hdel(key, fields)
     end
 
     # Determine if a hash field exists.
