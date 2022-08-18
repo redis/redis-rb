@@ -260,8 +260,8 @@ class Redis
           raise ArgumentError, "timeout must be an Integer or Float, got: #{timeout.class}"
         end
 
-        command = [cmd]
-        command.concat(args.flatten)
+        args.flatten!(1)
+        command = [cmd].concat(args)
         command << timeout
         send_blocking_command(command, timeout, &blk)
       end

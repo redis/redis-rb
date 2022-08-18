@@ -778,7 +778,8 @@ class Redis
       private
 
       def _zsets_operation(cmd, *keys, weights: nil, aggregate: nil, with_scores: false)
-        command = [cmd, keys.size, *keys]
+        keys.flatten!(1)
+        command = [cmd, keys.size].concat(keys)
 
         if weights
           command << "WEIGHTS"
@@ -796,7 +797,8 @@ class Redis
       end
 
       def _zsets_operation_store(cmd, destination, keys, weights: nil, aggregate: nil)
-        command = [cmd, destination, keys.size, *keys]
+        keys.flatten!(1)
+        command = [cmd, destination, keys.size].concat(keys)
 
         if weights
           command << "WEIGHTS"

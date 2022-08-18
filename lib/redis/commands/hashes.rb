@@ -87,7 +87,8 @@ class Redis
       #
       # @see #mapped_hmget
       def hmget(key, *fields, &blk)
-        send_command([:hmget, key] + fields, &blk)
+        fields.flatten!(1)
+        send_command([:hmget, key].concat(fields), &blk)
       end
 
       # Get the values of all the given hash fields.
@@ -102,7 +103,8 @@ class Redis
       #
       # @see #hmget
       def mapped_hmget(key, *fields)
-        hmget(key, *fields) do |reply|
+        fields.flatten!(1)
+        hmget(key, fields) do |reply|
           if reply.is_a?(Array)
             Hash[fields.zip(reply)]
           else
@@ -152,7 +154,8 @@ class Redis
       # @param [String, Array<String>] field
       # @return [Integer] the number of fields that were removed from the hash
       def hdel(key, *fields)
-        send_command([:hdel, key, *fields])
+        fields.flatten!(1)
+        send_command([:hdel, key].concat(fields))
       end
 
       # Determine if a hash field exists.

@@ -202,6 +202,7 @@ class Redis
       #
       # @see #mapped_mget
       def mget(*keys, &blk)
+        keys.flatten!(1)
         send_command([:mget, *keys], &blk)
       end
 

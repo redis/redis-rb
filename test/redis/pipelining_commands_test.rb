@@ -75,8 +75,8 @@ class TestPipeliningCommands < Minitest::Test
 
   def test_assignment_of_results_inside_the_block
     r.pipelined do |p|
-      @first = p.sadd("foo", 1)
-      @second = p.sadd("foo", 1)
+      @first = p.sadd?("foo", 1)
+      @second = p.sadd?("foo", 1)
     end
 
     assert_equal true, @first.value
@@ -89,8 +89,8 @@ class TestPipeliningCommands < Minitest::Test
     assert_raises(Redis::CommandError) do
       r.pipelined do |p|
         p.doesnt_exist
-        @first = p.sadd("foo", 1)
-        @second = p.sadd("foo", 1)
+        @first = p.sadd?("foo", 1)
+        @second = p.sadd?("foo", 1)
       end
     end
 
@@ -100,10 +100,10 @@ class TestPipeliningCommands < Minitest::Test
 
   def test_assignment_of_results_inside_a_nested_block
     r.pipelined do |p|
-      @first = p.sadd("foo", 1)
+      @first = p.sadd?("foo", 1)
 
       p.pipelined do |p2|
-        @second = p2.sadd("foo", 1)
+        @second = p2.sadd?("foo", 1)
       end
     end
 
@@ -113,7 +113,7 @@ class TestPipeliningCommands < Minitest::Test
 
   def test_futures_raise_when_confused_with_something_else
     r.pipelined do |p|
-      @result = p.sadd("foo", 1)
+      @result = p.sadd?("foo", 1)
     end
 
     assert_raises(NoMethodError) { @result.to_s }
