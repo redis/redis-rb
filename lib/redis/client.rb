@@ -82,7 +82,13 @@ class Redis
     end
 
     def blocking_call_v(timeout, command, &block)
-      timeout += self.timeout if timeout && timeout > 0
+      if timeout && timeout > 0
+        # Can't use the command timeout argument as the connection timeout
+        # otherwise it would be very racy. So we add an extra 100ms to account for
+        # the network delay.
+        timeout += 0.1
+      end
+
       super(timeout, command, &block)
     rescue ::RedisClient::Error => error
       raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
