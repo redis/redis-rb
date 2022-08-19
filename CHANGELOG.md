@@ -1,5 +1,6 @@
 # Unreleased
 
+- Allow to call `subscribe`, `unsubscribe`, `psubscribe` and `punsubscribe` from a subscribed client. See #1131.
 - Fix `redis-clustering` gem to specify the dependency on `redis`
 
 # 5.0.0.beta3

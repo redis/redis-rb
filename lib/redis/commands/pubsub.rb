@@ -14,50 +14,34 @@ class Redis
 
       # Listen for messages published to the given channels.
       def subscribe(*channels, &block)
-        synchronize do |_client|
-          _subscription(:subscribe, 0, channels, block)
-        end
+        _subscription(:subscribe, 0, channels, block)
       end
 
       # Listen for messages published to the given channels. Throw a timeout error
       # if there is no messages for a timeout period.
       def subscribe_with_timeout(timeout, *channels, &block)
-        synchronize do |_client|
-          _subscription(:subscribe_with_timeout, timeout, channels, block)
-        end
+        _subscription(:subscribe_with_timeout, timeout, channels, block)
       end
 
       # Stop listening for messages posted to the given channels.
       def unsubscribe(*channels)
-        raise "Can't unsubscribe if not subscribed." unless subscribed?
-
-        synchronize do |_client|
-          _subscription(:unsubscribe, 0, channels, nil)
-        end
+        _subscription(:unsubscribe, 0, channels, nil)
       end
 
       # Listen for messages published to channels matching the given patterns.
       def psubscribe(*channels, &block)
-        synchronize do |_client|
-          _subscription(:psubscribe, 0, channels, block)
-        end
+        _subscription(:psubscribe, 0, channels, block)
       end
 
       # Listen for messages published to channels matching the given patterns.
       # Throw a timeout error if there is no messages for a timeout period.
       def psubscribe_with_timeout(timeout, *channels, &block)
-        synchronize do |_client|
-          _subscription(:psubscribe_with_timeout, timeout, channels, block)
-        end
+        _subscription(:psubscribe_with_timeout, timeout, channels, block)
       end
 
       # Stop listening for messages posted to channels matching the given patterns.
       def punsubscribe(*channels)
-        raise "Can't unsubscribe if not subscribed." unless subscribed?
-
-        synchronize do |_client|
-          _subscription(:punsubscribe, 0, channels, nil)
-        end
+        _subscription(:punsubscribe, 0, channels, nil)
       end
 
       # Inspect the state of the Pub/Sub subsystem.

@@ -4,10 +4,13 @@ class Redis
   class SubscribedClient
     def initialize(client)
       @client = client
+      @write_monitor = Monitor.new
     end
 
     def call_v(command)
-      @client.call_v(command)
+      @write_monitor.synchronize do
+        @client.call_v(command)
+      end
     end
 
     def subscribe(*channels, &block)
@@ -43,14 +46,16 @@ class Redis
     def subscription(start, stop, channels, block, timeout = 0)
       sub = Subscription.new(&block)
 
-      @client.call_v([start, *channels])
+      call_v([start, *channels])
       while event = @client.next_event(timeout)
         if event.is_a?(::RedisClient::CommandError)
           raise Client::ERROR_MAPPING.fetch(event.class), event.message
         end
 
         type, *rest = event
-        sub.callbacks[type].call(*rest)
+        if callback = sub.callbacks[type]
+          callback.call(*rest)
+        end
         break if type == stop && rest.last == 0
       end
       # No need to unsubscribe here. The real client closes the connection
@@ -62,10 +67,7 @@ class Redis
     attr :callbacks
 
     def initialize
-      @callbacks = Hash.new do |hash, key|
-        hash[key] = ->(*_) {}
-      end
-
+      @callbacks = {}
       yield(self)
     end
 
