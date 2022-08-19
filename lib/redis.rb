@@ -165,19 +165,27 @@ class Redis
   end
 
   def _subscription(method, timeout, channels, block)
-    if @subscription_client
-      return @subscription_client.call_v([method] + channels)
-    end
-
-    begin
-      @subscription_client = SubscribedClient.new(@client.pubsub)
-      if timeout > 0
-        @subscription_client.send(method, timeout, *channels, &block)
-      else
-        @subscription_client.send(method, *channels, &block)
+    if block
+      if @subscription_client
+        raise SubscriptionError, "This client is already subscribed"
       end
-    ensure
-      @subscription_client = nil
+
+      begin
+        @subscription_client = SubscribedClient.new(@client.pubsub)
+        if timeout > 0
+          @subscription_client.send(method, timeout, *channels, &block)
+        else
+          @subscription_client.send(method, *channels, &block)
+        end
+      ensure
+        @subscription_client = nil
+      end
+    else
+      unless @subscription_client
+        raise SubscriptionError, "This client is not subscribed"
+      end
+
+      @subscription_client.call_v([method].concat(channels))
     end
   end
 end

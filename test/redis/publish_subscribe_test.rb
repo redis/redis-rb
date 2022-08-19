@@ -205,19 +205,22 @@ class TestPublishSubscribe < Minitest::Test
   end
 
   def test_subscribe_without_a_block
-    assert_raises LocalJumpError do
+    error = assert_raises Redis::SubscriptionError do
       r.subscribe(channel_name)
     end
+    assert_includes "This client is not subscribed", error.message
   end
 
   def test_unsubscribe_without_a_subscribe
-    assert_raises RuntimeError do
+    error = assert_raises Redis::SubscriptionError do
       r.unsubscribe
     end
+    assert_includes "This client is not subscribed", error.message
 
-    assert_raises RuntimeError do
+    error = assert_raises Redis::SubscriptionError do
       r.punsubscribe
     end
+    assert_includes "This client is not subscribed", error.message
   end
 
   def test_subscribe_past_a_timeout
@@ -264,12 +267,87 @@ class TestPublishSubscribe < Minitest::Test
     refute received
   end
 
+  def test_unsubscribe_from_another_thread
+    @unsubscribed = @subscribed = false
+    @subscribed_redis = nil
+    @messages = []
+    @messages_count = 0
+    thread = new_thread do |r|
+      @subscribed_redis = r
+      r.subscribe(channel_name) do |on|
+        on.subscribe do |_channel, _total|
+          @subscribed = true
+        end
+
+        on.message do |channel, message|
+          @messages << [channel, message]
+          @messages_count += 1
+        end
+
+        on.unsubscribe do |_channel, _total|
+          @unsubscribed = true
+        end
+      end
+    end
+
+    Thread.pass until @subscribed
+
+    redis.publish(channel_name, "test")
+    Thread.pass until @messages_count == 1
+    assert_equal [channel_name, "test"], @messages.last
+
+    @subscribed_redis.unsubscribe # this shouldn't block
+    refute_nil thread.join(2)
+    assert_equal true, @unsubscribed
+  end
+
+  def test_subscribe_from_another_thread
+    @events = []
+    @subscribed_redis = nil
+    thread = new_thread do |r|
+      r.subscribe(channel_name) do |on|
+        @subscribed_redis = r
+        on.subscribe do |channel, _total|
+          @events << ["subscribed", channel]
+        end
+
+        on.message do |channel, message|
+          @events << ["message", channel, message]
+        end
+
+        on.unsubscribe do |channel, _total|
+          @events << ["unsubscribed", channel]
+        end
+      end
+    end
+
+    Thread.pass until @subscribed_redis&.subscribed?
+
+    redis.publish(channel_name, "test")
+    @subscribed_redis.subscribe("#{channel_name}:2")
+    redis.publish("#{channel_name}:2", "test-2")
+
+    @subscribed_redis.unsubscribe(channel_name)
+    @subscribed_redis.unsubscribe # this shouldn't block
+
+    refute_nil thread.join(2)
+    expected = [
+      ["subscribed", channel_name],
+      ["message", channel_name, "test"],
+      ["subscribed", "#{channel_name}:2"],
+      ["message", "#{channel_name}:2", "test-2"],
+      ["unsubscribed", channel_name],
+      ["unsubscribed", "#{channel_name}:2"]
+    ]
+    assert_equal expected, @events
+  end
+
   private
 
   def new_thread(&block)
     redis = Redis.new(OPTIONS)
     thread = Thread.new(redis, &block)
-    thread.report_on_exception = false
+    thread.report_on_exception = true
     @threads[thread] = redis
     thread
   end

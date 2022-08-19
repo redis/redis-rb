@@ -52,4 +52,7 @@ class Redis
   # Raised when client options are invalid.
   class InvalidClientOptionError < BaseError
   end
+
+  class SubscriptionError < BaseError
+  end
 end

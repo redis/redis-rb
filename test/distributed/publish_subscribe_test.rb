@@ -83,7 +83,7 @@ class TestDistributedPublishSubscribe < Minitest::Test
   end
 
   def test_subscribe_without_a_block
-    assert_raises LocalJumpError do
+    assert_raises Redis::SubscriptionError do
       r.subscribe("foo")
     end
   end
