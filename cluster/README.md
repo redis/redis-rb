@@ -13,7 +13,7 @@ You can connect to Redis by instantiating the `Redis::Cluster` class:
 ```ruby
 require "redis-clustering"
 
-redis = Redis::Cluter.new(nodes: (7000..7005).map { |port| "redis://127.0.0.1:#{port}" })
+redis = Redis::Cluster.new(nodes: (7000..7005).map { |port| "redis://127.0.0.1:#{port}" })
 ```
 
 NB: Both `redis_cluster` and `redis-cluster` are unrelated and abandoned gems.
