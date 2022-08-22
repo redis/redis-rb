@@ -543,9 +543,19 @@ class Redis
       node_for(key).sadd(key, member)
     end
 
+    # Add one or more members to a set.
+    def sadd?(key, member)
+      node_for(key).sadd?(key, member)
+    end
+
     # Remove one or more members from a set.
     def srem(key, member)
       node_for(key).srem(key, member)
+    end
+
+    # Remove one or more members from a set.
+    def srem?(key, member)
+      node_for(key).srem?(key, member)
     end
 
     # Remove and return a random member from a set.

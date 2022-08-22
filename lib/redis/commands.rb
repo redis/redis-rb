@@ -41,10 +41,8 @@ class Redis
     # returning false.
     Boolify = lambda { |value|
       case value
-      when 1
-        true
-      when 0
-        false
+      when Integer
+        value > 0
       else
         value
       end
