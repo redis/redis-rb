@@ -25,7 +25,7 @@ class Redis
       # @param [Integer] decrement
       # @return [Integer] value after decrementing it
       def decrby(key, decrement)
-        send_command([:decrby, key, decrement])
+        send_command([:decrby, key, Integer(decrement)])
       end
 
       # Increment the integer value of a key by one.
@@ -50,7 +50,7 @@ class Redis
       # @param [Integer] increment
       # @return [Integer] value after incrementing it
       def incrby(key, increment)
-        send_command([:incrby, key, increment])
+        send_command([:incrby, key, Integer(increment)])
       end
 
       # Increment the numeric value of a key by the given float number.
@@ -63,7 +63,7 @@ class Redis
       # @param [Float] increment
       # @return [Float] value after incrementing it
       def incrbyfloat(key, increment)
-        send_command([:incrbyfloat, key, increment], &Floatify)
+        send_command([:incrbyfloat, key, Float(increment)], &Floatify)
       end
 
       # Set the string value of a key.
@@ -82,10 +82,10 @@ class Redis
       # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
       def set(key, value, ex: nil, px: nil, exat: nil, pxat: nil, nx: nil, xx: nil, keepttl: nil, get: nil)
         args = [:set, key, value.to_s]
-        args << "EX" << ex if ex
-        args << "PX" << px if px
-        args << "EXAT" << exat if exat
-        args << "PXAT" << pxat if pxat
+        args << "EX" << Integer(ex) if ex
+        args << "PX" << Integer(px) if px
+        args << "EXAT" << Integer(exat) if exat
+        args << "PXAT" << Integer(pxat) if pxat
         args << "NX" if nx
         args << "XX" if xx
         args << "KEEPTTL" if keepttl
@@ -233,7 +233,7 @@ class Redis
       # @param [String] value
       # @return [Integer] length of the string after it was modified
       def setrange(key, offset, value)
-        send_command([:setrange, key, offset, value.to_s])
+        send_command([:setrange, key, Integer(offset), value.to_s])
       end
 
       # Get a substring of the string stored at a key.
@@ -244,7 +244,7 @@ class Redis
       #   the end of the string
       # @return [Integer] `0` or `1`
       def getrange(key, start, stop)
-        send_command([:getrange, key, start, stop])
+        send_command([:getrange, key, Integer(start), Integer(stop)])
       end
 
       # Append a value to a key.
@@ -292,10 +292,10 @@ class Redis
       # @return [String] The value of key, or nil when key does not exist.
       def getex(key, ex: nil, px: nil, exat: nil, pxat: nil, persist: false)
         args = [:getex, key]
-        args << "EX" << ex if ex
-        args << "PX" << px if px
-        args << "EXAT" << exat if exat
-        args << "PXAT" << pxat if pxat
+        args << "EX" << Integer(ex) if ex
+        args << "PX" << Integer(px) if px
+        args << "EXAT" << Integer(exat) if exat
+        args << "PXAT" << Integer(pxat) if pxat
         args << "PERSIST" if persist
 
         send_command(args)

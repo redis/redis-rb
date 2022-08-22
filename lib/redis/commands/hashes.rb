@@ -174,7 +174,7 @@ class Redis
       # @param [Integer] increment
       # @return [Integer] value of the field after incrementing it
       def hincrby(key, field, increment)
-        send_command([:hincrby, key, field, increment])
+        send_command([:hincrby, key, field, Integer(increment)])
       end
 
       # Increment the numeric value of a hash field by the given float number.
@@ -184,7 +184,7 @@ class Redis
       # @param [Float] increment
       # @return [Float] value of the field after incrementing it
       def hincrbyfloat(key, field, increment)
-        send_command([:hincrbyfloat, key, field, increment], &Floatify)
+        send_command([:hincrbyfloat, key, field, Float(increment)], &Floatify)
       end
 
       # Get all the fields in a hash.

@@ -74,9 +74,9 @@ class Redis
       private
 
       def _geoarguments(*args, options: nil, sort: nil, count: nil)
-        args.push sort if sort
-        args.push 'count', count if count
-        args.push options if options
+        args << sort if sort
+        args << 'COUNT' << Integer(count) if count
+        args << options if options
         args
       end
     end

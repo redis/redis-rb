@@ -130,7 +130,8 @@ class TestPipeliningCommands < Minitest::Test
   def test_futures_raise_when_command_errors_and_needs_transformation
     assert_raises(Redis::CommandError) do
       r.pipelined do |p|
-        @result = p.zrange("a", "b", 5, with_scores: true)
+        p.zadd("set", "1", "one")
+        @result = p.zincryby("set", "fail", "one")
       end
     end
   end

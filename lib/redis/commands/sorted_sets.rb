@@ -136,7 +136,9 @@ class Redis
       # @return [Array<String, Float>] element and score pair if count is not specified
       # @return [Array<Array<String, Float>>] list of popped elements and scores
       def zpopmax(key, count = nil)
-        send_command([:zpopmax, key, count].compact) do |members|
+        command = [:zpopmax, key]
+        command << Integer(count) if count
+        send_command(command) do |members|
           members = FloatifyPairs.call(members)
           count.to_i > 1 ? members : members.first
         end
@@ -157,7 +159,9 @@ class Redis
       # @return [Array<String, Float>] element and score pair if count is not specified
       # @return [Array<Array<String, Float>>] list of popped elements and scores
       def zpopmin(key, count = nil)
-        send_command([:zpopmin, key, count].compact) do |members|
+        command = [:zpopmin, key]
+        command << Integer(count) if count
+        send_command(command) do |members|
           members = FloatifyPairs.call(members)
           count.to_i > 1 ? members : members.first
         end
@@ -261,7 +265,7 @@ class Redis
         end
 
         args = [:zrandmember, key]
-        args << count if count
+        args << Integer(count) if count
 
         if with_scores
           args << "WITHSCORES"
@@ -313,7 +317,7 @@ class Redis
 
         if limit
           args << "LIMIT"
-          args.concat(limit)
+          args.concat(limit.map { |l| Integer(l) })
         end
 
         if with_scores
@@ -354,7 +358,7 @@ class Redis
 
         if limit
           args << "LIMIT"
-          args.concat(limit)
+          args.concat(limit.map { |l| Integer(l) })
         end
 
         send_command(args)
@@ -372,7 +376,7 @@ class Redis
       #
       # @see #zrange
       def zrevrange(key, start, stop, withscores: false, with_scores: withscores)
-        args = [:zrevrange, key, start, stop]
+        args = [:zrevrange, key, Integer(start), Integer(stop)]
 
         if with_scores
           args << "WITHSCORES"
@@ -466,7 +470,7 @@ class Redis
 
         if limit
           args << "LIMIT"
-          args.concat(limit)
+          args.concat(limit.map { |l| Integer(l) })
         end
 
         send_command(args)
@@ -488,7 +492,7 @@ class Redis
 
         if limit
           args << "LIMIT"
-          args.concat(limit)
+          args.concat(limit.map { |l| Integer(l) })
         end
 
         send_command(args)
@@ -531,7 +535,7 @@ class Redis
 
         if limit
           args << "LIMIT"
-          args.concat(limit)
+          args.concat(limit.map { |l| Integer(l) })
         end
 
         send_command(args, &block)
@@ -561,7 +565,7 @@ class Redis
 
         if limit
           args << "LIMIT"
-          args.concat(limit)
+          args.concat(limit.map { |l| Integer(l) })
         end
 
         send_command(args, &block)

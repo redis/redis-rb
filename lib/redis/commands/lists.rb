@@ -102,7 +102,7 @@ class Redis
       # @return [String, Array<String>] the values of the first elements
       def lpop(key, count = nil)
         command = [:lpop, key]
-        command << count if count
+        command << Integer(count) if count
         send_command(command)
       end
 
@@ -113,7 +113,7 @@ class Redis
       # @return [String, Array<String>] the values of the last elements
       def rpop(key, count = nil)
         command = [:rpop, key]
-        command << count if count
+        command << Integer(count) if count
         send_command(command)
       end
 
@@ -189,7 +189,7 @@ class Redis
       # @param [Integer] index
       # @return [String]
       def lindex(key, index)
-        send_command([:lindex, key, index])
+        send_command([:lindex, key, Integer(index)])
       end
 
       # Insert an element before or after another element in a list.
@@ -211,7 +211,7 @@ class Redis
       # @param [Integer] stop stop index
       # @return [Array<String>]
       def lrange(key, start, stop)
-        send_command([:lrange, key, start, stop])
+        send_command([:lrange, key, Integer(start), Integer(stop)])
       end
 
       # Remove elements from a list.
@@ -224,7 +224,7 @@ class Redis
       # @param [String] value
       # @return [Integer] the number of removed elements
       def lrem(key, count, value)
-        send_command([:lrem, key, count, value])
+        send_command([:lrem, key, Integer(count), value])
       end
 
       # Set the value of an element in a list by its index.
@@ -234,7 +234,7 @@ class Redis
       # @param [String] value
       # @return [String] `OK`
       def lset(key, index, value)
-        send_command([:lset, key, index, value])
+        send_command([:lset, key, Integer(index), value])
       end
 
       # Trim a list to the specified range.
@@ -244,7 +244,7 @@ class Redis
       # @param [Integer] stop stop index
       # @return [String] `OK`
       def ltrim(key, start, stop)
-        send_command([:ltrim, key, start, stop])
+        send_command([:ltrim, key, Integer(start), Integer(stop)])
       end
 
       private

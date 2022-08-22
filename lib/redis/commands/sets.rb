@@ -60,7 +60,7 @@ class Redis
         if count.nil?
           send_command([:spop, key])
         else
-          send_command([:spop, key, count])
+          send_command([:spop, key, Integer(count)])
         end
       end
 
