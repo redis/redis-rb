@@ -28,6 +28,13 @@
 - Removed the `synchrony` driver.
 - Removed `Redis.exists_returns_integer`, it's now always enabled.
 
+# 4.8.0
+
+* Introduce `sadd?` and `srem?` as boolean returning versions of `sadd` and `srem`.
+* Deprecate `sadd` and `srem` returning a boolean when called with a single argument.
+  To enable the redis 5.0 behavior you can set `Redis.sadd_returns_boolean = true`.
+* Deprecate passing `timeout` as a positional argument in blocking commands (`brpop`, `blop`, etc).
+
 # 4.7.1
 
 * Gracefully handle OpenSSL 3.0 EOF Errors (`OpenSSL::SSL::SSLError: SSL_read: unexpected eof while reading`). See #1106
