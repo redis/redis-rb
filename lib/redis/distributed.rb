@@ -464,12 +464,13 @@ class Redis
         options = args.pop
         options[:timeout]
       elsif args.last.respond_to?(:to_int)
-        # Issue deprecation notice in obnoxious mode...
-        args.pop.to_int
-      end
-
-      if args.size > 1
-        # Issue deprecation notice in obnoxious mode...
+        last_arg = args.pop
+        ::Redis.deprecate!(
+          "Passing the timeout as a positional argument is deprecated, it should be passed as a keyword argument:\n" \
+          "  redis.#{cmd}(#{args.map(&:inspect).join(', ')}, timeout: #{last_arg.to_int})" \
+          "(called from: #{caller(2, 1).first})"
+        )
+        last_arg.to_int
       end
 
       keys = args.flatten
