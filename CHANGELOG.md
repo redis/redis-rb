@@ -1,5 +1,7 @@
 # Unreleased
 
+- Eagerly and strictly cast Integer and Float parameters.
+
 # 5.0.0.beta4
 
 - Allow to call `subscribe`, `unsubscribe`, `psubscribe` and `punsubscribe` from a subscribed client. See #1131.

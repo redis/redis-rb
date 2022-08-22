@@ -158,7 +158,7 @@ class Redis
       # @return [Array<String>, Integer, String] depends on subcommand
       def slowlog(subcommand, length = nil)
         args = [:slowlog, subcommand]
-        args << length if length
+        args << Integer(length) if length
         send_command(args)
       end
 

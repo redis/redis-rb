@@ -427,7 +427,7 @@ class Redis
 
         args << cursor
         args << "MATCH" << match if match
-        args << "COUNT" << count if count
+        args << "COUNT" << Integer(count) if count
         args << "TYPE" << type if type
 
         send_command([command] + args, &block)
