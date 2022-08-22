@@ -1,5 +1,7 @@
 # Unreleased
 
+# 4.8.0
+
 * Introduce `sadd?` and `srem?` as boolean returning versions of `sadd` and `srem`.
 * Deprecate `sadd` and `srem` returning a boolean when called with a single argument.
   To enable the redis 5.0 behavior you can set `Redis.sadd_returns_boolean = true`.
