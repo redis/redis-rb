@@ -7,12 +7,13 @@ require "redis/commands"
 class Redis
   BASE_PATH = __dir__
   @exists_returns_integer = true
+  @sadd_returns_boolean = true
 
   Deprecated = Class.new(StandardError)
 
   class << self
     attr_reader :exists_returns_integer
-    attr_accessor :silence_deprecations, :raise_deprecations
+    attr_accessor :silence_deprecations, :raise_deprecations, :sadd_returns_boolean
 
     def exists_returns_integer=(value)
       unless value

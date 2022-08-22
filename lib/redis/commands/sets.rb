@@ -20,15 +20,23 @@ class Redis
       #   array of members is specified, holding the number of members that were
       #   successfully added
       def sadd(key, member)
-        send_command([:sadd, key, member]) do |reply|
-          if member.is_a? Array
-            # Variadic: return integer
-            reply
-          else
-            # Single argument: return boolean
-            Boolify.call(reply)
-          end
+        block = if Redis.sadd_returns_boolean && !member.is_a?(Array)
+          ::Redis.deprecate!(
+            "Redis#sadd will always return an Integer in Redis 5.0.0. Use Redis#sadd? instead." \
+            "(called from: #{caller(1, 1).first})"
+          )
+          Boolify
         end
+        send_command([:sadd, key, member], &block)
+      end
+
+      # Add one or more members to a set.
+      #
+      # @param [String] key
+      # @param [String, Array<String>] member one member, or array of members
+      # @return [Boolean] Whether or not at least one member was added.
+      def sadd?(key, member)
+        send_command([:sadd, key, member], &Boolify)
       end
 
       # Remove one or more members from a set.
@@ -40,15 +48,23 @@ class Redis
       #   array of members is specified, holding the number of members that were
       #   successfully removed
       def srem(key, member)
-        send_command([:srem, key, member]) do |reply|
-          if member.is_a? Array
-            # Variadic: return integer
-            reply
-          else
-            # Single argument: return boolean
-            Boolify.call(reply)
-          end
+        block = if Redis.sadd_returns_boolean && !member.is_a?(Array)
+          ::Redis.deprecate!(
+            "Redis#sadd will always return an Integer in Redis 5.0.0. Use Redis#sadd? instead." \
+            "(called from: #{caller(1, 1).first})"
+          )
+          Boolify
         end
+        send_command([:srem, key, member], &block)
+      end
+
+      # Remove one or more members from a set.
+      #
+      # @param [String] key
+      # @param [String, Array<String>] member one member, or array of members
+      # @return [Boolean] `Boolean` Whether or not a member was removed.
+      def srem?(key, member)
+        send_command([:srem, key, member], &Boolify)
       end
 
       # Remove and return one or more random member from a set.
