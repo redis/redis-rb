@@ -13,7 +13,7 @@
 - Changed `sadd` and `srem` to now always return an Integer.
 - Added `sadd?` and `srem?` which always return a Boolean.
 - Added support for `IDLE` paramter in `xpending`.
-- Cluster support has been moved to a `rediscluster` companion gem.
+- Cluster support has been moved to a `redis-clustering` companion gem.
 - `select` no longer record the current database. If the client has to reconnect after `select` was used, it will reconnect to the original database.
 - Better support Float timeout in blocking commands. See #977.
 - Removed positional timeout in blocking commands (`BLPOP`, etc). Timeout now must be passed as an option: `r.blpop("key", timeout: 2.5)`
