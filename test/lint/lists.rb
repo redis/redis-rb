@@ -140,6 +140,7 @@ module Lint
       assert_equal 2, r.llen("foo")
       assert_equal "s1", r.lpop("foo")
       assert_equal 1, r.llen("foo")
+      assert_nil r.lpop("nonexistent")
     end
 
     def test_lpop_count
@@ -160,6 +161,7 @@ module Lint
       assert_equal 2, r.llen("foo")
       assert_equal "s2", r.rpop("foo")
       assert_equal 1, r.llen("foo")
+      assert_nil r.rpop("nonexistent")
     end
 
     def test_rpop_count
