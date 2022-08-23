@@ -99,7 +99,7 @@ class Redis
       #
       # @param [String] key
       # @param [Integer] count number of elements to remove
-      # @return [String, Array<String>] the values of the first elements
+      # @return [nil, String, Array<String>] the values of the first elements
       def lpop(key, count = nil)
         command = [:lpop, key]
         command << Integer(count) if count
@@ -110,7 +110,7 @@ class Redis
       #
       # @param [String] key
       # @param [Integer] count number of elements to remove
-      # @return [String, Array<String>] the values of the last elements
+      # @return [nil, String, Array<String>] the values of the last elements
       def rpop(key, count = nil)
         command = [:rpop, key]
         command << Integer(count) if count
