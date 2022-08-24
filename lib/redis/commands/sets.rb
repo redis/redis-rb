@@ -50,7 +50,7 @@ class Redis
       def srem(key, member)
         block = if Redis.sadd_returns_boolean && !member.is_a?(Array)
           ::Redis.deprecate!(
-            "Redis#sadd will always return an Integer in Redis 5.0.0. Use Redis#sadd? instead." \
+            "Redis#srem will always return an Integer in Redis 5.0.0. Use Redis#srem? instead." \
             "(called from: #{caller(1, 1).first})"
           )
           Boolify
