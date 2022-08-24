@@ -157,7 +157,7 @@ end
 ```
 
 Commands must be called on the yielded objects. If you call methods
-on the original client objects from inside a pipeline, they willb e sent immediately:
+on the original client objects from inside a pipeline, they will be sent immediately:
 
 ```ruby
 redis.pipelined do |pipeline|
