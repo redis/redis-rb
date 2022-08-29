@@ -1,5 +1,9 @@
 # Unreleased
 
+# 5.0.1
+
+- Added a fake `Redis::Connections.drivers` method to be compatible with older sidekiq versions.
+
 # 5.0.0
 
 - Eagerly and strictly cast Integer and Float parameters.
