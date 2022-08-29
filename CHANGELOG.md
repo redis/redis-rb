@@ -1,14 +1,9 @@
 # Unreleased
 
+# 5.0.0
+
 - Eagerly and strictly cast Integer and Float parameters.
-
-# 5.0.0.beta4
-
 - Allow to call `subscribe`, `unsubscribe`, `psubscribe` and `punsubscribe` from a subscribed client. See #1131.
-- Fix `redis-clustering` gem to specify the dependency on `redis`
-
-# 5.0.0.beta3
-
 - Use `MD5` for hashing server nodes in `Redis::Distributed`. This should improve keys distribution among servers. See #1089.
 - Changed `sadd` and `srem` to now always return an Integer.
 - Added `sadd?` and `srem?` which always return a Boolean.
