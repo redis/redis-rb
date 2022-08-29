@@ -22,6 +22,16 @@ class Redis
     end
   end
 
+  # soft-deprecated
+  # We added this back for older sidekiq releases
+  module Connection
+    class << self
+      def drivers
+        [RedisClient.default_driver]
+      end
+    end
+  end
+
   include Commands
 
   SERVER_URL_OPTIONS = %i(url host port path).freeze
