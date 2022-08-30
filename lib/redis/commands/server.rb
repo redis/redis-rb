@@ -36,7 +36,7 @@ class Redis
       #
       # @param [String, Symbol] subcommand e.g. `kill`, `list`, `getname`, `setname`
       # @return [String, Hash] depends on subcommand
-      def client(subcommand = nil, *args)
+      def client(subcommand, *args)
         send_command([:client, subcommand] + args) do |reply|
           if subcommand.to_s == "list"
             reply.lines.map do |line|
