@@ -1,5 +1,7 @@
 # Unreleased
 
+# 5.0.2
+
 - Fix `Redis#close` to properly reset the fork protection check.
 
 # 5.0.1
