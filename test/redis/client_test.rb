@@ -34,4 +34,17 @@ class TestClient < Minitest::Test
     r.call("SET", "\x00\xFF", "fée")
     assert_equal "fée", r.call("GET", "\x00\xFF".b)
   end
+
+  def test_close_clear_pid
+    assert_equal "PONG", r.ping
+    fake_pid = Process.pid + 1
+    Process.stubs(:pid).returns(fake_pid)
+
+    assert_raises Redis::InheritedError do
+      r.ping
+    end
+
+    r.close
+    assert_equal "PONG", r.ping
+  end
 end
