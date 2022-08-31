@@ -30,7 +30,7 @@ class Redis
     def initialize(*)
       super
       @inherit_socket = false
-      @pid = Process.pid
+      @pid = nil
     end
     ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
 
@@ -114,10 +114,15 @@ class Redis
       @inherit_socket = true
     end
 
+    def close
+      super
+      @pid = nil
+    end
+
     private
 
     def ensure_connected(retryable: true)
-      unless @inherit_socket || Process.pid == @pid
+      unless @inherit_socket || (@pid ||= Process.pid) == Process.pid
         raise InheritedError,
               "Tried to use a connection from a child process without reconnecting. " \
               "You need to reconnect to Redis after forking " \

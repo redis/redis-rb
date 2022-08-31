@@ -1,5 +1,7 @@
 # Unreleased
 
+- Fix `Redis#close` to properly reset the fork protection check.
+
 # 5.0.1
 
 - Added a fake `Redis::Connections.drivers` method to be compatible with older sidekiq versions.
