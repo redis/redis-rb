@@ -39,7 +39,7 @@
 
 * Introduce `sadd?` and `srem?` as boolean returning versions of `sadd` and `srem`.
 * Deprecate `sadd` and `srem` returning a boolean when called with a single argument.
-  To enable the redis 5.0 behavior you can set `Redis.sadd_returns_boolean = true`.
+  To enable the redis 5.0 behavior you can set `Redis.sadd_returns_boolean = false`.
 * Deprecate passing `timeout` as a positional argument in blocking commands (`brpop`, `blop`, etc).
 
 # 4.7.1
