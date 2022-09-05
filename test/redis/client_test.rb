@@ -26,6 +26,15 @@ class TestClient < Minitest::Test
     end
   end
 
+  def test_error_translate_subclasses
+    error = Class.new(RedisClient::CommandError)
+    assert_equal Redis::CommandError, r._client.send(:translate_error_class, error)
+
+    assert_raises KeyError do
+      r._client.send(:translate_error_class, StandardError)
+    end
+  end
+
   def test_mixed_encoding
     r.call("MSET", "fée", "\x00\xFF".b, "じ案".encode(Encoding::SHIFT_JIS), "\t".encode(Encoding::ASCII))
     assert_equal "\x00\xFF".b, r.call("GET", "fée")

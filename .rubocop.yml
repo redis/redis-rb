@@ -68,6 +68,9 @@ Style/NumericPredicate:
 Style/IfUnlessModifier:
   Enabled: false
 
+Style/MutableConstant:
+  Enabled: false # false positives
+
 Style/SignalException:
   Exclude:
     - 'lib/redis/connection/synchrony.rb'

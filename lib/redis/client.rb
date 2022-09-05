@@ -15,7 +15,7 @@ class Redis
       RedisClient::WrongTypeError => Redis::WrongTypeError,
       RedisClient::ReadOnlyError => Redis::ReadOnlyError,
       RedisClient::ProtocolError => Redis::ProtocolError,
-    }.freeze
+    }
 
     class << self
       def config(**kwargs)
@@ -78,7 +78,7 @@ class Redis
     def call_v(command, &block)
       super(command, &block)
     rescue ::RedisClient::Error => error
-      raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+      translate_error!(error)
     end
 
     def blocking_call_v(timeout, command, &block)
@@ -91,19 +91,19 @@ class Redis
 
       super(timeout, command, &block)
     rescue ::RedisClient::Error => error
-      raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+      translate_error!(error)
     end
 
     def pipelined
       super
     rescue ::RedisClient::Error => error
-      raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+      translate_error!(error)
     end
 
     def multi
       super
     rescue ::RedisClient::Error => error
-      raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+      translate_error!(error)
     end
 
     def disable_reconnection(&block)
@@ -120,6 +120,21 @@ class Redis
     end
 
     private
+
+    def translate_error!(error)
+      redis_error = translate_error_class(error.class)
+      raise redis_error, error.message, error.backtrace
+    end
+
+    def translate_error_class(error_class)
+      ERROR_MAPPING.fetch(error_class)
+    rescue IndexError
+      if (client_error = error_class.ancestors.find { |a| ERROR_MAPPING[a] })
+        ERROR_MAPPING[error_class] = ERROR_MAPPING[client_error]
+      else
+        raise
+      end
+    end
 
     def ensure_connected(retryable: true)
       unless @inherit_socket || (@pid ||= Process.pid) == Process.pid
