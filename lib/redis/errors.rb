@@ -29,6 +29,9 @@ class Redis
   class ReadOnlyError < CommandError
   end
 
+  class OutOfMemoryError < CommandError
+  end
+
   # Base error for connection related errors.
   class BaseConnectionError < BaseError
   end

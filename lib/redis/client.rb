@@ -17,6 +17,10 @@ class Redis
       RedisClient::ProtocolError => Redis::ProtocolError,
     }
 
+    if defined?(RedisClient::OutOfMemoryError)
+      ERROR_MAPPING[RedisClient::OutOfMemoryError] = Redis::OutOfMemoryError
+    end
+
     class << self
       def config(**kwargs)
         super(protocol: 2, **kwargs)

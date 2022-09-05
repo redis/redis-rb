@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add `OutOfMemoryError` as a subclass of `CommandError`
+
 # 5.0.2
 
 - Fix `Redis#close` to properly reset the fork protection check.
