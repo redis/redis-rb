@@ -15,11 +15,8 @@ class Redis
       RedisClient::WrongTypeError => Redis::WrongTypeError,
       RedisClient::ReadOnlyError => Redis::ReadOnlyError,
       RedisClient::ProtocolError => Redis::ProtocolError,
+      RedisClient::OutOfMemoryError => Redis::OutOfMemoryError,
     }
-
-    if defined?(RedisClient::OutOfMemoryError)
-      ERROR_MAPPING[RedisClient::OutOfMemoryError] = Redis::OutOfMemoryError
-    end
 
     class << self
       def config(**kwargs)

@@ -1,5 +1,7 @@
 # Unreleased
 
+# 5.0.3
+
 - Add `OutOfMemoryError` as a subclass of `CommandError`
 
 # 5.0.2
