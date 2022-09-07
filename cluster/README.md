@@ -39,6 +39,12 @@ If you want [the connection to be able to read from any replica](https://redis.i
 Redis::Cluster.new(nodes: nodes, replica: true)
 ```
 
+Also, you can specify the `:replica_affinity` option if you want to prevent accessing cross availability zones.
+
+```ruby
+Redis::Cluster.new(nodes: nodes, replica: true, replica_affinity: :latency)
+```
+
 The calling code is responsible for [avoiding cross slot commands](https://redis.io/topics/cluster-spec#keys-distribution-model).
 
 ```ruby
@@ -59,13 +65,13 @@ redis.mget('{key}1', '{key}2')
 Since Redis can return FQDN of nodes in reply to client since `7.*` with CLUSTER commands, we can use cluster feature with SSL/TLS connection like this:
 
 ```ruby
-Redis.new(cluster: %w[rediss://foo.example.com:6379])
+Redis::Cluster.new(nodes: %w[rediss://foo.example.com:6379])
 ```
 
 On the other hand, in Redis versions prior to `6.*`, you can specify options like the following if cluster mode is enabled and client has to connect to nodes via single endpoint with SSL/TLS.
 
 ```ruby
-Redis.new(cluster: %w[rediss://foo-endpoint.example.com:6379], fixed_hostname: 'foo-endpoint.example.com')
+Redis::Cluster.new(nodes: %w[rediss://foo-endpoint.example.com:6379], fixed_hostname: 'foo-endpoint.example.com')
 ```
 
 In case of the above architecture, if you don't pass the `fixed_hostname` option to the client and servers return IP addresses of nodes, the client may fail to verify certificates.
