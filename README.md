@@ -82,7 +82,7 @@ As such it is heavilly recommended to use the [`connection_pool` gem](https://gi
 ```ruby
 module MyApp
   def self.redis
-    @redis ||= ConnectionPool.new do
+    @redis ||= ConnectionPool::Wrapper.new do
       Redis.new(url: ENV["REDIS_URL"])
     end
   end
