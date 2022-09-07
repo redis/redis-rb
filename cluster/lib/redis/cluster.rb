@@ -53,6 +53,7 @@ class Redis
     # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
     # @option options [Array<String, Hash{Symbol => String, Integer}>] :nodes List of cluster nodes to contact
     # @option options [Boolean] :replica Whether to use readonly replica nodes in Redis Cluster or not
+    # @option options [Symbol] :replica_affinity scale reading strategy, currently supported: `:random`, `:latency`
     # @option options [String] :fixed_hostname Specify a FQDN if cluster mode enabled and
     #   client has to connect nodes via single endpoint with SSL/TLS
     # @option options [Class] :connector Class of custom connector
