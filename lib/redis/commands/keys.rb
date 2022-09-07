@@ -76,7 +76,7 @@ class Redis
       #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
       def expire(key, seconds, nx: nil, xx: nil, gt: nil, lt: nil)
-        args = [:expire, key, seconds]
+        args = [:expire, key, Integer(seconds)]
         args << "NX" if nx
         args << "XX" if xx
         args << "GT" if gt
@@ -96,7 +96,7 @@ class Redis
       #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
       def expireat(key, unix_time, nx: nil, xx: nil, gt: nil, lt: nil)
-        args = [:expireat, key, unix_time]
+        args = [:expireat, key, Integer(unix_time)]
         args << "NX" if nx
         args << "XX" if xx
         args << "GT" if gt
@@ -132,7 +132,7 @@ class Redis
       #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
       def pexpire(key, milliseconds, nx: nil, xx: nil, gt: nil, lt: nil)
-        args = [:pexpire, key, milliseconds]
+        args = [:pexpire, key, Integer(milliseconds)]
         args << "NX" if nx
         args << "XX" if xx
         args << "GT" if gt
@@ -152,7 +152,7 @@ class Redis
       #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Boolean] whether the timeout was set or not
       def pexpireat(key, ms_unix_time, nx: nil, xx: nil, gt: nil, lt: nil)
-        args = [:pexpireat, key, ms_unix_time]
+        args = [:pexpireat, key, Integer(ms_unix_time)]
         args << "NX" if nx
         args << "XX" if xx
         args << "GT" if gt

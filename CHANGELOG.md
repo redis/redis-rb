@@ -1,5 +1,7 @@
 # Unreleased
 
+- Cast `ttl` argument to integer in `expire`, `setex` and a few others.
+
 # 5.0.3
 
 - Add `OutOfMemoryError` as a subclass of `CommandError`

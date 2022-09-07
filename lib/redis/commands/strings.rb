@@ -105,7 +105,7 @@ class Redis
       # @param [String] value
       # @return [String] `"OK"`
       def setex(key, ttl, value)
-        send_command([:setex, key, ttl, value.to_s])
+        send_command([:setex, key, Integer(ttl), value.to_s])
       end
 
       # Set the time to live in milliseconds of a key.
@@ -115,7 +115,7 @@ class Redis
       # @param [String] value
       # @return [String] `"OK"`
       def psetex(key, ttl, value)
-        send_command([:psetex, key, ttl, value.to_s])
+        send_command([:psetex, key, Integer(ttl), value.to_s])
       end
 
       # Set the value of a key, only if the key does not exist.
