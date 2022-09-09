@@ -1,5 +1,7 @@
 # Unreleased
 
+# 5.0.4
+
 - Cast `ttl` argument to integer in `expire`, `setex` and a few others.
 
 # 5.0.3
