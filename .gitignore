@@ -6,6 +6,7 @@ Gemfile.lock
 /.idea
 /.yardoc
 /.bundle
+/cluster/.bundle
 /coverage/*
 /doc/
 /examples/sentinel/sentinel.conf
