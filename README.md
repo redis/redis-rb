@@ -273,8 +273,8 @@ of durations:
 ```ruby
 Redis.new(reconnect_attempts: [
   0, # retry immediately
-  0.25 # retry a second time after 250ms
-  1 # retry a third and final time after another 1s
+  0.25, # retry a second time after 250ms
+  1, # retry a third and final time after another 1s
 ])
 ```
 
