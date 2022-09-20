@@ -53,7 +53,7 @@ class Redis
           args << maxlen
         end
         args << id
-        args.concat(entry.to_a.flatten)
+        args.concat(entry.flatten)
         send_command(args)
       end
 
