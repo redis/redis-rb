@@ -152,7 +152,7 @@ class Redis
       #
       # @see #mset
       def mapped_mset(hash)
-        mset(hash.to_a.flatten)
+        mset(hash.flatten)
       end
 
       # Set one or more values, only if none of the keys exist.
@@ -180,7 +180,7 @@ class Redis
       #
       # @see #msetnx
       def mapped_msetnx(hash)
-        msetnx(hash.to_a.flatten)
+        msetnx(hash.flatten)
       end
 
       # Get the value of a key.
