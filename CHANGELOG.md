@@ -1,5 +1,7 @@
 # Unreleased
 
+- Fix automatic disconnection when the process was forked. See #1157.
+
 # 5.0.4
 
 - Cast `ttl` argument to integer in `expire`, `setex` and a few others.

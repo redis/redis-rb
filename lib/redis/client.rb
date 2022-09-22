@@ -28,13 +28,6 @@ class Redis
       end
     end
 
-    def initialize(*)
-      super
-      @inherit_socket = false
-      @pid = nil
-    end
-    ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
-
     def id
       config.id
     end
@@ -115,11 +108,6 @@ class Redis
       @inherit_socket = true
     end
 
-    def close
-      super
-      @pid = nil
-    end
-
     private
 
     def translate_error!(error)
@@ -135,17 +123,6 @@ class Redis
       else
         raise
       end
-    end
-
-    def ensure_connected(retryable: true)
-      unless @inherit_socket || (@pid ||= Process.pid) == Process.pid
-        raise InheritedError,
-              "Tried to use a connection from a child process without reconnecting. " \
-              "You need to reconnect to Redis after forking " \
-              "or set :inherit_socket to true."
-      end
-
-      super
     end
   end
 end

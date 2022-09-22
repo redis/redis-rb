@@ -24,8 +24,6 @@ class Redis
 
       def initialize(*)
         handle_errors { super }
-        @inherit_socket = false
-        @pid = Process.pid
       end
       ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
 
