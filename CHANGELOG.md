@@ -1,5 +1,7 @@
 # Unreleased
 
+# 5.0.5
+
 - Fix automatic disconnection when the process was forked. See #1157.
 
 # 5.0.4
