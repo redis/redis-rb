@@ -31,6 +31,7 @@
 - Cluster support has been moved to a `redis-clustering` companion gem.
 - `select` no longer record the current database. If the client has to reconnect after `select` was used, it will reconnect to the original database.
 - Better support Float timeout in blocking commands. See #977.
+- `Redis.new` will now raise an error if provided unknown options.
 - Removed positional timeout in blocking commands (`BLPOP`, etc). Timeout now must be passed as an option: `r.blpop("key", timeout: 2.5)`
 - Removed `logger` option.
 - Removed `reconnect_delay_max` and `reconnect_delay`, you can pass precise sleep durations to `reconnect_attempts` instead.
