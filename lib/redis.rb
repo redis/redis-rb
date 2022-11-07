@@ -133,7 +133,7 @@ class Redis
 
   def initialize_client(options)
     if options.key?(:cluster)
-      raise "Redis Cluster support was moved to the `redis_cluster` gem."
+      raise "Redis Cluster support was moved to the `redis-clustering` gem."
     end
 
     if options.key?(:sentinels)
