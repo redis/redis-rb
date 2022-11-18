@@ -119,7 +119,9 @@ class Redis
     HashifyStreamAutoclaim = lambda { |reply|
       {
         'next' => reply[0],
-        'entries' => reply[1].map { |entry| [entry[0], entry[1].each_slice(2).to_h] }
+        'entries' => reply[1].compact.map do |entry, values|
+          [entry, values.each_slice(2)&.to_h]
+        end
       }
     }
 
