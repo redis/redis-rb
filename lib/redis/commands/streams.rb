@@ -34,7 +34,7 @@ class Redis
       # @example Without options
       #   redis.xadd('mystream', f1: 'v1', f2: 'v2')
       # @example With options
-      #   redis.xadd('mystream', { f1: 'v1', f2: 'v2' }, id: '0-0', maxlen: 1000, approximate: true)
+      #   redis.xadd('mystream', { f1: 'v1', f2: 'v2' }, id: '0-0', maxlen: 1000, approximate: true, nomkstream: true)
       #
       # @param key   [String] the stream key
       # @param entry [Hash]   one or multiple field-value pairs
@@ -43,10 +43,12 @@ class Redis
       # @option opts [String]  :id          the entry id, default value is `*`, it means auto generation
       # @option opts [Integer] :maxlen      max length of entries
       # @option opts [Boolean] :approximate whether to add `~` modifier of maxlen or not
+      # @option opts [Boolean] :nomkstream  whether to add NOMKSTREAM, default is not to add
       #
       # @return [String] the entry id
-      def xadd(key, entry, approximate: nil, maxlen: nil, id: '*')
+      def xadd(key, entry, approximate: nil, maxlen: nil, nomkstream: nil, id: '*')
         args = [:xadd, key]
+        args << 'NOMKSTREAM' if nomkstream
         if maxlen
           args << "MAXLEN"
           args << "~" if approximate

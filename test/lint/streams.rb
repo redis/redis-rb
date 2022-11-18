@@ -3,7 +3,6 @@
 module Lint
   module Streams
     MIN_REDIS_VERSION = '4.9.0'
-    MIN_REDIS_VERSION_XAUTOCLAIM = '6.2.0'
     ENTRY_ID_FORMAT = /\d+-\d+/.freeze
 
     def setup
@@ -87,6 +86,16 @@ module Lint
 
     def test_xadd_with_maxlen_and_approximate_option
       actual = redis.xadd('s1', { f1: 'v1', f2: 'v2' }, maxlen: 2, approximate: true)
+      assert_match ENTRY_ID_FORMAT, actual
+    end
+
+    def test_xadd_with_nomkstream_option
+      omit_version('6.2.0')
+
+      actual = redis.xadd('s1', { f1: 'v1', f2: 'v2' }, nomkstream: true)
+      assert_nil actual
+
+      actual = redis.xadd('s1', { f1: 'v1', f2: 'v2' }, nomkstream: false)
       assert_match ENTRY_ID_FORMAT, actual
     end
 
@@ -647,7 +656,7 @@ module Lint
     end
 
     def test_xautoclaim
-      omit_version(MIN_REDIS_VERSION_XAUTOCLAIM)
+      omit_version('6.2.0')
 
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
@@ -664,7 +673,7 @@ module Lint
     end
 
     def test_xautoclaim_with_justid_option
-      omit_version(MIN_REDIS_VERSION_XAUTOCLAIM)
+      omit_version('6.2.0')
 
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
@@ -680,7 +689,7 @@ module Lint
     end
 
     def test_xautoclaim_with_count_option
-      omit_version(MIN_REDIS_VERSION_XAUTOCLAIM)
+      omit_version('6.2.0')
 
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
@@ -697,7 +706,7 @@ module Lint
     end
 
     def test_xautoclaim_with_larger_interval
-      omit_version(MIN_REDIS_VERSION_XAUTOCLAIM)
+      omit_version('6.2.0')
 
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
@@ -713,7 +722,7 @@ module Lint
     end
 
     def test_xautoclaim_with_deleted_entry
-      omit_version(MIN_REDIS_VERSION_XAUTOCLAIM)
+      omit_version('6.2.0')
 
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
