@@ -712,6 +712,22 @@ module Lint
       assert_equal [], actual['entries']
     end
 
+    def test_xautoclaim_with_deleted_entry
+      omit_version(MIN_REDIS_VERSION_XAUTOCLAIM)
+
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xgroup(:create, 's1', 'g1', '$')
+      redis.xadd('s1', { f: 'v2' }, id: '0-2')
+      redis.xreadgroup('g1', 'c1', 's1', '>')
+      redis.xdel('s1', '0-2')
+      sleep 0.01
+
+      actual = redis.xautoclaim('s1', 'g1', 'c2', 0, '0-0')
+
+      assert_equal '0-0', actual['next']
+      assert_equal [], actual['entries']
+    end
+
     def test_xpending
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xgroup(:create, 's1', 'g1', '$')
