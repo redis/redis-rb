@@ -1,5 +1,7 @@
 # Unreleased
 
+- Treat ReadOnlyError as ConnectionError. See #1168.
+
 # 5.0.5
 
 - Fix automatic disconnection when the process was forked. See #1157.
