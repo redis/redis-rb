@@ -291,4 +291,39 @@ class TestInternals < Minitest::Test
 
     assert_equal clients + 1, r.info["connected_clients"].to_i
   end
+
+  def test_reconnect_on_readonly_errors
+    tcp_server = TCPServer.new("127.0.0.1", 0)
+    tcp_server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+    port = tcp_server.addr[1]
+
+    server_thread = Thread.new do
+      session = tcp_server.accept
+      io = RedisClient::RubyConnection::BufferedIO.new(session, read_timeout: 1, write_timeout: 1)
+      while command = RedisClient::RESP3.load(io)
+        case command.first
+        when "HELLO"
+          session.write("_\r\n")
+        when "PING"
+          session.write("+PING\r\n")
+        when "SET"
+          session.write("-READONLY You can't write against a read only replica.\r\n")
+        else
+          session.write("-ERR Unknown command #{command.first}\r\n")
+        end
+      end
+      session.close
+    end
+
+    redis = Redis.new(host: "127.0.0.1", port: port)
+    redis.call("PING")
+    # This shuld raise the redis-rb error but lets get this working first
+    assert_raises RedisClient::ReadOnlyError do
+      redis.call("SET", "foo", "bar")
+    end
+
+    refute_predicate redis, :connected?
+  ensure
+    server_thread&.kill
+  end
 end
