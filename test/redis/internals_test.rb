@@ -317,8 +317,8 @@ class TestInternals < Minitest::Test
 
     redis = Redis.new(host: "127.0.0.1", port: port)
     redis.call("PING")
-    # This shuld raise the redis-rb error but lets get this working first
-    assert_raises RedisClient::ReadOnlyError do
+
+    assert_raises Redis::ReadOnlyError do
       redis.call("SET", "foo", "bar")
     end
 
