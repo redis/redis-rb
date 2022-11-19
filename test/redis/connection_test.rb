@@ -35,6 +35,39 @@ class TestConnection < Minitest::Test
     assert_equal "redis://localhost:6381/15", r.connection.fetch(:id)
   end
 
+  def test_reconnect_on_readonly_errors
+    tcp_server = TCPServer.new("127.0.0.1", 0)
+    tcp_server.setsockopt(Socket::SOL_SOCKET, Socket::SO_REUSEADDR, true)
+    port = tcp_server.addr[1]
+
+    server_thread = Thread.new do
+      session = tcp_server.accept
+      io = RubyConnection::BufferedIO.new(session, read_timeout: 1, write_timeout: 1)
+      while command = RESP3.load(io)
+        case command.first
+        when "HELLO"
+          session.write("_\r\n")
+        when "PING"
+          session.write("+PING\r\n")
+        when "SET"
+          session.write("-READONLY You can't write against a read only replica.\r\n")
+        else
+          session.write("-ERR Unknown command #{command.first}\r\n")
+        end
+      end
+      session.close
+    end
+
+    redis = Redis.new(OPTIONS)
+    redis.call("PING")
+    assert_raises RedisClient::ReadOnlyError do
+      client.call("SET", "foo", "bar")
+    end
+    refute_predicate redis, :connected?
+  ensure
+    server_thread&.kill
+  end
+
   def test_default_id_with_host_and_port
     redis = Redis.new(OPTIONS.merge(host: "host", port: "1234", db: 0))
     assert_equal "redis://host:1234/0", redis.connection.fetch(:id)
