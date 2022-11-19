@@ -61,7 +61,7 @@ class TestConnection < Minitest::Test
     redis = Redis.new(OPTIONS)
     redis.call("PING")
     assert_raises RedisClient::ReadOnlyError do
-      client.call("SET", "foo", "bar")
+      redis.call("SET", "foo", "bar")
     end
     refute_predicate redis, :connected?
   ensure
