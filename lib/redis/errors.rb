@@ -49,7 +49,7 @@ class Redis
   class InheritedError < BaseConnectionError
   end
 
-  # Generally raised after during Redis failover scenarios
+  # Generally raised during Redis failover scenarios
   class ReadOnlyError < BaseConnectionError
   end
 
