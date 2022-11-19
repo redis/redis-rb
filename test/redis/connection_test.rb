@@ -58,13 +58,21 @@ class TestConnection < Minitest::Test
       session.close
     end
 
-    redis = Redis.new(host: "127.0.0.1", port: port)
-    redis.ping
-    # This shuld raise the redis-rb error but lets get this working first
-    assert_raises RedisClient::ReadOnlyError do
-      redis.set("foo", "bar")
+    target_version "6.0" do
+      with_acl do |username, password|
+        redis = Redis.new(host: "127.0.0.1", port: port, username: username, password: password)
+        assert_equal "PONG", redis.ping
+
+        redis = Redis.new(host: "127.0.0.1", port: port)
+        redis.ping
+        # This shuld raise the redis-rb error but lets get this working first
+        assert_raises RedisClient::ReadOnlyError do
+          redis.set("foo", "bar")
+        end
+
+        refute_predicate redis, :connected?
+      end
     end
-    refute_predicate redis, :connected?
   ensure
     server_thread&.kill
   end

@@ -6,6 +6,7 @@ TARBALL = ARGV[0]
 require 'digest/sha1'
 require 'English'
 require 'fileutils'
+require 'pry'
 
 class Builder
   TARBALL_CACHE_EXPIRATION = 60 * 10

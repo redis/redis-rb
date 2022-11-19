@@ -1,4 +1,4 @@
-REDIS_BRANCH       ?= 7.0
+REDIS_BRANCH       ?= 7.0.5
 ROOT_DIR           :=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TMP                := tmp
 CONF               := ${ROOT_DIR}/test/support/conf/redis-${REDIS_BRANCH}.conf
