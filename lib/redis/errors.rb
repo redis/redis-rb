@@ -26,9 +26,6 @@ class Redis
   class WrongTypeError < CommandError
   end
 
-  class ReadOnlyError < CommandError
-  end
-
   class OutOfMemoryError < CommandError
   end
 
@@ -50,6 +47,10 @@ class Redis
 
   # Raised when the connection was inherited by a child process.
   class InheritedError < BaseConnectionError
+  end
+
+  # Generally raised after during Redis failover scenarios
+  class ReadOnlyError < BaseConnectionError
   end
 
   # Raised when client options are invalid.
