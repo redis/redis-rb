@@ -58,7 +58,7 @@ class TestConnection < Minitest::Test
       session.close
     end
 
-    redis = Redis.new(OPTIONS)
+    redis = Redis.new(OPTIONS.merge(host: "127.0.0.1", port: port))
     redis.call("PING")
     assert_raises RedisClient::ReadOnlyError do
       redis.call("SET", "foo", "bar")

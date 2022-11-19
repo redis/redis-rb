@@ -146,7 +146,7 @@ class TestConnectionHandling < Minitest::Test
     assert_equal ["timeout"], config.keys
     assert !config.values.compact.empty?
   end
-  g
+
   def test_config_set
     assert_equal "OK", r.config(:set, "timeout", 200)
     assert_equal "200", r.config(:get, "*")["timeout"]
