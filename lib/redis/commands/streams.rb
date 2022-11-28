@@ -65,14 +65,30 @@ class Redis
       #   redis.xtrim('mystream', 1000)
       # @example With options
       #   redis.xtrim('mystream', 1000, approximate: true)
+      # @example With strategy
+      #   redis.xtrim('mystream', '1-0', strategy: 'MINID')
       #
-      # @param key         [String]  the stream key
-      # @param mexlen      [Integer] max length of entries
-      # @param approximate [Boolean] whether to add `~` modifier of maxlen or not
+      # @overload xtrim(key, maxlen, strategy: 'MAXLEN', approximate: true)
+      #   @param key         [String]  the stream key
+      #   @param maxlen      [Integer] max length of entries
+      #   @param strategy    [String]  the limit strategy, must be MAXLEN
+      #   @param approximate [Boolean] whether to add `~` modifier of maxlen or not
+      #   @param limit       [Integer] maximum count of entries to be evicted
+      # @overload xtrim(key, minid, strategy: 'MINID', approximate: true)
+      #   @param key         [String]  the stream key
+      #   @param minid       [String]  minimum id of entries
+      #   @param strategy    [String]  the limit strategy, must be MINID
+      #   @param approximate [Boolean] whether to add `~` modifier of minid or not
+      #   @param limit       [Integer] maximum count of entries to be evicted
       #
       # @return [Integer] the number of entries actually deleted
-      def xtrim(key, maxlen, approximate: false)
-        args = [:xtrim, key, 'MAXLEN', (approximate ? '~' : nil), maxlen].compact
+      def xtrim(key, len_or_id, strategy: 'MAXLEN', approximate: false, limit: nil)
+        strategy = strategy.to_s.upcase
+
+        args = [:xtrim, key, strategy]
+        args << '~' if approximate
+        args << len_or_id
+        args.concat(['LIMIT', limit]) if limit
         send_command(args)
       end
 
