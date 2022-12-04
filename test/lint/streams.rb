@@ -121,6 +121,62 @@ module Lint
       assert_equal 0, redis.xtrim('s1', 2, approximate: true)
     end
 
+    def test_xtrim_with_limit_option
+      omit_version('6.2.0')
+
+      begin
+        original = redis.config(:get, 'stream-node-max-entries')['stream-node-max-entries']
+        redis.config(:set, 'stream-node-max-entries', 1)
+
+        redis.xadd('s1', { f: 'v1' })
+        redis.xadd('s1', { f: 'v2' })
+        redis.xadd('s1', { f: 'v3' })
+        redis.xadd('s1', { f: 'v4' })
+
+        assert_equal 1, redis.xtrim('s1', 0, approximate: true, limit: 1)
+        error = assert_raises(Redis::CommandError) { redis.xtrim('s1', 0, limit: 1) }
+        assert_equal "ERR syntax error, LIMIT cannot be used without the special ~ option", error.message
+      ensure
+        redis.config(:set, 'stream-node-max-entries', original)
+      end
+    end
+
+    def test_xtrim_with_maxlen_strategy
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xadd('s1', { f: 'v1' }, id: '0-2')
+      redis.xadd('s1', { f: 'v1' }, id: '1-0')
+      redis.xadd('s1', { f: 'v1' }, id: '1-1')
+      assert_equal(2, redis.xtrim('s1', 2, strategy: 'MAXLEN'))
+    end
+
+    def test_xtrim_with_minid_strategy
+      omit_version('6.2.0')
+
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xadd('s1', { f: 'v1' }, id: '0-2')
+      redis.xadd('s1', { f: 'v1' }, id: '1-0')
+      redis.xadd('s1', { f: 'v1' }, id: '1-1')
+      assert_equal(2, redis.xtrim('s1', '1-0', strategy: 'MINID'))
+    end
+
+    def test_xtrim_with_approximate_minid_strategy
+      omit_version('6.2.0')
+
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xadd('s1', { f: 'v1' }, id: '0-2')
+      redis.xadd('s1', { f: 'v1' }, id: '1-0')
+      redis.xadd('s1', { f: 'v1' }, id: '1-1')
+      assert_equal(0, redis.xtrim('s1', '1-0', strategy: 'MINID', approximate: true))
+    end
+
+    def test_xtrim_with_invalid_strategy
+      omit_version('6.2.0')
+
+      redis.xadd('s1', { f: 'v1' })
+      error = assert_raises(Redis::CommandError) { redis.xtrim('s1', '1-0', strategy: '') }
+      assert_equal "ERR syntax error", error.message
+    end
+
     def test_xtrim_with_not_existed_stream
       assert_equal 0, redis.xtrim('not-existed-stream', 2)
     end
@@ -128,12 +184,10 @@ module Lint
     def test_xtrim_with_invalid_arguments
       if version >= '6.2'
         assert_raises(Redis::CommandError) { redis.xtrim('', '') }
-        assert_raises(Redis::CommandError) { redis.xtrim(nil, nil) }
         assert_equal 0, redis.xtrim('s1', 0)
         assert_raises(Redis::CommandError) { redis.xtrim('s1', -1, approximate: true) }
       else
         assert_equal 0, redis.xtrim('', '')
-        assert_equal 0, redis.xtrim(nil, nil)
         assert_equal 0, redis.xtrim('s1', 0)
         assert_equal 0, redis.xtrim('s1', -1, approximate: true)
       end
