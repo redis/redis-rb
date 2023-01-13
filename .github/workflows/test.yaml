@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.1", "3.0", "2.7", "2.6", "2.5", "jruby-9.3.6.0"]
+        ruby: ["3.2", "3.1", "3.0", "2.7", "2.6", "2.5", "jruby-9.3.6.0"]
     runs-on: ubuntu-latest
     env:
       LOW_TIMEOUT: "0.01"
