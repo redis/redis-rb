@@ -78,9 +78,9 @@ class Redis
     def blocking_call_v(timeout, command, &block)
       if timeout && timeout > 0
         # Can't use the command timeout argument as the connection timeout
-        # otherwise it would be very racy. So we add an extra 100ms to account for
-        # the network delay.
-        timeout += 0.1
+        # otherwise it would be very racy. So we add the regular read_timeout on top
+        # to account for the network delay.
+        timeout += config.read_timeout
       end
 
       super(timeout, command, &block)
