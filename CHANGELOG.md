@@ -27,6 +27,7 @@
 
 # 5.0.0
 
+- Default client timeout decreased from 5 seconds to 1 second.
 - Eagerly and strictly cast Integer and Float parameters.
 - Allow to call `subscribe`, `unsubscribe`, `psubscribe` and `punsubscribe` from a subscribed client. See #1131.
 - Use `MD5` for hashing server nodes in `Redis::Distributed`. This should improve keys distribution among servers. See #1089.
