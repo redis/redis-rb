@@ -50,6 +50,10 @@
 - Removed the `synchrony` driver.
 - Removed `Redis.exists_returns_integer`, it's now always enabled.
 
+# 4.8.1
+
+* Automatically reconnect after fork regardless of `reconnect_attempts`
+
 # 4.8.0
 
 * Introduce `sadd?` and `srem?` as boolean returning versions of `sadd` and `srem`.
