@@ -1,5 +1,7 @@
 # Unreleased
 
+* Automatically reconnect after fork regardless of `reconnect_attempts`
+
 # 4.8.0
 
 * Introduce `sadd?` and `srem?` as boolean returning versions of `sadd` and `srem`.

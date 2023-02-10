@@ -8,26 +8,18 @@ class TestForkSafety < Minitest::Test
   driver(:ruby, :hiredis) do
     def test_fork_safety
       redis = Redis.new(OPTIONS)
-      redis.set "foo", 1
+      assert_equal "PONG", @redis.ping
 
-      child_pid = fork do
-        begin
-          # InheritedError triggers a reconnect,
-          # so we need to disable reconnects to force
-          # the exception bubble up
-          redis.without_reconnect do
-            redis.set "foo", 2
-          end
-          exit! 0
-        rescue Redis::InheritedError
-          exit! 127
+      pid = fork do
+        1000.times do
+          assert_equal "OK", @redis.set("key", "foo")
         end
       end
-
-      _, status = Process.wait2(child_pid)
-
-      assert_equal 127, status.exitstatus
-      assert_equal "1", redis.get("foo")
+      1000.times do
+        assert_equal "PONG", @redis.ping
+      end
+      _, status = Process.wait2(pid)
+      assert_predicate(status, :success?)
     rescue NotImplementedError => error
       raise unless error.message =~ /fork is not available/
     end

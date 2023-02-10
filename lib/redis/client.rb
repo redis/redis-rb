@@ -399,23 +399,14 @@ class Redis
     end
 
     def ensure_connected
-      disconnect if @pending_reads > 0
+      disconnect if @pending_reads > 0 || (@pid != Process.pid && !inherit_socket?)
 
       attempts = 0
 
       begin
         attempts += 1
 
-        if connected?
-          unless inherit_socket? || Process.pid == @pid
-            raise InheritedError,
-                  "Tried to use a connection from a child process without reconnecting. " \
-                  "You need to reconnect to Redis after forking " \
-                  "or set :inherit_socket to true."
-          end
-        else
-          connect
-        end
+        connect unless connected?
 
         yield
       rescue BaseConnectionError
