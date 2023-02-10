@@ -1,5 +1,7 @@
 # Unreleased
 
+# 4.8.1
+
 * Automatically reconnect after fork regardless of `reconnect_attempts`
 
 # 4.8.0
