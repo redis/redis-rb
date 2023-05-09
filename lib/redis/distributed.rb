@@ -694,6 +694,13 @@ class Redis
       node_for(key).zmscore(key, *members)
     end
 
+    # Iterate over keys, removing members from the first non empty sorted set found.
+    def zmpop(*keys, modifier: "MIN", count: nil)
+      ensure_same_node(:zmpop, keys) do |node|
+        node.zmpop(*keys, modifier: modifier, count: count)
+      end
+    end
+
     # Return a range of members in a sorted set, by index, score or lexicographical ordering.
     def zrange(key, start, stop, **options)
       node_for(key).zrange(key, start, stop, **options)

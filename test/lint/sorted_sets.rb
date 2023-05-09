@@ -479,6 +479,20 @@ module Lint
       assert_equal [['d', 3.0]], r.zrange('foo', 0, -1, with_scores: true)
     end
 
+    def test_zmpop
+      target_version('7.0') do
+        assert_nil r.zmpop('foo')
+
+        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['foo', [['a', 0.0]]], r.zmpop('foo')
+        assert_equal ['foo', [['b', 1.0], ['c', 2.0], ['d', 3.0]]], r.zmpop('foo', count: 4)
+
+        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
+        r.zadd('foo2', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['foo', [['d', 3.0]]], r.zmpop('foo', 'foo2', modifier: "MAX")
+      end
+    end
+
     def test_zremrangebylex
       r.zadd('foo', %w[0 a 0 b 0 c 0 d 0 e 0 f 0 g])
       assert_equal 5, r.zremrangebylex('foo', '(b', '[g')
