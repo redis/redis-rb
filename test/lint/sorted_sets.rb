@@ -481,15 +481,15 @@ module Lint
 
     def test_zmpop
       target_version('7.0') do
-        assert_nil r.zmpop('foo')
+        assert_nil r.zmpop('{1}foo')
 
-        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
-        assert_equal ['foo', [['a', 0.0]]], r.zmpop('foo')
-        assert_equal ['foo', [['b', 1.0], ['c', 2.0], ['d', 3.0]]], r.zmpop('foo', count: 4)
+        r.zadd('{1}foo', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['{1}foo', [['a', 0.0]]], r.zmpop('{1}foo')
+        assert_equal ['{1}foo', [['b', 1.0], ['c', 2.0], ['d', 3.0]]], r.zmpop('{1}foo', count: 4)
 
-        r.zadd('foo', %w[0 a 1 b 2 c 3 d])
-        r.zadd('foo2', %w[0 a 1 b 2 c 3 d])
-        assert_equal ['foo', [['d', 3.0]]], r.zmpop('foo', 'foo2', modifier: "MAX")
+        r.zadd('{1}foo', %w[0 a 1 b 2 c 3 d])
+        r.zadd('{1}foo2', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['{1}foo', [['d', 3.0]]], r.zmpop('{1}foo', '{1}foo2', modifier: "MAX")
       end
     end
 
