@@ -72,7 +72,14 @@ class SentinelTest < Minitest::Test
     s2 = {
       sentinel: lambda do |command, *args|
         commands[:s2] << [command, *args]
-        ["127.0.0.1", "6381"]
+        case command
+        when "get-master-addr-by-name"
+          ["127.0.0.1", "6381"]
+        when "sentinels"
+          []
+        else
+          raise "Unexpected command #{[command, *args].inspect}"
+        end
       end
     }
 
@@ -87,7 +94,7 @@ class SentinelTest < Minitest::Test
     end
 
     assert_equal commands[:s1], [%w[get-master-addr-by-name master1]]
-    assert_equal commands[:s2], [%w[get-master-addr-by-name master1]]
+    assert_equal commands[:s2], [%w[get-master-addr-by-name master1], ["sentinels", "master1"]]
   end
 
   def test_sentinel_failover_prioritize_healthy_sentinel
@@ -109,7 +116,17 @@ class SentinelTest < Minitest::Test
     s2 = {
       sentinel: lambda do |command, *args|
         commands[:s2] << [command, *args]
-        ["127.0.0.1", "6381"]
+        case command
+        when "get-master-addr-by-name"
+          ["127.0.0.1", "6381"]
+        when "sentinels"
+          [
+            ["ip", "127.0.0.1", "port", "26381"],
+            ["ip", "127.0.0.1", "port", "26382"],
+          ]
+        else
+          raise "Unexpected command #{[command, *args].inspect}"
+        end
       end
     }
 
@@ -128,7 +145,7 @@ class SentinelTest < Minitest::Test
     end
 
     assert_equal [%w[get-master-addr-by-name master1]], commands[:s1]
-    assert_equal [%w[get-master-addr-by-name master1]], commands[:s2]
+    assert_equal [%w[get-master-addr-by-name master1],  ["sentinels", "master1"]], commands[:s2]
   end
 
   def test_sentinel_with_non_sentinel_options
@@ -146,7 +163,17 @@ class SentinelTest < Minitest::Test
         end,
         sentinel: lambda do |command, *args|
           commands[:s1] << [command, *args]
-          ['127.0.0.1', port.to_s]
+          case command
+          when "get-master-addr-by-name"
+            ["127.0.0.1", port.to_s]
+          when "sentinels"
+            [
+              ["ip", "127.0.0.1", "port", "26381"],
+              ["ip", "127.0.0.1", "port", "26382"],
+            ]
+          else
+            raise "Unexpected command #{[command, *args].inspect}"
+          end
         end
       }
     end
@@ -170,7 +197,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[auth foo], %w[role]], commands[:m1]
   end
 
@@ -189,7 +216,17 @@ class SentinelTest < Minitest::Test
         end,
         sentinel: lambda do |command, *args|
           commands[:s1] << [command, *args]
-          ['127.0.0.1', port.to_s]
+          case command
+          when "get-master-addr-by-name"
+            ["127.0.0.1", port.to_s]
+          when "sentinels"
+            [
+              ["ip", "127.0.0.1", "port", "26381"],
+              ["ip", "127.0.0.1", "port", "26382"],
+            ]
+          else
+            raise "Unexpected command #{[command, *args].inspect}"
+          end
         end
       }
     end
@@ -213,7 +250,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[role]], commands[:m1]
   end
 
@@ -232,8 +269,18 @@ class SentinelTest < Minitest::Test
         end,
         sentinel: lambda do |command, *args|
           commands[:s1] << [command, *args]
-          ['127.0.0.1', port.to_s]
-        end
+          case command
+          when "get-master-addr-by-name"
+            ["127.0.0.1", port.to_s]
+          when "sentinels"
+            [
+              ["ip", "127.0.0.1", "port", "26381"],
+              ["ip", "127.0.0.1", "port", "26382"],
+            ]
+          else
+            raise "Unexpected command #{[command, *args].inspect}"
+          end
+        end,
       }
     end
 
@@ -245,7 +292,10 @@ class SentinelTest < Minitest::Test
       role: lambda do
         commands[:m1] << ['role']
         ['master']
-      end
+      end,
+      sentinel: lambda do |command, *args|
+        commands[:s2] << [command, *args]
+      end,
     }
 
     RedisMock.start(master) do |master_port|
@@ -256,7 +306,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[auth bar], %w[role]], commands[:m1]
   end
 
@@ -275,7 +325,17 @@ class SentinelTest < Minitest::Test
         end,
         sentinel: lambda do |command, *args|
           commands[:s1] << [command, *args]
-          ['127.0.0.1', port.to_s]
+          case command
+          when "get-master-addr-by-name"
+            ["127.0.0.1", port.to_s]
+          when "sentinels"
+            [
+              ["ip", "127.0.0.1", "port", "26381"],
+              ["ip", "127.0.0.1", "port", "26382"],
+            ]
+          else
+            raise "Unexpected command #{[command, *args].inspect}"
+          end
         end
       }
     end
@@ -299,7 +359,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[auth bob foo], %w[get-master-addr-by-name master1]], commands[:s1]
+    assert_equal [%w[auth bob foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[auth alice bar], %w[role]], commands[:m1]
   end
 
@@ -308,8 +368,17 @@ class SentinelTest < Minitest::Test
 
     sentinel = lambda do |port|
       {
-        sentinel: lambda do |_command, *_args|
-          ["127.0.0.1", port.to_s]
+        sentinel: lambda do |command, *_args|
+          case command
+          when "get-master-addr-by-name"
+            ["127.0.0.1", port.to_s]
+          when "sentinels"
+            [
+              ["ip", "127.0.0.1", "port", "26381"],
+            ]
+          else
+            raise "Unexpected command #{[command, *args].inspect}"
+          end
         end
       }
     end
@@ -342,13 +411,23 @@ class SentinelTest < Minitest::Test
 
     handler = lambda do |id, port|
       {
-        sentinel: lambda do |_command, *_args|
+        sentinel: lambda do |command, *_args|
           connections << id
 
           if connections.count(id) < 2
             :close
           else
-            ["127.0.0.1", port.to_s]
+            case command
+            when "get-master-addr-by-name"
+              ["127.0.0.1", port.to_s]
+            when "sentinels"
+              [
+                ["ip", "127.0.0.1", "port", "26381"],
+                ["ip", "127.0.0.1", "port", "26382"],
+              ]
+            else
+              raise "Unexpected command #{[command, *args].inspect}"
+            end
           end
         end
       }
@@ -372,7 +451,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal %i[s1 s2 s1], connections
+    assert_equal %i[s1 s2 s1 s1], connections
 
     connections.clear
 
