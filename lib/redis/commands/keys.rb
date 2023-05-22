@@ -47,7 +47,7 @@ class Redis
       #
       # @return [Enumerator] an enumerator for all found keys
       def scan_each(**options, &block)
-        return to_enum(:scan_each, **options) unless block_given?
+        return to_enum(:scan_each, **options) if block
 
         cursor = 0
         loop do

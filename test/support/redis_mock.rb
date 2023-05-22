@@ -38,7 +38,7 @@ module RedisMock
       loop do
         if @concurrent
           Thread.new(@server.accept) do |session|
-            block.call(session)
+            block.call(session) # rubocop:disable Performance/RedundantBlockCall
           ensure
             session.close
           end

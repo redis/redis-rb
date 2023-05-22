@@ -32,7 +32,7 @@ r = Redis.new(url: "redis://master1", sentinels: SENTINELS, role: :master)
 #
 # The example traps errors so that you can actually try to failover while
 # running the script to see redis-rb reconfiguring.
-(0..1_000_000).each do |i|
+1_000_000.times do |i|
   begin
     r.set(i, i)
     $stdout.write("SET (#{i} times)\n") if i % 100 == 0

@@ -174,12 +174,12 @@ class TestCommandsOnValueTypes < Minitest::Test
       ex = assert_raises(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :host })
       end
-      assert ex.message =~ /host not specified/
+      assert ex.message.include?("host not specified")
 
       ex = assert_raises(RuntimeError) do
         redis.migrate("foo", options.reject { |key, _| key == :port })
       end
-      assert ex.message =~ /port not specified/
+      assert ex.message.include?("port not specified")
 
       default_db = redis._client.db.to_i
       default_timeout = redis._client.timeout.to_i

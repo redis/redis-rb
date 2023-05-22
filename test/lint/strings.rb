@@ -27,7 +27,7 @@ module Lint
     end
 
     def test_set_and_get_with_ascii_characters
-      (0..255).each do |i|
+      256.times do |i|
         str = "#{i.chr}---#{i.chr}"
         r.set("foo", str)
 

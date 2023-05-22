@@ -198,7 +198,7 @@ class ClusterOrchestrator
   def wait_replication(clients, max_attempts: 60)
     wait_for_state(clients, max_attempts) do |client|
       flags = hashify_cluster_node_flags(client)
-      flags.values.select { |f| f == 'slave' }.size == 3
+      flags.values.count { |f| f == 'slave' } == 3
     end
   end
 

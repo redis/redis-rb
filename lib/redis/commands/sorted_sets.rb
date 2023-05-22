@@ -195,7 +195,7 @@ class Redis
           response&.map do |entry|
             case entry
             when String then entry
-            when Array then entry.map { |pair| FloatifyPairs.call(pair) }.flatten(1)
+            when Array then entry.flat_map { |pair| FloatifyPairs.call(pair) }
             end
           end
         end
@@ -227,7 +227,7 @@ class Redis
           response&.map do |entry|
             case entry
             when String then entry
-            when Array then entry.map { |pair| FloatifyPairs.call(pair) }.flatten(1)
+            when Array then entry.flat_map { |pair| FloatifyPairs.call(pair) }
             end
           end
         end
@@ -835,7 +835,7 @@ class Redis
       #
       # @return [Enumerator] an enumerator for all found scores and members
       def zscan_each(key, **options, &block)
-        return to_enum(:zscan_each, key, **options) unless block_given?
+        return to_enum(:zscan_each, key, **options) if block
 
         cursor = 0
         loop do

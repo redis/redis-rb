@@ -429,9 +429,10 @@ module Lint
         r.zadd "foo", 1.0, "s1"
         r.zadd "foo", 2.0, "s2"
         r.zadd "foo", 3.0, "s3"
+        sets = ["s1", "s2", "s3"]
 
         3.times do
-          assert ["s1", "s2", "s3"].include?(r.zrandmember("foo"))
+          assert sets.include?(r.zrandmember("foo"))
         end
 
         assert_equal 2, r.zrandmember("foo", 2).size
@@ -439,7 +440,7 @@ module Lint
         assert_equal 5, r.zrandmember("foo", -5).size
 
         r.zrandmember("foo", 2, with_scores: true).each do |(member, score)|
-          assert ["s1", "s2", "s3"].include?(member)
+          assert sets.include?(member)
           assert_instance_of Float, score
         end
       end

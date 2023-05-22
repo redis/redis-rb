@@ -172,7 +172,7 @@ class TestInternals < Minitest::Test
       @n += 1
 
       select = read_command.call(session)
-      if select[0].downcase == "select"
+      if select.first.casecmp("select").zero?
         session.write("+OK\r\n")
       else
         raise "Expected SELECT"
@@ -246,7 +246,7 @@ class TestInternals < Minitest::Test
           rescue Errno::EADDRINUSE => e
             # On JRuby (9.1.15.0), if IPv6 is globally disabled on the system,
             # we get an EADDRINUSE with belows message.
-            return if e.message =~ /Protocol family unavailable/
+            return if e.message.include?("Protocol family unavailable")
 
             tries -= 1
             retry if tries > 0

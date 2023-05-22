@@ -200,7 +200,7 @@ class Redis
       #
       # @return [Enumerator] an enumerator for all keys in the set
       def sscan_each(key, **options, &block)
-        return to_enum(:sscan_each, key, **options) unless block_given?
+        return to_enum(:sscan_each, key, **options) if block
 
         cursor = 0
         loop do

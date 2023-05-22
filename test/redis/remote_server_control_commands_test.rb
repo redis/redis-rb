@@ -20,7 +20,7 @@ class TestRemoteServerControlCommands < Minitest::Test
 
     keys.each do |k|
       msg = "expected #info to include #{k}"
-      assert info.keys.include?(k), msg
+      assert info.key?(k), msg
     end
   end
 
@@ -39,7 +39,7 @@ class TestRemoteServerControlCommands < Minitest::Test
     thread = Thread.new do
       Redis.new(OPTIONS).monitor do |line|
         log << line
-        break if line =~ /set/
+        break if line.include?("set")
       end
     end
 
@@ -120,7 +120,7 @@ class TestRemoteServerControlCommands < Minitest::Test
     clients.each do |client|
       keys.each do |k|
         msg = "expected #client(:list) to include #{k}"
-        assert client.keys.include?(k), msg
+        assert client.key?(k), msg
       end
     end
   end

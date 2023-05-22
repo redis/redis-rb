@@ -21,7 +21,7 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
     infos.each do |info|
       keys.each do |k|
         msg = "expected #info to include #{k}"
-        assert info.keys.include?(k), msg
+        assert info.key?(k), msg
       end
     end
   end

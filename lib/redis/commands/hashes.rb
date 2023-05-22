@@ -240,7 +240,7 @@ class Redis
       #
       # @return [Enumerator] an enumerator for all found keys
       def hscan_each(key, **options, &block)
-        return to_enum(:hscan_each, key, **options) unless block_given?
+        return to_enum(:hscan_each, key, **options) if block
 
         cursor = 0
         loop do
