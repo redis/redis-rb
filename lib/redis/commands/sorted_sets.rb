@@ -170,6 +170,40 @@ class Redis
       # Removes and returns up to count members with scores in the sorted set stored at key.
       #
       # @example Popping a member
+      #   redis.bzmpop('zset')
+      #   #=> ['zset', ['a', 1.0]]
+      # @example With count option
+      #   redis.bzmpop('zset', count: 2)
+      #   #=> ['zset', [['a', 1.0], ['b', 2.0]]
+      #
+      # @params timeout [Float] a float value specifying the maximum number of seconds to block) elapses.
+      #   A timeout of zero can be used to block indefinitely.
+      # @params key [String, Array<String>] one or more keys with sorted sets
+      # @params modifier [String]
+      #  - when `"MIN"` - the elements popped are those with lowest scores
+      #  - when `"MAX"` - the elements popped are those with the highest scores
+      # @params count [Integer] a number of members to pop
+      #
+      # @return [Array<String, Array<String, Float>>] list of popped elements and scores
+      def bzmpop(timeout, *keys, modifier: "MIN", count: nil)
+        raise ArgumentError, "Pick either MIN or MAX" unless modifier == "MIN" || modifier == "MAX"
+
+        args = [:bzmpop, timeout, keys.size, *keys, modifier]
+        args << "COUNT" << Integer(count) if count
+
+        send_blocking_command(args, timeout) do |response|
+          response&.map do |entry|
+            case entry
+            when String then entry
+            when Array then entry.map { |pair| FloatifyPairs.call(pair) }.flatten(1)
+            end
+          end
+        end
+      end
+
+      # Removes and returns up to count members with scores in the sorted set stored at key.
+      #
+      # @example Popping a member
       #   redis.zmpop('zset')
       #   #=> ['zset', ['a', 1.0]]
       # @example With count option
@@ -187,11 +221,7 @@ class Redis
         raise ArgumentError, "Pick either MIN or MAX" unless modifier == "MIN" || modifier == "MAX"
 
         args = [:zmpop, keys.size, *keys, modifier]
-
-        if count
-          args << "COUNT"
-          args << Integer(count)
-        end
+        args << "COUNT" << Integer(count) if count
 
         send_command(args) do |response|
           response&.map do |entry|

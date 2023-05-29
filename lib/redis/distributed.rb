@@ -694,6 +694,13 @@ class Redis
       node_for(key).zmscore(key, *members)
     end
 
+    # Iterate over keys, blocking and removing members from the first non empty sorted set found.
+    def bzmpop(timeout, *keys, modifier: "MIN", count: nil)
+      ensure_same_node(:bzmpop, keys) do |node|
+        node.bzmpop(timeout, *keys, modifier: modifier, count: count)
+      end
+    end
+
     # Iterate over keys, removing members from the first non empty sorted set found.
     def zmpop(*keys, modifier: "MIN", count: nil)
       ensure_same_node(:zmpop, keys) do |node|

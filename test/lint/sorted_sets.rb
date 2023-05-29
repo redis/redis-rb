@@ -479,6 +479,20 @@ module Lint
       assert_equal [['d', 3.0]], r.zrange('foo', 0, -1, with_scores: true)
     end
 
+    def test_bzmpop
+      target_version('7.0') do
+        assert_nil r.bzmpop(1.0, '{1}foo')
+
+        r.zadd('{1}foo', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['{1}foo', [['a', 0.0]]], r.bzmpop(1.0, '{1}foo')
+        assert_equal ['{1}foo', [['b', 1.0], ['c', 2.0], ['d', 3.0]]], r.bzmpop(1.0, '{1}foo', count: 4)
+
+        r.zadd('{1}foo', %w[0 a 1 b 2 c 3 d])
+        r.zadd('{1}foo2', %w[0 a 1 b 2 c 3 d])
+        assert_equal ['{1}foo', [['d', 3.0]]], r.bzmpop(1.0, '{1}foo', '{1}foo2', modifier: "MAX")
+      end
+    end
+
     def test_zmpop
       target_version('7.0') do
         assert_nil r.zmpop('{1}foo')
