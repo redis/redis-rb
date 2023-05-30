@@ -202,5 +202,18 @@ module Lint
       redis.rpush('{1}bar', %w[d e f])
       assert_equal 'c', redis.rpoplpush('{1}foo', '{1}bar')
     end
+
+    def test_lmpop
+      target_version('7.0') do
+        assert_nil r.lmpop('{1}foo')
+
+        r.lpush('{1}foo', %w[a b c d e f g])
+        assert_equal ['{1}foo', ['g']], r.lmpop('{1}foo')
+        assert_equal ['{1}foo', ['f', 'e']], r.lmpop('{1}foo', count: 2)
+
+        r.lpush('{1}foo2', %w[a b])
+        assert_equal ['{1}foo', ['a']], r.lmpop('{1}foo', '{1}foo2', modifier: "RIGHT")
+      end
+    end
   end
 end

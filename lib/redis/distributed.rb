@@ -542,6 +542,13 @@ class Redis
       node_for(key).ltrim(key, start, stop)
     end
 
+    # Iterate over keys, removing elements from the first non list set found.
+    def lmpop(*keys, modifier: "LEFT", count: nil)
+      ensure_same_node(:lmpop, keys) do |node|
+        node.lmpop(*keys, modifier: modifier, count: count)
+      end
+    end
+
     # Get the number of members in a set.
     def scard(key)
       node_for(key).scard(key)
