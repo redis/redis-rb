@@ -722,6 +722,18 @@ class Redis
       end
       ruby2_keywords(:zinterstore) if respond_to?(:ruby2_keywords, true)
 
+      # This command is similar to ZINTER, but instead of returning the result set,
+      #   it returns just the cardinality of the result.
+      #
+      # @param [Array<String>] keys list of sorted sets
+      # @param [Integer] limit will short circuit operation if limit is met
+      def zintercard(*keys, limit: nil)
+        args = [:zintercard, keys.size, keys]
+        args << "LIMIT" << limit if limit
+
+        send_command(args)
+      end
+
       # Return the union of multiple sorted sets
       #
       # @example Retrieve the union of `2*zsetA` and `1*zsetB`

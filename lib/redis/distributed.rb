@@ -788,6 +788,14 @@ class Redis
       end
     end
 
+    # This command is similar to ZINTER, but instead of returning the result set,
+    #   it returns just the cardinality of the result.
+    def zintercard(*keys, limit: nil)
+      ensure_same_node(:zintercard, keys) do |node|
+        node.zintercard(*keys, limit)
+      end
+    end
+
     # Return the union of multiple sorted sets.
     def zunion(*keys, **options)
       keys.flatten!(1)

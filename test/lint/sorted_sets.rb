@@ -786,6 +786,17 @@ module Lint
       assert_equal 1, r.zinterstore('{1}baz', %w[{1}foo {1}bar], weights: [2.0, 3.0])
     end
 
+    def test_zintercard
+      target_version('7.0') do
+        r.zadd('{1}foo', %w[0 a 1 b 2 c 3 d])
+        assert_equal 0, r.zintercard('{1}foo', '{2}foo2')
+
+        r.zadd('{2}foo2', %w[0 a 1 b 2 c])
+        assert_equal 3, r.zintercard('{1}foo', '{2}foo2')
+        assert_equal 2, r.zintercard('{1}foo', '{2}foo2', limit: 2)
+      end
+    end
+
     def test_zscan
       r.zadd('foo', %w[0 a 1 b 2 c])
       expected = ['0', [['a', 0.0], ['b', 1.0], ['c', 2.0]]]
