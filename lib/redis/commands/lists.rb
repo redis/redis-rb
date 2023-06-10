@@ -184,6 +184,34 @@ class Redis
       end
 
       # Pops one or more elements from the first non-empty list key from the list
+      # of provided key names. If lists are empty, blocks until timeout has passed.
+      #
+      # @example Popping a element
+      #   redis.blmpop(1.0, 'list')
+      #   #=> ['list', ['a']]
+      # @example With count option
+      #   redis.blmpop(1.0, 'list', count: 2)
+      #   #=> ['list', ['a', 'b']]
+      #
+      # @params timeout [Float] a float value specifying the maximum number of seconds to block) elapses.
+      #   A timeout of zero can be used to block indefinitely.
+      # @params key [String, Array<String>] one or more keys with lists
+      # @params modifier [String]
+      #  - when `"LEFT"` - the elements popped are those from the left of the list
+      #  - when `"RIGHT"` - the elements popped are those from the right of the list
+      # @params count [Integer] a number of elements to pop
+      #
+      # @return [Array<String, Array<String, Float>>] list of popped elements or nil
+      def blmpop(timeout, *keys, modifier: "LEFT", count: nil)
+        raise ArgumentError, "Pick either LEFT or RIGHT" unless modifier == "LEFT" || modifier == "RIGHT"
+
+        args = [:lmpop, keys.size, *keys, modifier]
+        args << "COUNT" << Integer(count) if count
+
+        send_blocking_command(args, timeout)
+      end
+
+      # Pops one or more elements from the first non-empty list key from the list
       # of provided key names.
       #
       # @example Popping a element

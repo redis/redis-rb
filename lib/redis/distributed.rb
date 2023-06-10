@@ -542,7 +542,14 @@ class Redis
       node_for(key).ltrim(key, start, stop)
     end
 
-    # Iterate over keys, removing elements from the first non list set found.
+    # Iterate over keys, blocking and removing elements from the first non empty liist found.
+    def blmpop(timeout, *keys, modifier: "LEFT", count: nil)
+      ensure_same_node(:blmpop, keys) do |node|
+        node.blmpop(timeout, *keys, modifier: modifier, count: count)
+      end
+    end
+
+    # Iterate over keys, removing elements from the first non list found.
     def lmpop(*keys, modifier: "LEFT", count: nil)
       ensure_same_node(:lmpop, keys) do |node|
         node.lmpop(*keys, modifier: modifier, count: count)
