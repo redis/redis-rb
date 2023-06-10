@@ -205,7 +205,7 @@ module Lint
 
     def test_blmpop
       target_version('7.0') do
-        assert_nil r.blmpop( 1.0,'{1}foo')
+        assert_nil r.blmpop(1.0, '{1}foo')
 
         r.lpush('{1}foo', %w[a b c d e f g])
         assert_equal ['{1}foo', ['g']], r.blmpop(1.0, '{1}foo')
