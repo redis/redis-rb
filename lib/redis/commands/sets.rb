@@ -154,6 +154,19 @@ class Redis
         send_command([:sinterstore, destination].concat(keys))
       end
 
+      # This command is similar to SINTER, but instead of returning the result set,
+      #   it returns just the cardinality of the result.
+      #
+      # @param [String, Array<String>] keys keys pointing to sets to intersect
+      # @param [Interger] limits number of matches searched for
+      # @return [Array<String>] cardinality of the intersection
+      def sintercard(*keys, limit: nil)
+        args = [:sintercard, keys.size, keys]
+        args << "LIMIT" << limit if limit
+
+        send_command(args)
+      end
+
       # Add multiple sets.
       #
       # @param [String, Array<String>] keys keys pointing to sets to unify

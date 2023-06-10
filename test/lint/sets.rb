@@ -237,6 +237,16 @@ module Lint
       assert_equal 1, r.sinterstore('{1}baz', '{1}foo', '{1}bar')
     end
 
+    def test_sintercard
+      target_version("7.0") do
+        r.sadd '{1}foo', 's1'
+        r.sadd '{1}foo', 's2'
+        r.sadd '{1}bar', 's2'
+
+        assert_equal 1, r.sintercard('{1}foo', '{1}bar')
+      end
+    end
+
     def test_sunion
       r.sadd 'foo', 's1'
       r.sadd 'foo', 's2'

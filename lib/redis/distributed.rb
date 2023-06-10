@@ -648,6 +648,15 @@ class Redis
       end
     end
 
+    # This command is similar to SINTER, but instead of returning the result set,
+    #   it returns just the cardinality of the result.
+    def sintercard(*keys, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:sintercard, keys) do |node|
+        node.sintercard(*keys, limit: limit)
+      end
+    end
+
     # Add multiple sets.
     def sunion(*keys)
       keys.flatten!(1)
