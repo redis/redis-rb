@@ -1,4 +1,4 @@
-# redis-rb [![Build Status][gh-actions-image]][gh-actions-link] [![Inline docs][inchpages-image]][inchpages-link]
+# redis-rb [![Build Status][gh-actions-image]][gh-actions-link] [![Inline docs][rdoc-master-image]][rdoc-master-link]
 
 A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still providing an idiomatic interface.
 
@@ -400,11 +400,11 @@ client and evangelized Redis in Rubyland. Thank you, Ezra.
 requests.
 
 
-[inchpages-image]:  https://inch-ci.org/github/redis/redis-rb.svg
-[inchpages-link]:   https://inch-ci.org/github/redis/redis-rb
-[redis-commands]:   https://redis.io/commands
-[redis-home]:       https://redis.io
-[redis-url]:        http://www.iana.org/assignments/uri-schemes/prov/redis
-[gh-actions-image]: https://github.com/redis/redis-rb/workflows/Test/badge.svg
-[gh-actions-link]:  https://github.com/redis/redis-rb/actions
-[rubydoc]:          http://www.rubydoc.info/gems/redis
+[rdoc-master-image]: https://img.shields.io/badge/docs-rdoc.info-blue.svg
+[rdoc-master-link]:  https://rubydoc.info/github/redis/redis-rb
+[redis-commands]:    https://redis.io/commands
+[redis-home]:        https://redis.io
+[redis-url]:         https://www.iana.org/assignments/uri-schemes/prov/redis
+[gh-actions-image]:  https://github.com/redis/redis-rb/workflows/Test/badge.svg
+[gh-actions-link]:   https://github.com/redis/redis-rb/actions
+[rubydoc]:           https://rubydoc.info/gems/redis
