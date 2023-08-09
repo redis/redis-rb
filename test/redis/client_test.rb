@@ -28,10 +28,10 @@ class TestClient < Minitest::Test
 
   def test_error_translate_subclasses
     error = Class.new(RedisClient::CommandError)
-    assert_equal Redis::CommandError, r._client.send(:translate_error_class, error)
+    assert_equal Redis::CommandError, Redis::Client.send(:translate_error_class, error)
 
     assert_raises KeyError do
-      r._client.send(:translate_error_class, StandardError)
+      Redis::Client.send(:translate_error_class, StandardError)
     end
   end
 

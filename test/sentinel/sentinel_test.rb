@@ -197,7 +197,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[auth foo], %w[role]], commands[:m1]
   end
 
@@ -409,12 +409,15 @@ class SentinelTest < Minitest::Test
 
     connections = []
 
+    fails = Hash.new(0)
+
     handler = lambda do |id, port|
       {
         sentinel: lambda do |command, *_args|
           connections << id
 
-          if connections.count(id) < 2
+          if fails[id] < 2
+            fails[id] += 1
             :close
           else
             case command
@@ -451,9 +454,10 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal %i[s1 s2 s1 s1], connections
+    assert_equal %i[s1 s1 s2 s2 s1 s1], connections
 
     connections.clear
+    fails.clear
 
     ex = assert_raises(Redis::CannotConnectError) do
       RedisMock.start(master) do |master_port|

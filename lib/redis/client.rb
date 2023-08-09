@@ -24,7 +24,24 @@ class Redis
       end
 
       def sentinel(**kwargs)
-        super(protocol: 2, **kwargs)
+        super(protocol: 2, **kwargs, client_implementation: ::RedisClient)
+      end
+
+      def translate_error!(error)
+        redis_error = translate_error_class(error.class)
+        raise redis_error, error.message, error.backtrace
+      end
+
+      private
+
+      def translate_error_class(error_class)
+        ERROR_MAPPING.fetch(error_class)
+      rescue IndexError
+        if (client_error = error_class.ancestors.find { |a| ERROR_MAPPING[a] })
+          ERROR_MAPPING[error_class] = ERROR_MAPPING[client_error]
+        else
+          raise
+        end
       end
     end
 
@@ -72,7 +89,7 @@ class Redis
     def call_v(command, &block)
       super(command, &block)
     rescue ::RedisClient::Error => error
-      translate_error!(error)
+      Client.translate_error!(error)
     end
 
     def blocking_call_v(timeout, command, &block)
@@ -85,19 +102,19 @@ class Redis
 
       super(timeout, command, &block)
     rescue ::RedisClient::Error => error
-      translate_error!(error)
+      Client.translate_error!(error)
     end
 
     def pipelined
       super
     rescue ::RedisClient::Error => error
-      translate_error!(error)
+      Client.translate_error!(error)
     end
 
     def multi
       super
     rescue ::RedisClient::Error => error
-      translate_error!(error)
+      Client.translate_error!(error)
     end
 
     def disable_reconnection(&block)
@@ -106,23 +123,6 @@ class Redis
 
     def inherit_socket!
       @inherit_socket = true
-    end
-
-    private
-
-    def translate_error!(error)
-      redis_error = translate_error_class(error.class)
-      raise redis_error, error.message, error.backtrace
-    end
-
-    def translate_error_class(error_class)
-      ERROR_MAPPING.fetch(error_class)
-    rescue IndexError
-      if (client_error = error_class.ancestors.find { |a| ERROR_MAPPING[a] })
-        ERROR_MAPPING[error_class] = ERROR_MAPPING[client_error]
-      else
-        raise
-      end
     end
   end
 end
