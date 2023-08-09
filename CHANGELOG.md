@@ -1,5 +1,7 @@
 # Unreleased
 
+- Fix compatibility with `redis-client 0.15.0` when using Redis Sentinel. Fix #1209.
+
 # 5.0.6
 
 - Wait for an extra `config.read_timeout` in blocking commands rather than an arbitrary 100ms. See #1175.

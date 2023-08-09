@@ -166,6 +166,8 @@ class Redis
     @monitor.synchronize do
       @client.call_v(command, &block)
     end
+  rescue ::RedisClient::Error => error
+    Client.translate_error!(error)
   end
 
   def send_blocking_command(command, timeout, &block)
