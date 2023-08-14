@@ -120,13 +120,23 @@ but a few so that if one is down the client will try the next one. The client
 is able to remember the last Sentinel that was able to reply correctly and will
 use it for the next requests.
 
-If you want to [authenticate](https://redis.io/topics/sentinel#configuring-sentinel-instances-with-authentication) Sentinel itself, you must specify the `password` option per instance.
+To [authenticate](https://redis.io/docs/management/sentinel/#configuring-sentinel-instances-with-authentication) Sentinel itself, you can specify the `username` and `password` options per instance. Exclude the `username` option if you're using password-only authentication.
 
 ```ruby
-SENTINELS = [{ host: '127.0.0.1', port: 26380, password: 'mysecret' },
-             { host: '127.0.0.1', port: 26381, password: 'mysecret' }]
+SENTINELS = [{ host: '127.0.0.1', port: 26380, username: 'appuser', password: 'mysecret' },
+             { host: '127.0.0.1', port: 26381, username: 'appuser', password: 'mysecret' }]
 
 redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master)
+```
+
+If you specify a username and/or password at the top level for your main Redis instance, Sentinel will default to using those credentials. You can pass nil or override them for each sentinel.
+
+```ruby
+# Use 'mysecret' to authenticate against the mymaster instance, but skip authentication for the sentinels:
+SENTINELS = [{ host: '127.0.0.1', port: 26380, password: nil },
+             { host: '127.0.0.1', port: 26381, password: nil }]
+
+redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master, password: 'mysecret')
 ```
 
 Also the name can be passed as an url:
