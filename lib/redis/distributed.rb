@@ -302,8 +302,20 @@ class Redis
       raise CannotDistribute, :mset
     end
 
+    def mset_nonatomic(*args)
+      group_args_by_node(args.each_slice(2)) do |node, subargs|
+        node.mset(*subargs)
+      end
+    end
+
     def mapped_mset(_hash)
       raise CannotDistribute, :mapped_mset
+    end
+
+    def mapped_mset_nonatomic(hash)
+      group_hash_by_node(hash) do |node, subhash|
+        node.mapped_mset(subhash)
+      end
     end
 
     # Set multiple keys to multiple values, only if none of the keys exist.
@@ -1088,6 +1100,18 @@ class Redis
       end
 
       yield(node_for(keys.first))
+    end
+
+    def group_args_by_node(args)
+      nodes = args.each_slice(2).group_by { |k, _v| node_for(k) }
+      nodes.each do |node, grouped_args|
+        yield node, grouped_args.flatten
+      end
+    end
+
+    def group_hash_by_node(hash, &block)
+      nodes = hash.group_by { |k, _v| node_for(k) }
+      nodes.each(&block)
     end
   end
 end

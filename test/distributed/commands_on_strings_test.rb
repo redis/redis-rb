@@ -37,10 +37,24 @@ class TestDistributedCommandsOnStrings < Minitest::Test
     end
   end
 
+  def test_mset_nonatomic
+    r.mset_nonatomic(:foo, "s1", :bar, "s2")
+
+    assert_equal 's1', r.get('foo')
+    assert_equal 's2', r.get('bar')
+  end
+
   def test_mset_mapped
     assert_raises Redis::Distributed::CannotDistribute do
       r.mapped_mset(foo: "s1", bar: "s2")
     end
+  end
+
+  def test_mset_mapped_nonatomic
+    r.mapped_mset_nonatomic(foo: "s1", bar: "s2")
+
+    assert_equal 's1', r.get('foo')
+    assert_equal 's2', r.get('bar')
   end
 
   def test_msetnx
