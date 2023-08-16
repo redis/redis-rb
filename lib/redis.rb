@@ -152,6 +152,9 @@ class Redis
         end
       end
 
+      # Role is expected to be a symbol
+      options[:role] = options[:role].to_sym if options.key?(:role)
+
       Client.sentinel(**options).new_client
     else
       Client.config(**options).new_client
