@@ -75,7 +75,7 @@ class TestRemoteServerControlCommands < Minitest::Test
 
     assert_equal 1, r.object(:refcount, "list")
     encoding = r.object(:encoding, "list")
-    assert encoding == "ziplist" || encoding == "quicklist", "Wrong encoding for list"
+    assert encoding == "ziplist" || encoding == "quicklist" || encoding == "listpack", "Wrong encoding for list"
     assert r.object(:idletime, "list").is_a?(Integer)
   end
 
