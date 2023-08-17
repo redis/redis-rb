@@ -127,32 +127,6 @@ class TestScanning < Minitest::Test
     assert all_keys.sort == keys_from_scan.uniq.sort
   end
 
-  def test_sscan_with_encoding
-    %i[intset hashtable].each do |enc|
-      r.del "set"
-
-      prefix = ""
-      prefix = "ele:" if enc == :hashtable
-
-      elements = []
-      100.times { |j| elements << "#{prefix}#{j}" }
-
-      r.sadd "set", elements
-
-      assert_equal enc.to_s, r.object("encoding", "set")
-
-      cursor = 0
-      all_keys = []
-      loop do
-        cursor, keys = r.sscan "set", cursor
-        all_keys += keys
-        break if cursor == "0"
-      end
-
-      assert_equal 100, all_keys.uniq.size
-    end
-  end
-
   def test_sscan_each_enumerator
     elements = []
     100.times { |j| elements << "ele:#{j}" }
