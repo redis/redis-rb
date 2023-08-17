@@ -1,5 +1,7 @@
 # Unreleased
 
+- Fix `Redis#without_reconnect` for sentinel clients. Fix #1212.
+
 # 5.0.7
 
 - Fix compatibility with `redis-client 0.15.0` when using Redis Sentinel. Fix #1209.

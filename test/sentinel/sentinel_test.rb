@@ -23,6 +23,14 @@ class SentinelTest < Minitest::Test
     assert_equal MASTER_PORT.to_i, actual[2]
   end
 
+  def test_without_reconnect
+    wait_for_quorum
+
+    redis.without_reconnect do
+      redis.get("key")
+    end
+  end
+
   def test_the_client_can_connect_to_available_slaves
     commands = {
       sentinel: lambda do |*_|
