@@ -117,10 +117,6 @@ class Redis
       Client.translate_error!(error)
     end
 
-    def disable_reconnection(&block)
-      ensure_connected(retryable: false, &block)
-    end
-
     def inherit_socket!
       @inherit_socket = true
     end
