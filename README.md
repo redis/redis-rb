@@ -120,29 +120,39 @@ but a few so that if one is down the client will try the next one. The client
 is able to remember the last Sentinel that was able to reply correctly and will
 use it for the next requests.
 
-To [authenticate](https://redis.io/docs/management/sentinel/#configuring-sentinel-instances-with-authentication) Sentinel itself, you can specify the `username` and `password` options per instance. Exclude the `username` option if you're using password-only authentication.
+To [authenticate](https://redis.io/docs/management/sentinel/#configuring-sentinel-instances-with-authentication) Sentinel itself, you can specify the `sentinel_username` and `sentinel_password`. Exclude the `sentinel_username` option if you're using password-only authentication.
 
 ```ruby
-SENTINELS = [{ host: '127.0.0.1', port: 26380, username: 'appuser', password: 'mysecret' },
-             { host: '127.0.0.1', port: 26381, username: 'appuser', password: 'mysecret' }]
+SENTINELS = [{ host: '127.0.0.1', port: 26380},
+             { host: '127.0.0.1', port: 26381}]
 
-redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master)
+redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, sentinel_username: 'appuser', sentinel_password: 'mysecret', role: :master)
 ```
 
-If you specify a username and/or password at the top level for your main Redis instance, Sentinel will default to using those credentials. You can pass nil or override them for each sentinel.
+If you specify a username and/or password at the top level for your main Redis instance, Sentinel *will not* using thouse credentials
 
 ```ruby
 # Use 'mysecret' to authenticate against the mymaster instance, but skip authentication for the sentinels:
-SENTINELS = [{ host: '127.0.0.1', port: 26380, password: nil },
-             { host: '127.0.0.1', port: 26381, password: nil }]
+SENTINELS = [{ host: '127.0.0.1', port: 26380 },
+             { host: '127.0.0.1', port: 26381 }]
 
 redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master, password: 'mysecret')
 ```
 
-Also the name can be passed as an url:
+So you have to provide Sentinel credential and Redis explictly even they are the same
 
 ```ruby
-redis = Redis.new(name: "redis://mymaster", sentinels: SENTINELS, role: :master)
+# Use 'mysecret' to authenticate against the mymaster instance and sentinel
+SENTINELS = [{ host: '127.0.0.1', port: 26380 },
+             { host: '127.0.0.1', port: 26381 }]
+
+redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master, password: 'mysecret', sentinel_password: 'mysecret')
+```
+
+Also the `name`, `password`, `username` and `db` for Redis instance can be passed as an url:
+
+```ruby
+redis = Redis.new(url: "redis://appuser:mysecret@mymaster/10", sentinels: SENTINELS, role: :master)
 ```
 
 ## Cluster support
