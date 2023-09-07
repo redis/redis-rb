@@ -252,8 +252,8 @@ class SentinelTest < Minitest::Test
 
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
-        s = [{ host: '127.0.0.1', port: sen_port, password: 'foo' }]
-        r = Redis.new(name: 'master1', sentinels: s, role: :master)
+        s = [{ host: '127.0.0.1', port: sen_port }]
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, sentinel_password: 'foo')
         assert r.ping
       end
     end
@@ -308,8 +308,8 @@ class SentinelTest < Minitest::Test
 
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
-        s = [{ host: '127.0.0.1', port: sen_port, password: 'foo' }]
-        r = Redis.new(name: 'master1', sentinels: s, role: :master, password: 'bar')
+        s = [{ host: '127.0.0.1', port: sen_port }]
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, password: 'bar', sentinel_password: 'foo')
         assert r.ping
       end
     end
@@ -361,8 +361,8 @@ class SentinelTest < Minitest::Test
 
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
-        s = [{ host: '127.0.0.1', port: sen_port, username: 'bob', password: 'foo' }]
-        r = Redis.new(name: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar')
+        s = [{ host: '127.0.0.1', port: sen_port }]
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar', sentinel_username: 'bob', sentinel_password: 'foo')
         assert r.ping
       end
     end
