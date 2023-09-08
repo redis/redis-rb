@@ -137,21 +137,6 @@ class Redis
     end
 
     if options.key?(:sentinels)
-      if url = options.delete(:url)
-        uri = URI.parse(url)
-        if !options.key?(:name) && uri.host
-          options[:name] = uri.host
-        end
-
-        if !options.key?(:password) && uri.password && !uri.password.empty?
-          options[:password] = uri.password
-        end
-
-        if !options.key?(:username) && uri.user && !uri.user.empty?
-          options[:username] = uri.user
-        end
-      end
-
       Client.sentinel(**options).new_client
     else
       Client.config(**options).new_client

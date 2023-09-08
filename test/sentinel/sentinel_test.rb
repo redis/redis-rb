@@ -205,7 +205,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [%w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[auth foo], %w[role]], commands[:m1]
   end
 
