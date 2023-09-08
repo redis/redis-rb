@@ -1,6 +1,7 @@
 # Unreleased
 
 - Fix `Redis#without_reconnect` for sentinel clients. Fix #1212.
+- Add `sentinel_username`, `sentinel_password` for sentinel clients. Bump `redis-client` to `>=0.17.0`. See #1213
 
 # 5.0.7
 
