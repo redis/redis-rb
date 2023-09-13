@@ -221,7 +221,7 @@ jobs:
     env:
       TIMEOUT: "15"
       LOW_TIMEOUT: "0.14"
-      REDIS_BRANCH: "7.0"
+      REDIS_BRANCH: "7.2"
       BUNDLE_GEMFILE: cluster/Gemfile
     steps:
       - name: Check out code

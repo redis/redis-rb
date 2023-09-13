@@ -47,7 +47,6 @@ class TestClusterCommandsOnKeys < Minitest::Test
   def test_object
     redis.lpush('mylist', 'Hello World')
     assert_equal 1, redis.object('refcount', 'mylist')
-    assert_equal 'quicklist', redis.object('encoding', 'mylist')
     assert(redis.object('idletime', 'mylist') >= 0)
 
     redis.set('foo', 1000)

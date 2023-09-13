@@ -28,11 +28,11 @@ class Redis
       ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
 
       def id
-        @router.node.node_keys.join(' ')
+        @router.node_keys.join(' ')
       end
 
       def server_url
-        @router.node.node_keys
+        @router.node_keys
       end
 
       def connected?
