@@ -45,7 +45,7 @@ class Redis
   # @option options [String] :host ("127.0.0.1") server hostname
   # @option options [Integer] :port (6379) server port
   # @option options [String] :path path to server socket (overrides host and port)
-  # @option options [Float] :timeout (5.0) timeout in seconds
+  # @option options [Float] :timeout (1.0) timeout in seconds
   # @option options [Float] :connect_timeout (same as timeout) timeout for initial connect in seconds
   # @option options [String] :username Username to authenticate against server
   # @option options [String] :password Password to authenticate against server
