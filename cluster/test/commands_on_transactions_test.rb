@@ -20,9 +20,15 @@ class TestClusterCommandsOnTransactions < Minitest::Test
   end
 
   def test_multi
-    assert_raises(Redis::Cluster::AmbiguousNodeError) do
+    assert_raises(LocalJumpError) do
       redis.multi
     end
+
+    assert_raises(ArgumentError) do
+      redis.multi {}
+    end
+
+    assert_equal([1], redis.multi { |r| r.incr('counter') })
   end
 
   def test_unwatch
