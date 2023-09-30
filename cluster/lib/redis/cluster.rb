@@ -38,6 +38,9 @@ class Redis
     class AmbiguousNodeError < BaseError
     end
 
+    class TransactionConsistencyError < BaseError
+    end
+
     def connection
       raise NotImplementedError, "Redis::Cluster doesn't implement #connection"
     end

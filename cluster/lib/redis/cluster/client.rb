@@ -9,7 +9,8 @@ class Redis
         RedisClient::Cluster::InitialSetupError => Redis::Cluster::InitialSetupError,
         RedisClient::Cluster::OrchestrationCommandNotSupported => Redis::Cluster::OrchestrationCommandNotSupported,
         RedisClient::Cluster::AmbiguousNodeError => Redis::Cluster::AmbiguousNodeError,
-        RedisClient::Cluster::ErrorCollection => Redis::Cluster::CommandErrorCollection
+        RedisClient::Cluster::ErrorCollection => Redis::Cluster::CommandErrorCollection,
+        RedisClient::Cluster::Transaction::ConsistencyError => Redis::Cluster::TransactionConsistencyError
       ).freeze
 
       class << self
