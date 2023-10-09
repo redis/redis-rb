@@ -70,4 +70,39 @@ class TestClusterCommandsOnPubSub < Minitest::Test
     assert_equal('two', messages['gucci2'])
     assert_equal('three', messages['hermes3'])
   end
+
+  def test_spublish_ssubscribe_sunsubscribe_pubsub
+    omit_version('7.0.0')
+
+    sub_cnt = 0
+    messages = {}
+
+    thread = Thread.new do
+      redis.ssubscribe('channel1', 'channel2') do |on|
+        on.ssubscribe { sub_cnt += 1 }
+        on.smessage do |c, msg|
+          messages[c] = msg
+          redis.sunsubscribe if messages.size == 2
+        end
+      end
+    end
+
+    Thread.pass until sub_cnt == 2
+
+    publisher = build_another_client
+
+    assert_equal %w[channel1 channel2], publisher.pubsub(:shardchannels, 'channel*')
+    assert_equal({ 'channel1' => 1, 'channel2' => 1, 'channel3' => 0 },
+                 publisher.pubsub(:shardnumsub, 'channel1', 'channel2', 'channel3'))
+
+    publisher.spublish('channel1', 'one')
+    publisher.spublish('channel2', 'two')
+    publisher.spublish('channel3', 'three')
+
+    thread.join
+
+    assert_equal(2, messages.size)
+    assert_equal('one', messages['channel1'])
+    assert_equal('two', messages['channel2'])
+  end
 end

@@ -29,12 +29,24 @@ class Redis
       subscription("psubscribe", "punsubscribe", channels, block, timeout)
     end
 
+    def ssubscribe(*channels, &block)
+      subscription("ssubscribe", "sunsubscribe", channels, block)
+    end
+
+    def ssubscribe_with_timeout(timeout, *channels, &block)
+      subscription("ssubscribe", "sunsubscribe", channels, block, timeout)
+    end
+
     def unsubscribe(*channels)
       call_v([:unsubscribe, *channels])
     end
 
     def punsubscribe(*channels)
       call_v([:punsubscribe, *channels])
+    end
+
+    def sunsubscribe(*channels)
+      call_v([:sunsubscribe, *channels])
     end
 
     def close
@@ -46,7 +58,11 @@ class Redis
     def subscription(start, stop, channels, block, timeout = 0)
       sub = Subscription.new(&block)
 
-      call_v([start, *channels])
+      case start
+      when "ssubscribe" then channels.each { |c| call_v([start, c]) } # avoid cross-slot keys
+      else call_v([start, *channels])
+      end
+
       while event = @client.next_event(timeout)
         if event.is_a?(::RedisClient::CommandError)
           raise Client::ERROR_MAPPING.fetch(event.class), event.message
@@ -93,6 +109,18 @@ class Redis
 
     def pmessage(&block)
       @callbacks["pmessage"] = block
+    end
+
+    def ssubscribe(&block)
+      @callbacks["ssubscribe"] = block
+    end
+
+    def sunsubscribe(&block)
+      @callbacks["sunsubscribe"] = block
+    end
+
+    def smessage(&block)
+      @callbacks["smessage"] = block
     end
   end
 end
