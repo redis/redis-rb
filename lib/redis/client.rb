@@ -297,7 +297,7 @@ class Redis
 
     def io
       yield
-    rescue TimeoutError => e1
+    rescue TimeoutError, Errno::ETIMEDOUT => e1
       # Add a message to the exception without destroying the original stack
       e2 = TimeoutError.new("Connection timed out")
       e2.set_backtrace(e1.backtrace)

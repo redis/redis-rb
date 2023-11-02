@@ -1,5 +1,7 @@
 # Unreleased
 
+* wrap Errno::ETIMEDOUT with TimeoutError for connection io
+
 # 4.8.1
 
 * Automatically reconnect after fork regardless of `reconnect_attempts`
