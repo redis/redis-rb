@@ -111,7 +111,7 @@ class Redis
       Client.translate_error!(error)
     end
 
-    def multi
+    def multi(watch: nil)
       super
     rescue ::RedisClient::Error => error
       Client.translate_error!(error)
