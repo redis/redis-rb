@@ -70,8 +70,8 @@ class Redis
         handle_errors { super(&block) }
       end
 
-      def multi(&block)
-        handle_errors { super(&block) }
+      def multi(watch: nil, &block)
+        handle_errors { super(watch: watch, &block) }
       end
 
       private
