@@ -177,7 +177,7 @@ class TestPublishSubscribe < Minitest::Test
   end
 
   def test_subscribe_within_subscribe
-    @channels = []
+    @channels = Queue.new
 
     thread = new_thread do |r|
       r.subscribe(channel_name) do |on|
@@ -192,7 +192,8 @@ class TestPublishSubscribe < Minitest::Test
 
     thread.join
 
-    assert_equal [channel_name, "bar"], @channels
+    assert_equal [channel_name, "bar"], [@channels.pop, @channels.pop]
+    assert_empty @channels
   end
 
   def test_other_commands_within_a_subscribe
@@ -270,8 +271,7 @@ class TestPublishSubscribe < Minitest::Test
   def test_unsubscribe_from_another_thread
     @unsubscribed = @subscribed = false
     @subscribed_redis = nil
-    @messages = []
-    @messages_count = 0
+    @messages = Queue.new
     thread = new_thread do |r|
       @subscribed_redis = r
       r.subscribe(channel_name) do |on|
@@ -281,7 +281,6 @@ class TestPublishSubscribe < Minitest::Test
 
         on.message do |channel, message|
           @messages << [channel, message]
-          @messages_count += 1
         end
 
         on.unsubscribe do |_channel, _total|
@@ -293,8 +292,8 @@ class TestPublishSubscribe < Minitest::Test
     Thread.pass until @subscribed
 
     redis.publish(channel_name, "test")
-    Thread.pass until @messages_count == 1
-    assert_equal [channel_name, "test"], @messages.last
+    assert_equal [channel_name, "test"], @messages.pop
+    assert_empty @messages
 
     @subscribed_redis.unsubscribe # this shouldn't block
     refute_nil thread.join(2)
@@ -302,7 +301,7 @@ class TestPublishSubscribe < Minitest::Test
   end
 
   def test_subscribe_from_another_thread
-    @events = []
+    @events = Queue.new
     @subscribed_redis = nil
     thread = new_thread do |r|
       r.subscribe(channel_name) do |on|
@@ -339,7 +338,8 @@ class TestPublishSubscribe < Minitest::Test
       ["unsubscribed", channel_name],
       ["unsubscribed", "#{channel_name}:2"]
     ]
-    assert_equal expected, @events
+    assert_equal(expected, expected.map { @events.pop })
+    assert_empty @events
   end
 
   private
