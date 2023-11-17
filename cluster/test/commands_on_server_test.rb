@@ -21,9 +21,11 @@ class TestClusterCommandsOnServer < Minitest::Test
               'Use BGSAVE SCHEDULE in order to schedule a BGSAVE whenever possible.'
 
     redis_cluster_mock(bgsave: ->(*_) { "-Error #{err_msg}" }) do |redis|
-      assert_raises(Redis::Cluster::CommandErrorCollection, 'Command error replied on any node') do
+      err = assert_raises(Redis::Cluster::CommandErrorCollection, 'Command error replied on any node') do
         redis.bgsave
       end
+      assert_includes err.message, err_msg
+      assert_kind_of Redis::CommandError, err.errors.values.first
     end
   end
 
