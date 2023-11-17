@@ -84,7 +84,14 @@ class Redis
             raise ERROR_MAPPING.fetch(node_error.class), node_error.message, node_error.backtrace
           end
         end
-        raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+        remapped_node_errors = error.errors.map do |node_key, node_error|
+          remapped = ERROR_MAPPING.fetch(node_error.class, node_error.class).new(node_error.message)
+          remapped.set_backtrace node_error.backtrace
+          [node_key, remapped]
+        end.to_h
+        raise(Redis::Cluster::CommandErrorCollection.new(remapped_node_errors, error.message).tap do |remapped|
+          remapped.set_backtrace error.backtrace
+        end)
       rescue ::RedisClient::Error => error
         raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
       end
