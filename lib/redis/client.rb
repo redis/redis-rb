@@ -27,18 +27,18 @@ class Redis
         super(protocol: 2, **kwargs, client_implementation: ::RedisClient)
       end
 
-      def translate_error!(error)
-        redis_error = translate_error_class(error.class)
+      def translate_error!(error, mapping: ERROR_MAPPING)
+        redis_error = translate_error_class(error.class, mapping: mapping)
         raise redis_error, error.message, error.backtrace
       end
 
       private
 
-      def translate_error_class(error_class)
-        ERROR_MAPPING.fetch(error_class)
+      def translate_error_class(error_class, mapping: ERROR_MAPPING)
+        mapping.fetch(error_class)
       rescue IndexError
-        if (client_error = error_class.ancestors.find { |a| ERROR_MAPPING[a] })
-          ERROR_MAPPING[error_class] = ERROR_MAPPING[client_error]
+        if (client_error = error_class.ancestors.find { |a| mapping[a] })
+          mapping[error_class] = mapping[client_error]
         else
           raise
         end

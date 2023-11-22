@@ -58,4 +58,22 @@ class TestClusterClientPipelining < Minitest::Test
     end
     assert_equal 1.upto(6).map(&:to_s), result
   end
+
+  def test_pipeline_unmapped_errors_are_bubbled_up
+    ex = Class.new(StandardError)
+    assert_raises(ex) do
+      redis.pipelined do |_pipe|
+        raise ex, "boom"
+      end
+    end
+  end
+
+  def test_pipeline_error_subclasses_are_mapped
+    ex = Class.new(RedisClient::ConnectionError)
+    assert_raises(Redis::ConnectionError) do
+      redis.pipelined do |_pipe|
+        raise ex, "tick tock"
+      end
+    end
+  end
 end
