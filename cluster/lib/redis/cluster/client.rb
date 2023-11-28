@@ -11,6 +11,7 @@ class Redis
         RedisClient::Cluster::AmbiguousNodeError => Redis::Cluster::AmbiguousNodeError,
         RedisClient::Cluster::ErrorCollection => Redis::Cluster::CommandErrorCollection,
         RedisClient::Cluster::Transaction::ConsistencyError => Redis::Cluster::TransactionConsistencyError
+        RedisClient::Cluster::NodeMightBeDown => Redis::Cluster::NodeMightBeDown
       ).freeze
 
       class << self
