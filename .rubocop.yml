@@ -59,6 +59,9 @@ Style/PercentLiteralDelimiters:
 Style/TrailingCommaInArrayLiteral:
   Enabled: false
 
+Style/TrailingCommaInArguments:
+  Enabled: false
+
 Style/ParallelAssignment:
   Enabled: false
 
