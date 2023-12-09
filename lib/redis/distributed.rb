@@ -370,8 +370,8 @@ class Redis
     end
 
     # Count the number of set bits in a range of the string value stored at key.
-    def bitcount(key, start = 0, stop = -1)
-      node_for(key).bitcount(key, start, stop)
+    def bitcount(key, start = 0, stop = -1, scale: nil)
+      node_for(key).bitcount(key, start, stop, scale: scale)
     end
 
     # Perform a bitwise operation between strings and store the resulting string in a key.
@@ -383,8 +383,8 @@ class Redis
     end
 
     # Return the position of the first bit set to 1 or 0 in a string.
-    def bitpos(key, bit, start = nil, stop = nil)
-      node_for(key).bitpos(key, bit, start, stop)
+    def bitpos(key, bit, start = nil, stop = nil, scale: nil)
+      node_for(key).bitpos(key, bit, start, stop, scale: scale)
     end
 
     # Set the string value of a key and return its old value.

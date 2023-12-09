@@ -27,9 +27,13 @@ class Redis
       # @param [String] key
       # @param [Integer] start start index
       # @param [Integer] stop stop index
+      # @param [String, Symbol] scale the scale of the offset range
+      #     e.g. 'BYTE' - interpreted as a range of bytes, 'BIT' - interpreted as a range of bits
       # @return [Integer] the number of bits set to 1
-      def bitcount(key, start = 0, stop = -1)
-        send_command([:bitcount, key, start, stop])
+      def bitcount(key, start = 0, stop = -1, scale: nil)
+        command = [:bitcount, key, start, stop]
+        command << scale if scale
+        send_command(command)
       end
 
       # Perform a bitwise operation between strings and store the resulting string in a key.
@@ -51,14 +55,17 @@ class Redis
       # @param [Integer] bit whether to look for the first 1 or 0 bit
       # @param [Integer] start start index
       # @param [Integer] stop stop index
+      # @param [String, Symbol] scale the scale of the offset range
+      #     e.g. 'BYTE' - interpreted as a range of bytes, 'BIT' - interpreted as a range of bits
       # @return [Integer] the position of the first 1/0 bit.
       #                  -1 if looking for 1 and it is not found or start and stop are given.
-      def bitpos(key, bit, start = nil, stop = nil)
+      def bitpos(key, bit, start = nil, stop = nil, scale: nil)
         raise(ArgumentError, 'stop parameter specified without start parameter') if stop && !start
 
         command = [:bitpos, key, bit]
         command << start if start
         command << stop if stop
+        command << scale if scale
         send_command(command)
       end
     end
