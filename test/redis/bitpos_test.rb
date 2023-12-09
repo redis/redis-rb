@@ -41,6 +41,14 @@ class TestBitpos < Minitest::Test
     assert_equal(8,  r.bitpos("foo", 1, 1, 1))
   end
 
+  def test_bitpos_one_intervals_bit_range
+    target_version "7.0" do
+      r.set "foo", "\x00\xff\x00"
+      assert_equal(8, r.bitpos("foo", 1, 8, -1, scale: 'bit'))
+      assert_equal(-1, r.bitpos("foo", 1, 8, -1, scale: 'byte'))
+    end
+  end
+
   def test_bitpos_raise_exception_if_stop_not_start
     assert_raises(ArgumentError) do
       r.bitpos("foo", 0, nil, 2)

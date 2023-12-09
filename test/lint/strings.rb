@@ -249,6 +249,15 @@ module Lint
       assert_equal 17, r.bitcount("foo", 0, -1)
     end
 
+    def test_bitcount_bits_range
+      target_version "7.0" do
+        r.set("foo", "abcde")
+
+        assert_equal 10, r.bitcount("foo", 8, 31, scale: :bit)
+        assert_equal 17, r.bitcount("foo", 0, -1, scale: :byte)
+      end
+    end
+
     def test_getrange
       r.set("foo", "abcde")
 
