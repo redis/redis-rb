@@ -74,10 +74,9 @@ available on [RubyDoc.info][rubydoc].
 ## Connection Pooling and Thread safety
 
 The client does not provide connection pooling. Each `Redis` instance
-has one and only one connection to the server, and use of this connection
-is protected by a mutex.
+has one and only one connection to the server.
 
-As such it is heavilly recommended to use the [`connection_pool` gem](https://github.com/mperham/connection_pool), e.g.:
+As such it is heavily recommended to use the [`connection_pool` gem](https://github.com/mperham/connection_pool), e.g.:
 
 ```ruby
 module MyApp
