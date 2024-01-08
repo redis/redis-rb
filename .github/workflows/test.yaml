@@ -18,12 +18,8 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "2.6"
-      - name: Set up Gems
-        run: |
-          gem update --system --no-document
-          gem install bundler --no-document
-          bundle install --jobs 4 --retry 3 --path=.bundle
+          ruby-version: "3.2"
+          bundler-cache: true
       - name: Lint
         run: bundle exec rubocop
 
