@@ -12,7 +12,7 @@ class Redis
         RedisClient::Cluster::ErrorCollection => Redis::Cluster::CommandErrorCollection,
         RedisClient::Cluster::Transaction::ConsistencyError => Redis::Cluster::TransactionConsistencyError,
         RedisClient::Cluster::NodeMightBeDown => Redis::Cluster::NodeMightBeDown,
-      ).freeze
+      )
 
       class << self
         def config(**kwargs)
@@ -21,6 +21,29 @@ class Redis
 
         def sentinel(**kwargs)
           super(protocol: 2, **kwargs)
+        end
+
+        def translate_error!(error, mapping: ERROR_MAPPING)
+          case error
+          when RedisClient::Cluster::ErrorCollection
+            error.errors.each do |_node, node_error|
+              if node_error.is_a?(RedisClient::AuthenticationError)
+                raise mapping.fetch(node_error.class), node_error.message, node_error.backtrace
+              end
+            end
+
+            remapped_node_errors = error.errors.map do |node_key, node_error|
+              remapped = mapping.fetch(node_error.class, node_error.class).new(node_error.message)
+              remapped.set_backtrace node_error.backtrace
+              [node_key, remapped]
+            end.to_h
+
+            raise(Redis::Cluster::CommandErrorCollection.new(remapped_node_errors, error.message).tap do |remapped|
+              remapped.set_backtrace error.backtrace
+            end)
+          else
+            Redis::Client.translate_error!(error, mapping: mapping)
+          end
         end
       end
 
@@ -79,22 +102,8 @@ class Redis
 
       def handle_errors
         yield
-      rescue RedisClient::Cluster::ErrorCollection => error
-        error.errors.each do |_node, node_error|
-          if node_error.is_a?(RedisClient::AuthenticationError)
-            raise ERROR_MAPPING.fetch(node_error.class), node_error.message, node_error.backtrace
-          end
-        end
-        remapped_node_errors = error.errors.map do |node_key, node_error|
-          remapped = ERROR_MAPPING.fetch(node_error.class, node_error.class).new(node_error.message)
-          remapped.set_backtrace node_error.backtrace
-          [node_key, remapped]
-        end.to_h
-        raise(Redis::Cluster::CommandErrorCollection.new(remapped_node_errors, error.message).tap do |remapped|
-          remapped.set_backtrace error.backtrace
-        end)
       rescue ::RedisClient::Error => error
-        raise ERROR_MAPPING.fetch(error.class), error.message, error.backtrace
+        Redis::Cluster::Client.translate_error!(error)
       end
     end
   end
