@@ -49,7 +49,7 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - name: Cache local temporary directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
@@ -87,7 +87,7 @@ jobs:
           ruby-version: truffleruby
           bundler-cache: true
       - name: Cache local temporary directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
@@ -125,7 +125,7 @@ jobs:
           ruby-version: "2.5"
           bundler-cache: true
       - name: Cache local temporary directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
@@ -162,7 +162,7 @@ jobs:
           ruby-version: "2.5"
           bundler-cache: true
       - name: Cache local temporary directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: tmp
           key: "local-tmp-redis-${{ matrix.redis }}-on-ubuntu-latest"
@@ -197,7 +197,7 @@ jobs:
           ruby-version: "2.5"
           bundler-cache: true
       - name: Cache local temporary directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
@@ -234,7 +234,7 @@ jobs:
           ruby-version: "2.7"
           bundler-cache: true
       - name: Cache local temporary directory
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: tmp
           key: "local-tmp-redis-7.0-on-ubuntu-latest"
