@@ -150,6 +150,11 @@ class Redis
       node_for(key).pexpireat(key, ms_unix_time, **kwarg)
     end
 
+    # Get the expiration for a key as number of milliseconds from UNIX Epoch.
+    def pexpiretime(key)
+      node_for(key).pexpiretime(key)
+    end
+
     # Get the time to live (in milliseconds) for a key.
     def pttl(key)
       node_for(key).pttl(key)
