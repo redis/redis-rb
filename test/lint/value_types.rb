@@ -153,6 +153,19 @@ module Lint
       end
     end
 
+    def test_pexpiretime
+      target_version "7.0.0" do
+        r.set("foo", "blar")
+        assert_equal(-1, r.pexpiretime("foo"))
+
+        exp_time = (Time.now + 2).to_i * 1_000
+        r.pexpireat("foo", exp_time)
+        assert_equal exp_time, r.pexpiretime("foo")
+
+        assert_equal(-2, r.pexpiretime("key-that-exists-not"))
+      end
+    end
+
     def test_persist
       r.set("foo", "s1")
       r.expire("foo", 1)
