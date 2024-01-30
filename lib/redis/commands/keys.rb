@@ -105,6 +105,14 @@ class Redis
         send_command(args, &Boolify)
       end
 
+      # Get a key's expiration time as an absolute Unix timestamp (since January 1, 1970) in seconds
+      #
+      # @param  [String] key
+      # @return [Integer] expiry time of the key, specified as a UNIX timestamp
+      def expiretime(key)
+        send_command([:expiretime, key])
+      end
+
       # Get the time to live (in seconds) for a key.
       #
       # @param [String] key
