@@ -130,6 +130,11 @@ class Redis
       node_for(key).expireat(key, unix_time, **kwargs)
     end
 
+    # Get the expiration for a key as a UNIX timestamp.
+    def expiretime(key)
+      node_for(key).expiretime(key)
+    end
+
     # Get the time to live (in seconds) for a key.
     def ttl(key)
       node_for(key).ttl(key)
