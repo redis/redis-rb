@@ -11,12 +11,6 @@ Lint/HashCompareByIdentity:
   Exclude:
     - 'lib/redis.rb'
 
-# Offense count: 1
-# Cop supports --auto-correct.
-Lint/RedundantStringCoercion:
-  Exclude:
-    - 'examples/consistency.rb'
-
 # Offense count: 2
 # Configuration parameters: EnforcedStyle, CheckMethodNames, CheckSymbols, AllowedIdentifiers.
 # SupportedStyles: snake_case, normalcase, non_integer
