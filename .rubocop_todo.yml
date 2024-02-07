@@ -11,14 +11,6 @@ Lint/HashCompareByIdentity:
   Exclude:
     - 'lib/redis.rb'
 
-# Offense count: 2
-# Configuration parameters: EnforcedStyle, CheckMethodNames, CheckSymbols, AllowedIdentifiers.
-# SupportedStyles: snake_case, normalcase, non_integer
-# AllowedIdentifiers: capture3, iso8601, rfc1123_date, rfc822, rfc2822, rfc3339
-Naming/VariableNumber:
-  Exclude:
-    - 'test/remote_server_control_commands_test.rb'
-
 # Offense count: 6
 # Configuration parameters: AllowedMethods.
 # AllowedMethods: respond_to_missing?
