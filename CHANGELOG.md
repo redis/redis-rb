@@ -1,5 +1,11 @@
 # Unreleased
 
+# 5.1.0
+
+- `multi` now accept a `watch` keyword argument like `redis-client`. See #1236.
+- `bitcount` and `bitpos` now accept a `scale:` argument on Redis 7+. See #1242
+- Added `expiretime` and `pexpiretime`. See #1248.
+
 # 5.0.8
 
 - Fix `Redis#without_reconnect` for sentinel clients. Fix #1212.
