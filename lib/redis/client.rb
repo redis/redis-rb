@@ -330,8 +330,8 @@ class Redis
         @options[:read_timeout] = timeout # for reconnection
         yield
       ensure
-        connection.timeout = self.timeout if connected?
         @options[:read_timeout] = original
+        connection.timeout = self.timeout if connected?
       end
     end
 
