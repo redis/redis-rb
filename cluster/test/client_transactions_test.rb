@@ -48,4 +48,25 @@ class TestClusterClientTransactions < Minitest::Test
       assert_nil(redis.get("key#{i}"))
     end
   end
+
+  def test_cluster_client_does_support_transaction_with_optimistic_locking
+    redis.mset('{key}1', '1', '{key}2', '2')
+
+    another = Fiber.new do
+      cli = build_another_client
+      cli.mset('{key}1', '3', '{key}2', '4')
+      cli.close
+      Fiber.yield
+    end
+
+    redis.watch('{key}1', '{key}2') do |tx|
+      another.resume
+      v1 = redis.get('{key}1')
+      v2 = redis.get('{key}2')
+      tx.call('SET', '{key}1', v2)
+      tx.call('SET', '{key}2', v1)
+    end
+
+    assert_equal %w[3 4], redis.mget('{key}1', '{key}2')
+  end
 end
