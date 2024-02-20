@@ -96,6 +96,10 @@ class Redis
       send_command([:cluster, subcommand] + args, &block)
     end
 
+    def watch(*keys, &block)
+      synchronize { |c| c.call_v([:watch] + keys, &block) }
+    end
+
     private
 
     def initialize_client(options)
