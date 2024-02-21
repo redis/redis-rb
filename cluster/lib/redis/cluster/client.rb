@@ -98,6 +98,10 @@ class Redis
         handle_errors { super(watch: watch, &block) }
       end
 
+      def watch(keys, &block)
+        handle_errors { super(keys, &block) }
+      end
+
       private
 
       def handle_errors
