@@ -96,6 +96,62 @@ class Redis
       send_command([:cluster, subcommand] + args, &block)
     end
 
+    # Transactions need different implementations in cluster mode, using purpose-built
+    # primitives available in redis-cluster-client. These methods (watch and multii
+    # implement the same interface as the methods in ::Redis::Commands::Transactions.
+
+    def watch(*keys)
+      synchronize do |client|
+        # client is a ::Redis::Cluster::Client instance, which is a subclass of
+        # ::RedisClient::Cluster
+
+        if @active_watcher
+          # We're already within a #watch block, just add keys to the existing watch
+          @active_watcher.watch(keys)
+        else
+          unless block_given?
+            raise ArgumentError, "#{self.class.name} requires that the initial #watch call of a transaction " \
+                                 "passes a block"
+          end
+
+          client.watch(keys) do |watcher|
+            @active_watcher = watcher
+            yield self
+          ensure
+            @active_watcher = nil
+          end
+
+        end
+      end
+    end
+
+    def multi
+      synchronize do |client|
+        if @active_watcher
+          # If we're inside a #watch block, use that to execute the transaction
+          @active_watcher.multi do |tx|
+            yield MultiConnection.new(tx)
+          end
+        else
+          # Make a new transaction from whole cloth.
+          client.multi do |tx|
+            yield MultiConnection.new(tx)
+          end
+        end
+      end
+    end
+
+    def unwatch
+      synchronize do
+        if @active_watcher
+          @active_watcher.unwatch
+        else
+          # This will raise an AmbiguiousNodeError
+          super
+        end
+      end
+    end
+
     private
 
     def initialize_client(options)

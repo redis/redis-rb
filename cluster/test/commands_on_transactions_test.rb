@@ -38,10 +38,8 @@ class TestClusterCommandsOnTransactions < Minitest::Test
   end
 
   def test_watch
-    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
-      redis.watch('key1', 'key2')
+    assert_raises(Redis::Cluster::TransactionConsistencyError) do
+      redis.watch('key1', 'key2') {}
     end
-
-    assert_equal 'OK', redis.watch('{key}1', '{key}2')
   end
 end
