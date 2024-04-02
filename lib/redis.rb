@@ -175,6 +175,7 @@ class Redis
           @subscription_client.send(method, *channels, &block)
         end
       ensure
+        @subscription_client&.close
         @subscription_client = nil
       end
     else
