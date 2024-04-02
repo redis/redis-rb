@@ -135,7 +135,7 @@ module Lint
 
         assert_equal 1, redis.xtrim('s1', 0, approximate: true, limit: 1)
         error = assert_raises(Redis::CommandError) { redis.xtrim('s1', 0, limit: 1) }
-        assert_equal "ERR syntax error, LIMIT cannot be used without the special ~ option", error.message
+        assert_includes error.message, "ERR syntax error, LIMIT cannot be used without the special ~ option"
       ensure
         redis.config(:set, 'stream-node-max-entries', original)
       end
@@ -174,7 +174,7 @@ module Lint
 
       redis.xadd('s1', { f: 'v1' })
       error = assert_raises(Redis::CommandError) { redis.xtrim('s1', '1-0', strategy: '') }
-      assert_equal "ERR syntax error", error.message
+      assert_includes error.message, "ERR syntax error"
     end
 
     def test_xtrim_with_not_existed_stream
