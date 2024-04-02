@@ -72,8 +72,7 @@ module Helper
       port = nil
 
       cluster_subcommands = if commands.key?(:cluster)
-        commands.delete(:cluster)
-                .to_h { |k, v| [k.to_s.downcase, v] }
+        commands.delete(:cluster).transform_keys { |k| k.to_s.downcase }
       else
         {}
       end
