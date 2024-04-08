@@ -8,8 +8,8 @@ See [RubyDoc.info][rubydoc] for the API docs of the latest published gem.
 
 Install with:
 
-```
-$ gem install redis
+```bash
+gem install redis
 ```
 
 You can connect to Redis by instantiating the `Redis` class:
@@ -52,7 +52,7 @@ redis = Redis.new(password: "mysecret")
 To connect a Redis instance using [ACL](https://redis.io/topics/acl), use:
 
 ```ruby
-redis = Redis.new(username: 'myname', password: 'mysecret')
+redis = Redis.new(username: "myname", password: "mysecret")
 ```
 
 The Redis class exports methods that are named identical to the commands
@@ -123,30 +123,30 @@ use it for the next requests.
 To [authenticate](https://redis.io/docs/management/sentinel/#configuring-sentinel-instances-with-authentication) Sentinel itself, you can specify the `sentinel_username` and `sentinel_password`. Exclude the `sentinel_username` option if you're using password-only authentication.
 
 ```ruby
-SENTINELS = [{ host: '127.0.0.1', port: 26380},
-             { host: '127.0.0.1', port: 26381}]
+SENTINELS = [{ host: "127.0.0.1", port: 26380},
+             { host: "127.0.0.1", port: 26381}]
 
-redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, sentinel_username: 'appuser', sentinel_password: 'mysecret', role: :master)
+redis = Redis.new(name: "mymaster", sentinels: SENTINELS, sentinel_username: "appuser", sentinel_password: "mysecret", role: :master)
 ```
 
 If you specify a username and/or password at the top level for your main Redis instance, Sentinel *will not* using thouse credentials
 
 ```ruby
 # Use 'mysecret' to authenticate against the mymaster instance, but skip authentication for the sentinels:
-SENTINELS = [{ host: '127.0.0.1', port: 26380 },
-             { host: '127.0.0.1', port: 26381 }]
+SENTINELS = [{ host: "127.0.0.1", port: 26380 },
+             { host: "127.0.0.1", port: 26381 }]
 
-redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master, password: 'mysecret')
+redis = Redis.new(name: "mymaster", sentinels: SENTINELS, role: :master, password: "mysecret")
 ```
 
 So you have to provide Sentinel credential and Redis explictly even they are the same
 
 ```ruby
 # Use 'mysecret' to authenticate against the mymaster instance and sentinel
-SENTINELS = [{ host: '127.0.0.1', port: 26380 },
-             { host: '127.0.0.1', port: 26381 }]
+SENTINELS = [{ host: "127.0.0.1", port: 26380 },
+             { host: "127.0.0.1", port: 26381 }]
 
-redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master, password: 'mysecret', sentinel_password: 'mysecret')
+redis = Redis.new(name: "mymaster", sentinels: SENTINELS, role: :master, password: "mysecret", sentinel_password: "mysecret")
 ```
 
 Also the `name`, `password`, `username` and `db` for Redis instance can be passed as an url:
@@ -353,11 +353,11 @@ redis = Redis.new(
 
 ## Expert-Mode Options
 
- - `inherit_socket: true`: disable safety check that prevents a forked child
+* `inherit_socket: true`: disable safety check that prevents a forked child
    from sharing a socket with its parent; this is potentially useful in order to mitigate connection churn when:
-    - many short-lived forked children of one process need to talk
+  * many short-lived forked children of one process need to talk
       to redis, AND
-    - your own code prevents the parent process from using the redis
+  * your own code prevents the parent process from using the redis
       connection while a child is alive
 
    Improper use of `inherit_socket` will result in corrupted and/or incorrect
@@ -405,7 +405,7 @@ Check [Github Actions][gh-actions-link] for the exact versions supported.
 
 ## See Also
 
-- [async-redis](https://github.com/socketry/async-redis) — An [async](https://github.com/socketry/async) compatible Redis client.
+* [async-redis](https://github.com/socketry/async-redis) — An [async](https://github.com/socketry/async) compatible Redis client.
 
 ## Contributors
 
@@ -418,7 +418,6 @@ client and evangelized Redis in Rubyland. Thank you, Ezra.
 
 [Fork the project](https://github.com/redis/redis-rb) and send pull
 requests.
-
 
 [rdoc-master-image]: https://img.shields.io/badge/docs-rdoc.info-blue.svg
 [rdoc-master-link]:  https://rubydoc.info/github/redis/redis-rb
