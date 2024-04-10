@@ -191,6 +191,28 @@ end
 # => ["OK"]
 ```
 
+### Exception management
+
+The `exception` flag in the `#pipelined` is a feature that modifies the pipeline execution behavior. When set
+to `false`, it doesn't raise an exception when a command error occurs. Instead, it allows the pipeline to execute all
+commands, and any failed command will be available in the returned array. (Defaults to `true`)
+
+```ruby
+results = redis.pipelined(exception: false) do |pipeline|
+  pipeline.set('key1', 'value1')
+  pipeline.lpush('key1', 'something') # This will fail
+  pipeline.set('key2', 'value2')
+end
+# results => ["OK", #<RedisClient::WrongTypeError: WRONGTYPE Operation against a key holding the wrong kind of value>, "OK"]
+
+results.each do |result|
+  if result.is_a?(Redis::CommandError)
+    # Do something with the failed result
+  end
+end
+```
+
+
 ### Executing commands atomically
 
 You can use `MULTI/EXEC` to run a number of commands in an atomic

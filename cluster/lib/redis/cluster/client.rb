@@ -90,8 +90,8 @@ class Redis
         handle_errors { super(timeout, command, &block) }
       end
 
-      def pipelined(&block)
-        handle_errors { super(&block) }
+      def pipelined(exception: true, &block)
+        handle_errors { super(exception: exception, &block) }
       end
 
       def multi(watch: nil, &block)

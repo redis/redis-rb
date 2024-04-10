@@ -98,6 +98,18 @@ class TestPipeliningCommands < Minitest::Test
     assert_raises(Redis::FutureNotReady) { @second.value }
   end
 
+  def test_assignment_of_results_inside_the_block_without_raising_exception
+    r.pipelined(exception: false) do |p|
+      @first = p.doesnt_exist
+      @second = p.sadd?("foo", 1)
+      @third = p.sadd?("foo", 1)
+    end
+
+    assert_equal RedisClient::CommandError, @first.value.class
+    assert_equal true, @second.value
+    assert_equal false, @third.value
+  end
+
   def test_assignment_of_results_inside_a_nested_block
     r.pipelined do |p|
       @first = p.sadd?("foo", 1)
@@ -109,6 +121,30 @@ class TestPipeliningCommands < Minitest::Test
 
     assert_equal true, @first.value
     assert_equal false, @second.value
+  end
+
+  def test_nested_pipelining_returns_without_raising_exception
+    result = r.pipelined(exception: false) do |p1|
+      p1.doesnt_exist
+      p1.set("foo", "42")
+      p1.pipelined do |p2|
+        p2.doesnt_exist_again
+        p2.set("bar", "99")
+      end
+    end
+
+    assert result[0].is_a?(RedisClient::CommandError)
+    assert_equal ["doesnt_exist"], result[0].command
+
+    assert_equal "OK", result[1]
+
+    assert result[2].is_a?(RedisClient::CommandError)
+    assert_equal ["doesnt_exist_again"], result[2].command
+
+    assert_equal "OK", result[3]
+
+    assert_equal "42", r.get("foo")
+    assert_equal "99", r.get("bar")
   end
 
   def test_futures_raise_when_confused_with_something_else

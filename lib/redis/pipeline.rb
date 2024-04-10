@@ -6,9 +6,10 @@ class Redis
   class PipelinedConnection
     attr_accessor :db
 
-    def initialize(pipeline, futures = [])
+    def initialize(pipeline, futures = [], exception: true)
       @pipeline = pipeline
       @futures = futures
+      @exception = exception
     end
 
     include Commands
@@ -37,7 +38,7 @@ class Redis
     end
 
     def send_command(command, &block)
-      future = Future.new(command, block)
+      future = Future.new(command, block, @exception)
       @pipeline.call_v(command) do |result|
         future._set(result)
       end
@@ -46,7 +47,7 @@ class Redis
     end
 
     def send_blocking_command(command, timeout, &block)
-      future = Future.new(command, block)
+      future = Future.new(command, block, @exception)
       @pipeline.blocking_call_v(timeout, command) do |result|
         future._set(result)
       end
@@ -79,10 +80,11 @@ class Redis
   class Future < BasicObject
     FutureNotReady = ::Redis::FutureNotReady.new
 
-    def initialize(command, coerce)
+    def initialize(command, coerce, exception)
       @command = command
       @object = FutureNotReady
       @coerce = coerce
+      @exception = exception
     end
 
     def inspect
@@ -95,7 +97,7 @@ class Redis
     end
 
     def value
-      ::Kernel.raise(@object) if @object.is_a?(::StandardError)
+      ::Kernel.raise(@object) if @exception && @object.is_a?(::StandardError)
       @object
     end
 

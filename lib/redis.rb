@@ -99,10 +99,10 @@ class Redis
     @client
   end
 
-  def pipelined
+  def pipelined(exception: true)
     synchronize do |client|
-      client.pipelined do |raw_pipeline|
-        yield PipelinedConnection.new(raw_pipeline)
+      client.pipelined(exception: exception) do |raw_pipeline|
+        yield PipelinedConnection.new(raw_pipeline, exception: exception)
       end
     end
   end
