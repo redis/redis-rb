@@ -1,5 +1,9 @@
 # Unreleased
 
+# 5.2.0
+
+- Now require Ruby 2.6 because `redis-client` does.
+- Eagerly close subscribed connection when using `subscribe_with_timeout`. See #1259.
 - Add `exception` flag in `pipelined` allowing failed commands to be returned in the result array when set to `false`.
 
 # 5.1.0
