@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add `exception` flag in `pipelined` allowing failed commands to be returned in the result array when set to `false`.
+
 # 5.1.0
 
 - `multi` now accept a `watch` keyword argument like `redis-client`. See #1236.

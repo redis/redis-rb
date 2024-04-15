@@ -105,7 +105,7 @@ class Redis
       Client.translate_error!(error)
     end
 
-    def pipelined
+    def pipelined(exception: true)
       super
     rescue ::RedisClient::Error => error
       Client.translate_error!(error)
