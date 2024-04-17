@@ -24,9 +24,7 @@ class TestClusterCommandsOnTransactions < Minitest::Test
       redis.multi
     end
 
-    assert_raises(ArgumentError) do
-      redis.multi {}
-    end
+    assert_empty(redis.multi {})
 
     assert_equal([1], redis.multi { |r| r.incr('counter') })
   end
@@ -55,6 +53,8 @@ class TestClusterCommandsOnTransactions < Minitest::Test
         tx.call('SET', '{key}2', '2')
       end
     end
+
+    assert_empty(redis.watch('{key}1', '{key}2') {})
 
     redis.watch('{key}1', '{key}2') do |tx|
       tx.call('SET', '{key}1', '1')
