@@ -7,10 +7,10 @@ class TestClusterClientTransactions < Minitest::Test
   include Helper::Cluster
 
   def test_cluster_client_does_support_transaction_by_single_key
-    actual = redis.multi do |r|
-      r.set('counter', '0')
-      r.incr('counter')
-      r.incr('counter')
+    actual = redis.multi do |tx|
+      tx.set('counter', '0')
+      tx.incr('counter')
+      tx.incr('counter')
     end
 
     assert_equal(['OK', 1, 2], actual)
@@ -18,9 +18,9 @@ class TestClusterClientTransactions < Minitest::Test
   end
 
   def test_cluster_client_does_support_transaction_by_hashtag
-    actual = redis.multi do |r|
-      r.mset('{key}1', 1, '{key}2', 2)
-      r.mset('{key}3', 3, '{key}4', 4)
+    actual = redis.multi do |tx|
+      tx.mset('{key}1', 1, '{key}2', 2)
+      tx.mset('{key}3', 3, '{key}4', 4)
     end
 
     assert_equal(%w[OK OK], actual)
@@ -29,18 +29,18 @@ class TestClusterClientTransactions < Minitest::Test
 
   def test_cluster_client_does_not_support_transaction_by_multiple_keys
     assert_raises(Redis::Cluster::TransactionConsistencyError) do
-      redis.multi do |r|
-        r.set('key1', 1)
-        r.set('key2', 2)
-        r.set('key3', 3)
-        r.set('key4', 4)
+      redis.multi do |tx|
+        tx.set('key1', 1)
+        tx.set('key2', 2)
+        tx.set('key3', 3)
+        tx.set('key4', 4)
       end
     end
 
     assert_raises(Redis::Cluster::TransactionConsistencyError) do
-      redis.multi do |r|
-        r.mset('key1', 1, 'key2', 2)
-        r.mset('key3', 3, 'key4', 4)
+      redis.multi do |tx|
+        tx.mset('key1', 1, 'key2', 2)
+        tx.mset('key3', 3, 'key4', 4)
       end
     end
 
@@ -63,10 +63,50 @@ class TestClusterClientTransactions < Minitest::Test
       another.resume
       v1 = redis.get('{key}1')
       v2 = redis.get('{key}2')
-      tx.call('SET', '{key}1', v2)
-      tx.call('SET', '{key}2', v1)
+      tx.set('{key}1', v2)
+      tx.set('{key}2', v1)
     end
 
     assert_equal %w[3 4], redis.mget('{key}1', '{key}2')
+  end
+
+  def test_cluster_client_can_be_used_compatible_with_standalone_client
+    redis.set('{my}key', 'value')
+    redis.set('{my}counter', '0')
+    redis.watch('{my}key', '{my}counter') do |client|
+      if redis.get('{my}key') == 'value'
+        client.multi do |tx|
+          tx.set('{my}key', 'updated value')
+          tx.incr('{my}counter')
+        end
+      else
+        client.unwatch
+      end
+    end
+
+    assert_equal('updated value', redis.get('{my}key'))
+    assert_equal('1', redis.get('{my}counter'))
+
+    another = Fiber.new do
+      cli = build_another_client
+      cli.set('{my}key', 'another value')
+      cli.close
+      Fiber.yield
+    end
+
+    redis.watch('{my}key', '{my}counter') do |client|
+      another.resume
+      if redis.get('{my}key') == 'value'
+        client.multi do |tx|
+          tx.set('{my}key', 'latest value')
+          tx.incr('{my}counter')
+        end
+      else
+        client.unwatch
+      end
+    end
+
+    assert_equal('another value', redis.get('{my}key'))
+    assert_equal('1', redis.get('{my}counter'))
   end
 end

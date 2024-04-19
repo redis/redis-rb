@@ -42,23 +42,23 @@ class TestClusterCommandsOnTransactions < Minitest::Test
 
     assert_raises(Redis::Cluster::TransactionConsistencyError) do
       redis.watch('key1', 'key2') do |tx|
-        tx.call('SET', 'key1', '1')
-        tx.call('SET', 'key2', '2')
+        tx.set('key1', '1')
+        tx.set('key2', '2')
       end
     end
 
     assert_raises(Redis::Cluster::TransactionConsistencyError) do
       redis.watch('{hey}1', '{hey}2') do |tx|
-        tx.call('SET', '{key}1', '1')
-        tx.call('SET', '{key}2', '2')
+        tx.set('{key}1', '1')
+        tx.set('{key}2', '2')
       end
     end
 
     assert_empty(redis.watch('{key}1', '{key}2') {})
 
     redis.watch('{key}1', '{key}2') do |tx|
-      tx.call('SET', '{key}1', '1')
-      tx.call('SET', '{key}2', '2')
+      tx.set('{key}1', '1')
+      tx.set('{key}2', '2')
     end
 
     assert_equal %w[1 2], redis.mget('{key}1', '{key}2')

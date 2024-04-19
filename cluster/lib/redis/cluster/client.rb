@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'redis-cluster-client'
+require 'redis/cluster/transaction_adapter'
 
 class Redis
   class Cluster
@@ -96,6 +97,22 @@ class Redis
 
       def multi(watch: nil, &block)
         handle_errors { super(watch: watch, &block) }
+      end
+
+      def watch(*keys)
+        unless block_given?
+          raise Redis::Cluster::TransactionConsistencyError, 'A block is required if you use the cluster client.'
+        end
+
+        handle_errors do
+          RedisClient::Cluster::OptimisticLocking.new(@router).watch(keys) do |c, slot, asking|
+            transaction = Redis::Cluster::TransactionAdapter.new(
+              self, @router, @command_builder, node: c, slot: slot, asking: asking
+            )
+            yield transaction
+            transaction.execute
+          end
+        end
       end
 
       private

@@ -96,8 +96,20 @@ class Redis
       send_command([:cluster, subcommand] + args, &block)
     end
 
+    # @example A typical use case.
+    #   redis.watch("key") do |client|        # The client is an instance of the adapter
+    #     if redis.get("key") == "some value" # We can't use the client passed by the block argument
+    #       client.multi do |tx|              # The tx is the same instance of the adapter
+    #         tx.set("key", "other value")
+    #         tx.incr("counter")
+    #       end
+    #     else
+    #       client.unwatch
+    #     end
+    #   end
+    #   # => ["OK", 6]
     def watch(*keys, &block)
-      synchronize { |c| c.call_v([:watch] + keys, &block) }
+      synchronize { |c| c.watch(*keys, &block) }
     end
 
     private
