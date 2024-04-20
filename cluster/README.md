@@ -75,3 +75,28 @@ Redis::Cluster.new(nodes: %w[rediss://foo-endpoint.example.com:6379], fixed_host
 ```
 
 In case of the above architecture, if you don't pass the `fixed_hostname` option to the client and servers return IP addresses of nodes, the client may fail to verify certificates.
+
+## Transaction with an optimistic locking
+Since Redis cluster is a distributed system, several behaviors are different from a standalone server.
+Client libraries can make them compatible up to a point, but a part of features needs some restrictions.
+Especially, some cautions are needed to use the transaction feature with an optimistic locking.
+
+```ruby
+redis.watch("{my}key") do |client|        # The client is an instance of the internal adapter
+  if redis.get("{my}key") == "some value" # We can't use the client passed by the block argument
+    client.multi do |tx|                  # The tx is the same instance of the internal adapter
+      tx.set("{my}key", "other value")
+      tx.incr("{my}counter")
+    end
+  else
+    client.unwatch
+  end
+end
+```
+
+In a cluster mode client, you need to pass a block if you call the watch method and you need to specify an argument to the block.
+Also, you should use the block argument as a receiver to call the transaction feature methods in the block.
+The commands called by methods of the receiver are added to the internal pipeline for the transaction and they are sent to the server lastly.
+On the other hand, if you want to call other methods for commands, you can use the global instance of the client instead of the block argument.
+It affects out of the transaction pipeline and the replies are returned soon.
+Although the above restrictions are needed, this implementations is compatible with a standalone client.

@@ -99,9 +99,19 @@ class Redis
         handle_errors { super(watch: watch, &block) }
       end
 
-      def watch(*keys)
+      def watch(*keys, &block)
         unless block_given?
-          raise Redis::Cluster::TransactionConsistencyError, 'A block is required if you use the cluster client.'
+          raise(
+            Redis::Cluster::TransactionConsistencyError,
+            'A block is required if you use the cluster client.'
+          )
+        end
+
+        unless block.arity == 1
+          raise(
+            Redis::Cluster::TransactionConsistencyError,
+            'Given block needs an argument if you use the cluster client.'
+          )
         end
 
         handle_errors do
