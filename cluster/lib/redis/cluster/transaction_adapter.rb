@@ -23,7 +23,10 @@ class Redis
       end
 
       def watch(*_)
-        # no need to do anything
+        raise(
+          Redis::Cluster::TransactionConsistencyError,
+          'You should pass all the keys to a watch method if you use the cluster client.'
+        )
       end
 
       def unwatch
