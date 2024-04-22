@@ -22,6 +22,8 @@ class Redis
       #   - `:type => String`: return keys only of the given type
       #
       # @return [String, Array<String>] the next cursor and all found keys
+      # 
+      # See the [Redis Server SCAN documentation](https://redis.io/docs/latest/commands/scan/) for further details
       def scan(cursor, **options)
         _scan(:scan, cursor, [], **options)
       end
@@ -46,6 +48,8 @@ class Redis
       #   - `:type => String`: return keys only of the given type
       #
       # @return [Enumerator] an enumerator for all found keys
+      # 
+      # See the [Redis Server SCAN documentation](https://redis.io/docs/latest/commands/scan/) for further details
       def scan_each(**options, &block)
         return to_enum(:scan_each, **options) unless block_given?
 
@@ -282,6 +286,8 @@ class Redis
       #
       # @param [String] pattern
       # @return [Array<String>]
+      # 
+      # See the [Redis Server KEYS documentation](https://redis.io/docs/latest/commands/keys/) for further details
       def keys(pattern = "*")
         send_command([:keys, pattern]) do |reply|
           if reply.is_a?(String)

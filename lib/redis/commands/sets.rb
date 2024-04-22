@@ -184,6 +184,8 @@ class Redis
       #   - `:count => Integer`: return count keys at most per iteration
       #
       # @return [String, Array<String>] the next cursor and all found members
+      #
+      # See the [Redis Server SSCAN documentation](https://redis.io/docs/latest/commands/sscan/) for further details
       def sscan(key, cursor, **options)
         _scan(:sscan, cursor, [key], **options)
       end
@@ -199,6 +201,8 @@ class Redis
       #   - `:count => Integer`: return count keys at most per iteration
       #
       # @return [Enumerator] an enumerator for all keys in the set
+      #
+      # See the [Redis Server SSCAN documentation](https://redis.io/docs/latest/commands/sscan/) for further details
       def sscan_each(key, **options, &block)
         return to_enum(:sscan_each, key, **options) unless block_given?
 
