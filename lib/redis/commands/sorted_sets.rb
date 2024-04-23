@@ -817,6 +817,8 @@ class Redis
       #
       # @return [String, Array<[String, Float]>] the next cursor and all found
       #   members and scores
+      #
+      # See the [Redis Server ZSCAN documentation](https://redis.io/docs/latest/commands/zscan/) for further details
       def zscan(key, cursor, **options)
         _scan(:zscan, cursor, [key], **options) do |reply|
           [reply[0], FloatifyPairs.call(reply[1])]
@@ -834,6 +836,8 @@ class Redis
       #   - `:count => Integer`: return count keys at most per iteration
       #
       # @return [Enumerator] an enumerator for all found scores and members
+      # 
+      # See the [Redis Server ZSCAN documentation](https://redis.io/docs/latest/commands/zscan/) for further details
       def zscan_each(key, **options, &block)
         return to_enum(:zscan_each, key, **options) unless block_given?
 

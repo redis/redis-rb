@@ -29,17 +29,20 @@ class Redis
       end
 
       # Listen for messages published to channels matching the given patterns.
+      # See the [Redis Server PSUBSCRIBE documentation](https://redis.io/docs/latest/commands/psubscribe/) for further details
       def psubscribe(*channels, &block)
         _subscription(:psubscribe, 0, channels, block)
       end
 
       # Listen for messages published to channels matching the given patterns.
       # Throw a timeout error if there is no messages for a timeout period.
+      # See the [Redis Server PSUBSCRIBE documentation](https://redis.io/docs/latest/commands/psubscribe/) for further details
       def psubscribe_with_timeout(timeout, *channels, &block)
         _subscription(:psubscribe_with_timeout, timeout, channels, block)
       end
 
       # Stop listening for messages posted to channels matching the given patterns.
+      # See the [Redis Server PUNSUBSCRIBE documentation](https://redis.io/docs/latest/commands/punsubscribe/) for further details
       def punsubscribe(*channels)
         _subscription(:punsubscribe, 0, channels, nil)
       end

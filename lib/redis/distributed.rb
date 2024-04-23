@@ -948,12 +948,14 @@ class Redis
     end
 
     # Listen for messages published to channels matching the given patterns.
+    # See the [Redis Server PSUBSCRIBE documentation](https://redis.io/docs/latest/commands/psubscribe/) for further details
     def psubscribe(*channels, &block)
       raise NotImplementedError
     end
 
     # Stop listening for messages posted to channels matching the given
     # patterns.
+    # See the [Redis Server PUNSUBSCRIBE documentation](https://redis.io/docs/latest/commands/punsubscribe/) for further details
     def punsubscribe(*channels)
       raise NotImplementedError
     end
