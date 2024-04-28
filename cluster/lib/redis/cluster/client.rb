@@ -119,8 +119,10 @@ class Redis
             transaction = Redis::Cluster::TransactionAdapter.new(
               self, @router, @command_builder, node: c, slot: slot, asking: asking
             )
-            yield transaction
-            transaction.execute
+
+            result = yield transaction
+            c.call('UNWATCH') unless transaction.lock_released?
+            result
           end
         end
       end

@@ -59,12 +59,15 @@ class TestClusterClientTransactions < Minitest::Test
       Fiber.yield
     end
 
-    redis.watch('{key}1', '{key}2') do |tx|
+    redis.watch('{key}1', '{key}2') do |client|
       another.resume
-      v1 = redis.get('{key}1')
-      v2 = redis.get('{key}2')
-      tx.set('{key}1', v2)
-      tx.set('{key}2', v1)
+      v1 = client.get('{key}1')
+      v2 = client.get('{key}2')
+
+      client.multi do |tx|
+        tx.set('{key}1', v2)
+        tx.set('{key}2', v1)
+      end
     end
 
     assert_equal %w[3 4], redis.mget('{key}1', '{key}2')
@@ -74,7 +77,7 @@ class TestClusterClientTransactions < Minitest::Test
     redis.set('{my}key', 'value')
     redis.set('{my}counter', '0')
     redis.watch('{my}key', '{my}counter') do |client|
-      if redis.get('{my}key') == 'value'
+      if client.get('{my}key') == 'value'
         client.multi do |tx|
           tx.set('{my}key', 'updated value')
           tx.incr('{my}counter')
@@ -96,7 +99,7 @@ class TestClusterClientTransactions < Minitest::Test
 
     redis.watch('{my}key', '{my}counter') do |client|
       another.resume
-      if redis.get('{my}key') == 'value'
+      if client.get('{my}key') == 'value'
         client.multi do |tx|
           tx.set('{my}key', 'latest value')
           tx.incr('{my}counter')
