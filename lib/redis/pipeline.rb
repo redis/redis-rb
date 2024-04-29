@@ -297,10 +297,10 @@ class Redis
     end
 
     def _set(replies)
-      @futures.each_with_index do |future, index|
+      @futures.map.with_index do |future, index|
         future._set(replies[index])
+        future.value
       end
-      replies
     end
   end
 end
