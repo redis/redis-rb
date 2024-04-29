@@ -118,12 +118,14 @@ class Redis
     end
 
     def _set(replies)
-      if replies
-        @futures.each_with_index do |future, index|
+      @object = if replies
+        @futures.map.with_index do |future, index|
           future._set(replies[index])
+          future.value
         end
+      else
+        replies
       end
-      @object = replies
     end
   end
 end
