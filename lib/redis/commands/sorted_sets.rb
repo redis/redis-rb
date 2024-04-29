@@ -836,7 +836,7 @@ class Redis
       #   - `:count => Integer`: return count keys at most per iteration
       #
       # @return [Enumerator] an enumerator for all found scores and members
-      # 
+      #
       # See the [Redis Server ZSCAN documentation](https://redis.io/docs/latest/commands/zscan/) for further details
       def zscan_each(key, **options, &block)
         return to_enum(:zscan_each, key, **options) unless block_given?

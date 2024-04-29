@@ -222,7 +222,7 @@ class Redis
       #   - `:count => Integer`: return count keys at most per iteration
       #
       # @return [String, Array<[String, String]>] the next cursor and all found keys
-      # 
+      #
       # See the [Redis Server HSCAN documentation](https://redis.io/docs/latest/commands/hscan/) for further details
       def hscan(key, cursor, **options)
         _scan(:hscan, cursor, [key], **options) do |reply|
@@ -241,7 +241,7 @@ class Redis
       #   - `:count => Integer`: return count keys at most per iteration
       #
       # @return [Enumerator] an enumerator for all found keys
-      # 
+      #
       # See the [Redis Server HSCAN documentation](https://redis.io/docs/latest/commands/hscan/) for further details
       def hscan_each(key, **options, &block)
         return to_enum(:hscan_each, key, **options) unless block_given?
