@@ -82,9 +82,11 @@ Client libraries can make them compatible up to a point, but a part of features 
 Especially, some cautions are needed to use the transaction feature with an optimistic locking.
 
 ```ruby
-redis.watch("{my}key") do |client|        # The client is an instance of the internal adapter
-  if redis.get("{my}key") == "some value" # We can't use the client passed by the block argument
-    client.multi do |tx|                  # The tx is the same instance of the internal adapter
+# The client is an instance of the internal adapter for the optimistic locking
+redis.watch("{my}key") do |client|
+  if client.get("{my}key") == "some value"
+    # The tx is an instance of the internal adapter for the transaction
+    client.multi do |tx|
       tx.set("{my}key", "other value")
       tx.incr("{my}counter")
     end
@@ -95,8 +97,5 @@ end
 ```
 
 In a cluster mode client, you need to pass a block if you call the watch method and you need to specify an argument to the block.
-Also, you should use the block argument as a receiver to call the transaction feature methods in the block.
-The commands called by methods of the receiver are added to the internal pipeline for the transaction and they are sent to the server lastly.
-On the other hand, if you want to call other methods for commands, you can use the global instance of the client instead of the block argument.
-It affects out of the transaction pipeline and the replies are returned soon.
+Also, you should use the block argument as a receiver to call commands in the block.
 Although the above restrictions are needed, this implementations is compatible with a standalone client.

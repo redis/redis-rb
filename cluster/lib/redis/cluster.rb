@@ -99,19 +99,20 @@ class Redis
     # Watch the given keys to determine execution of the MULTI/EXEC block.
     #
     # Using a block is required for a cluster client. It's different from a standalone client.
-    # And you should use the block argument as a receiver if you call transaction feature methods.
-    # On the other hand, you can use the global instance of the client if you call methods of other commands.
+    # And you should use the block argument as a receiver if you call commands.
     #
     # An `#unwatch` is automatically issued if an exception is raised within the
     # block that is a subclass of StandardError and is not a ConnectionError.
     #
     # @param keys [String, Array<String>] one or more keys to watch
-    # @return [Array<Object>] replies of the transaction or an empty array
+    # @return [Object] returns the return value of the block
     #
     # @example A typical use case.
-    #   redis.watch("{my}key") do |client|        # The client is an instance of the internal adapter
-    #     if redis.get("{my}key") == "some value" # We can't use the client passed by the block argument
-    #       client.multi do |tx|                  # The tx is the same instance of the internal adapter
+    #   # The client is an instance of the internal adapter for the optimistic locking
+    #   redis.watch("{my}key") do |client|
+    #     if client.get("{my}key") == "some value"
+    #       # The tx is an instance of the internal adapter for the transaction
+    #       client.multi do |tx|
     #         tx.set("{my}key", "other value")
     #         tx.incr("{my}counter")
     #       end
