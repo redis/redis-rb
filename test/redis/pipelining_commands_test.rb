@@ -239,6 +239,23 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal ["value", 1.0], future.value
   end
 
+  def test_hgetall_in_a_multi_in_a_pipeline_returns_hash
+    future = nil
+    result = r.pipelined do |p|
+      p.multi do |m|
+        m.hmset("hash", "field", "value", "field2", "value2")
+        future = m.hgetall("hash")
+      end
+    end
+
+    if Gem::Version.new(Redis::VERSION) > Gem::Version.new("4.8")
+      result = result.last
+    end
+
+    assert_equal({ "field" => "value", "field2" => "value2" }, result.last)
+    assert_equal({ "field" => "value", "field2" => "value2" }, future.value)
+  end
+
   def test_keys_in_a_pipeline
     r.set("key", "value")
     result = r.pipelined do |p|
