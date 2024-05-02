@@ -18,10 +18,7 @@ class TestClusterCommandsOnKeys < Minitest::Test
   def test_del
     set_some_keys
 
-    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
-      redis.del('key1', 'key2')
-    end
-
+    assert_equal 2, redis.del('key1', 'key2')
     assert_equal 2, redis.del('{key}1', '{key}2')
   end
 
