@@ -273,6 +273,7 @@ See lib/redis/errors.rb for information about what exceptions are possible.
 ## Timeouts
 
 The client allows you to configure connect, read, and write timeouts.
+Starting in version 5.0, the default for each is 1. Before that, it was 5.
 Passing a single `timeout` option will set all three values:
 
 ```ruby
