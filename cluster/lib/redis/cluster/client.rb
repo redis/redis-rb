@@ -54,11 +54,11 @@ class Redis
       ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
 
       def id
-        @router.node_keys.join(' ')
+        server_url.join(' ')
       end
 
       def server_url
-        @router.node_keys
+        @router.nil? ? @config.startup_nodes.keys : router.node_keys
       end
 
       def connected?
@@ -115,9 +115,9 @@ class Redis
         end
 
         handle_errors do
-          RedisClient::Cluster::OptimisticLocking.new(@router).watch(keys) do |c, slot, asking|
+          RedisClient::Cluster::OptimisticLocking.new(router).watch(keys) do |c, slot, asking|
             transaction = Redis::Cluster::TransactionAdapter.new(
-              self, @router, @command_builder, node: c, slot: slot, asking: asking
+              self, router, @command_builder, node: c, slot: slot, asking: asking
             )
 
             result = yield transaction
