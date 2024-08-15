@@ -58,7 +58,7 @@ class Redis
 
   class MultiConnection < PipelinedConnection
     def multi
-      raise Redis::Error, "Can't nest multi transaction"
+      raise Redis::BaseError, "Can't nest multi transaction"
     end
 
     private
