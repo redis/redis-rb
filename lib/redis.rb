@@ -133,7 +133,7 @@ class Redis
 
   def configure_options(options)
     default_configuration = self.class.default_configuration
-    return options if default_configuration.nil?
+    return options unless default_configuration
 
     h_deep_merge = lambda do |hash1, hash2|
       result = hash1.dup
