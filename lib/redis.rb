@@ -9,7 +9,7 @@ class Redis
   Deprecated = Class.new(StandardError)
 
   class << self
-    attr_accessor :silence_deprecations, :raise_deprecations
+    attr_accessor :silence_deprecations, :raise_deprecations, :default_configuration
 
     def deprecate!(message)
       unless silence_deprecations
@@ -62,7 +62,7 @@ class Redis
   # @return [Redis] a new client instance
   def initialize(options = {})
     @monitor = Monitor.new
-    @options = options.dup
+    @options = configure_options(options.dup)
     @options[:reconnect_attempts] = 1 unless @options.key?(:reconnect_attempts)
     if ENV["REDIS_URL"] && SERVER_URL_OPTIONS.none? { |o| @options.key?(o) }
       @options[:url] = ENV["REDIS_URL"]
@@ -130,6 +130,25 @@ class Redis
   end
 
   private
+
+  def configure_options(options)
+    default_configuration = self.class.default_configuration
+    return options if default_configuration.nil?
+
+    h_deep_merge = lambda do |hash1, hash2|
+      result = hash1.dup
+      hash2.each do |key, value|
+        result[key] = if value.is_a?(Hash) && result[key].is_a?(Hash)
+          h_deep_merge.call(result[key], value)
+        else
+          value
+        end
+      end
+      result
+    end
+
+    h_deep_merge.call(default_configuration, options)
+  end
 
   def initialize_client(options)
     if options.key?(:cluster)

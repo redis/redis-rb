@@ -26,6 +26,16 @@ server or a different port, try:
 
 ```ruby
 redis = Redis.new(host: "10.0.1.1", port: 6380, db: 15)
+
+# or you can globally configure the connection information
+# and reuse it across your application
+
+Redis.default_configuration = {
+  host: "10.0.1.1", port: 6380, driver: :hiredis
+}
+
+redis_db_1 = Redis.new(db: 1)
+redis_db_2 = Redis.new(db: 2)
 ```
 
 You can also specify connection options as a [`redis://` URL][redis-url]:
