@@ -1,5 +1,9 @@
 # Unreleased
 
+# 5.3.0
+
+- Fix the return type of `hgetall` when used inside a `multi` transaction which is itself inside a pipeline.
+
 # 5.2.0
 
 - Now require Ruby 2.6 because `redis-client` does.
