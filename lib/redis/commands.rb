@@ -199,8 +199,8 @@ class Redis
     # hash, are up to consumers.
     #
     # Redis error replies are raised as Ruby exceptions.
-    def call(*command)
-      send_command(command)
+    def call(*command, &block)
+      send_command(command, &block)
     end
 
     # Interact with the sentinel command (masters, master, slaves, failover)

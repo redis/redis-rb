@@ -15,6 +15,11 @@ class TestClient < Minitest::Test
     assert_equal result, "OK"
   end
 
+  def test_with_block
+    result = r.call("INFO") { |l| l.lines(chomp: true).grep(/uptime_in_days/)[0] }
+    assert_equal result, "uptime_in_days:0"
+  end
+
   def test_call_integers
     result = r.call("INCR", "foo")
     assert_equal result, 1
