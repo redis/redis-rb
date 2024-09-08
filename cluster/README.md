@@ -99,3 +99,10 @@ end
 In a cluster mode client, you need to pass a block if you call the watch method and you need to specify an argument to the block.
 Also, you should use the block argument as a receiver to call commands in the block.
 Although the above restrictions are needed, this implementations is compatible with a standalone client.
+
+## MGET, MSET and DEL
+This gem allows you to use MGET, MSET and DEL specifying multiple keys without a hash tag.
+Cross-slot errors are prevented by an internal dedicated implementation.
+The underlying library makes the behavior possible.
+(ref. [redis-cluster-client](https://github.com/redis-rb/redis-cluster-client))
+That said, we recommend to use a hash tag for these commands to the better performance.
