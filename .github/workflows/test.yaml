@@ -95,6 +95,7 @@ jobs:
         run: make start
       - name: Test
         run: bundle exec rake test:${{ matrix.suite }}
+        timeout-minutes: 3
       - name: Shutting down Redis
         run: make stop
 
