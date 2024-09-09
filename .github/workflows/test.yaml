@@ -57,6 +57,7 @@ jobs:
         run: make start
       - name: Test
         run: bundle exec rake test:redis test:distributed
+        timeout-minutes: 3
       - name: Shutting down Redis
         run: make stop
 

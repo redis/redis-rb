@@ -16,6 +16,7 @@ class SslTest < Minitest::Test
     RedisMock.start({ ping: proc { "+PONG" } }, ssl_server_opts("trusted")) do |port|
       redis = Redis.new(host: "127.0.0.1", port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
       assert_equal redis.ping, "PONG"
+      redis.close
     end
   end
 
@@ -41,6 +42,7 @@ class SslTest < Minitest::Test
     RedisMock.start({}, ssl_server_opts("trusted")) do |port|
       redis = Redis.new(host: "127.0.0.1", port: port, ssl: true, ssl_params: { ca_file: ssl_ca_file })
       assert_equal redis.set("boom", "a" * 10_000_000), "OK"
+      redis.close
     end
   end
 
