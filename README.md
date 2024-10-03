@@ -34,7 +34,7 @@ You can also specify connection options as a [`redis://` URL][redis-url]:
 redis = Redis.new(url: "redis://:p4ssw0rd@10.0.1.1:6380/15")
 ```
 
-The client expects passwords with special chracters to be URL-encoded (i.e.
+The client expects passwords with special characters to be URL-encoded (i.e.
 `CGI.escape(password)`).
 
 To connect to Redis listening on a Unix socket, try:
@@ -77,7 +77,7 @@ The client does not provide connection pooling. Each `Redis` instance
 has one and only one connection to the server, and use of this connection
 is protected by a mutex.
 
-As such it is heavilly recommended to use the [`connection_pool` gem](https://github.com/mperham/connection_pool), e.g.:
+As such it is heavily recommended to use the [`connection_pool` gem](https://github.com/mperham/connection_pool), e.g.:
 
 ```ruby
 module MyApp
@@ -139,7 +139,7 @@ SENTINELS = [{ host: '127.0.0.1', port: 26380 },
 redis = Redis.new(name: 'mymaster', sentinels: SENTINELS, role: :master, password: 'mysecret')
 ```
 
-So you have to provide Sentinel credential and Redis explictly even they are the same
+So you have to provide Sentinel credential and Redis explicitly even they are the same
 
 ```ruby
 # Use 'mysecret' to authenticate against the mymaster instance and sentinel
@@ -406,7 +406,7 @@ gem "hiredis-client"
 ```
 
 If your application doesn't call `Bundler.require`, you may have
-to require it explictly:
+to require it explicitly:
 
 ```ruby
 require "hiredis-client"
