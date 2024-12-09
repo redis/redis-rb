@@ -752,14 +752,14 @@ class Redis
     end
 
     # Determine the index of a member in a sorted set.
-    def zrank(key, member)
-      node_for(key).zrank(key, member)
+    def zrank(key, member, **options)
+      node_for(key).zrank(key, member, **options)
     end
 
     # Determine the index of a member in a sorted set, with scores ordered from
     # high to low.
-    def zrevrank(key, member)
-      node_for(key).zrevrank(key, member)
+    def zrevrank(key, member, **options)
+      node_for(key).zrevrank(key, member, **options)
     end
 
     # Remove all members in a sorted set within the given indexes.

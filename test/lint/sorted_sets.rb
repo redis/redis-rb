@@ -226,6 +226,10 @@ module Lint
       r.zadd "foo", 3, "s3"
 
       assert_equal 2, r.zrank("foo", "s3")
+      target_version "7.2" do
+        assert_equal [2, 3], r.zrank("foo", "s3", with_score: true)
+        assert_equal [2, 3], r.zrank("foo", "s3", withscore: true)
+      end
     end
 
     def test_zrevrank
@@ -234,6 +238,10 @@ module Lint
       r.zadd "foo", 3, "s3"
 
       assert_equal 0, r.zrevrank("foo", "s3")
+      target_version "7.2" do
+        assert_equal [0, 3], r.zrevrank("foo", "s3", with_score: true)
+        assert_equal [0, 3], r.zrevrank("foo", "s3", withscore: true)
+      end
     end
 
     def test_zrange

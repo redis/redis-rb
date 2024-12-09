@@ -454,21 +454,55 @@ class Redis
 
       # Determine the index of a member in a sorted set.
       #
+      # @example Retrieve member rank
+      #   redis.zrank("zset", "a")
+      #     # => 3
+      # @example Retrieve member rank with their score
+      #   redis.zrank("zset", "a", :with_score => true)
+      #     # => [3, 32.0]
+      #
       # @param [String] key
       # @param [String] member
-      # @return [Integer]
-      def zrank(key, member)
-        send_command([:zrank, key, member])
+      #
+      # @return [Integer, [Integer, Float]]
+      #   - when `:with_score` is not specified, an Integer
+      #   - when `:with_score` is specified, a `[rank, score]` pair
+      def zrank(key, member, withscore: false, with_score: withscore)
+        args = [:zrank, key, member]
+
+        if with_score
+          args << "WITHSCORE"
+          block = FloatifyPair
+        end
+
+        send_command(args, &block)
       end
 
       # Determine the index of a member in a sorted set, with scores ordered from
       # high to low.
       #
+      # @example Retrieve member rank
+      #   redis.zrevrank("zset", "a")
+      #     # => 3
+      # @example Retrieve member rank with their score
+      #   redis.zrevrank("zset", "a", :with_score => true)
+      #     # => [3, 32.0]
+      #
       # @param [String] key
       # @param [String] member
-      # @return [Integer]
-      def zrevrank(key, member)
-        send_command([:zrevrank, key, member])
+      #
+      # @return [Integer, [Integer, Float]]
+      #   - when `:with_score` is not specified, an Integer
+      #   - when `:with_score` is specified, a `[rank, score]` pair
+      def zrevrank(key, member, withscore: false, with_score: withscore)
+        args = [:zrevrank, key, member]
+
+        if with_score
+          args << "WITHSCORE"
+          block = FloatifyPair
+        end
+
+        send_command(args, &block)
       end
 
       # Remove all members in a sorted set within the given indexes.

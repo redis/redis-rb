@@ -83,12 +83,14 @@ class Redis
       end
     }
 
+    FloatifyPair = lambda { |(first, score)|
+      [first, Floatify.call(score)]
+    }
+
     FloatifyPairs = lambda { |value|
       return value unless value.respond_to?(:each_slice)
 
-      value.each_slice(2).map do |member, score|
-        [member, Floatify.call(score)]
-      end
+      value.each_slice(2).map(&FloatifyPair)
     }
 
     HashifyInfo = lambda { |reply|
