@@ -41,18 +41,25 @@ class Redis
       # @param opts  [Hash]   several options for `XADD` command
       #
       # @option opts [String]  :id          the entry id, default value is `*`, it means auto generation
-      # @option opts [Integer] :maxlen      max length of entries
-      # @option opts [Boolean] :approximate whether to add `~` modifier of maxlen or not
+      # @option opts [Integer] :maxlen      max length of entries to keep
+      # @option opts [Integer] :minid       min id of entries to keep
+      # @option opts [Boolean] :approximate whether to add `~` modifier of maxlen/minid or not
       # @option opts [Boolean] :nomkstream  whether to add NOMKSTREAM, default is not to add
       #
       # @return [String] the entry id
-      def xadd(key, entry, approximate: nil, maxlen: nil, nomkstream: nil, id: '*')
+      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, nomkstream: nil, id: '*')
         args = [:xadd, key]
         args << 'NOMKSTREAM' if nomkstream
         if maxlen
+          raise ArgumentError, "can't supply both maxlen and minid" if minid
+
           args << "MAXLEN"
           args << "~" if approximate
           args << maxlen
+        elsif minid
+          args << "MINID"
+          args << "~" if approximate
+          args << minid
         end
         args << id
         args.concat(entry.flatten)
