@@ -89,6 +89,16 @@ module Lint
       assert_match ENTRY_ID_FORMAT, actual
     end
 
+    def test_xadd_with_minid_and_approximate_option
+      omit_version('6.2.0')
+      actual = redis.xadd('s1', { f1: 'v1', f2: 'v2' }, minid: '0-1', approximate: true)
+      assert_match ENTRY_ID_FORMAT, actual
+    end
+
+    def test_xadd_with_both_maxlen_and_minid
+      assert_raises(ArgumentError) { redis.xadd('s1', { f1: 'v1', f2: 'v2' }, maxlen: 2, minid: '0-1', approximate: true) }
+    end
+
     def test_xadd_with_nomkstream_option
       omit_version('6.2.0')
 
