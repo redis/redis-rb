@@ -1,5 +1,12 @@
 # Unreleased
 
+# 5.4.0
+
+- Fix `blmpop` method to actually use `BLMPOP`, it was mistakenly issuing `LMPOP` commands.
+- `xadd` now accepts a `minid:` argument.
+- `zrank` and `zrevrank` now accepts `with_score:` argument.
+- `Redis#call` now accept a block, allowing to use `Redis` instances where `RedisClient` is expected.
+
 # 5.3.0
 
 - Fix the return type of `hgetall` when used inside a `multi` transaction which is itself inside a pipeline.
