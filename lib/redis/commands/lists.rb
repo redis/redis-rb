@@ -205,7 +205,7 @@ class Redis
       def blmpop(timeout, *keys, modifier: "LEFT", count: nil)
         raise ArgumentError, "Pick either LEFT or RIGHT" unless modifier == "LEFT" || modifier == "RIGHT"
 
-        args = [:lmpop, keys.size, *keys, modifier]
+        args = [:blmpop, timeout, keys.size, *keys, modifier]
         args << "COUNT" << Integer(count) if count
 
         send_blocking_command(args, timeout)
