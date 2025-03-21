@@ -29,6 +29,11 @@ class Redis
   class OutOfMemoryError < CommandError
   end
 
+  if defined?(RedisClient::NoScriptError)
+    class NoScriptError < CommandError
+    end
+  end
+
   # Base error for connection related errors.
   class BaseConnectionError < BaseError
   end

@@ -17,6 +17,9 @@ class Redis
       RedisClient::ProtocolError => Redis::ProtocolError,
       RedisClient::OutOfMemoryError => Redis::OutOfMemoryError,
     }
+    if defined?(RedisClient::NoScriptError)
+      ERROR_MAPPING[RedisClient::NoScriptError] = Redis::NoScriptError
+    end
 
     class << self
       def config(**kwargs)

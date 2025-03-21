@@ -54,6 +54,13 @@ class TestScripting < Minitest::Test
     assert_equal ["a1", "a2"], r.evalsha(to_sha("return ARGV"), [], ["a1", "a2"])
   end
 
+  def test_evalsha_no_script
+    error = defined?(RedisClient::NoScriptError) ? Redis::NoScriptError : Redis::CommandError
+    assert_raises error do
+      redis.evalsha("invalid")
+    end
+  end
+
   def test_evalsha_with_options_hash
     assert_equal 0, r.evalsha(to_sha("return #KEYS"), {})
     assert_equal 0, r.evalsha(to_sha("return #ARGV"), {})
