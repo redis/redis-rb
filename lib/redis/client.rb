@@ -89,6 +89,12 @@ class Redis
     undef_method :call_once_v
     undef_method :blocking_call
 
+    def ensure_connected(retryable: true, &block)
+      super(retryable: retryable, &block)
+    rescue ::RedisClient::Error => error
+      Client.translate_error!(error)
+    end
+
     def call_v(command, &block)
       super(command, &block)
     rescue ::RedisClient::Error => error
