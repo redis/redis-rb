@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "redis-client"
+
 require "monitor"
 require "redis/errors"
 require "redis/commands"

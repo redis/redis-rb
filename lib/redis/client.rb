@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'redis-client'
-
 class Redis
   class Client < ::RedisClient
     ERROR_MAPPING = {
