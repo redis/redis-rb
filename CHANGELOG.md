@@ -1,5 +1,9 @@
 # Unreleased
 
+# 5.4.1
+
+- Properly handle NOSCRIPT errors.
+
 # 5.4.0
 
 - Fix `blmpop` method to actually use `BLMPOP`, it was mistakenly issuing `LMPOP` commands.
