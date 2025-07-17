@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'redis-client'
+
 class Redis
   # Base error for all redis-rb errors.
   class BaseError < StandardError
