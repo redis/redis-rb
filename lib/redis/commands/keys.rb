@@ -261,6 +261,9 @@ class Redis
       # @param [String, Array<String>] keys
       # @return [Integer] number of keys that were unlinked
       def unlink(*keys)
+        keys.flatten!(1)
+        return 0 if keys.empty?
+
         send_command([:unlink] + keys)
       end
 
