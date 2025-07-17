@@ -49,6 +49,10 @@ class TestCommandsOnValueTypes < Minitest::Test
 
     assert_equal ["bar", "baz", "foo"], r.keys("*").sort
 
+    assert_equal 0, r.unlink("")
+
+    assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+
     assert_equal 1, r.unlink("foo")
 
     assert_equal ["bar", "baz"], r.keys("*").sort
@@ -62,14 +66,23 @@ class TestCommandsOnValueTypes < Minitest::Test
     r.set "foo", "s1"
     r.set "bar", "s2"
     r.set "baz", "s3"
+    r.set "bad", "s4"
 
-    assert_equal ["bar", "baz", "foo"], r.keys("*").sort
+    assert_equal ["bad", "bar", "baz", "foo"], r.keys("*").sort
+
+    assert_equal 0, r.unlink([])
+
+    assert_equal ["bad", "bar", "baz", "foo"], r.keys("*").sort
 
     assert_equal 1, r.unlink(["foo"])
 
-    assert_equal ["bar", "baz"], r.keys("*").sort
+    assert_equal ["bad", "bar", "baz"], r.keys("*").sort
 
     assert_equal 2, r.unlink(["bar", "baz"])
+
+    assert_equal ["bad"], r.keys("*").sort
+
+    assert_equal 1, r.unlink([["bad"]])
 
     assert_equal [], r.keys("*").sort
   end
