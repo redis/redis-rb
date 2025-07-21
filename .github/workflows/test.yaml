@@ -217,6 +217,8 @@ jobs:
     timeout-minutes: 15
     strategy:
       fail-fast: false
+      matrix:
+        ruby: ["3.4", "3.3", "3.2", "3.1", "3.0", "2.7"]
     runs-on: ubuntu-latest
     env:
       TIMEOUT: "15"
@@ -235,7 +237,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "2.7"
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - name: Cache local temporary directory
         uses: actions/cache@v4
