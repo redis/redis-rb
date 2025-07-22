@@ -918,6 +918,21 @@ class Redis
       node_for(key).hgetall(key)
     end
 
+    # Scan a hash
+    def hscan(key, cursor, **options)
+      node_for(key).hscan(key, cursor, **options)
+    end
+
+    # Scan a hash and return an enumerator
+    def hscan_each(key, **options, &block)
+      node_for(key).hscan_each(key, **options, &block)
+    end
+
+    # Get the length of the value stored in a hash field
+    def hstrlen(key, field)
+      node_for(key).hstrlen(key, field)
+    end
+
     # Post a message to a channel.
     def publish(channel, message)
       node_for(channel).publish(channel, message)
