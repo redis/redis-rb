@@ -59,12 +59,28 @@ class TestCommandsGeo < Minitest::Test
     assert_equal [["Palermo", "166.2742"]], city
   end
 
+  def coordinates_catania
+    if version >= "8.0"
+      ["15.087267458438873", "37.50266842333162"]
+    else
+      ["15.08726745843887329", "37.50266842333162032"]
+    end
+  end
+
+  def coordinates_palermo
+    if version >= "8.0"
+      ["13.361389338970184", "38.1155563954963"]
+    else
+      ["13.36138933897018433", "38.11555639549629859"]
+    end
+  end
+
   def test_geopos
     location = r.geopos("Sicily", "Catania")
-    assert_equal [["15.08726745843887329", "37.50266842333162032"]], location
+    assert_equal [coordinates_catania], location
 
     locations = r.geopos("Sicily", ["Palermo", "Catania"])
-    assert_equal [["13.36138933897018433", "38.11555639549629859"], ["15.08726745843887329", "37.50266842333162032"]], locations
+    assert_equal [coordinates_palermo, coordinates_catania], locations
   end
 
   def test_geopos_nonexistant_location
@@ -72,7 +88,7 @@ class TestCommandsGeo < Minitest::Test
     assert_equal [nil], location
 
     locations = r.geopos("Sicily", ["Rome", "Catania"])
-    assert_equal [nil, ["15.08726745843887329", "37.50266842333162032"]], locations
+    assert_equal [nil, coordinates_catania], locations
   end
 
   def test_geodist
