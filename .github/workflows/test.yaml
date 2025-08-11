@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -40,7 +40,7 @@ jobs:
       REDIS_BRANCH: "7.2"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Print environment variables
         run: |
           echo "TIMEOUT=${TIMEOUT}"
@@ -79,7 +79,7 @@ jobs:
       TRUFFLERUBYOPT: "--engine.Mode=latency"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Print environment variables
         run: |
           echo "TIMEOUT=${TIMEOUT}"
@@ -118,7 +118,7 @@ jobs:
       REDIS_BRANCH: "7.2"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Print environment variables
         run: |
           echo "TIMEOUT=${TIMEOUT}"
@@ -155,7 +155,7 @@ jobs:
       REDIS_BRANCH: ${{ matrix.redis }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Print environment variables
         run: |
           echo "TIMEOUT=${TIMEOUT}"
@@ -188,7 +188,7 @@ jobs:
       REDIS_BRANCH: "7.0"
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Print environment variables
         run: |
           echo "TIMEOUT=${TIMEOUT}"
@@ -227,7 +227,7 @@ jobs:
       BUNDLE_GEMFILE: cluster/Gemfile
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Print environment variables
         run: |
           echo "TIMEOUT=${TIMEOUT}"
