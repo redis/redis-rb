@@ -40,8 +40,7 @@ Gem::Specification.new do |s|
     "source_code_uri" => "#{s.homepage}/tree/v#{s.version}"
   }
 
-  s.files         = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
-  s.executables   = `git ls-files -- exe/*`.split("\n").map { |f| File.basename(f) }
+  s.files = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
 
   s.required_ruby_version = '>= 2.6.0'
 
