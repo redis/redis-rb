@@ -24,9 +24,20 @@ class TestClusterCommandsOnGeo < Minitest::Test
 
   def test_geopos
     add_sicily
-    expected = [%w[13.36138933897018433 38.11555639549629859],
-                %w[15.08726745843887329 37.50266842333162032],
-                nil]
+
+    expected = if version >= "8.0"
+      [
+        %w[13.361389338970184 38.1155563954963],
+        %w[15.087267458438873 37.50266842333162],
+        nil,
+      ]
+    else
+      [
+        %w[13.36138933897018433 38.11555639549629859],
+        %w[15.08726745843887329 37.50266842333162032],
+        nil,
+      ]
+    end
     assert_equal expected, redis.geopos('Sicily', %w[Palermo Catania NonExisting])
   end
 
@@ -43,12 +54,30 @@ class TestClusterCommandsOnGeo < Minitest::Test
     expected = [%w[Palermo 190.4424], %w[Catania 56.4413]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST')
 
-    expected = [['Palermo', %w[13.36138933897018433 38.11555639549629859]],
-                ['Catania', %w[15.08726745843887329 37.50266842333162032]]]
+    expected = if version >= "8.0"
+      [
+        ['Palermo', %w[13.361389338970184 38.1155563954963]],
+        ['Catania', %w[15.087267458438873 37.50266842333162]],
+      ]
+    else
+      [
+        ['Palermo', %w[13.36138933897018433 38.11555639549629859]],
+        ['Catania', %w[15.08726745843887329 37.50266842333162032]],
+      ]
+    end
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHCOORD')
 
-    expected = [['Palermo', '190.4424', %w[13.36138933897018433 38.11555639549629859]],
-                ['Catania', '56.4413', %w[15.08726745843887329 37.50266842333162032]]]
+    expected = if version >= "8.0"
+      [
+        ['Palermo', '190.4424', %w[13.361389338970184 38.1155563954963]],
+        ['Catania', '56.4413', %w[15.087267458438873 37.50266842333162]],
+      ]
+    else
+      [
+        ['Palermo', '190.4424', %w[13.36138933897018433 38.11555639549629859]],
+        ['Catania', '56.4413', %w[15.08726745843887329 37.50266842333162032]],
+      ]
+    end
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST', 'WITHCOORD')
   end
 
