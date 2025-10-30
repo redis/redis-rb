@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LOW_TIMEOUT: "0.01"
-      REDIS_BRANCH: "7.2"
+      REDIS_BRANCH: "8.2"
     steps:
       - name: Check out code
         uses: actions/checkout@v5
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LOW_TIMEOUT: "0.01"
-      REDIS_BRANCH: "7.2"
+      REDIS_BRANCH: "8.2"
       TRUFFLERUBYOPT: "--engine.Mode=latency"
     steps:
       - name: Check out code
@@ -115,7 +115,7 @@ jobs:
     env:
       LOW_TIMEOUT: "0.01"
       DRIVER: ${{ matrix.driver }}
-      REDIS_BRANCH: "7.2"
+      REDIS_BRANCH: "8.2"
     steps:
       - name: Check out code
         uses: actions/checkout@v5
@@ -223,7 +223,7 @@ jobs:
     env:
       TIMEOUT: "15"
       LOW_TIMEOUT: "0.14"
-      REDIS_BRANCH: "7.2"
+      REDIS_BRANCH: "8.2"
       BUNDLE_GEMFILE: cluster/Gemfile
     steps:
       - name: Check out code
