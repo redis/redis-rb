@@ -918,6 +918,14 @@ class Redis
       node_for(key).hgetall(key)
     end
 
+    def hexpire(key, ttl, *fields)
+      node_for(key).hexpire(key, ttl, *fields)
+    end
+
+    def httl(key, ttl, *fields)
+      node_for(key).httl(key, ttl, *fields)
+    end
+
     # Scan a hash
     def hscan(key, cursor, **options)
       node_for(key).hscan(key, cursor, **options)

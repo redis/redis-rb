@@ -227,5 +227,28 @@ module Lint
       expected = ['0', [%w[f1 Jack], %w[f2 33]]]
       assert_equal expected, redis.hscan('foo', 0)
     end
+
+    def test_hexpire
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [1], r.hexpire("foo", 4, "f1")
+        assert_in_range(1..4, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_httl
+      target_version "7.4.0" do
+        assert [-2], r.httl("foo", "f1")
+
+        r.hset("foo", "f1", "v2")
+
+        assert [-1], r.httl("foo", "f1")
+
+        r.hexpire("foo", 4, "f1")
+
+        assert_in_range(1..4, r.httl("foo", "f1")[0])
+      end
+    end
   end
 end
