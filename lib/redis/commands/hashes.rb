@@ -253,6 +253,38 @@ class Redis
           break if cursor == "0"
         end
       end
+
+      # Sets the time to live in seconds for one or more fields.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1")
+      #   redis.hexpire("hash", 10, "f1", "f2") # => [1, -2]
+      #
+      # @param [String] key
+      # @param [Integer] ttl
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Feedback on if the fields have been updated.
+      #
+      # See https://redis.io/docs/latest/commands/hexpire/#return-information for array reply.
+      def hexpire(key, ttl, *fields)
+        send_command([:hexpire, key, ttl, 'FIELDS', fields.length, *fields])
+      end
+
+      # Returns the time to live in seconds for one or more fields.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1", "f2", "v2")
+      #   redis.hexpire("hash", 10, "f1") # => [1]
+      #   redis.httl("hash", "f1", "f2", "f3") # => [10, -1, -2]
+      #
+      # @param [String] key
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Feedback on the TTL of the fields.
+      #
+      # See https://redis.io/docs/latest/commands/httl/#return-information for array reply.
+      def httl(key, *fields)
+        send_command([:httl, key, 'FIELDS', fields.length, *fields])
+      end
     end
   end
 end
