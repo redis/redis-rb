@@ -922,8 +922,8 @@ class Redis
       node_for(key).hexpire(key, ttl, *fields)
     end
 
-    def httl(key, ttl, *fields)
-      node_for(key).httl(key, ttl, *fields)
+    def httl(key, *fields)
+      node_for(key).httl(key, *fields)
     end
 
     # Scan a hash
