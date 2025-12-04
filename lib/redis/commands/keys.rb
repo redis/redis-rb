@@ -447,13 +447,14 @@ class Redis
 
       private
 
-      def _scan(command, cursor, args, match: nil, count: nil, type: nil, &block)
+      def _scan(command, cursor, args, match: nil, count: nil, type: nil, novalues: false, &block)
         # SSCAN/ZSCAN/HSCAN already prepend the key to +args+.
 
         args << cursor
         args << "MATCH" << match if match
         args << "COUNT" << Integer(count) if count
         args << "TYPE" << type if type
+        args << "NOVALUES" if novalues
 
         send_command([command] + args, &block)
       end

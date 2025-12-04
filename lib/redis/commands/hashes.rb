@@ -220,13 +220,20 @@ class Redis
       # @param [Hash] options
       #   - `:match => String`: only return keys matching the pattern
       #   - `:count => Integer`: return count keys at most per iteration
+      #   - `:novalues => Boolean`: whether or not to include values in the output (default: false)
       #
-      # @return [String, Array<[String, String]>] the next cursor and all found keys
+      # @return [String, Array<[String, String]>, Array<String>] the next cursor and all found keys
+      #   - when `:novalues` is false: [cursor, [[field1, value1], [field2, value2], ...]]
+      #   - when `:novalues` is true: [cursor, [field1, field2, ...]]
       #
       # See the [Redis Server HSCAN documentation](https://redis.io/docs/latest/commands/hscan/) for further details
       def hscan(key, cursor, **options)
         _scan(:hscan, cursor, [key], **options) do |reply|
-          [reply[0], reply[1].each_slice(2).to_a]
+          if options[:novalues]
+            reply
+          else
+            [reply[0], reply[1].each_slice(2).to_a]
+          end
         end
       end
 
@@ -239,6 +246,7 @@ class Redis
       # @param [Hash] options
       #   - `:match => String`: only return keys matching the pattern
       #   - `:count => Integer`: return count keys at most per iteration
+      #   - `:novalues => Boolean`: whether or not to include values in the output (default: false)
       #
       # @return [Enumerator] an enumerator for all found keys
       #

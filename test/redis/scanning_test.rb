@@ -213,6 +213,26 @@ class TestScanning < Minitest::Test
     end
   end
 
+  def test_hscan_novalues
+    target_version "7.4.0" do
+      count = 1000
+      elements = []
+      count.times { |j| elements << "key:#{j}" << j.to_s }
+      r.hmset "hash", *elements
+
+      cursor = 0
+      all_keys = []
+      loop do
+        cursor, keys = r.hscan "hash", cursor, novalues: true
+        all_keys.concat keys
+        break if cursor == "0"
+      end
+
+      assert_equal count, all_keys.uniq.size
+      assert_equal true, all_keys.all? { |k| k.start_with?("key:") }
+    end
+  end
+
   def test_hscan_each_enumerator
     count = 1000
     elements = []
@@ -268,6 +288,25 @@ class TestScanning < Minitest::Test
     all_keys = r.hgetall("hash").to_a.select { |k, _v| k =~ /^key:1.$/ }
 
     assert all_keys.sort == keys_from_scan.uniq.sort
+  end
+
+  def test_hscan_each_block_novalues
+    target_version "7.4.0" do
+      count = 1000
+      elements = []
+      count.times { |j| elements << "key:#{j}" << j.to_s }
+      r.hmset "hash", *elements
+
+      keys = []
+      values = []
+      r.hscan_each("hash", novalues: true) do |field, value|
+        keys << field
+        values << value
+      end
+
+      assert_equal count, keys.uniq.size
+      assert_equal true, values.all?(&:nil?)
+    end
   end
 
   def test_zscan_with_encoding
