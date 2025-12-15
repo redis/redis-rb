@@ -229,7 +229,7 @@ class TestScanning < Minitest::Test
       end
 
       assert_equal count, all_keys.uniq.size
-      assert_equal true, all_keys.all? { |k| k.start_with?("key:") }
+      assert_equal(true, all_keys.all? { |k| k.start_with?("key:") })
     end
   end
 
