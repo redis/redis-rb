@@ -6,6 +6,7 @@ require "redis/commands/connection"
 require "redis/commands/geo"
 require "redis/commands/hashes"
 require "redis/commands/hyper_log_log"
+require "redis/commands/json"
 require "redis/commands/keys"
 require "redis/commands/lists"
 require "redis/commands/pubsub"
@@ -25,6 +26,7 @@ class Redis
     include Geo
     include Hashes
     include HyperLogLog
+    include JSON
     include Keys
     include Lists
     include Pubsub

@@ -64,4 +64,8 @@ class Redis
 
   class SubscriptionError < BaseError
   end
+
+  # Raised when JSON parsing fails for JSON commands.
+  class JSONParseError < BaseError
+  end
 end
