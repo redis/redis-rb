@@ -918,8 +918,8 @@ class Redis
       node_for(key).hgetall(key)
     end
 
-    def hexpire(key, ttl, *fields)
-      node_for(key).hexpire(key, ttl, *fields)
+    def hexpire(key, ttl, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).hexpire(key, ttl, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
     end
 
     def httl(key, *fields)

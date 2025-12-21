@@ -271,11 +271,23 @@ class Redis
       # @param [String] key
       # @param [Integer] ttl
       # @param [Array<String>] fields
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the key has no expiry.
+      #   - `:xx => true`: Set expiry only when the key has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
       # @return [Array<Integer>] Feedback on if the fields have been updated.
       #
       # See https://redis.io/docs/latest/commands/hexpire/#return-information for array reply.
-      def hexpire(key, ttl, *fields)
-        send_command([:hexpire, key, ttl, 'FIELDS', fields.length, *fields])
+      def hexpire(key, ttl, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:hexpire, key, ttl]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+        args.concat(['FIELDS', fields.length, *fields])
+
+        send_command(args)
       end
 
       # Returns the time to live in seconds for one or more fields.
