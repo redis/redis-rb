@@ -20,13 +20,14 @@ if ENV["DRIVER"] == "hiredis"
   require "hiredis-client"
 end
 
-PORT        = 6381
+PORT        = Integer(ENV['PORT'] || 6381)
 DB          = 15
 TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
 LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
 OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
-if ENV['REDIS_SOCKET_PATH'].nil?
+# Only check for socket when using default port (local make start setup)
+if ENV['REDIS_SOCKET_PATH'].nil? && !ENV['PORT']
   sock_file = File.expand_path('../tmp/redis.sock', __dir__)
 
   unless File.exist?(sock_file)

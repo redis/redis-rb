@@ -1,5 +1,72 @@
 # Unreleased
 
+## New Features
+
+### JSON Support
+- Add comprehensive JSON command support for Redis Stack
+- Implement all JSON.* commands including:
+  - `json_set`, `json_get`, `json_del` - Basic operations
+  - `json_numincrby`, `json_nummultby` - Numeric operations
+  - `json_strappend`, `json_strlen` - String operations
+  - `json_arrappend`, `json_arrinsert`, `json_arrtrim`, `json_arrpop`, `json_arrindex`, `json_arrlen` - Array operations
+  - `json_objlen`, `json_objkeys` - Object operations
+  - `json_type`, `json_clear`, `json_toggle`, `json_merge`, `json_mget`, `json_resp` - Utility operations
+- Add comprehensive test suite with 95 tests and 280 assertions
+- Add tutorial example: `examples/json_tutorial.rb`
+
+### Search Support
+- Add comprehensive Search command support for Redis Stack
+- Implement all FT.* commands including:
+  - `ft_create`, `ft_dropindex`, `ft_info` - Index management
+  - `ft_search` - Full-text and structured search
+  - `ft_aggregate` - Aggregations and analytics
+  - `ft_profile` - Query profiling
+  - `ft_explain`, `ft_explaincli` - Query explanation
+  - `ft_aliasadd`, `ft_aliasupdate`, `ft_aliasdel` - Index aliases
+  - `ft_tagvals`, `ft_sugadd`, `ft_sugget`, `ft_sugdel`, `ft_suglen` - Suggestions
+  - `ft_syndump`, `ft_synupdate` - Synonym management
+  - `ft_spellcheck` - Spell checking
+  - `ft_dictadd`, `ft_dictdel`, `ft_dictdump` - Dictionary management
+- Add Schema DSL for index creation with field types:
+  - `text_field`, `numeric_field`, `tag_field`, `geo_field`, `geoshape_field`, `vector_field`
+- Add Query DSL for building complex queries
+- Add AggregateRequest and Reducers for analytics
+- Add comprehensive test suite with 165 tests and 575 assertions
+- Add tutorial examples:
+  - `examples/search_quickstart.rb` - Basic search operations
+  - `examples/search_ft_queries.rb` - Advanced query patterns
+  - `examples/search_aggregations.rb` - Aggregations and analytics
+  - `examples/search_geo.rb` - Geospatial queries
+  - `examples/search_range.rb` - Range queries
+  - `examples/search_vector_similarity.rb` - Vector similarity search
+
+### Vector Set Support
+- Add comprehensive Vector Set command support for Redis 8.0+
+- Implement all V* commands including:
+  - `vadd` - Add vectors with support for VALUES and FP32 formats
+  - `vcard`, `vdim` - Get cardinality and dimensionality
+  - `vemb` - Retrieve vector embeddings
+  - `vgetattr`, `vsetattr` - Get and set JSON attributes
+  - `vinfo` - Get vector set information
+  - `vismember` - Check membership
+  - `vlinks` - Get HNSW graph links
+  - `vrandmember` - Get random members
+  - `vrange` - Range queries
+  - `vrem` - Remove vectors
+  - `vsim` - Vector similarity search with options:
+    - Quantization: NOQUANT, BIN, Q8/INT8
+    - Dimensionality reduction: REDUCE
+    - Filtering: FILTER with mathematical expressions
+    - HNSW parameters: M/numlinks, EF
+    - Options: WITHSCORES, WITHATTRIBS, COUNT, TRUTH, NOTHREAD
+- Add comprehensive test suite with 34 tests and 208-231 assertions
+- Add tutorial example: `examples/vector_set_tutorial.rb`
+
+## Documentation
+- Update README.md with JSON, Search, and Vector Set sections
+- Add 8 comprehensive tutorial examples demonstrating all new features
+- All examples tested and verified on Redis 8.4.0
+
 # 5.4.1
 
 - Properly handle NOSCRIPT errors.

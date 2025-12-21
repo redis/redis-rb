@@ -71,6 +71,112 @@ redis.get("mykey")
 All commands, their arguments, and return values are documented and
 available on [RubyDoc.info][rubydoc].
 
+## JSON Support
+
+Redis Stack includes native JSON support via the [RedisJSON](https://redis.io/docs/stack/json/) module. The client provides full support for JSON commands:
+
+```ruby
+# Set a JSON document
+redis.json_set("user:1", "$", {
+  name: "John Doe",
+  email: "john@example.com",
+  age: 30,
+  address: {
+    city: "New York",
+    country: "USA"
+  }
+})
+
+# Get the entire document
+redis.json_get("user:1", "$")
+# => [{"name"=>"John Doe", "email"=>"john@example.com", "age"=>30, "address"=>{"city"=>"New York", "country"=>"USA"}}]
+
+# Get specific fields using JSONPath
+redis.json_get("user:1", "$.name")
+# => ["John Doe"]
+
+# Update nested fields
+redis.json_numincrby("user:1", "$.age", 1)
+# => [31]
+
+# Array operations
+redis.json_set("user:1", "$.hobbies", ["reading", "coding"])
+redis.json_arrappend("user:1", "$.hobbies", "gaming")
+# => [3]
+```
+
+For a comprehensive tutorial, see [examples/json_tutorial.rb](examples/json_tutorial.rb).
+
+## Search and Query Support
+
+Redis Stack includes powerful search and query capabilities via [RediSearch](https://redis.io/docs/stack/search/). The client provides full support for creating indexes and querying data:
+
+```ruby
+# Create an index on JSON documents
+schema = Redis::Search::Schema.build do
+  text_field "$.name", as: "name"
+  numeric_field "$.age", as: "age"
+  tag_field "$.city", as: "city"
+end
+
+index_def = Redis::Search::IndexDefinition.new(
+  index_type: Redis::Search::IndexType::JSON,
+  prefixes: ["user:"]
+)
+
+redis.ft_create("idx:users", schema, index_def)
+
+# Search for users
+results = redis.ft_search("idx:users", "@name:John")
+
+# Numeric range queries
+results = redis.ft_search("idx:users", "@age:[25 35]")
+
+# Aggregations
+agg = Redis::Search::AggregateRequest.new("*")
+  .group_by(["@city"], [Redis::Search::Reducers.count.as("count")])
+  .sort_by([Redis::Search::SortBy.desc("@count")])
+
+results = redis.ft_aggregate("idx:users", agg)
+```
+
+For comprehensive tutorials, see:
+- [examples/search_quickstart.rb](examples/search_quickstart.rb) - Basic search operations
+- [examples/search_ft_queries.rb](examples/search_ft_queries.rb) - Advanced query patterns
+- [examples/search_aggregations.rb](examples/search_aggregations.rb) - Aggregations and analytics
+- [examples/search_geo.rb](examples/search_geo.rb) - Geospatial queries
+- [examples/search_range.rb](examples/search_range.rb) - Range queries
+- [examples/search_vector_similarity.rb](examples/search_vector_similarity.rb) - Vector similarity search
+
+## Vector Set Support
+
+Redis 8.0+ includes native vector sets for efficient vector similarity operations. The client provides full support for vector set commands:
+
+```ruby
+# Add vectors to a vector set
+redis.vadd("vectors:products", "item:1", [0.1, 0.2, 0.3, 0.4])
+redis.vadd("vectors:products", "item:2", [0.2, 0.3, 0.4, 0.5])
+
+# Get cardinality and dimensionality
+redis.vcard("vectors:products")  # => 2
+redis.vdim("vectors:products")   # => 4
+
+# Find similar vectors
+results = redis.vsim("vectors:products", 2, [0.15, 0.25, 0.35, 0.45], with_scores: true)
+# => ["item:1", "0.998", "item:2", "0.995"]
+
+# Set attributes on vectors
+redis.vsetattr("vectors:products", "item:1", {name: "Product A", price: 29.99})
+
+# Search with filters
+results = redis.vsim("vectors:products", 5, [0.1, 0.2, 0.3, 0.4],
+  filter: "@price >= 20 && @price <= 50",
+  with_attribs: true
+)
+```
+
+For a comprehensive tutorial, see [examples/vector_set_tutorial.rb](examples/vector_set_tutorial.rb).
+
 ## Connection Pooling and Thread safety
 
 The client does not provide connection pooling. Each `Redis` instance
