@@ -293,6 +293,51 @@ class Redis
       def httl(key, *fields)
         send_command([:httl, key, 'FIELDS', fields.length, *fields])
       end
+
+      # Sets the time to live in milliseconds for one or more fields.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1")
+      #   redis.hpexpire("hash", 500, "f1", "f2") # => [1, -2]
+      #   redis.hpexpire("hash", 500, "f1", "f2", nx: true) # => [0, -2]
+      #
+      # @param [String] key
+      # @param [Integer] ttl
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the key has no expiry.
+      #   - `:xx => true`: Set expiry only when the key has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Feedback on if the fields have been updated.
+      #
+      # See https://redis.io/docs/latest/commands/hpexpire/#return-information for array reply.
+      def hpexpire(key, ttl, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:hpexpire, key, ttl]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+        args.concat(['FIELDS', fields.length, *fields])
+
+        send_command(args)
+      end
+
+      # Returns the time to live in milliseconds for one or more fields.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1", "f2", "v2")
+      #   redis.hpexpire("hash", 500, "f1") # => [1]
+      #   redis.hpttl("hash", "f1", "f2", "f3") # => [500, -1, -2]
+      #
+      # @param [String] key
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Feedback on the TTL of the fields.
+      #
+      # See https://redis.io/docs/latest/commands/hpttl/#return-information for array reply.
+      def hpttl(key, *fields)
+        send_command([:hpttl, key, 'FIELDS', fields.length, *fields])
+      end
     end
   end
 end
