@@ -237,6 +237,24 @@ module Lint
       end
     end
 
+    def test_hexpire_options
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+        assert_equal [0], r.hexpire("foo", 5, "f1", xx: true)
+        assert_equal [-1], r.httl("foo", "f1")
+
+        assert_equal [1], r.hexpire("foo", 5, "f1", nx: true)
+        assert_in_range(1..5, r.httl("foo", "f1")[0])
+        assert_equal [0], r.hexpire("foo", 5, "f1", nx: true)
+
+        assert_equal [1], r.hexpire("foo", 5, "f1", xx: true)
+
+        assert_equal [0], r.hexpire("foo", 10, "f1", lt: true)
+        assert_equal [1], r.hexpire("foo", 10, "f1", gt: true)
+        assert_in_range(1..10, r.httl("foo", "f1")[0])
+      end
+    end
+
     def test_httl
       target_version "7.4.0" do
         assert [-2], r.httl("foo", "f1")
