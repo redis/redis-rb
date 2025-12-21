@@ -10,6 +10,7 @@ require "redis/commands/keys"
 require "redis/commands/lists"
 require "redis/commands/pubsub"
 require "redis/commands/scripting"
+require "redis/commands/search"
 require "redis/commands/server"
 require "redis/commands/sets"
 require "redis/commands/sorted_sets"
@@ -29,6 +30,7 @@ class Redis
     include Lists
     include Pubsub
     include Scripting
+    include Search
     include Server
     include Sets
     include SortedSets
