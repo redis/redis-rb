@@ -941,6 +941,14 @@ class Redis
       node_for(key).hstrlen(key, field)
     end
 
+    def hpexpire(key, ttl, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).hpexpire(key, ttl, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    def hpttl(key, *fields)
+      node_for(key).hpttl(key, *fields)
+    end
+
     # Post a message to a channel.
     def publish(channel, message)
       node_for(channel).publish(channel, message)
