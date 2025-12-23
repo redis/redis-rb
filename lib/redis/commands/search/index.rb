@@ -61,71 +61,61 @@ class Redis
           raise ArgumentError, "Invalid query" unless query.is_a?(Query)
 
           # Apply keyword argument options to the query
-          query.instance_variable_set(:@no_content, true) if nocontent
-          query.instance_variable_set(:@verbatim, true) if verbatim
-          query.instance_variable_set(:@no_stopwords, true) if no_stopwords
-          query.instance_variable_get(:@options)[:withscores] = true if with_scores
-          query.instance_variable_set(:@with_payloads, true) if with_payloads
-          query.instance_variable_set(:@slop, slop) if slop
-          query.instance_variable_set(:@in_order, true) if in_order
-          query.instance_variable_set(:@language, language) if language
-          query.instance_variable_get(:@options)[:scorer] = scorer if scorer
-          query.instance_variable_get(:@options)[:explainscore] = true if explain_score
-
-          if return_fields
-            query.instance_variable_set(:@return_fields, return_fields)
-          end
-
-          if summarize
-            query.instance_variable_set(:@summarize_options, summarize)
-          end
-
-          if highlight
-            query.instance_variable_set(:@highlight_options, highlight)
-          end
+          query.no_content if nocontent
+          query.verbatim if verbatim
+          query.no_stopwords if no_stopwords
+          query.with_scores if with_scores
+          query.with_payloads if with_payloads
+          query.slop(slop) if slop
+          query.in_order if in_order
+          query.language(language) if language
+          query.scorer(scorer) if scorer
+          query.explain_score if explain_score
+          query.return_fields = return_fields if return_fields
+          query.summarize_options = summarize if summarize
+          query.highlight_options = highlight if highlight
 
           if sort_by
             order = asc == false ? "DESC" : "ASC"
-            query.instance_variable_get(:@options)[:sortby] = [sort_by, order]
+            query.options[:sortby] = [sort_by, order]
           end
 
           redis_args = query.to_redis_args
           query_string = redis_args.shift
 
           options = query.options
-          options[:filter] = query.instance_variable_get(:@filters)
-          options[:geo_filter] = query.instance_variable_get(:@geo_filters)
+          options[:filter] = query.filters
+          options[:geo_filter] = query.geo_filters
 
           # Add prefix to limit_ids if a prefix is set
-          limit_ids = query.instance_variable_get(:@limit_ids)
-          options[:limit_ids] = if limit_ids && @prefix
-            limit_ids.map { |id| "#{@prefix}:#{id}" }
+          options[:limit_ids] = if query.limit_ids && @prefix
+            query.limit_ids.map { |id| "#{@prefix}:#{id}" }
           else
-            limit_ids
+            query.limit_ids
           end
 
-          options[:sortby] = query.instance_variable_get(:@options)[:sortby]
+          options[:sortby] = query.options[:sortby]
 
           # Get dialect from query options or method parameter
-          query_dialect = query.instance_variable_get(:@options)[:dialect]
+          query_dialect = query.options[:dialect]
           options[:dialect] = dialect || query_dialect
 
           options[:params] = params if params
 
-          options[:return] = query.instance_variable_get(:@return_fields)
+          options[:return] = query.return_fields
 
-          options[:highlight] = query.instance_variable_get(:@highlight_options)
-          options[:summarize] = query.instance_variable_get(:@summarize_options)
-          options[:verbatim] = query.instance_variable_get(:@verbatim)
-          options[:no_stopwords] = query.instance_variable_get(:@no_stopwords)
-          options[:no_content] = query.instance_variable_get(:@no_content)
-          options[:with_scores] = query.instance_variable_get(:@options)[:withscores]
-          options[:scorer] = query.instance_variable_get(:@options)[:scorer]
-          options[:explain_score] = query.instance_variable_get(:@options)[:explainscore]
-          options[:language] = query.instance_variable_get(:@language)
-          options[:with_payloads] = query.instance_variable_get(:@with_payloads)
-          options[:slop] = query.instance_variable_get(:@slop)
-          options[:in_order] = query.instance_variable_get(:@in_order)
+          options[:highlight] = query.highlight_options
+          options[:summarize] = query.summarize_options
+          options[:verbatim] = query.verbatim
+          options[:no_stopwords] = query.no_stopwords
+          options[:no_content] = query.no_content
+          options[:with_scores] = query.options[:withscores]
+          options[:scorer] = query.options[:scorer]
+          options[:explain_score] = query.options[:explainscore]
+          options[:language] = query.language
+          options[:with_payloads] = query.with_payloads
+          options[:slop] = query.slop
+          options[:in_order] = query.in_order
 
           if query_params
             options[:params] = query_params

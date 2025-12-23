@@ -4,7 +4,9 @@ class Redis
   module Commands
     module Search
       class Query
-        attr_reader :options, :return_fields_decode
+        attr_reader :options, :return_fields_decode, :filters, :geo_filters, :limit_ids,
+                    :return_fields, :highlight_options, :summarize_options, :verbatim,
+                    :no_stopwords, :no_content, :language, :with_payloads, :slop, :in_order
 
         def initialize(base = nil)
           @base = base
@@ -166,6 +168,27 @@ class Redis
         def dialect(dialect_version)
           @options[:dialect] = dialect_version
           self
+        end
+
+        def explain_score
+          @options[:explainscore] = true
+          self
+        end
+
+        # :nodoc:
+        # Internal setters for Index#search method
+        def return_fields=(fields)
+          @return_fields = fields
+        end
+
+        # :nodoc:
+        def summarize_options=(options)
+          @summarize_options = options
+        end
+
+        # :nodoc:
+        def highlight_options=(options)
+          @highlight_options = options
         end
 
         ## -------------
