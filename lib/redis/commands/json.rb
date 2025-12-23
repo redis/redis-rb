@@ -115,8 +115,7 @@ class Redis
       def parse_json(value)
         case value
         when String
-          result = ::JSON.parse(value, symbolize_names: true)
-          result.is_a?(Array) && result.length == 1 ? result.first : result
+          ::JSON.parse(value, symbolize_names: true)
         when Array
           value.map { |v| parse_json(v) }
         else
