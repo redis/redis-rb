@@ -122,8 +122,8 @@ class Redis
         else
           value
         end
-      rescue ::JSON::ParserError
-        value
+      rescue ::JSON::ParserError => e
+        raise Redis::JSONParseError, "Failed to parse JSON: #{e.message}"
       end
     end
   end
