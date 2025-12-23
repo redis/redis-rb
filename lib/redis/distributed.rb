@@ -1085,6 +1085,107 @@ class Redis
       _eval(:evalsha, args)
     end
 
+    # JSON Commands
+
+    def json_set(key, path, value, nx: false, xx: false)
+      node_for(key).json_set(key, path, value, nx: nx, xx: xx)
+    end
+
+    def json_get(key, *paths)
+      node_for(key).json_get(key, *paths)
+    end
+
+    def json_mget(keys, path)
+      ensure_same_node(:json_mget, keys) do |node|
+        node.json_mget(keys, path)
+      end
+    end
+
+    def json_del(key, path = '$')
+      node_for(key).json_del(key, path)
+    end
+
+    alias json_forget json_del
+
+    def json_type(key, path = '$')
+      node_for(key).json_type(key, path)
+    end
+
+    def json_numincrby(key, path, number)
+      node_for(key).json_numincrby(key, path, number)
+    end
+
+    def json_nummultby(key, path, number)
+      node_for(key).json_nummultby(key, path, number)
+    end
+
+    def json_strappend(key, path, value)
+      node_for(key).json_strappend(key, path, value)
+    end
+
+    def json_strlen(key, path = '$')
+      node_for(key).json_strlen(key, path)
+    end
+
+    def json_arrappend(key, path, *values)
+      node_for(key).json_arrappend(key, path, *values)
+    end
+
+    def json_arrindex(key, path, value, start = 0, stop = 0)
+      node_for(key).json_arrindex(key, path, value, start, stop)
+    end
+
+    def json_arrinsert(key, path, index, *values)
+      node_for(key).json_arrinsert(key, path, index, *values)
+    end
+
+    def json_arrlen(key, path = '$')
+      node_for(key).json_arrlen(key, path)
+    end
+
+    def json_arrpop(key, path = '$', index = -1)
+      node_for(key).json_arrpop(key, path, index)
+    end
+
+    def json_arrtrim(key, path, start, stop)
+      node_for(key).json_arrtrim(key, path, start, stop)
+    end
+
+    def json_objkeys(key, path = '$')
+      node_for(key).json_objkeys(key, path)
+    end
+
+    def json_objlen(key, path = '$')
+      node_for(key).json_objlen(key, path)
+    end
+
+    def json_mset(triplets)
+      keys = triplets.map { |triplet| triplet[0] }
+      ensure_same_node(:json_mset, keys) do |node|
+        node.json_mset(triplets)
+      end
+    end
+
+    def json_merge(key, path, value)
+      node_for(key).json_merge(key, path, value)
+    end
+
+    def json_toggle(key, path)
+      node_for(key).json_toggle(key, path)
+    end
+
+    def json_clear(key, path = '$')
+      node_for(key).json_clear(key, path)
+    end
+
+    def json_resp(key, path = '$')
+      node_for(key).json_resp(key, path)
+    end
+
+    def json_debug(subcommand, key, path = '$')
+      node_for(key).json_debug(subcommand, key, path)
+    end
+
     def inspect
       "#<Redis client v#{Redis::VERSION} for #{nodes.map(&:id).join(', ')}>"
     end
