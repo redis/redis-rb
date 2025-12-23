@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 
 require 'redis'
-require_relative '../lib/redis/commands/search'
 
 class SearchWithHashes
   include Redis::Commands::Search
 
   def initialize(host: 'localhost', port: 6379)
     @redis = Redis.new(host: host, port: port)
-    @redis.extend(Redis::Commands::Search)
   end
 
   def run

@@ -13,11 +13,9 @@
 
 require 'redis'
 require 'json'
-require_relative '../lib/redis/commands/json'
 
 # Connect to Redis on port 6400
 redis = Redis.new(host: 'localhost', port: 6400)
-redis.extend(Redis::Commands::JSON)
 
 # Clear any keys before using them
 redis.del('bike', 'bike:1', 'crashes', 'newbike', 'riders', 'bikes:inventory')

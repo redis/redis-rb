@@ -16,13 +16,9 @@
 
 require 'redis'
 require 'json'
-require_relative '../lib/redis/commands/json'
-require_relative '../lib/redis/commands/search'
 
 # Connect to Redis
 redis = Redis.new(host: 'localhost', port: 6400)
-redis.extend(Redis::Commands::JSON)
-redis.extend(Redis::Commands::Search)
 
 # Clean up any existing index
 begin

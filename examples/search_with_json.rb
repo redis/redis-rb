@@ -2,8 +2,6 @@
 
 require 'redis'
 require 'json'
-require_relative '../lib/redis/commands/json'
-require_relative '../lib/redis/commands/search'
 
 class SearchWithJSON
   include Redis::Commands::Search
@@ -11,8 +9,6 @@ class SearchWithJSON
 
   def initialize(host: 'localhost', port: 6379)
     @redis = Redis.new(host: host, port: port)
-    @redis.extend(Redis::Commands::JSON)
-    @redis.extend(Redis::Commands::Search)
   end
 
   def run

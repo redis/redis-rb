@@ -14,11 +14,9 @@
 
 require 'redis'
 require 'json'
-require_relative '../lib/redis/commands/vector_set'
 
 # Connect to Redis on port 6400
 redis = Redis.new(host: 'localhost', port: 6400)
-redis.extend(Redis::Commands::VectorSet)
 
 # Clear any keys before using them
 redis.del('points', 'quantSetQ8', 'quantSetNoQ', 'quantSetBin', 'setNotReduced', 'setReduced')
