@@ -88,10 +88,10 @@ class Redis
           options[:geo_filter] = query.geo_filters
 
           # Add prefix to limit_ids if a prefix is set
-          options[:limit_ids] = if query.limit_ids && @prefix
-            query.limit_ids.map { |id| "#{@prefix}:#{id}" }
+          options[:limit_ids] = if query.limit_ids_value && @prefix
+            query.limit_ids_value.map { |id| "#{@prefix}:#{id}" }
           else
-            query.limit_ids
+            query.limit_ids_value
           end
 
           options[:sortby] = query.options[:sortby]
@@ -106,16 +106,16 @@ class Redis
 
           options[:highlight] = query.highlight_options
           options[:summarize] = query.summarize_options
-          options[:verbatim] = query.verbatim
-          options[:no_stopwords] = query.no_stopwords
-          options[:no_content] = query.no_content
+          options[:verbatim] = query.verbatim_value
+          options[:no_stopwords] = query.no_stopwords_value
+          options[:no_content] = query.no_content_value
           options[:with_scores] = query.options[:withscores]
           options[:scorer] = query.options[:scorer]
           options[:explain_score] = query.options[:explainscore]
-          options[:language] = query.language
-          options[:with_payloads] = query.with_payloads
-          options[:slop] = query.slop
-          options[:in_order] = query.in_order
+          options[:language] = query.language_value
+          options[:with_payloads] = query.with_payloads_value
+          options[:slop] = query.slop_value
+          options[:in_order] = query.in_order_value
 
           if query_params
             options[:params] = query_params

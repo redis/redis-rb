@@ -4,9 +4,7 @@ class Redis
   module Commands
     module Search
       class Query
-        attr_reader :options, :return_fields_decode, :filters, :geo_filters,
-                    :limit_ids, :language, :verbatim, :no_stopwords, :no_content,
-                    :with_payloads, :slop, :in_order
+        attr_reader :options, :return_fields_decode, :filters, :geo_filters
         attr_accessor :return_fields, :highlight_options, :summarize_options
 
         def initialize(base = nil)
@@ -174,6 +172,47 @@ class Redis
         def explain_score
           @options[:explainscore] = true
           self
+        end
+
+        # Internal getters for Index#search - these return actual values, not self
+        # :nodoc:
+        def limit_ids_value
+          @limit_ids
+        end
+
+        # :nodoc:
+        def language_value
+          @language
+        end
+
+        # :nodoc:
+        def verbatim_value
+          @verbatim
+        end
+
+        # :nodoc:
+        def no_stopwords_value
+          @no_stopwords
+        end
+
+        # :nodoc:
+        def no_content_value
+          @no_content
+        end
+
+        # :nodoc:
+        def with_payloads_value
+          @with_payloads
+        end
+
+        # :nodoc:
+        def slop_value
+          @slop
+        end
+
+        # :nodoc:
+        def in_order_value
+          @in_order
         end
 
         ## -------------
