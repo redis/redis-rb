@@ -136,7 +136,7 @@ class Redis
           # Strip prefix from document IDs if a prefix is set
           if @prefix
             result[1..-1] = result[1..-1].map do |item|
-              item.is_a?(String) && item.start_with?("#{@prefix}:") ? item.sub("#{@prefix}:", "") : item
+              item.is_a?(String) ? item.delete_prefix("#{@prefix}:") : item
             end
           end
 

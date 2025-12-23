@@ -172,11 +172,11 @@ class Redis
         ## query builder
         ## -------------
 
-        def or_(&block)
+        def or(&block)
           new_collection(:or, &block)
         end
 
-        def and_(&block)
+        def and(&block)
           new_collection(:and, &block)
         end
 

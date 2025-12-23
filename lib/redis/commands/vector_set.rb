@@ -37,6 +37,8 @@ class Redis
           # VALUES format
           args << "VALUES" << vector.length
           args.concat(vector)
+        else
+          raise ArgumentError, "Vector must be a binary String or an Array"
         end
 
         # Add element name
