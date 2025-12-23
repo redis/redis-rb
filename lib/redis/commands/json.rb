@@ -5,15 +5,6 @@ require 'json'
 class Redis
   module Commands
     module JSON
-      # Helper module for JSON parsing with symbol keys
-      module JSONDecoder
-        module_function
-
-        def parse(source)
-          ::JSON.parse(source, symbolize_names: true)
-        end
-      end
-
       def json_set(key, path, value, nx: false, xx: false)
         args = ['JSON.SET', key, path, value.to_json]
         args << 'NX' if nx
@@ -124,7 +115,7 @@ class Redis
       def parse_json(value)
         case value
         when String
-          result = JSONDecoder.parse(value)
+          result = ::JSON.parse(value, symbolize_names: true)
           result.is_a?(Array) && result.length == 1 ? result.first : result
         when Array
           value.map { |v| parse_json(v) }
