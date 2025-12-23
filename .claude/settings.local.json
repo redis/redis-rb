@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api:*)",
+      "Bash(gh run list:*)",
+      "Bash(git fetch:*)"
+    ]
+  }
+}
