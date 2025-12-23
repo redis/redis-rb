@@ -14,8 +14,7 @@ class Redis
         end
 
         def group_by(fields, *reducers)
-          fields = [fields] unless fields.is_a?(Array)
-          step = ["GROUPBY", fields.size.to_s, *fields]
+          step = ["GROUPBY", Array(fields).size.to_s, *Array(fields)]
           reducers.each do |reducer|
             step.concat(["REDUCE", reducer.name, reducer.args.size.to_s])
             step.concat(reducer.args)
