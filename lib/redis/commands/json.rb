@@ -15,12 +15,18 @@ class Redis
       def json_get(key, *paths)
         args = ['JSON.GET', key]
         args.concat(paths) unless paths.empty?
-        parse_json(send_command(args))
+        result = parse_json(send_command(args))
+        # Unwrap single-element arrays for JSONPath queries
+        result.is_a?(Array) && result.length == 1 ? result.first : result
       end
 
       def json_mget(keys, path)
         args = ['JSON.MGET'].concat(keys) << path
-        send_command(args).map { |item| parse_json(item) }
+        send_command(args).map do |item|
+          result = parse_json(item)
+          # Unwrap single-element arrays for JSONPath queries
+          result.is_a?(Array) && result.length == 1 ? result.first : result
+        end
       end
 
       def json_del(key, path = '$')
@@ -35,11 +41,15 @@ class Redis
       end
 
       def json_numincrby(key, path, number)
-        parse_json(send_command(['JSON.NUMINCRBY', key, path, number.to_s]))
+        result = parse_json(send_command(['JSON.NUMINCRBY', key, path, number.to_s]))
+        # Unwrap single-element arrays for JSONPath queries
+        result.is_a?(Array) && result.length == 1 ? result.first : result
       end
 
       def json_nummultby(key, path, number)
-        parse_json(send_command(['JSON.NUMMULTBY', key, path, number.to_s]))
+        result = parse_json(send_command(['JSON.NUMMULTBY', key, path, number.to_s]))
+        # Unwrap single-element arrays for JSONPath queries
+        result.is_a?(Array) && result.length == 1 ? result.first : result
       end
 
       def json_strappend(key, path, value)
