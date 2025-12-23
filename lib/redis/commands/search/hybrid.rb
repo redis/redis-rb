@@ -154,7 +154,7 @@ class Redis
         end
 
         def load(*fields)
-          if fields.any?
+          unless fields.empty?
             fields_str = fields.join(" ")
             fields_list = fields_str.split(" ")
             @load_statements.concat(["LOAD", fields_list.size, *fields_list])
@@ -163,8 +163,7 @@ class Redis
         end
 
         def group_by(fields, *reducers)
-          fields = [fields] unless fields.is_a?(Array)
-          ret = ["GROUPBY", fields.size.to_s, *fields]
+          ret = ["GROUPBY", Array(fields).size.to_s, *Array(fields)]
           reducers.each do |reducer|
             ret.concat(["REDUCE", reducer.name, reducer.args.size.to_s])
             ret.concat(reducer.args)
