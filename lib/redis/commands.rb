@@ -16,6 +16,7 @@ require "redis/commands/sorted_sets"
 require "redis/commands/streams"
 require "redis/commands/strings"
 require "redis/commands/transactions"
+require "redis/commands/vector_set"
 
 class Redis
   module Commands
@@ -35,6 +36,7 @@ class Redis
     include Streams
     include Strings
     include Transactions
+    include VectorSet
 
     # Commands returning 1 for true and 0 for false may be executed in a pipeline
     # where the method call will return nil. Propagate the nil instead of falsely
@@ -78,6 +80,13 @@ class Redis
         -Float::INFINITY
       when String
         Float(value)
+      when Array
+        # Handle array responses (e.g., from VSIM with WITHSCORES)
+        if value.respond_to?(:each_slice)
+          value.each_slice(2).to_h.transform_values { |v| Floatify.call(v) }
+        else
+          value
+        end
       else
         value
       end
