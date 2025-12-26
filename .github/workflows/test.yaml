@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.4", "3.3", "3.2", "3.1", "3.0", "2.7", "2.6"]
+        ruby: ["4.0", "3.4", "3.3", "3.2", "3.1", "3.0", "2.7", "2.6"]
     runs-on: ubuntu-latest
     env:
       LOW_TIMEOUT: "0.01"
@@ -218,7 +218,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.4", "3.3", "3.2", "3.1", "3.0", "2.7"]
+        ruby: ["4.0", "3.4", "3.3", "3.2", "3.1", "3.0", "2.7"]
     runs-on: ubuntu-latest
     env:
       TIMEOUT: "15"
