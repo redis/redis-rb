@@ -9,3 +9,7 @@ gem 'minitest'
 gem 'rake'
 gem 'rubocop', '~> 1.25.1'
 gem 'mocha'
+
+# Use git version until 0.13.7+ is released with Ruby 4.0 Ractor fix
+# See: https://github.com/redis-rb/redis-cluster-client/pull/462
+gem 'redis-cluster-client', git: 'https://github.com/redis-rb/redis-cluster-client.git'
