@@ -27,7 +27,7 @@ class TestClusterCommandsOnJSON < Minitest::Test
     redis.json_set('user:1', '$', { name: "Alice", age: 25 })
     redis.json_set('user:2', '$', { name: "Bob", age: 30 })
     result = redis.json_mget(['user:1', 'user:2'], '$.name')
-    assert_equal ["Alice", "Bob"], result
+    assert_equal [["Alice"], ["Bob"]], result
   end
 
   def test_json_del
@@ -45,26 +45,26 @@ class TestClusterCommandsOnJSON < Minitest::Test
   def test_json_type
     redis.json_set('test', '$', { str: "hello", num: 42, arr: [1, 2], obj: { a: 1 } })
     assert_equal ["string"], redis.json_type('test', '$.str')
-    assert_equal ["number"], redis.json_type('test', '$.num')
+    assert_equal ["integer"], redis.json_type('test', '$.num')
     assert_equal ["array"], redis.json_type('test', '$.arr')
     assert_equal ["object"], redis.json_type('test', '$.obj')
   end
 
   def test_json_numincrby
     redis.json_set('test', '$', { num: 10 })
-    assert_equal 15, redis.json_numincrby('test', '$.num', 5)
-    assert_equal 15, redis.json_get('test', '$.num')
+    assert_equal [15], redis.json_numincrby('test', '$.num', 5)
+    assert_equal [15], redis.json_get('test', '$.num')
   end
 
   def test_json_nummultby
     redis.json_set('test', '$', { num: 5 })
-    assert_equal 15, redis.json_nummultby('test', '$.num', 3)
-    assert_equal 15, redis.json_get('test', '$.num')
+    assert_equal [15], redis.json_nummultby('test', '$.num', 3)
+    assert_equal [15], redis.json_get('test', '$.num')
   end
 
   def test_json_strappend
     redis.json_set('test', '$', { str: "hello" })
-    assert_equal 11, redis.json_strappend('test', '$.str', " world")
+    assert_equal [11], redis.json_strappend('test', '$.str', " world")
     assert_equal({ str: "hello world" }, redis.json_get('test'))
   end
 
@@ -97,7 +97,7 @@ class TestClusterCommandsOnJSON < Minitest::Test
 
   def test_json_arrpop
     redis.json_set('test', '$', { arr: [1, 2, 3] })
-    assert_equal 3, redis.json_arrpop('test', '$.arr', -1)
+    assert_equal [3], redis.json_arrpop('test', '$.arr', -1)
     assert_equal({ arr: [1, 2] }, redis.json_get('test'))
   end
 

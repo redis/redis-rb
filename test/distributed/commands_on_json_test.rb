@@ -38,26 +38,26 @@ class TestDistributedCommandsOnJSON < Minitest::Test
   def test_json_type
     r.json_set('test', '$', { str: "hello", num: 42, arr: [1, 2], obj: { a: 1 } })
     assert_equal ["string"], r.json_type('test', '$.str')
-    assert_equal ["number"], r.json_type('test', '$.num')
+    assert_equal ["integer"], r.json_type('test', '$.num')
     assert_equal ["array"], r.json_type('test', '$.arr')
     assert_equal ["object"], r.json_type('test', '$.obj')
   end
 
   def test_json_numincrby
     r.json_set('test', '$', { num: 10 })
-    assert_equal 15, r.json_numincrby('test', '$.num', 5)
-    assert_equal 15, r.json_get('test', '$.num')
+    assert_equal [15], r.json_numincrby('test', '$.num', 5)
+    assert_equal [15], r.json_get('test', '$.num')
   end
 
   def test_json_nummultby
     r.json_set('test', '$', { num: 5 })
-    assert_equal 15, r.json_nummultby('test', '$.num', 3)
-    assert_equal 15, r.json_get('test', '$.num')
+    assert_equal [15], r.json_nummultby('test', '$.num', 3)
+    assert_equal [15], r.json_get('test', '$.num')
   end
 
   def test_json_strappend
     r.json_set('test', '$', { str: "hello" })
-    assert_equal 11, r.json_strappend('test', '$.str', " world")
+    assert_equal [11], r.json_strappend('test', '$.str', " world")
     assert_equal({ str: "hello world" }, r.json_get('test'))
   end
 
@@ -90,7 +90,7 @@ class TestDistributedCommandsOnJSON < Minitest::Test
 
   def test_json_arrpop
     r.json_set('test', '$', { arr: [1, 2, 3] })
-    assert_equal 3, r.json_arrpop('test', '$.arr', -1)
+    assert_equal [3], r.json_arrpop('test', '$.arr', -1)
     assert_equal({ arr: [1, 2] }, r.json_get('test'))
   end
 
@@ -136,7 +136,7 @@ class TestDistributedCommandsOnJSON < Minitest::Test
     r.json_set('{user}:1', '$', { name: "Alice", age: 25 })
     r.json_set('{user}:2', '$', { name: "Bob", age: 30 })
     result = r.json_mget(['{user}:1', '{user}:2'], '$.name')
-    assert_equal ["Alice", "Bob"], result
+    assert_equal [["Alice"], ["Bob"]], result
   end
 
   def test_json_mget_different_nodes

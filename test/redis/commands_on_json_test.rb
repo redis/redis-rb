@@ -4,8 +4,6 @@ require "helper"
 
 class TestCommandsOnJSON < Minitest::Test
   include Helper::Client
-  include Redis::Commands::JSON
-  include Redis::Commands::JSON
 
   def setup
     super
@@ -27,7 +25,7 @@ class TestCommandsOnJSON < Minitest::Test
     r.json_set('user:1', '$', { name: "Alice", age: 25 })
     r.json_set('user:2', '$', { name: "Bob", age: 30 })
     result = r.json_mget(['user:1', 'user:2'], '$.name')
-    assert_equal ["Alice", "Bob"], result
+    assert_equal [["Alice"], ["Bob"]], result
   end
 
   def test_json_del
@@ -47,12 +45,12 @@ class TestCommandsOnJSON < Minitest::Test
 
   def test_json_numincrby
     r.json_set('test', '$', { num: 10 })
-    assert_equal 15, r.json_numincrby('test', '$.num', 5)
+    assert_equal [15], r.json_numincrby('test', '$.num', 5)
   end
 
   def test_json_nummultby
     r.json_set('test', '$', { num: 10 })
-    assert_equal 20, r.json_nummultby('test', '$.num', 2)
+    assert_equal [20], r.json_nummultby('test', '$.num', 2)
   end
 
   def test_json_strlen
@@ -63,7 +61,7 @@ class TestCommandsOnJSON < Minitest::Test
   def test_json_arrappend
     r.json_set('test', '$', { arr: [1, 2] })
     assert_equal [4], r.json_arrappend('test', '$.arr', 3, 4)
-    assert_equal [1, 2, 3, 4], r.json_get('test', '$.arr')
+    assert_equal [[1, 2, 3, 4]], r.json_get('test', '$.arr')
   end
 
   def test_json_arrindex
@@ -75,7 +73,7 @@ class TestCommandsOnJSON < Minitest::Test
   def test_json_arrinsert
     r.json_set('test', '$', { arr: [1, 2, 4] })
     assert_equal [4], r.json_arrinsert('test', '$.arr', 2, 3)
-    assert_equal [1, 2, 3, 4], r.json_get('test', '$.arr')
+    assert_equal [[1, 2, 3, 4]], r.json_get('test', '$.arr')
   end
 
   def test_json_arrlen
@@ -86,7 +84,7 @@ class TestCommandsOnJSON < Minitest::Test
   def test_json_arrpop
     r.json_set('test', '$', { arr: [1, 2, 3] })
     assert_equal [3], r.json_arrpop('test', '$.arr')
-    assert_equal [1, 2], r.json_get('test', '$.arr')
+    assert_equal [[1, 2]], r.json_get('test', '$.arr')
   end
 
   def test_json_arrtrim
@@ -94,7 +92,7 @@ class TestCommandsOnJSON < Minitest::Test
     result = r.json_arrtrim('test', '$.arr', 1, 3)
     assert_equal [3], result
     get_result = r.json_get('test', '$.arr')
-    assert_equal [2, 3, 4], get_result
+    assert_equal [[2, 3, 4]], get_result
   end
 
   def test_json_objkeys
@@ -130,7 +128,7 @@ class TestCommandsOnJSON < Minitest::Test
     r.json_set('user:1', '$', { name: "Alice", age: 25, address: { city: "New York" } })
     r.json_set('user:2', '$', { name: "Bob", age: 30, address: { city: "San Francisco" } })
     result = r.json_mget(['user:1', 'user:2'], '$.address.city')
-    assert_equal ["New York", "San Francisco"], result
+    assert_equal [["New York"], ["San Francisco"]], result
   end
 
   def test_json_type_nested
@@ -143,18 +141,18 @@ class TestCommandsOnJSON < Minitest::Test
 
   def test_json_numincrby_float
     r.json_set('test', '$', { num: 10.5 })
-    assert_equal 13.7, r.json_numincrby('test', '$.num', 3.2)
+    assert_equal [13.7], r.json_numincrby('test', '$.num', 3.2)
   end
 
   def test_json_nummultby_float
     r.json_set('test', '$', { num: 10.5 })
-    assert_equal 26.25, r.json_nummultby('test', '$.num', 2.5)
+    assert_equal [26.25], r.json_nummultby('test', '$.num', 2.5)
   end
 
   def test_json_arrappend_multiple_values
     r.json_set('test', '$', { arr: [1, 2] })
     assert_equal [5], r.json_arrappend('test', '$.arr', 3, 4, 5)
-    assert_equal [1, 2, 3, 4, 5], r.json_get('test', '$.arr')
+    assert_equal [[1, 2, 3, 4, 5]], r.json_get('test', '$.arr')
   end
 
   def test_json_arrindex_with_range
@@ -168,17 +166,17 @@ class TestCommandsOnJSON < Minitest::Test
   def test_json_arrinsert_multiple_values
     r.json_set('test', '$', { arr: [1, 2, 5] })
     assert_equal [5], r.json_arrinsert('test', '$.arr', 2, 3, 4)
-    assert_equal [1, 2, 3, 4, 5], r.json_get('test', '$.arr')
+    assert_equal [[1, 2, 3, 4, 5]], r.json_get('test', '$.arr')
   end
 
   def test_json_arrpop_with_index
     r.json_set('test', '$', { arr: [1, 2, 3, 4, 5] })
     assert_equal [3], r.json_arrpop('test', '$.arr', 2)
-    assert_equal [1, 2, 4, 5], r.json_get('test', '$.arr')
+    assert_equal [[1, 2, 4, 5]], r.json_get('test', '$.arr')
     assert_equal [1], r.json_arrpop('test', '$.arr', 0)
-    assert_equal [2, 4, 5], r.json_get('test', '$.arr')
+    assert_equal [[2, 4, 5]], r.json_get('test', '$.arr')
     assert_equal [5], r.json_arrpop('test', '$.arr', -1)
-    assert_equal [2, 4], r.json_get('test', '$.arr')
+    assert_equal [[2, 4]], r.json_get('test', '$.arr')
   end
 
   def test_json_operations_on_nested_arrays
@@ -186,18 +184,18 @@ class TestCommandsOnJSON < Minitest::Test
     assert_equal [3], r.json_arrlen('test', '$.nested.arr')
     assert_equal [2], r.json_arrlen('test', '$.nested.arr[1]')
     assert_equal [3], r.json_arrappend('test', '$.nested.arr[1]', 4)
-    assert_equal [1, [2, 3, 4], 4], r.json_get('test', '$.nested.arr')
+    assert_equal [[1, [2, 3, 4], 4]], r.json_get('test', '$.nested.arr')
     assert_equal [1], r.json_arrindex('test', '$.nested.arr', [2, 3, 4])
     r.json_arrinsert('test', '$.nested.arr', 1, 'inserted')
-    assert_equal [1, 'inserted', [2, 3, 4], 4], r.json_get('test', '$.nested.arr')
+    assert_equal [[1, 'inserted', [2, 3, 4], 4]], r.json_get('test', '$.nested.arr')
   end
 
   def test_json_set_and_get_with_path
     r.json_set('test', '$', { user: { name: "John", address: { city: "New York" } } })
-    assert_equal "John", r.json_get('test', '$.user.name')
-    assert_equal "New York", r.json_get('test', '$.user.address.city')
+    assert_equal ["John"], r.json_get('test', '$.user.name')
+    assert_equal ["New York"], r.json_get('test', '$.user.address.city')
     r.json_set('test', '$.user.address.country', "USA")
-    assert_equal({ city: "New York", country: "USA" }, r.json_get('test', '$.user.address'))
+    assert_equal [{ city: "New York", country: "USA" }], r.json_get('test', '$.user.address')
   end
 
   def test_json_type_with_complex_structure
@@ -222,14 +220,14 @@ class TestCommandsOnJSON < Minitest::Test
   def test_json_strappend_with_nested_path
     r.json_set('test', '$', { user: { name: "John" } })
     assert_equal [8], r.json_strappend('test', '$.user.name', " Doe")
-    assert_equal "John Doe", r.json_get('test', '$.user.name')
+    assert_equal ["John Doe"], r.json_get('test', '$.user.name')
   end
 
   def test_json_numincrby_and_nummultby_with_nested_path
     r.json_set('test', '$', { user: { stats: { points: 100, multiplier: 2 } } })
-    assert_equal 150, r.json_numincrby('test', '$.user.stats.points', 50)
-    assert_equal 300, r.json_nummultby('test', '$.user.stats.points', 2)
-    assert_equal 6, r.json_nummultby('test', '$.user.stats.multiplier', 3)
+    assert_equal [150], r.json_numincrby('test', '$.user.stats.points', 50)
+    assert_equal [300], r.json_nummultby('test', '$.user.stats.points', 2)
+    assert_equal [6], r.json_nummultby('test', '$.user.stats.multiplier', 3)
   end
 
   def test_json_del_with_nested_path
@@ -243,7 +241,7 @@ class TestCommandsOnJSON < Minitest::Test
   def test_json_arrpop_empty_array
     r.json_set('test', '$', { arr: [] })
     assert_equal [nil], r.json_arrpop('test', '$.arr')
-    assert_equal [], r.json_get('test', '$.arr')
+    assert_equal [[]], r.json_get('test', '$.arr')
   end
 
   def test_json_arrindex_non_existent_value
@@ -295,9 +293,9 @@ class TestCommandsOnJSON < Minitest::Test
       }
     }
     assert r.json_set('test', '$', large_structure)
-    assert_equal "Deep nested data", r.json_get('test', '$.level1.level2.level3.level4.level5.data')
-    assert_equal [1, 2, 3, 4, 5], r.json_get('test', '$.level1.level2.level3.level4.level5.array')
-    assert_equal "value2", r.json_get('test', '$.level1.level2.level3.level4.level5.nested_object.key2')
+    assert_equal ["Deep nested data"], r.json_get('test', '$.level1.level2.level3.level4.level5.data')
+    assert_equal [[1, 2, 3, 4, 5]], r.json_get('test', '$.level1.level2.level3.level4.level5.array')
+    assert_equal ["value2"], r.json_get('test', '$.level1.level2.level3.level4.level5.nested_object.key2')
   end
 
   def test_jsonset_jsonget_mixed_types
@@ -334,8 +332,8 @@ class TestCommandsOnJSON < Minitest::Test
   def test_mget
     r.json_set("1", "$", 1)
     r.json_set("2", "$", 2)
-    assert_equal [1], r.json_mget(["1"], "$")
-    assert_equal [1, 2], r.json_mget(["1", "2"], "$")
+    assert_equal [[1]], r.json_mget(["1"], "$")
+    assert_equal [[1], [2]], r.json_mget(["1", "2"], "$")
   end
 
   def test_json_mset
@@ -348,7 +346,7 @@ class TestCommandsOnJSON < Minitest::Test
     assert_equal({ name: "John", age: 30 }, r.json_get("key1"))
     assert_equal({ name: "Jane", age: 25 }, r.json_get("key2"))
 
-    assert_equal [{ name: "John", age: 30 }, { name: "Jane", age: 25 }], r.json_mget(["key1", "key2"], "$")
+    assert_equal [[{ name: "John", age: 30 }], [{ name: "Jane", age: 25 }]], r.json_mget(["key1", "key2"], "$")
   end
 
   def test_json_arrappend_and_arrlen
@@ -360,8 +358,8 @@ class TestCommandsOnJSON < Minitest::Test
 
   def test_json_numincrby_and_nummultby
     r.json_set('num', '$', { "value": 10 })
-    assert_equal 15, r.json_numincrby('num', '$.value', 5)
-    assert_equal 30, r.json_nummultby('num', '$.value', 2)
+    assert_equal [15], r.json_numincrby('num', '$.value', 5)
+    assert_equal [30], r.json_nummultby('num', '$.value', 2)
     assert_equal({ value: 30 }, r.json_get('num'))
   end
 
@@ -398,8 +396,8 @@ class TestCommandsOnJSON < Minitest::Test
 
     result = r.json_mget(['user1', 'user2'], '$')
     expected = [
-      { name: "John", age: 30, pets: ["dog", "cat"] },
-      { name: "Jane", age: 28, pets: ["fish"] }
+      [{ name: "John", age: 30, pets: ["dog", "cat"] }],
+      [{ name: "Jane", age: 28, pets: ["fish"] }]
     ]
     assert_equal expected, result
   end
@@ -451,7 +449,7 @@ class TestCommandsOnJSON < Minitest::Test
                  ]
                })
     result = r.json_get('complex', '$.users[?(@.age>28)].name')
-    assert_equal 'John', result
+    assert_equal ['John'], result
   end
 
   def test_json_operations_on_non_existent_paths
@@ -617,7 +615,7 @@ class TestCommandsOnJSON < Minitest::Test
     assert_equal [2], r.json_arrpop('arr', '$')
     assert_equal [0], r.json_arrpop('arr', '$', 0)
     # After all pops, only element 1 remains - but json_get returns the value directly
-    assert_equal 1, r.json_get('arr')
+    assert_equal [1], r.json_get('arr')
 
     # test out of bounds
     r.json_set('arr', '$', [0, 1, 2, 3, 4])
@@ -759,10 +757,10 @@ class TestCommandsOnJSON < Minitest::Test
     # Test multi
     assert_equal [nil, 4, 7.0, nil], r.json_numincrby('doc1', '$..a', 2)
     assert_equal [nil, 6.5, 9.5, nil], r.json_numincrby('doc1', '$..a', 2.5)
-    # Test single - returns single value not array when path is specific
-    assert_equal 11.5, r.json_numincrby('doc1', '$.b[1].a', 2)
-    assert_nil r.json_numincrby('doc1', '$.b[2].a', 2)
-    assert_equal 15.0, r.json_numincrby('doc1', '$.b[1].a', 3.5)
+    # Test single
+    assert_equal [11.5], r.json_numincrby('doc1', '$.b[1].a', 2)
+    assert_equal [nil], r.json_numincrby('doc1', '$.b[2].a', 2)
+    assert_equal [15.0], r.json_numincrby('doc1', '$.b[1].a', 3.5)
 
     # Test NUMMULTBY
     r.json_set('doc1', '$', { 'a' => 'b', 'b' => [{ 'a' => 2 }, { 'a' => 5.0 }, { 'a' => 'c' }] })
@@ -770,9 +768,9 @@ class TestCommandsOnJSON < Minitest::Test
     assert_equal [nil, 4, 10, nil], r.json_nummultby('doc1', '$..a', 2)
     assert_equal [nil, 10.0, 25.0, nil], r.json_nummultby('doc1', '$..a', 2.5)
     # Test single
-    assert_equal 50.0, r.json_nummultby('doc1', '$.b[1].a', 2)
-    assert_nil r.json_nummultby('doc1', '$.b[2].a', 2)
-    assert_equal 150.0, r.json_nummultby('doc1', '$.b[1].a', 3)
+    assert_equal [50.0], r.json_nummultby('doc1', '$.b[1].a', 2)
+    assert_equal [nil], r.json_nummultby('doc1', '$.b[2].a', 2)
+    assert_equal [150.0], r.json_nummultby('doc1', '$.b[1].a', 3)
   end
 
   def test_strappend_dollar
