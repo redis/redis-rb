@@ -405,6 +405,27 @@ Redis::Instrumentation::Hooks::Logger.new(
 ).install!
 ```
 
+Example log output (`log_args: false`):
+
+```
+D, [2026-02-23T10:15:32.004] DEBUG -- : Redis SET 0.38ms (id: redis://127.0.0.1:6379/0)
+D, [2026-02-23T10:15:32.009] DEBUG -- : Redis GET 0.22ms (id: redis://127.0.0.1:6379/0)
+D, [2026-02-23T10:15:32.015] DEBUG -- : Redis LPUSH 0.41ms (id: redis://127.0.0.1:6379/0)
+```
+
+With `log_args: true`:
+
+```
+D, [2026-02-23T10:15:32.004] DEBUG -- : Redis SET mykey myvalue 0.38ms (id: redis://127.0.0.1:6379/0)
+D, [2026-02-23T10:15:32.009] DEBUG -- : Redis GET mykey 0.22ms (id: redis://127.0.0.1:6379/0)
+```
+
+On error:
+
+```
+D, [2026-02-23T10:15:32.020] DEBUG -- : Redis SET mykey myvalue 1.05ms ERROR Redis::TimeoutError (id: redis://127.0.0.1:6379/0)
+```
+
 ### Disconnect Observability
 
 Register a hook to be notified when a client disconnects:
