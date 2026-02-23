@@ -5,6 +5,7 @@ require "redis-client"
 require "monitor"
 require "redis/errors"
 require "redis/commands"
+require "redis/logging"
 
 class Redis
   BASE_PATH = __dir__
@@ -90,6 +91,7 @@ class Redis
   def close
     @client.close
     @subscription_client&.close
+    Instrumentation.notify_disconnect(id) if Instrumentation.enabled?
   end
   alias disconnect! close
 
@@ -150,16 +152,24 @@ class Redis
   end
 
   def send_command(command, &block)
-    @monitor.synchronize do
-      @client.call_v(command, &block)
+    if Instrumentation.enabled?
+      Instrumentation.instrument(command, id) do
+        @monitor.synchronize { @client.call_v(command, &block) }
+      end
+    else
+      @monitor.synchronize { @client.call_v(command, &block) }
     end
   rescue ::RedisClient::Error => error
     Client.translate_error!(error)
   end
 
   def send_blocking_command(command, timeout, &block)
-    @monitor.synchronize do
-      @client.blocking_call_v(timeout, command, &block)
+    if Instrumentation.enabled?
+      Instrumentation.instrument(command, id) do
+        @monitor.synchronize { @client.blocking_call_v(timeout, command, &block) }
+      end
+    else
+      @monitor.synchronize { @client.blocking_call_v(timeout, command, &block) }
     end
   end
 

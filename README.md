@@ -374,6 +374,74 @@ redis = Redis.new(
 
 [OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.5.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
 
+## Instrumentation & Observability
+
+redis-rb includes an optional hook-based instrumentation system with zero overhead when
+not in use. Register `before`, `after`, or `around` hooks to observe command execution:
+
+```ruby
+# Log every command with its latency
+Redis::Instrumentation.after_command do |event|
+  puts "#{event.command_name.upcase} #{event.duration * 1000}ms"
+end
+
+# Wrap commands for tracing
+Redis::Instrumentation.around_command do |event, call|
+  span = Tracer.start_span("redis.#{event.command_name}")
+  call.call
+ensure
+  span.finish
+end
+```
+
+A built-in logger hook is included:
+
+```ruby
+Redis::Instrumentation::Hooks::Logger.new(
+  logger: Rails.logger,
+  level: :debug,
+  log_args: true,                                   # include filtered arguments
+  filter: ->(cmd) { !%w[ping select].include?(cmd) } # skip noisy commands
+).install!
+```
+
+### Disconnect Observability
+
+Register a hook to be notified when a client disconnects:
+
+```ruby
+Redis::Instrumentation.after_disconnect do |redis_id|
+  puts "Disconnected from #{redis_id}"
+end
+```
+
+The hook fires after `close` / `disconnect!` is called.
+
+Call `Redis::Instrumentation.clear!` to remove all hooks.
+
+### PII Filtering
+
+The `Event` object exposes both raw `args` and `filtered_args`. Sensitive data is
+automatically redacted in `filtered_args`:
+
+- `AUTH` arguments are always replaced with `[FILTERED]`
+- `CONFIG SET requirepass/masterauth/masteruser` values are filtered
+- Custom patterns match against all argument strings
+
+```ruby
+# Explicit patterns
+Redis::Instrumentation.parameter_filter =
+  Redis::Instrumentation::ParameterFilter.new(patterns: [:password, :email, /credit.?card/i])
+
+Redis::Instrumentation.after_command do |event|
+  # Safe for logs — PII is redacted
+  logger.info "#{event.command_name} #{event.filtered_args.join(' ')}"
+end
+```
+
+**Rails integration**: When no explicit patterns are provided, the filter automatically
+reads `Rails.application.config.filter_parameters`. No configuration required in a Rails app.
+
 ## Expert-Mode Options
 
  - `inherit_socket: true`: disable safety check that prevents a forked child
