@@ -307,7 +307,7 @@ If no message is received after 5 seconds, the client will unsubscribe.
 
 ## Reconnections
 
-**By default**, this gem will only **retry a connection once** and then fail, but
+**By default**, this gem will **retry a connection 5 times** and then fail, but
 the client allows you to configure how many `reconnect_attempts` it should
 complete before declaring a connection as failed.
 
@@ -373,6 +373,24 @@ redis = Redis.new(
 ```
 
 [OpenSSL::SSL::SSLContext documentation]: http://ruby-doc.org/stdlib-2.5.0/libdoc/openssl/rdoc/OpenSSL/SSL/SSLContext.html
+
+## Exponential Backoff Retry
+
+For resilient connections in production, use `exponential_backoff_retry` to reconnect
+with exponential backoff:
+
+```ruby
+redis = Redis.new
+
+# Uses defaults: 5 attempts, 0.5s base delay, 30s max delay
+redis.exponential_backoff_retry
+
+# Custom parameters
+redis.exponential_backoff_retry(10, base_delay: 1.0, max_delay: 60.0)
+```
+
+The delay between attempts doubles each time (`0.5s → 1s → 2s → 4s → ...`) up to
+`max_delay`. Raises `Redis::CannotConnectError` if all attempts fail.
 
 ## Expert-Mode Options
 

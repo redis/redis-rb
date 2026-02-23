@@ -111,7 +111,7 @@ class TestInternals < Minitest::Test
   end
 
   def test_retry_only_once_when_read_raises_econnreset
-    close_on_ping([0, 1]) do |redis|
+    close_on_ping([0, 1], reconnect_attempts: 1) do |redis|
       assert_raises Redis::ConnectionError do
         redis.ping
       end
@@ -143,6 +143,81 @@ class TestInternals < Minitest::Test
       redis._client.config.expects(:sleep).with(0.04).returns(true)
 
       assert_equal "3", redis.ping
+    end
+  end
+
+  # --- exponential_backoff_retry tests ---
+
+  def test_exponential_backoff_retry_succeeds_on_first_attempt
+    redis_mock(ping: ->(*_) { "+PONG" }) do |redis|
+      assert_equal true, redis.exponential_backoff_retry(3)
+    end
+  end
+
+  def test_exponential_backoff_retry_succeeds_after_failures
+    close_on_ping([0, 1], reconnect_attempts: 0) do |redis|
+      Redis.any_instance.stubs(:sleep)
+      assert_equal true, redis.exponential_backoff_retry(5, base_delay: 0.001)
+    end
+  end
+
+  def test_exponential_backoff_retry_raises_after_all_attempts_exhausted
+    close_on_ping([0, 1, 2, 3, 4], reconnect_attempts: 0) do |redis|
+      Redis.any_instance.stubs(:sleep)
+      error = assert_raises(Redis::CannotConnectError) do
+        redis.exponential_backoff_retry(3, base_delay: 0.001)
+      end
+      assert_match(/Failed to connect after 3 attempts/, error.message)
+    end
+  end
+
+  def test_exponential_backoff_retry_uses_exponential_delays
+    close_on_ping([0, 1, 2], reconnect_attempts: 0) do |redis|
+      delays = []
+      Redis.any_instance.stubs(:sleep).with { |d| delays << d; true }
+      redis.exponential_backoff_retry(5, base_delay: 0.1, max_delay: 10.0)
+      # attempts 0,1,2 fail -> sleep after each (none is the last attempt) -> attempt 3 succeeds
+      assert_equal 3, delays.size
+      assert_in_delta 0.1, delays[0], 0.001  # 0.1 * 2^0
+      assert_in_delta 0.2, delays[1], 0.001  # 0.1 * 2^1
+      assert_in_delta 0.4, delays[2], 0.001  # 0.1 * 2^2
+    end
+  end
+
+  def test_exponential_backoff_retry_caps_delay_at_max
+    close_on_ping([0, 1, 2, 3], reconnect_attempts: 0) do |redis|
+      delays = []
+      Redis.any_instance.stubs(:sleep).with { |d| delays << d; true }
+      redis.exponential_backoff_retry(6, base_delay: 1.0, max_delay: 2.5)
+      # attempts 0,1,2,3 fail -> sleep after each (none is the last attempt) -> attempt 4 succeeds
+      assert_equal 4, delays.size
+      assert_in_delta 1.0, delays[0], 0.001  # min(1.0 * 2^0, 2.5) = 1.0
+      assert_in_delta 2.0, delays[1], 0.001  # min(1.0 * 2^1, 2.5) = 2.0
+      assert_in_delta 2.5, delays[2], 0.001  # min(1.0 * 2^2, 2.5) = 2.5
+      assert_in_delta 2.5, delays[3], 0.001  # min(1.0 * 2^3, 2.5) = 2.5 (capped)
+    end
+  end
+
+  def test_exponential_backoff_retry_defaults_to_options_reconnect_attempts
+    close_on_ping([0, 1, 2, 3, 4, 5], reconnect_attempts: 0) do |redis|
+      redis.instance_variable_get(:@options)[:reconnect_attempts] = 2
+      Redis.any_instance.stubs(:sleep)
+      error = assert_raises(Redis::CannotConnectError) do
+        redis.exponential_backoff_retry(base_delay: 0.001)
+      end
+      assert_match(/Failed to connect after 2 attempts/, error.message)
+    end
+  end
+
+  def test_exponential_backoff_retry_does_not_sleep_after_last_attempt
+    close_on_ping([0, 1, 2], reconnect_attempts: 0) do |redis|
+      delays = []
+      Redis.any_instance.stubs(:sleep).with { |d| delays << d; true }
+      assert_raises(Redis::CannotConnectError) do
+        redis.exponential_backoff_retry(3, base_delay: 0.1)
+      end
+      # 3 attempts all fail, sleep after attempt 0 and 1, NOT after attempt 2
+      assert_equal 2, delays.size
     end
   end
 

@@ -65,7 +65,7 @@ class Redis
   def initialize(options = {})
     @monitor = Monitor.new
     @options = options.dup
-    @options[:reconnect_attempts] = 1 unless @options.key?(:reconnect_attempts)
+    @options[:reconnect_attempts] = 5 unless @options.key?(:reconnect_attempts)
     if ENV["REDIS_URL"] && SERVER_URL_OPTIONS.none? { |o| @options.key?(o) }
       @options[:url] = ENV["REDIS_URL"]
     end
@@ -74,6 +74,35 @@ class Redis
 
     @client = initialize_client(@options)
     @client.inherit_socket! if inherit_socket
+  end
+
+  # Retry connecting to Redis with exponential backoff.
+  #
+  # @param reconnect_attempts [Integer] number of attempts
+  # @param base_delay [Float] initial delay in seconds between attempts
+  # @param max_delay [Float] maximum delay cap in seconds
+  # @return [true] on successful connection
+  # @raise [Redis::CannotConnectError] if all attempts fail
+  def exponential_backoff_retry(reconnect_attempts = @options.fetch(:reconnect_attempts, 5),
+                                base_delay: 0.5, max_delay: 30.0)
+    last_error = nil
+
+    reconnect_attempts.times do |attempt|
+      begin
+        send_command([:ping])
+        return true
+      rescue BaseConnectionError => e
+        last_error = e
+        @client.close
+
+        next if attempt == reconnect_attempts - 1
+
+        delay = [base_delay * (2**attempt), max_delay].min
+        sleep(delay)
+      end
+    end
+
+    raise CannotConnectError, "Failed to connect after #{reconnect_attempts} attempts: #{last_error&.message}"
   end
 
   # Run code without the client reconnecting
