@@ -198,6 +198,12 @@ class TestInstrumentation < Minitest::Test
     assert_match(/GET/, output)
   end
 
+  def test_logger_hook_rejects_invalid_level
+    assert_raises(ArgumentError) do
+      Redis::Instrumentation::Hooks::Logger.new(logger: ::Logger.new(StringIO.new), level: :bogus)
+    end
+  end
+
   def test_thread_safe_registration
     threads = 10.times.map do
       Thread.new do
@@ -233,6 +239,110 @@ class TestInstrumentation < Minitest::Test
 
     pipeline_events = events.select { |e| %w[set get].include?(e.command_name) }
     assert_equal 0, pipeline_events.size
+  end
+
+  # --- Hook error resilience tests ---
+
+  def test_before_hook_error_does_not_break_command
+    Redis::Instrumentation.before_command { |_| raise "boom" }
+
+    result = r.set("foo", "bar")
+    assert_equal "OK", result
+  end
+
+  def test_after_hook_error_does_not_break_command
+    Redis::Instrumentation.after_command { |_| raise "boom" }
+
+    result = r.set("foo", "bar")
+    assert_equal "OK", result
+  end
+
+  def test_disconnect_hook_error_does_not_break_close
+    Redis::Instrumentation.after_disconnect { |_| raise "boom" }
+
+    r.ping
+    r.close # should not raise
+  end
+
+  def test_broken_hook_does_not_prevent_other_hooks
+    results = []
+    Redis::Instrumentation.before_command { |_| raise "first hook fails" }
+    Redis::Instrumentation.before_command { |_| results << :second_ran }
+
+    r.ping
+
+    assert_equal [:second_ran], results
+  end
+
+  # --- remove_hook tests ---
+
+  def test_remove_hook_removes_before_hook
+    hook = Redis::Instrumentation.before_command { |_| }
+    assert Redis::Instrumentation.enabled?
+
+    Redis::Instrumentation.remove_hook(hook)
+    refute Redis::Instrumentation.enabled?
+  end
+
+  def test_remove_hook_removes_after_hook
+    hook = Redis::Instrumentation.after_command { |_| }
+    Redis::Instrumentation.remove_hook(hook)
+    refute Redis::Instrumentation.enabled?
+  end
+
+  def test_remove_hook_removes_around_hook
+    hook = Redis::Instrumentation.around_command { |_, call| call.call }
+    Redis::Instrumentation.remove_hook(hook)
+    refute Redis::Instrumentation.enabled?
+  end
+
+  def test_remove_hook_removes_disconnect_hook
+    hook = Redis::Instrumentation.after_disconnect { |_| }
+    Redis::Instrumentation.remove_hook(hook)
+    refute Redis::Instrumentation.enabled?
+  end
+
+  def test_remove_hook_keeps_other_hooks_enabled
+    hook1 = Redis::Instrumentation.before_command { |_| }
+    hook2 = Redis::Instrumentation.before_command { |_| }
+
+    Redis::Instrumentation.remove_hook(hook1)
+    assert Redis::Instrumentation.enabled?
+
+    Redis::Instrumentation.remove_hook(hook2)
+    refute Redis::Instrumentation.enabled?
+  end
+
+  def test_remove_hook_prevents_hook_from_firing
+    called = false
+    hook = Redis::Instrumentation.after_command { |_| called = true }
+    Redis::Instrumentation.remove_hook(hook)
+
+    # Need another hook to keep instrumentation enabled
+    Redis::Instrumentation.after_command { |_| }
+    r.ping
+
+    refute called
+  end
+
+  # --- around_command edge case ---
+
+  def test_around_hook_not_calling_inner_prevents_execution
+    Redis::Instrumentation.around_command do |_event, _call|
+      # intentionally not calling _call.call
+    end
+
+    # The command won't actually execute through to Redis
+    # but the hook chain completes without error
+    events = []
+    Redis::Instrumentation.after_command { |event| events << event }
+
+    r.set("foo", "bar")
+
+    # after hook still fires
+    assert_equal 1, events.size
+    # result is nil since inner was never called
+    assert_nil events.first.result
   end
 
   # --- ParameterFilter tests ---
@@ -323,6 +433,15 @@ class TestInstrumentation < Minitest::Test
     assert_equal ["[FILTERED]"], event.filtered_args
   end
 
+  def test_event_filtered_args_is_memoized
+    cmd = [:set, "key", "value"]
+    event = Redis::Instrumentation::Event.new(cmd, "test-id")
+
+    first_call = event.filtered_args
+    second_call = event.filtered_args
+    assert_same first_call, second_call
+  end
+
   def test_logger_hook_with_log_args_filters_sensitive
     saved_filter = Redis::Instrumentation.parameter_filter
     Redis::Instrumentation.parameter_filter = Redis::Instrumentation::ParameterFilter.new(patterns: [:token])
@@ -404,5 +523,25 @@ class TestInstrumentation < Minitest::Test
     r.close
 
     assert_equal [1, 1], counts
+  end
+
+  # --- registration return value tests ---
+
+  def test_before_command_returns_hook
+    block = proc { |_| }
+    result = Redis::Instrumentation.before_command(&block)
+    assert_same block, result
+  end
+
+  def test_after_command_returns_hook
+    block = proc { |_| }
+    result = Redis::Instrumentation.after_command(&block)
+    assert_same block, result
+  end
+
+  def test_around_command_returns_hook
+    block = proc { |_, call| call.call }
+    result = Redis::Instrumentation.around_command(&block)
+    assert_same block, result
   end
 end

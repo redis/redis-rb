@@ -66,7 +66,7 @@ class Redis
         else
           []
         end
-      rescue
+      rescue StandardError
         []
       end
 
@@ -126,8 +126,12 @@ class Redis
       # Returns args with sensitive data replaced by [FILTERED].
       # Uses the global parameter_filter configured on Instrumentation.
       def filtered_args
-        Instrumentation.parameter_filter.filter_args(@command_name, @args)
+        @filtered_args ||= Instrumentation.parameter_filter.filter_args(@command_name, @args)
       end
+
+      private
+
+      attr_writer :start_time
     end
 
     @mutex = Mutex.new
@@ -157,6 +161,7 @@ class Redis
           @before_hooks << block
           @enabled = true
         end
+        block
       end
 
       def after_command(&block)
@@ -164,6 +169,7 @@ class Redis
           @after_hooks << block
           @enabled = true
         end
+        block
       end
 
       def around_command(&block)
@@ -171,6 +177,7 @@ class Redis
           @around_hooks << block
           @enabled = true
         end
+        block
       end
 
       def after_disconnect(&block)
@@ -178,11 +185,26 @@ class Redis
           @disconnect_hooks << block
           @enabled = true
         end
+        block
+      end
+
+      def remove_hook(hook)
+        @mutex.synchronize do
+          @before_hooks.delete(hook)
+          @after_hooks.delete(hook)
+          @around_hooks.delete(hook)
+          @disconnect_hooks.delete(hook)
+          @enabled = [@before_hooks, @after_hooks, @around_hooks, @disconnect_hooks].any? { |h| !h.empty? }
+        end
       end
 
       def notify_disconnect(redis_id)
         hooks = @mutex.synchronize { @disconnect_hooks.dup }
-        hooks.each { |hook| hook.call(redis_id) }
+        hooks.each do |hook|
+          hook.call(redis_id)
+        rescue StandardError
+          nil
+        end
       end
 
       def clear!
@@ -202,10 +224,14 @@ class Redis
 
         event = Event.new(command, redis_id)
 
-        before.each { |hook| hook.call(event) }
+        before.each do |hook|
+          hook.call(event)
+        rescue StandardError
+          nil
+        end
 
         execute = -> {
-          event.instance_variable_set(:@start_time, Process.clock_gettime(Process::CLOCK_MONOTONIC))
+          event.send(:start_time=, Process.clock_gettime(Process::CLOCK_MONOTONIC))
           begin
             event.result = yield
           rescue => e
@@ -224,20 +250,28 @@ class Redis
         begin
           chain.call
         ensure
-          after.each { |hook| hook.call(event) }
+          after.each do |hook|
+            hook.call(event)
+          rescue StandardError
+            nil
+          end
         end
       end
     end
 
     module Hooks
       class Logger
+        VALID_LEVELS = %i[debug info warn error fatal].freeze
+
         attr_reader :logger, :level, :filter
 
         # @param logger [::Logger] any Logger-compatible object
-        # @param level [:debug, :info, :warn, :error] log level for successful commands
+        # @param level [:debug, :info, :warn, :error, :fatal] log level for successful commands
         # @param filter [Proc, nil] optional proc receiving command_name string, return true to log
         # @param log_args [Boolean] whether to include filtered arguments in log output
         def initialize(logger:, level: :debug, filter: nil, log_args: false)
+          raise ArgumentError, "Invalid level: #{level}" unless VALID_LEVELS.include?(level)
+
           @logger = logger
           @level = level
           @filter = filter
@@ -280,7 +314,7 @@ class Redis
             )
           end
 
-          @logger.send(@level, message)
+          @logger.public_send(@level, message)
         end
       end
     end
