@@ -1,5 +1,7 @@
 # Unreleased
 
+- Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
+
 # 5.4.1
 
 - Properly handle NOSCRIPT errors.
