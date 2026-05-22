@@ -21,7 +21,7 @@ Read specification file: `$ARGUMENTS`
 - Go through Command Description and identify command type (string, list, set, etc.)
 - Go through the Command API:
     - Identify required and optional arguments
-    - Identify how to match Redis command arguments type to Python types
+    - Identify how to match Redis command arguments type to Ruby types
     - Identify return value and possible response types
 - Check relevant Redis-Cli examples, if provided
 - Review the Test Plan
@@ -42,7 +42,6 @@ Read specification file: `$ARGUMENTS`
 - After each file change, check syntax
 - Ensure imports are correct
 - Verify types are properly defined
-- Verify that response schema is similar for RESP2 and RESP3
 
 ### 4. Implement Testing Plan
 
