@@ -174,7 +174,7 @@ module Helper
     def with_acl
       admin = _new_client
       admin.acl('SETUSER', 'johndoe', 'on',
-                '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes', '+readonly',
+                '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes', '+cluster|shards', '+readonly',
                 '>mysecret')
       yield('johndoe', 'mysecret')
     ensure
