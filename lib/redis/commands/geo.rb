@@ -61,6 +61,51 @@ class Redis
         send_command([:geopos, key, member])
       end
 
+      # Return the members of a geospatial sorted set that are within the borders of the
+      # area specified by a given shape, either a circle (BYRADIUS) or a rectangle (BYBOX),
+      # starting from a center point given either by member (FROMMEMBER) or by longitude and
+      # latitude (FROMLONLAT). Available since Redis 6.2.
+      #
+      # @example Search by radius from longitude/latitude
+      #   redis.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"], sort: "asc")
+      #     # => ["Catania", "Palermo"]
+      #
+      # @example Search by box from an existing member, with extras
+      #   redis.geosearch("Sicily", frommember: "Catania", bybox: [400, 400, "km"],
+      #                   sort: "asc", withcoord: true, withdist: true)
+      #     # => [["Catania", "0.0000", ["15.087...", "37.502..."]], ...]
+      #
+      # @param [String] key
+      # @param [String] frommember use the position of the given existing member as the center
+      # @param [Array<Numeric>] fromlonlat a [longitude, latitude] pair used as the center
+      # @param [Array] byradius a [radius, unit] pair where unit is one of 'm', 'km', 'ft', 'mi'
+      # @param [Array] bybox a [width, height, unit] triple where unit is one of 'm', 'km', 'ft', 'mi'
+      # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest, or vice versa
+      # @param [Integer] count limit the results to the first N matching items
+      # @param [Boolean] count_any return as soon as enough matches are found (only with count)
+      # @param [Boolean] withcoord also return the longitude and latitude of matching items
+      # @param [Boolean] withdist also return the distance from the center point
+      # @param [Boolean] withhash also return the raw geohash-encoded sorted set score of the item
+      # @return [Array<String>] may be changed with WITH* flags
+      def geosearch(key, frommember: nil, fromlonlat: nil, byradius: nil, bybox: nil,
+                    sort: nil, count: nil, count_any: false,
+                    withcoord: false, withdist: false, withhash: false)
+        args = [key]
+        args << "FROMMEMBER" << frommember if frommember
+        args << "FROMLONLAT" << fromlonlat[0] << fromlonlat[1] if fromlonlat
+        args << "BYRADIUS" << byradius[0] << byradius[1] if byradius
+        args << "BYBOX" << bybox[0] << bybox[1] << bybox[2] if bybox
+
+        options = []
+        options << "WITHCOORD" if withcoord
+        options << "WITHDIST" if withdist
+        options << "WITHHASH" if withhash
+
+        geoarguments = _geoarguments(*args, sort: sort, count: count, count_any: count_any, options: options)
+
+        send_command([:geosearch, *geoarguments])
+      end
+
       # Returns the distance between two members of a geospatial index
       #
       # @param [String ]key
@@ -73,10 +118,13 @@ class Redis
 
       private
 
-      def _geoarguments(*args, options: nil, sort: nil, count: nil)
+      def _geoarguments(*args, options: nil, sort: nil, count: nil, count_any: false)
         args << sort if sort
-        args << 'COUNT' << Integer(count) if count
-        args << options if options
+        if count
+          args << 'COUNT' << Integer(count)
+          args << 'ANY' if count_any
+        end
+        args.concat(Array(options))
         args
       end
     end

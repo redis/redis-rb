@@ -949,6 +949,11 @@ class Redis
       node_for(key).hpttl(key, *fields)
     end
 
+    # Search a geospatial index for members within a given shape from a center point.
+    def geosearch(key, **options)
+      node_for(key).geosearch(key, **options)
+    end
+
     # Post a message to a channel.
     def publish(channel, message)
       node_for(channel).publish(channel, message)
