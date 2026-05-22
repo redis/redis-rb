@@ -41,6 +41,48 @@ module Helper
       "$#{line.size}\r\n#{line}\r\n"
     }
 
+    ClusterShardsRawReply = lambda { |host, port|
+      <<-REPLY.delete(' ')
+        *1\r
+        *4\r
+        $5\r
+        slots\r
+        *2\r
+        :0\r
+        :16383\r
+        $5\r
+        nodes\r
+        *1\r
+        *14\r
+        $2\r
+        id\r
+        $40\r
+        51a0020c166dab7f3f259b6cc46ce4ed4437fa1d\r
+        $4\r
+        port\r
+        :#{port}\r
+        $2\r
+        ip\r
+        $#{host.size}\r
+        #{host}\r
+        $8\r
+        endpoint\r
+        $#{host.size}\r
+        #{host}\r
+        $4\r
+        role\r
+        $6\r
+        master\r
+        $18\r
+        replication-offset\r
+        :967228\r
+        $6\r
+        health\r
+        $6\r
+        online\r
+      REPLY
+    }
+
     def init(redis)
       redis.flushall
       redis
@@ -85,6 +127,7 @@ module Helper
           case subcommand.downcase
           when 'slots' then ClusterSlotsRawReply.call(host, port)
           when 'nodes' then ClusterNodesRawReply.call(host, port)
+          when 'shards' then ClusterShardsRawReply.call(host, port)
           else '+OK'
           end
         end
