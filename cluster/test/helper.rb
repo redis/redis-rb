@@ -106,7 +106,25 @@ module Helper
     end
 
     def build_another_client(options = {})
-      _new_client(options)
+      client = _new_client(options)
+      # Replica-aware bootstrap occasionally fails on a freshly created cluster because
+      # replica nodes can briefly serve an incoherent CLUSTER SHARDS view. Pre-warm the
+      # client so the test's first real command doesn't hit a transient InitialSetupError.
+      warmup_cluster_client(client) if options[:replica]
+      client
+    end
+
+    def warmup_cluster_client(client, max_attempts: 30, backoff: 0.1)
+      attempts = 0
+      begin
+        client.ping
+      rescue Redis::Cluster::InitialSetupError
+        attempts += 1
+        raise if attempts >= max_attempts
+
+        sleep backoff
+        retry
+      end
     end
 
     def redis_cluster_mock(commands, options = {})
@@ -199,6 +217,25 @@ module Helper
 
     def _new_client(options = {})
       Redis::Cluster.new(_format_options(options).merge(driver: ENV['DRIVER']))
+    end
+
+    # ACL commands are not propagated across cluster nodes by default, so applying
+    # `ACL SETUSER` through the cluster client only creates the user on a single node.
+    # Apply it on every primary and replica directly so the test client can authenticate
+    # against any bootstrap node.
+    def with_acl
+      admins = DEFAULT_PORTS.map { |port| Redis.new(host: DEFAULT_HOST, port: port) }
+      admins.each do |admin|
+        admin.acl('SETUSER', 'johndoe', 'on',
+                  '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes', '+cluster|shards',
+                  '+readonly', '>mysecret')
+      end
+      yield('johndoe', 'mysecret')
+    ensure
+      admins&.each do |admin|
+        admin.acl('DELUSER', 'johndoe')
+        admin.close
+      end
     end
   end
 end
