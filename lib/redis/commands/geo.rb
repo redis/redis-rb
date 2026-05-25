@@ -106,6 +106,48 @@ class Redis
         send_command([:geosearch, *geoarguments])
       end
 
+      # Like GEOSEARCH, but stores the result in a destination key. By default the destination
+      # is populated with the matching members and their geospatial scores; when STOREDIST is
+      # set, the members are stored with their distance from the center point as the score.
+      # Available since Redis 6.2.
+      #
+      # @example Store the three nearest members
+      #   redis.geosearchstore("nearest", "Sicily",
+      #                        fromlonlat: [15, 37], bybox: [400, 400, "km"], sort: "asc", count: 3)
+      #     # => 3
+      #
+      # @example Store distances as scores
+      #   redis.geosearchstore("distances", "Sicily",
+      #                        fromlonlat: [15, 37], bybox: [400, 400, "km"], storedist: true)
+      #     # => 3
+      #
+      # @param [String] destination key to store the result in
+      # @param [String] source geospatial sorted set to search
+      # @param [String] frommember use the position of the given existing member as the center
+      # @param [Array<Numeric>] fromlonlat a [longitude, latitude] pair used as the center
+      # @param [Array] byradius a [radius, unit] pair where unit is one of 'm', 'km', 'ft', 'mi'
+      # @param [Array] bybox a [width, height, unit] triple where unit is one of 'm', 'km', 'ft', 'mi'
+      # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest, or vice versa
+      # @param [Integer] count limit the results to the first N matching items
+      # @param [Boolean] count_any return as soon as enough matches are found (only with count)
+      # @param [Boolean] storedist store the distance from the center point as the score
+      # @return [Integer] number of elements stored in the destination key
+      def geosearchstore(destination, source, frommember: nil, fromlonlat: nil, byradius: nil, bybox: nil,
+                         sort: nil, count: nil, count_any: false, storedist: false)
+        args = [destination, source]
+        args << "FROMMEMBER" << frommember if frommember
+        args << "FROMLONLAT" << fromlonlat[0] << fromlonlat[1] if fromlonlat
+        args << "BYRADIUS" << byradius[0] << byradius[1] if byradius
+        args << "BYBOX" << bybox[0] << bybox[1] << bybox[2] if bybox
+
+        options = []
+        options << "STOREDIST" if storedist
+
+        geoarguments = _geoarguments(*args, sort: sort, count: count, count_any: count_any, options: options)
+
+        send_command([:geosearchstore, *geoarguments])
+      end
+
       # Returns the distance between two members of a geospatial index
       #
       # @param [String ]key

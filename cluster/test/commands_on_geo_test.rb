@@ -112,4 +112,20 @@ class TestClusterCommandsOnGeo < Minitest::Test
       assert_equal 2, result[0][3].size
     end
   end
+
+  def test_geosearchstore
+    target_version "6.2" do
+      redis.geoadd('{tag}.src', 13.361389, 38.115556, 'Palermo', 15.087269, 37.502669, 'Catania')
+
+      stored = redis.geosearchstore('{tag}.dest', '{tag}.src', fromlonlat: [15, 37], byradius: [200, 'km'])
+      assert_equal 2, stored
+      assert_equal %w[Catania Palermo].sort, redis.zrange('{tag}.dest', 0, -1).sort
+
+      stored = redis.geosearchstore('{tag}.dist', '{tag}.src', fromlonlat: [15, 37], byradius: [200, 'km'],
+                                                               storedist: true)
+      assert_equal 2, stored
+      # STOREDIST stores distance as score, so nearest comes first.
+      assert_equal %w[Catania Palermo], redis.zrange('{tag}.dist', 0, -1)
+    end
+  end
 end

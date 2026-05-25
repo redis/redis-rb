@@ -188,4 +188,58 @@ class TestCommandsGeo < Minitest::Test
       assert_equal coordinates_palermo, palermo[3]
     end
   end
+
+  def test_geosearchstore_with_frommember
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", frommember: "Catania", byradius: [200, "km"])
+      assert_equal 2, stored
+      assert_equal %w(Catania Palermo).sort, r.zrange("dest", 0, -1).sort
+    end
+  end
+
+  def test_geosearchstore_with_fromlonlat
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"])
+      assert_equal 2, stored
+      assert_equal %w(Catania Palermo).sort, r.zrange("dest", 0, -1).sort
+    end
+  end
+
+  def test_geosearchstore_with_byradius
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [100, "km"])
+      assert_equal 1, stored
+      assert_equal %w(Catania), r.zrange("dest", 0, -1)
+    end
+  end
+
+  def test_geosearchstore_with_bybox
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], bybox: [400, 400, "km"])
+      assert_equal 2, stored
+      assert_equal %w(Catania Palermo).sort, r.zrange("dest", 0, -1).sort
+    end
+  end
+
+  def test_geosearchstore_with_sort_and_count
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                                  sort: "asc", count: 1)
+      assert_equal 1, stored
+      assert_equal %w(Catania), r.zrange("dest", 0, -1)
+    end
+  end
+
+  def test_geosearchstore_with_storedist
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                                  storedist: true)
+      assert_equal 2, stored
+      with_scores = r.zrange("dest", 0, -1, withscores: true)
+      assert_equal "Catania", with_scores[0][0]
+      assert_in_delta 56.44, with_scores[0][1], 0.01
+      assert_equal "Palermo", with_scores[1][0]
+      assert_in_delta 190.44, with_scores[1][1], 0.01
+    end
+  end
 end

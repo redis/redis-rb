@@ -986,6 +986,14 @@ class Redis
       node_for(key).geosearch(key, **options)
     end
 
+    # Like #geosearch, but stores the result in a destination key.
+    # Destination and source must hash to the same node; use a key tag to ensure that.
+    def geosearchstore(destination, source, **options)
+      ensure_same_node(:geosearchstore, [destination, source]) do |node|
+        node.geosearchstore(destination, source, **options)
+      end
+    end
+
     # Post a message to a channel.
     def publish(channel, message)
       node_for(channel).publish(channel, message)

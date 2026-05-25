@@ -48,4 +48,20 @@ class TestDistributedCommandsOnGeo < Minitest::Test
       assert_equal %w(Catania Palermo), members
     end
   end
+
+  def test_geosearchstore_same_node
+    target_version "6.2" do
+      r.geoadd("{tag}.src", 13.361389, 38.115556, "Palermo", 15.087269, 37.502669, "Catania")
+      stored = r.geosearchstore("{tag}.dest", "{tag}.src", fromlonlat: [15, 37], byradius: [200, "km"])
+      assert_equal 2, stored
+    end
+  end
+
+  def test_geosearchstore_cross_node_raises
+    target_version "6.2" do
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"])
+      end
+    end
+  end
 end
