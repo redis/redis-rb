@@ -30,7 +30,7 @@ if ENV['REDIS_SOCKET_PATH'].nil?
   sock_file = File.expand_path('../tmp/redis.sock', __dir__)
 
   unless File.exist?(sock_file)
-    abort "Couldn't locate the redis unix socket, did you run `make start`?"
+    abort "Couldn't locate the redis unix socket at #{sock_file}, did you run `make start` (or `docker compose --profile standalone up -d --wait`)?"
   end
 
   ENV['REDIS_SOCKET_PATH'] = sock_file

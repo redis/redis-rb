@@ -1,128 +1,66 @@
-REDIS_BRANCH       ?= 8.4
-ROOT_DIR           :=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-TMP                := tmp
-CONF               := ${ROOT_DIR}/test/support/conf/redis-${REDIS_BRANCH}.conf
-BUILD_DIR          := ${TMP}/cache/redis-${REDIS_BRANCH}
-TARBALL            := ${TMP}/redis-${REDIS_BRANCH}.tar.gz
-BINARY             := ${BUILD_DIR}/src/redis-server
-REDIS_CLIENT       := ${BUILD_DIR}/src/redis-cli
-REDIS_TRIB         := ${BUILD_DIR}/src/redis-trib.rb
-PID_PATH           := ${BUILD_DIR}/redis.pid
-SOCKET_PATH        := ${TMP}/redis.sock
-PORT               := 6381
-SLAVE_PORT         := 6382
-SLAVE_PID_PATH     := ${BUILD_DIR}/redis_slave.pid
-SLAVE_SOCKET_PATH  := ${BUILD_DIR}/redis_slave.sock
-HA_GROUP_NAME      := master1
-SENTINEL_PORTS     := 6400 6401 6402
-SENTINEL_PID_PATHS := $(addprefix ${TMP}/redis,$(addsuffix .pid,${SENTINEL_PORTS}))
-CLUSTER_PORTS      := 16380 16381 16382 16383 16384 16385
-CLUSTER_PID_PATHS  := $(addprefix ${TMP}/redis,$(addsuffix .pid,${CLUSTER_PORTS}))
-CLUSTER_CONF_PATHS := $(addprefix ${TMP}/nodes,$(addsuffix .conf,${CLUSTER_PORTS}))
-CLUSTER_ADDRS      := $(addprefix 127.0.0.1:,${CLUSTER_PORTS})
+# redis-rb test infrastructure
+#
+# Topologies are managed by docker-compose.yml and selected via Docker profiles.
+# Override the Redis version with REDIS_VERSION=8.X.Y; the default tracks the
+# latest stable patch in the redislabs/client-libs-test image series.
+#
+# Target names mirror the historical makefile so existing dev muscle memory and
+# CI shell scripts keep working. Each one shells out to docker compose.
 
-define kill-redis
-  (ls $1 > /dev/null 2>&1 && kill $$(cat $1) && rm -f $1) || true
-endef
+REDIS_VERSION  ?= 8.4.3
+export REDIS_VERSION
+TMP            := tmp
+SOCKET_PATH    := ${TMP}/redis.sock
 
 all: start_all test stop_all
-
-start_all: start start_slave start_sentinel wait_for_sentinel start_cluster create_cluster
-
-stop_all: stop_sentinel stop_slave stop stop_cluster
 
 ${TMP}:
 	@mkdir -p $@
 
-${BINARY}: ${TMP}
-	@bin/build ${REDIS_BRANCH} $<
+start: ${TMP}
+	@docker compose --profile standalone up -d --wait
+
+stop:
+	@docker compose --profile standalone down -v
+
+start_slave: start_sentinel  # the replica is part of the sentinel profile
+
+stop_slave: stop_sentinel
+
+start_sentinel: ${TMP}
+	@docker compose --profile sentinel up -d --wait
+
+stop_sentinel:
+	@docker compose --profile sentinel down -v
+
+# Healthchecks (cluster_state:ok) make wait_for_sentinel redundant; kept as a
+# no-op for backward compatibility with anything that still depends on it.
+wait_for_sentinel:
+	@true
+
+start_cluster:
+	@docker compose --profile cluster up -d --wait
+
+stop_cluster:
+	@docker compose --profile cluster down -v
+
+# Cluster init is performed by the image entrypoint (redis-cli --cluster create).
+# Kept as a no-op so `make start_cluster create_cluster` still works.
+create_cluster:
+	@true
+
+start_all: ${TMP}
+	@docker compose --profile all up -d --wait
+
+stop_all:
+	@docker compose --profile all down -v
 
 test:
 	@env REDIS_SOCKET_PATH=${SOCKET_PATH} bundle exec rake test
 
-stop:
-	@$(call kill-redis,${PID_PATH});\
+clean: stop_all
+	@rm -f ${SOCKET_PATH}
 
-start: ${BINARY}
-	@cp ${CONF} ${TMP}/redis.conf; \
-	${BINARY} ${TMP}/redis.conf \
-		--daemonize  yes\
-		--pidfile    ${PID_PATH}\
-		--port       ${PORT}\
-		--unixsocket ${SOCKET_PATH}
-
-stop_slave:
-	@$(call kill-redis,${SLAVE_PID_PATH})
-
-start_slave: start
-	@${BINARY}\
-		--daemonize  yes\
-		--pidfile    ${SLAVE_PID_PATH}\
-		--port       ${SLAVE_PORT}\
-		--unixsocket ${SLAVE_SOCKET_PATH}\
-		--slaveof    127.0.0.1 ${PORT}
-
-stop_sentinel: stop_slave stop
-	@$(call kill-redis,${SENTINEL_PID_PATHS})
-	@rm -f ${TMP}/sentinel*.conf || true
-
-start_sentinel: start start_slave
-	@for port in ${SENTINEL_PORTS}; do\
-		conf=${TMP}/sentinel$$port.conf;\
-		touch $$conf;\
-		echo '' >  $$conf;\
-		echo 'sentinel monitor                 ${HA_GROUP_NAME} 127.0.0.1 ${PORT} 2' >> $$conf;\
-		echo 'sentinel down-after-milliseconds ${HA_GROUP_NAME} 5000'                >> $$conf;\
-		echo 'sentinel failover-timeout        ${HA_GROUP_NAME} 30000'               >> $$conf;\
-		echo 'sentinel parallel-syncs          ${HA_GROUP_NAME} 1'                   >> $$conf;\
-		${BINARY} $$conf\
-			--daemonize yes\
-			--pidfile   ${TMP}/redis$$port.pid\
-			--port      $$port\
-			--sentinel;\
-	done
-
-wait_for_sentinel: MAX_ATTEMPTS_FOR_WAIT ?= 60
-wait_for_sentinel:
-	@for port in ${SENTINEL_PORTS}; do\
-		i=0;\
-		while : ; do\
-			if [ $${i} -ge ${MAX_ATTEMPTS_FOR_WAIT} ]; then\
-				echo "Max attempts exceeded: $${i} times";\
-				exit 1;\
-			fi;\
-			if [ $$(${REDIS_CLIENT} -p $${port} SENTINEL SLAVES ${HA_GROUP_NAME} | wc -l) -gt 1 ]; then\
-				break;\
-			fi;\
-			echo 'Waiting for Redis sentinel to be ready...';\
-			sleep 1;\
-			i=$$(( $${i}+1 ));\
-		done;\
-	done
-
-stop_cluster:
-	@$(call kill-redis,${CLUSTER_PID_PATHS})
-	@rm -f appendonly.aof || true
-	@rm -f ${CLUSTER_CONF_PATHS} || true
-
-start_cluster: ${BINARY}
-	@for port in ${CLUSTER_PORTS}; do\
-		${BINARY}\
-			--daemonize            yes\
-			--appendonly           no\
-			--cluster-enabled      yes\
-			--cluster-config-file  ${TMP}/nodes$$port.conf\
-			--cluster-node-timeout 5000\
-			--pidfile              ${TMP}/redis$$port.pid\
-			--port                 $$port\
-			--unixsocket           ${TMP}/redis$$port.sock;\
-	done
-
-create_cluster:
-	@bin/cluster_creator ${CLUSTER_ADDRS}
-
-clean:
-	@(test -d ${BUILD_DIR} && cd ${BUILD_DIR}/src && make clean distclean) || true
-
-.PHONY: all test stop start stop_slave start_slave stop_sentinel start_sentinel\
-	stop_cluster start_cluster create_cluster stop_all start_all clean
+.PHONY: all test stop start stop_slave start_slave stop_sentinel start_sentinel \
+	wait_for_sentinel stop_cluster start_cluster create_cluster stop_all \
+	start_all clean
