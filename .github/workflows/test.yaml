@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby_distribution: [cRuby, TruffleRuby]
+        ruby_distribution: [MRI, TruffleRuby]
         ruby_version: ["3.3", "3.4", "4.0"]
         redis_version: ["8.0.6", "8.2.6", "8.4.3", "8.6.3", "8.8.0"]
         driver: [default, hiredis]
@@ -53,8 +53,8 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v6
 
-      - name: Set up Ruby (cRuby)
-        if: matrix.ruby_distribution == 'cRuby'
+      - name: Set up Ruby (MRI)
+        if: matrix.ruby_distribution == 'MRI'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby_version }}
