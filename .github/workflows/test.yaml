@@ -47,7 +47,7 @@ jobs:
           - { ruby_distribution: TruffleRuby, ruby_version: "4.0" }
     env:
       REDIS_VERSION: ${{ matrix.redis_version }}
-      DRIVER: ${{ matrix.driver == 'hiredis' && 'hiredis' || '' }}
+      DRIVER: ${{ matrix.driver == 'hiredis' && 'hiredis' || 'ruby' }}
       LOW_TIMEOUT: "0.14"
     steps:
       - name: Check out code
