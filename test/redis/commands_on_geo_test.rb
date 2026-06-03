@@ -116,4 +116,130 @@ class TestCommandsGeo < Minitest::Test
     geohashes = r.geohash("Sicily", ["Palermo", "Rome"])
     assert_equal ["sqc8b49rny0", nil], geohashes
   end
+
+  def test_geosearch_with_frommember
+    target_version "6.2" do
+      members = r.geosearch("Sicily", frommember: "Catania", byradius: [200, "km"], sort: "asc")
+      assert_equal %w(Catania Palermo), members
+    end
+  end
+
+  def test_geosearch_with_fromlonlat
+    target_version "6.2" do
+      members = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"], sort: "asc")
+      assert_equal %w(Catania Palermo), members
+    end
+  end
+
+  def test_geosearch_with_byradius
+    target_version "6.2" do
+      members = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [100, "km"])
+      assert_equal %w(Catania), members
+    end
+  end
+
+  def test_geosearch_with_bybox
+    target_version "6.2" do
+      members = r.geosearch("Sicily", fromlonlat: [15, 37], bybox: [400, 400, "km"], sort: "asc")
+      assert_equal %w(Catania Palermo), members
+    end
+  end
+
+  def test_geosearch_with_sort
+    target_version "6.2" do
+      nearest = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"], sort: "asc")
+      assert_equal %w(Catania Palermo), nearest
+
+      farthest = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"], sort: "desc")
+      assert_equal %w(Palermo Catania), farthest
+    end
+  end
+
+  def test_geosearch_with_count
+    target_version "6.2" do
+      members = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"], sort: "asc", count: 1)
+      assert_equal %w(Catania), members
+    end
+  end
+
+  def test_geosearch_with_count_any
+    target_version "6.2" do
+      members = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"], count: 1, count_any: true)
+      assert_equal 1, members.size
+    end
+  end
+
+  def test_geosearch_with_withcoord_withdist_withhash
+    target_version "6.2" do
+      result = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                     sort: "asc", withcoord: true, withdist: true, withhash: true)
+      assert_equal 2, result.size
+
+      catania = result[0]
+      assert_equal "Catania", catania[0]
+      assert_equal "56.4413", catania[1]
+      assert_kind_of Integer, catania[2]
+      assert_equal coordinates_catania, catania[3]
+
+      palermo = result[1]
+      assert_equal "Palermo", palermo[0]
+      assert_equal "190.4424", palermo[1]
+      assert_kind_of Integer, palermo[2]
+      assert_equal coordinates_palermo, palermo[3]
+    end
+  end
+
+  def test_geosearchstore_with_frommember
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", frommember: "Catania", byradius: [200, "km"])
+      assert_equal 2, stored
+      assert_equal %w(Catania Palermo).sort, r.zrange("dest", 0, -1).sort
+    end
+  end
+
+  def test_geosearchstore_with_fromlonlat
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"])
+      assert_equal 2, stored
+      assert_equal %w(Catania Palermo).sort, r.zrange("dest", 0, -1).sort
+    end
+  end
+
+  def test_geosearchstore_with_byradius
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [100, "km"])
+      assert_equal 1, stored
+      assert_equal %w(Catania), r.zrange("dest", 0, -1)
+    end
+  end
+
+  def test_geosearchstore_with_bybox
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], bybox: [400, 400, "km"])
+      assert_equal 2, stored
+      assert_equal %w(Catania Palermo).sort, r.zrange("dest", 0, -1).sort
+    end
+  end
+
+  def test_geosearchstore_with_sort_and_count
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                                  sort: "asc", count: 1)
+      assert_equal 1, stored
+      assert_equal %w(Catania), r.zrange("dest", 0, -1)
+    end
+  end
+
+  def test_geosearchstore_with_storedist
+    target_version "6.2" do
+      stored = r.geosearchstore("dest", "Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                                  storedist: true)
+      assert_equal 2, stored
+      with_scores = r.zrange("dest", 0, -1, withscores: true)
+      assert_equal "Catania", with_scores[0][0]
+      assert_in_delta 56.44, with_scores[0][1], 0.01
+      assert_equal "Palermo", with_scores[1][0]
+      assert_in_delta 190.44, with_scores[1][1], 0.01
+    end
+  end
 end

@@ -86,4 +86,46 @@ class TestClusterCommandsOnGeo < Minitest::Test
     add_sicily
     assert_equal %w[Agrigento Palermo], redis.georadiusbymember('Sicily', 'Agrigento', 100, 'km')
   end
+
+  def test_geosearch
+    target_version "6.2" do
+      add_sicily
+
+      assert_equal %w[Catania Palermo],
+                   redis.geosearch('Sicily', fromlonlat: [15, 37], byradius: [200, 'km'], sort: 'asc')
+
+      assert_equal %w[Catania Palermo],
+                   redis.geosearch('Sicily', frommember: 'Catania', byradius: [200, 'km'], sort: 'asc')
+
+      assert_equal %w[Catania Palermo],
+                   redis.geosearch('Sicily', fromlonlat: [15, 37], bybox: [400, 400, 'km'], sort: 'asc')
+
+      assert_equal %w[Catania],
+                   redis.geosearch('Sicily', fromlonlat: [15, 37], byradius: [200, 'km'], sort: 'asc', count: 1)
+
+      result = redis.geosearch('Sicily', fromlonlat: [15, 37], byradius: [200, 'km'], sort: 'asc',
+                                         withcoord: true, withdist: true, withhash: true)
+      assert_equal 2, result.size
+      assert_equal 'Catania', result[0][0]
+      assert_equal '56.4413', result[0][1]
+      assert_kind_of Integer, result[0][2]
+      assert_equal 2, result[0][3].size
+    end
+  end
+
+  def test_geosearchstore
+    target_version "6.2" do
+      redis.geoadd('{tag}.src', 13.361389, 38.115556, 'Palermo', 15.087269, 37.502669, 'Catania')
+
+      stored = redis.geosearchstore('{tag}.dest', '{tag}.src', fromlonlat: [15, 37], byradius: [200, 'km'])
+      assert_equal 2, stored
+      assert_equal %w[Catania Palermo].sort, redis.zrange('{tag}.dest', 0, -1).sort
+
+      stored = redis.geosearchstore('{tag}.dist', '{tag}.src', fromlonlat: [15, 37], byradius: [200, 'km'],
+                                                               storedist: true)
+      assert_equal 2, stored
+      # STOREDIST stores distance as score, so nearest comes first.
+      assert_equal %w[Catania Palermo], redis.zrange('{tag}.dist', 0, -1)
+    end
+  end
 end

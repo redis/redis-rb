@@ -949,6 +949,51 @@ class Redis
       node_for(key).hpttl(key, *fields)
     end
 
+    # Add one or more geospatial items to a sorted set.
+    def geoadd(key, *member)
+      node_for(key).geoadd(key, *member)
+    end
+
+    # Get geohash strings representing the position of one or more members.
+    def geohash(key, member)
+      node_for(key).geohash(key, member)
+    end
+
+    # Get longitude and latitude of one or more members of a geospatial index.
+    def geopos(key, member)
+      node_for(key).geopos(key, member)
+    end
+
+    # Get the distance between two members of a geospatial index.
+    def geodist(key, member1, member2, unit = 'm')
+      node_for(key).geodist(key, member1, member2, unit)
+    end
+
+    # Query a geospatial index for members within a given radius from a point.
+    def georadius(*args, **geoptions)
+      key = args.first
+      node_for(key).georadius(*args, **geoptions)
+    end
+
+    # Query a geospatial index for members within a given radius from an existing member.
+    def georadiusbymember(*args, **geoptions)
+      key = args.first
+      node_for(key).georadiusbymember(*args, **geoptions)
+    end
+
+    # Search a geospatial index for members within a given shape from a center point.
+    def geosearch(key, **options)
+      node_for(key).geosearch(key, **options)
+    end
+
+    # Like #geosearch, but stores the result in a destination key.
+    # Destination and source must hash to the same node; use a key tag to ensure that.
+    def geosearchstore(destination, source, **options)
+      ensure_same_node(:geosearchstore, [destination, source]) do |node|
+        node.geosearchstore(destination, source, **options)
+      end
+    end
+
     # Post a message to a channel.
     def publish(channel, message)
       node_for(channel).publish(channel, message)
