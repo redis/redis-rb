@@ -950,8 +950,8 @@ class Redis
     end
 
     # Add one or more geospatial items to a sorted set.
-    def geoadd(key, *member)
-      node_for(key).geoadd(key, *member)
+    def geoadd(key, *member, **options)
+      node_for(key).geoadd(key, *member, **options)
     end
 
     # Get geohash strings representing the position of one or more members.

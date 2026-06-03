@@ -17,6 +17,44 @@ class TestCommandsGeo < Minitest::Test
     assert_equal 2, added_items_count
   end
 
+  def test_geoadd_with_nx_option
+    target_version "6.2" do
+      # NX only adds new members, never updates existing ones
+      added = r.geoadd("Sicily", 14, 38, "Palermo", nx: true)
+      assert_equal 0, added
+      assert_equal [coordinates_palermo], r.geopos("Sicily", "Palermo")
+
+      added = r.geoadd("Sicily", 2.349014, 48.864716, "Paris", nx: true)
+      assert_equal 1, added
+    end
+  end
+
+  def test_geoadd_with_xx_option
+    target_version "6.2" do
+      # XX only updates existing members, never adds new ones
+      added = r.geoadd("Sicily", 2.349014, 48.864716, "Paris", xx: true)
+      assert_equal 0, added
+      assert_equal [nil], r.geopos("Sicily", "Paris")
+
+      r.geoadd("Sicily", 14, 38, "Palermo", xx: true)
+      refute_equal [coordinates_palermo], r.geopos("Sicily", "Palermo")
+    end
+  end
+
+  def test_geoadd_with_ch_option
+    target_version "6.2" do
+      # CH returns the count of changed (added or updated) elements
+      changed = r.geoadd("Sicily", 14, 38, "Palermo", 2.349014, 48.864716, "Paris", ch: true)
+      assert_equal 2, changed
+    end
+  end
+
+  def test_geoadd_with_both_nx_and_xx
+    assert_raises(ArgumentError) do
+      r.geoadd("Sicily", 14, 38, "Palermo", nx: true, xx: true)
+    end
+  end
+
   def test_georadius_with_same_params
     r.geoadd("Chad", 15, 15, "Kanem")
     nearest_cities = r.georadius("Chad", 15, 15, 15, 'km', sort: 'asc')
@@ -41,6 +79,14 @@ class TestCommandsGeo < Minitest::Test
     assert_equal [["Palermo", "190.4424"]], city
   end
 
+  def test_georadius_with_count_any
+    target_version "6.2" do
+      cities = r.georadius("Sicily", 15, 37, 200, 'km', count: 1, count_any: true)
+      assert_equal 1, cities.size
+      assert_includes %w(Catania Palermo), cities.first
+    end
+  end
+
   def test_georadiusbymember_with_sort
     nearest_cities = r.georadiusbymember("Sicily", "Catania", 200, 'km', sort: 'asc')
     assert_equal %w(Catania Palermo), nearest_cities
@@ -57,6 +103,14 @@ class TestCommandsGeo < Minitest::Test
   def test_georadiusbymember_with_options_count_sort
     city = r.georadiusbymember("Sicily", "Catania", 200, 'km', sort: :desc, options: :WITHDIST, count: 1)
     assert_equal [["Palermo", "166.2742"]], city
+  end
+
+  def test_georadiusbymember_with_count_any
+    target_version "6.2" do
+      cities = r.georadiusbymember("Sicily", "Catania", 200, 'km', count: 1, count_any: true)
+      assert_equal 1, cities.size
+      assert_includes %w(Catania Palermo), cities.first
+    end
   end
 
   def coordinates_catania

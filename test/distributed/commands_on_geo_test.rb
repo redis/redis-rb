@@ -17,6 +17,14 @@ class TestDistributedCommandsOnGeo < Minitest::Test
     assert_equal 2, added
   end
 
+  def test_geoadd_with_nx_xx_ch_options
+    target_version "6.2" do
+      assert_equal 0, r.geoadd("Sicily", 14, 38, "Palermo", nx: true)
+      assert_equal 1, r.geoadd("Sicily", 2.349014, 48.864716, "Paris", ch: true)
+      assert_equal 0, r.geoadd("Sicily", 1, 1, "Rome", xx: true)
+    end
+  end
+
   def test_geohash
     assert_equal %w(sqc8b49rny0 sqdtr74hyu0), r.geohash("Sicily", %w(Palermo Catania))
   end
@@ -40,6 +48,14 @@ class TestDistributedCommandsOnGeo < Minitest::Test
   def test_georadiusbymember
     nearest = r.georadiusbymember("Sicily", "Catania", 200, "km", sort: "asc")
     assert_equal %w(Catania Palermo), nearest
+  end
+
+  def test_georadius_with_count_any
+    target_version "6.2" do
+      cities = r.georadius("Sicily", 15, 37, 200, "km", count: 1, count_any: true)
+      assert_equal 1, cities.size
+      assert_includes %w(Catania Palermo), cities.first
+    end
   end
 
   def test_geosearch

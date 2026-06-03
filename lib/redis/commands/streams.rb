@@ -44,10 +44,11 @@ class Redis
       # @option opts [Integer] :maxlen      max length of entries to keep
       # @option opts [Integer] :minid       min id of entries to keep
       # @option opts [Boolean] :approximate whether to add `~` modifier of maxlen/minid or not
+      # @option opts [Integer] :limit       maximum count of entries to be evicted, requires approximate trimming
       # @option opts [Boolean] :nomkstream  whether to add NOMKSTREAM, default is not to add
       #
       # @return [String] the entry id
-      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, nomkstream: nil, id: '*')
+      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, limit: nil, nomkstream: nil, id: '*')
         args = [:xadd, key]
         args << 'NOMKSTREAM' if nomkstream
         if maxlen
@@ -61,6 +62,7 @@ class Redis
           args << "~" if approximate
           args << minid
         end
+        args.concat(['LIMIT', limit]) if limit
         args << id
         args.concat(entry.flatten)
         send_command(args)
