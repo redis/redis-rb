@@ -49,6 +49,10 @@ jobs:
       REDIS_VERSION: ${{ matrix.redis_version }}
       DRIVER: ${{ matrix.driver == 'hiredis' && 'hiredis' || 'ruby' }}
       LOW_TIMEOUT: "0.14"
+      # TruffleRuby defaults to a throughput-tuned JIT mode that warms up slowly;
+      # latency mode keeps short test runs from blowing the per-step timeout.
+      # The variable is a no-op on MRI.
+      TRUFFLERUBYOPT: ${{ matrix.ruby_distribution == 'TruffleRuby' && '--engine.Mode=latency' || '' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v6
