@@ -1,5 +1,6 @@
 # Test infrastructure for redis-rb. Topology selection via Docker profiles:
 #   docker compose --profile standalone up -d --wait   (just the master)
+#   docker compose --profile replica    up -d --wait   (master + replica, no sentinels)
 #   docker compose --profile sentinel   up -d --wait   (master + replica + 3 sentinels)
 #   docker compose --profile cluster    up -d --wait   (6-node cluster)
 #   docker compose --profile all        up -d --wait   (everything)
@@ -18,7 +19,7 @@
 # visible on the macOS host. CI runs on Linux and is unaffected.
 
 x-redis-image: &redis-image
-  image: redislabs/client-libs-test:${REDIS_VERSION:-8.4.3}
+  image: redislabs/client-libs-test:${REDIS_VERSION:-8.8.0}
   platform: linux/amd64
   network_mode: host
   restart: "no"
@@ -27,7 +28,7 @@ services:
   standalone:
     <<: *redis-image
     container_name: redis-rb-standalone
-    profiles: [standalone, sentinel, all]
+    profiles: [standalone, replica, sentinel, all]
     environment:
       PORT: "6381"
       REDIS_CLUSTER: "no"
@@ -42,6 +43,7 @@ services:
     volumes:
       - ./test/support/redis.conf:/redis/extra.conf:ro
       - ./tmp:/sockets
+      - ./dockers/standalone:/redis/work
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6381", "ping"]
       interval: 1s
@@ -51,7 +53,7 @@ services:
   replica:
     <<: *redis-image
     container_name: redis-rb-replica
-    profiles: [sentinel, all]
+    profiles: [replica, sentinel, all]
     depends_on:
       standalone:
         condition: service_healthy
@@ -67,6 +69,7 @@ services:
       - "6381"
     volumes:
       - ./test/support/redis.conf:/redis/extra.conf:ro
+      - ./dockers/replica:/redis/work
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6382", "ping"]
       interval: 1s
@@ -89,6 +92,7 @@ services:
       PROTECTED_MODE: "no"
     volumes:
       - ./test/support/sentinel-config:/redis/config:ro
+      - ./dockers/sentinel:/redis/work
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6400", "ping"]
       interval: 1s
@@ -110,6 +114,7 @@ services:
       - /redis/extra.conf
     volumes:
       - ./test/support/redis.conf:/redis/extra.conf:ro
+      - ./dockers/cluster:/redis/work
     healthcheck:
       # cluster_state:ok appears only after CLUSTER MEET + slot assignment finish.
       # This addresses the historical InitialSetupError flake.

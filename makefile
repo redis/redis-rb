@@ -7,7 +7,7 @@
 # Target names mirror the historical makefile so existing dev muscle memory and
 # CI shell scripts keep working. Each one shells out to docker compose.
 
-REDIS_VERSION  ?= 8.4.3
+REDIS_VERSION  ?= 8.8.0
 export REDIS_VERSION
 TMP            := tmp
 SOCKET_PATH    := ${TMP}/redis.sock
@@ -23,9 +23,11 @@ start: ${TMP}
 stop:
 	@docker compose --profile standalone down -v
 
-start_slave: start_sentinel  # the replica is part of the sentinel profile
+start_slave: ${TMP}
+	@docker compose --profile replica up -d --wait
 
-stop_slave: stop_sentinel
+stop_slave:
+	@docker compose --profile replica down -v
 
 start_sentinel: ${TMP}
 	@docker compose --profile sentinel up -d --wait
