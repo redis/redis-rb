@@ -7,9 +7,19 @@ class Redis
       #
       # @param [String] key
       # @param [Array] member arguemnts for member or members: longitude, latitude, name
-      # @return [Integer] number of elements added to the sorted set
-      def geoadd(key, *member)
-        send_command([:geoadd, key, *member])
+      # @param [Boolean] nx don't update already existing elements, always add new ones (since Redis 6.2)
+      # @param [Boolean] xx only update elements that already exist, never add new ones (since Redis 6.2)
+      # @param [Boolean] ch modify the return value to the number of changed elements (since Redis 6.2)
+      # @return [Integer] number of elements added to the sorted set, or changed when `ch` is set
+      def geoadd(key, *member, nx: false, xx: false, ch: false)
+        raise ArgumentError, "can't supply both nx and xx" if nx && xx
+
+        args = [:geoadd, key]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "CH" if ch
+        args.concat(member)
+        send_command(args)
       end
 
       # Returns geohash string representing position for specified members of the specified key.
@@ -28,6 +38,7 @@ class Redis
       # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest
       #   or the farthest to the nearest relative to the center
       # @param [Integer] count limit the results to the first N matching items
+      # @param [Boolean] count_any return as soon as enough matches found (only with count, since Redis 6.2)
       # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
       # @return [Array<String>] may be changed with `options`
       def georadius(*args, **geoptions)
@@ -43,6 +54,7 @@ class Redis
       # @param ['asc', 'desc'] sort sort returned items from the nearest to the farthest or the farthest
       #   to the nearest relative to the center
       # @param [Integer] count limit the results to the first N matching items
+      # @param [Boolean] count_any return as soon as enough matches found (only with count, since Redis 6.2)
       # @param ['WITHDIST', 'WITHCOORD', 'WITHHASH'] options to return additional information
       # @return [Array<String>] may be changed with `options`
       def georadiusbymember(*args, **geoptions)
