@@ -322,23 +322,26 @@ class TestPublishSubscribe < Minitest::Test
 
     Thread.pass until @subscribed_redis&.subscribed?
 
+    # SUBSCRIBE is asynchronous on a SubscribedClient: it queues the channel and
+    # returns immediately, while the server ack travels back through the
+    # subscriber's message loop. Publishing before the ack lands races with the
+    # server's subscription table and can lose the message. Drain each ack
+    # before the corresponding publish to make the ordering explicit.
+    assert_equal ["subscribed", channel_name], @events.pop
     redis.publish(channel_name, "test")
+    assert_equal ["message", channel_name, "test"], @events.pop
+
     @subscribed_redis.subscribe("#{channel_name}:2")
+    assert_equal ["subscribed", "#{channel_name}:2"], @events.pop
     redis.publish("#{channel_name}:2", "test-2")
+    assert_equal ["message", "#{channel_name}:2", "test-2"], @events.pop
 
     @subscribed_redis.unsubscribe(channel_name)
     @subscribed_redis.unsubscribe # this shouldn't block
 
     refute_nil thread.join(2)
-    expected = [
-      ["subscribed", channel_name],
-      ["message", channel_name, "test"],
-      ["subscribed", "#{channel_name}:2"],
-      ["message", "#{channel_name}:2", "test-2"],
-      ["unsubscribed", channel_name],
-      ["unsubscribed", "#{channel_name}:2"]
-    ]
-    assert_equal(expected, expected.map { @events.pop })
+    assert_equal ["unsubscribed", channel_name], @events.pop
+    assert_equal ["unsubscribed", "#{channel_name}:2"], @events.pop
     assert_empty @events
   end
 

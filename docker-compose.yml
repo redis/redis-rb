@@ -1,0 +1,124 @@
+# Test infrastructure for redis-rb. Topology selection via Docker profiles:
+#   docker compose --profile standalone up -d --wait   (just the master)
+#   docker compose --profile replica    up -d --wait   (master + replica, no sentinels)
+#   docker compose --profile sentinel   up -d --wait   (master + replica + 3 sentinels)
+#   docker compose --profile cluster    up -d --wait   (6-node cluster)
+#   docker compose --profile all        up -d --wait   (everything)
+#
+# Override the Redis version with REDIS_VERSION=8.X.Y. The image is amd64-only,
+# so on Apple Silicon the platform is pinned via Rosetta emulation.
+#
+# Uses host networking so the test runner reaches services via 127.0.0.1 at the
+# ports redis-rb has used historically: 6381 / 6382 / 6400-6402 / 16380-16385.
+# This is the simplest model that keeps sentinel and cluster reporting host-
+# reachable addresses.
+#
+# macOS note: Docker Desktop requires the "host networking" beta feature
+# (Settings > Resources > Network > Enable host networking). Without it, Linux
+# containers can use host networking inside the VM but their ports won't be
+# visible on the macOS host. CI runs on Linux and is unaffected.
+
+x-redis-image: &redis-image
+  image: redislabs/client-libs-test:${REDIS_VERSION:-8.8.0}
+  platform: linux/amd64
+  network_mode: host
+  restart: "no"
+
+services:
+  standalone:
+    <<: *redis-image
+    container_name: redis-rb-standalone
+    profiles: [standalone, replica, sentinel, all]
+    environment:
+      PORT: "6381"
+      REDIS_CLUSTER: "no"
+      PROTECTED_MODE: "no"
+    command:
+      - --include
+      - /redis/extra.conf
+      - --unixsocket
+      - /sockets/redis.sock
+      - --unixsocketperm
+      - "777"
+    volumes:
+      - ./test/support/redis.conf:/redis/extra.conf:ro
+      - ./tmp:/sockets
+      - ./dockers/standalone:/redis/work
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6381", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  replica:
+    <<: *redis-image
+    container_name: redis-rb-replica
+    profiles: [replica, sentinel, all]
+    depends_on:
+      standalone:
+        condition: service_healthy
+    environment:
+      PORT: "6382"
+      REDIS_CLUSTER: "no"
+      PROTECTED_MODE: "no"
+    command:
+      - --include
+      - /redis/extra.conf
+      - --replicaof
+      - "127.0.0.1"
+      - "6381"
+    volumes:
+      - ./test/support/redis.conf:/redis/extra.conf:ro
+      - ./dockers/replica:/redis/work
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6382", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  sentinel:
+    <<: *redis-image
+    container_name: redis-rb-sentinel
+    profiles: [sentinel, all]
+    depends_on:
+      standalone:
+        condition: service_healthy
+      replica:
+        condition: service_healthy
+    environment:
+      # The entrypoint sees preconfigured node dirs under /redis/config and starts
+      # each as a sentinel because their names begin with node-sentinel*.
+      REDIS_CLUSTER: "no"
+      PROTECTED_MODE: "no"
+    volumes:
+      - ./test/support/sentinel-config:/redis/config:ro
+      - ./dockers/sentinel:/redis/work
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6400", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  cluster:
+    <<: *redis-image
+    container_name: redis-rb-cluster
+    profiles: [cluster, all]
+    environment:
+      REDIS_CLUSTER: "yes"
+      NODES: "6"
+      REPLICAS: "1"
+      PORT: "16380"
+      PROTECTED_MODE: "no"
+    command:
+      - --include
+      - /redis/extra.conf
+    volumes:
+      - ./test/support/redis.conf:/redis/extra.conf:ro
+      - ./dockers/cluster:/redis/work
+    healthcheck:
+      # cluster_state:ok appears only after CLUSTER MEET + slot assignment finish.
+      # This addresses the historical InitialSetupError flake.
+      test: ["CMD-SHELL", "redis-cli -p 16380 cluster info | grep -q cluster_state:ok"]
+      interval: 1s
+      timeout: 3s
+      retries: 60

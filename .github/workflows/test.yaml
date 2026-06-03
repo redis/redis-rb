@@ -3,7 +3,7 @@ name: Test
 on:
   push:
     branches:
-      - "*"
+      - master
     paths-ignore:
       - '**/*.md'
   pull_request:
@@ -11,6 +11,7 @@ on:
       - "*"
     paths-ignore:
       - '**/*.md'
+
 jobs:
   lint:
     name: Rubocop
@@ -22,231 +23,71 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          ruby-version: "3.4"
           bundler-cache: true
       - name: Lint
         run: bundle exec rubocop
 
-  rubies:
-    name: Ruby
-    timeout-minutes: 15
+  test:
+    name: "${{ matrix.ruby_distribution }} (${{ matrix.ruby_version }}) Redis (${{ matrix.redis_version }}) Driver (${{ matrix.driver }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["4.0", "3.4", "3.3", "3.2", "3.1", "3.0", "2.7", "2.6"]
-    runs-on: ubuntu-latest
+        ruby_distribution: [MRI, TruffleRuby]
+        ruby_version: ["3.3", "3.4", "4.0"]
+        redis_version: ["7.2.14", "7.4.9", "8.2.6", "8.8.0"]
+        driver: [default, hiredis]
+        exclude:
+          # TruffleRuby's C extension support (Sulong) cannot build hiredis cleanly.
+          - { ruby_distribution: TruffleRuby, driver: hiredis }
+          # TruffleRuby tracks one Ruby compat level at a time; cover it on 3.4 only.
+          - { ruby_distribution: TruffleRuby, ruby_version: "3.3" }
+          - { ruby_distribution: TruffleRuby, ruby_version: "4.0" }
     env:
-      LOW_TIMEOUT: "0.01"
-      REDIS_BRANCH: "8.2"
+      REDIS_VERSION: ${{ matrix.redis_version }}
+      DRIVER: ${{ matrix.driver == 'hiredis' && 'hiredis' || 'ruby' }}
+      LOW_TIMEOUT: "0.14"
+      # TruffleRuby defaults to a throughput-tuned JIT mode that warms up slowly;
+      # latency mode keeps short test runs from blowing the per-step timeout.
+      # The variable is a no-op on MRI.
+      TRUFFLERUBYOPT: ${{ matrix.ruby_distribution == 'TruffleRuby' && '--engine.Mode=latency' || '' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v6
-      - name: Print environment variables
-        run: |
-          echo "TIMEOUT=${TIMEOUT}"
-          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
-          echo "DRIVER=${DRIVER}"
-          echo "REDIS_BRANCH=${REDIS_BRANCH}"
-      - name: Set up Ruby
+
+      - name: Set up Ruby (MRI)
+        if: matrix.ruby_distribution == 'MRI'
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby }}
+          ruby-version: ${{ matrix.ruby_version }}
           bundler-cache: true
-      - name: Cache local temporary directory
-        uses: actions/cache@v5
-        with:
-          path: tmp
-          key: "local-tmp-redis-7.0-on-ubuntu-latest"
-      - name: Booting up Redis
-        run: make start
-      - name: Test
-        run: bundle exec rake test:redis test:distributed
-        timeout-minutes: 3
-      - name: Shutting down Redis
-        run: make stop
 
-  truffle:
-    name: TruffleRuby
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: ["redis", "distributed"]
-    runs-on: ubuntu-latest
-    env:
-      LOW_TIMEOUT: "0.01"
-      REDIS_BRANCH: "8.2"
-      TRUFFLERUBYOPT: "--engine.Mode=latency"
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-      - name: Print environment variables
-        run: |
-          echo "TIMEOUT=${TIMEOUT}"
-          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
-          echo "DRIVER=${DRIVER}"
-          echo "REDIS_BRANCH=${REDIS_BRANCH}"
-      - name: Set up Ruby
+      - name: Set up Ruby (TruffleRuby)
+        if: matrix.ruby_distribution == 'TruffleRuby'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: truffleruby
           bundler-cache: true
-      - name: Cache local temporary directory
-        uses: actions/cache@v5
-        with:
-          path: tmp
-          key: "local-tmp-redis-7.0-on-ubuntu-latest"
-      - name: Booting up Redis
-        run: make start
-      - name: Test
-        run: bundle exec rake test:${{ matrix.suite }}
-        timeout-minutes: 3
-      - name: Shutting down Redis
-        run: make stop
 
-  drivers:
-    name: Driver
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        driver: ["hiredis"]
-    runs-on: ubuntu-latest
-    env:
-      LOW_TIMEOUT: "0.01"
-      DRIVER: ${{ matrix.driver }}
-      REDIS_BRANCH: "8.2"
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-      - name: Print environment variables
-        run: |
-          echo "TIMEOUT=${TIMEOUT}"
-          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
-          echo "DRIVER=${DRIVER}"
-          echo "REDIS_BRANCH=${REDIS_BRANCH}"
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "2.6"
-          bundler-cache: true
-      - name: Cache local temporary directory
-        uses: actions/cache@v5
-        with:
-          path: tmp
-          key: "local-tmp-redis-7.0-on-ubuntu-latest"
-      - name: Booting up Redis
-        run: make start
-      - name: Test
-        run: bundle exec rake test:redis test:distributed
-      - name: Shutting down Redis
-        run: make stop
+      - name: Install cluster gem dependencies
+        env:
+          BUNDLE_GEMFILE: cluster/Gemfile
+        run: bundle install
 
-  redises:
-    name: Redis
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        redis: ["8.2", "8.0", "7.4", "7.2", "7.0", "6.2", "6.0", "5.0"]
-    runs-on: ubuntu-latest
-    env:
-      LOW_TIMEOUT: "0.14"
-      REDIS_BRANCH: ${{ matrix.redis }}
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-      - name: Print environment variables
-        run: |
-          echo "TIMEOUT=${TIMEOUT}"
-          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
-          echo "DRIVER=${DRIVER}"
-          echo "REDIS_BRANCH=${REDIS_BRANCH}"
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "2.6"
-          bundler-cache: true
-      - name: Cache local temporary directory
-        uses: actions/cache@v5
-        with:
-          path: tmp
-          key: "local-tmp-redis-${{ matrix.redis }}-on-ubuntu-latest"
-      - name: Booting up Redis
-        run: make start
-      - name: Test
-        run: bundle exec rake test:redis test:distributed
-      - name: Shutting down Redis
-        run: make stop
+      - name: Boot Redis (all topologies)
+        run: docker compose --profile all up -d --wait
 
-  sentinel:
-    name: Sentinel
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    env:
-      LOW_TIMEOUT: "0.14"
-      REDIS_BRANCH: "7.0"
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-      - name: Print environment variables
-        run: |
-          echo "TIMEOUT=${TIMEOUT}"
-          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
-          echo "DRIVER=${DRIVER}"
-          echo "REDIS_BRANCH=${REDIS_BRANCH}"
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "2.6"
-          bundler-cache: true
-      - name: Cache local temporary directory
-        uses: actions/cache@v5
-        with:
-          path: tmp
-          key: "local-tmp-redis-7.0-on-ubuntu-latest"
-      - name: Booting up Redis
-        run: make start_sentinel wait_for_sentinel
-      - name: Test
-        run: bundle exec rake test:sentinel
-      - name: Shutting down Redis
-        run: make stop_all
+      - name: Run standalone, distributed, sentinel suites
+        run: bundle exec rake test:redis test:distributed test:sentinel
 
-  cluster:
-    name: Cluster
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        ruby: ["4.0", "3.4", "3.3", "3.2", "3.1", "3.0", "2.7"]
-    runs-on: ubuntu-latest
-    env:
-      TIMEOUT: "15"
-      LOW_TIMEOUT: "0.14"
-      REDIS_BRANCH: "8.2"
-      BUNDLE_GEMFILE: cluster/Gemfile
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-      - name: Print environment variables
-        run: |
-          echo "TIMEOUT=${TIMEOUT}"
-          echo "LOW_TIMEOUT=${LOW_TIMEOUT}"
-          echo "DRIVER=${DRIVER}"
-          echo "REDIS_BRANCH=${REDIS_BRANCH}"
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-      - name: Cache local temporary directory
-        uses: actions/cache@v5
-        with:
-          path: tmp
-          key: "local-tmp-redis-7.0-on-ubuntu-latest"
-      - name: Booting up Redis
-        run: make start start_cluster create_cluster
-      - name: Test
+      - name: Run cluster suite
+        env:
+          BUNDLE_GEMFILE: cluster/Gemfile
+          TIMEOUT: "15"
         run: bundle exec rake test:cluster
-      - name: Shutting down Redis
-        run: make stop_all
+
+      - name: Tear down Redis
+        if: always()
+        run: docker compose --profile all down -v

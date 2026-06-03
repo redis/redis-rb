@@ -13,10 +13,10 @@ Cluster code, tests, and CHANGELOG live under `cluster/`. When making changes th
 
 ## Common commands
 
-The dev workflow assumes a Redis server compiled from source into `tmp/cache/`. The makefile takes care of that:
+The dev workflow runs Redis in Docker containers via `docker-compose.yml` using the prebuilt `redislabs/client-libs-test` image. Topologies are selected by Docker profiles (`standalone`, `sentinel`, `cluster`, `all`). The `makefile` is a thin shim around `docker compose --profile X up -d --wait` and `down -v`, so the historical target names still work:
 
 ```sh
-# build + start standalone, replica, sentinel quorum, and a 6-node cluster
+# bring up everything: standalone, replica, 3 sentinels, 6-node cluster
 make start_all
 
 # run the full suite (all four test groups)
@@ -47,13 +47,26 @@ bundle exec rake test:cluster TEST=cluster/test/commands_on_strings_test.rb TEST
 
 Other useful knobs:
 
-- `REDIS_BRANCH=8.4 make start_all` — build/run a specific Redis version (default is set at the top of `makefile`). The `bin/build` script downloads and compiles from `github.com/redis/redis`.
+- `REDIS_VERSION=8.X.Y make start_all` — pin the image tag (default is set at the top of `makefile`). Tags are published per Redis minor.patch (e.g. `8.0.6`, `8.2.6`, `8.4.3`, `8.6.3`, `8.8.0`); a bare `8.4` tag generally does not exist.
 - `DRIVER=hiredis bundle exec rake test` — run the suite against the `hiredis-client` C-extension driver instead of the pure-Ruby parser (see `test/helper.rb`).
-- `REDIS_SOCKET_PATH=...` — override the Unix socket location. The default expects `tmp/redis.sock`, which `make start` creates; `test/helper.rb` aborts with "did you run `make start`?" if it's missing.
+- `REDIS_SOCKET_PATH=...` — override the Unix socket location. The default expects `tmp/redis.sock`, which the standalone container bind-mounts from `./tmp:/sockets`; `test/helper.rb` aborts if it's missing.
 - `bundle exec rubocop` — lint. The Rubocop config is in `.rubocop.yml` (root) and `cluster/.rubocop.yml`.
 - `bin/console` — IRB session with `redis` preloaded.
 
-There's no separate cluster makefile target — `make start_all` brings up the cluster nodes too (see the `start_cluster` / `create_cluster` targets in `makefile`), and `bundle exec rake test:cluster` runs against the cluster from `make`.
+You can also drive `docker compose` directly when you want a single profile up:
+
+```sh
+docker compose --profile standalone up -d --wait
+docker compose --profile sentinel   up -d --wait
+docker compose --profile cluster    up -d --wait
+docker compose --profile all down -v
+```
+
+The cluster profile's healthcheck waits for `cluster_state:ok` (not just PING) so tests can connect without hitting the historical `InitialSetupError` race. Pre-configured sentinel node directories live under `test/support/sentinel-config/` and are bind-mounted into the sentinel container; the image's entrypoint starts each as a sentinel because their directory names begin with `node-sentinel`.
+
+### macOS / Docker Desktop note
+
+The compose stack uses `network_mode: host` so sentinel and cluster nodes report `127.0.0.1` addresses the test runner on the host can reach. On Linux this works natively. On macOS, Docker Desktop's "host networking" beta must be enabled (Settings → Resources → Network → Enable host networking); without it, the containers are healthy but their ports aren't visible on `127.0.0.1`. AF_UNIX sockets bind-mounted out of the standalone container also don't route through Docker Desktop's VM on macOS, so `test_connecting_to_unix_domain_socket` fails locally but passes on Linux CI.
 
 ## Architecture
 
