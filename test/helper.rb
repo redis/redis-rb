@@ -20,11 +20,15 @@ if ENV["DRIVER"] == "hiredis"
   require "hiredis-client"
 end
 
-PORT        = 6381
-DB          = 15
-TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
-LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
-OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
+PORT         = 6381
+# Port the module test suite connects to. On Redis >= 8 the modules are in core, so this is
+# the standalone instance (6381); on 7.2/7.4 CI points it at the dedicated Redis Stack
+# instance (6383) via REDIS_MODULES_PORT.
+MODULES_PORT = Integer(ENV['REDIS_MODULES_PORT'] || PORT)
+DB           = 15
+TIMEOUT      = Float(ENV['TIMEOUT'] || 1.0)
+LOW_TIMEOUT  = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
+OPTIONS      = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
 if ENV['REDIS_SOCKET_PATH'].nil?
   sock_file = File.expand_path('../tmp/redis.sock', __dir__)
@@ -167,6 +171,16 @@ module Helper
       skip("Requires Redis > #{min_ver}") if version < min_ver
     end
 
+    # Skip unless the named Redis module is loaded (e.g. "ReJSON" for RedisJSON). Module
+    # presence depends on the server image, not the Redis version number — on Redis >= 8 the
+    # module ships in core, on earlier versions it requires Redis Stack — so check MODULE LIST
+    # rather than the version. Redis::Distributed doesn't expose #call, so probe one node.
+    def omit_unless_module(name)
+      client = redis.respond_to?(:call) ? redis : redis.nodes.first
+      loaded = client.call("MODULE", "LIST").map { |mod| Hash[*mod]["name"] }
+      skip("Requires the #{name} module") unless loaded.include?(name)
+    end
+
     def version
       Version.new(redis.info['redis_version'])
     end
@@ -199,6 +213,22 @@ module Helper
 
     def _format_options(options)
       OPTIONS.merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"]))
+    end
+  end
+
+  # Client for the module test suite. Connects to MODULES_PORT: the core `standalone` instance
+  # on Redis >= 8 (modules in core), or the dedicated Redis Stack instance on 7.2/7.4.
+  module Modules
+    include Generic
+
+    private
+
+    def _format_options(options)
+      OPTIONS.merge(port: MODULES_PORT).merge(options)
     end
 
     def _new_client(options = {})

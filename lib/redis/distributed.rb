@@ -340,6 +340,16 @@ class Redis
       node_for(key).getex(key, **options)
     end
 
+    # Set the JSON value at a path in the document stored under a key.
+    def json_set(key, path, value, **options)
+      node_for(key).json_set(key, path, value, **options)
+    end
+
+    # Get the JSON value(s) at one or more paths in the document stored under a key.
+    def json_get(key, *paths)
+      node_for(key).json_get(key, *paths)
+    end
+
     # Get the values of all the given keys as an Array.
     def mget(*keys)
       keys.flatten!(1)

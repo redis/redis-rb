@@ -3,13 +3,14 @@
 #   docker compose --profile replica    up -d --wait   (master + replica, no sentinels)
 #   docker compose --profile sentinel   up -d --wait   (master + replica + 3 sentinels)
 #   docker compose --profile cluster    up -d --wait   (6-node cluster)
+#   docker compose --profile modules    up -d --wait   (Redis Stack instance for module tests)
 #   docker compose --profile all        up -d --wait   (everything)
 #
 # Override the Redis version with REDIS_VERSION=8.X.Y. The image is amd64-only,
 # so on Apple Silicon the platform is pinned via Rosetta emulation.
 #
 # Uses host networking so the test runner reaches services via 127.0.0.1 at the
-# ports redis-rb has used historically: 6381 / 6382 / 6400-6402 / 16380-16385.
+# ports redis-rb has used historically: 6381 / 6382 / 6383 / 6400-6402 / 16380-16385.
 # This is the simplest model that keeps sentinel and cluster reporting host-
 # reachable addresses.
 #
@@ -95,6 +96,29 @@ services:
       - ./dockers/sentinel:/redis/work
     healthcheck:
       test: ["CMD", "redis-cli", "-p", "6400", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  # A standalone instance with Redis modules (e.g. RedisJSON) loaded, dedicated to the module
+  # test suite on Redis < 8 — where modules are NOT in core and need a Redis Stack image.
+  modules:
+    <<: *redis-image
+    image: redislabs/client-libs-test:${REDIS_STACK_VERSION:-rs-7.4.0-v8}
+    container_name: redis-rb-modules
+    profiles: [modules]
+    environment:
+      PORT: "6383"
+      REDIS_CLUSTER: "no"
+      PROTECTED_MODE: "no"
+    command:
+      - --include
+      - /redis/extra.conf
+    volumes:
+      - ./test/support/redis.conf:/redis/extra.conf:ro
+      - ./dockers/modules:/redis/work
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6383", "ping"]
       interval: 1s
       timeout: 3s
       retries: 30

@@ -47,6 +47,12 @@ jobs:
           - { ruby_distribution: TruffleRuby, ruby_version: "4.0" }
     env:
       REDIS_VERSION: ${{ matrix.redis_version }}
+      # RedisJSON et al. ship in Redis core only from 8.0. On the 7.2/7.4 rows the module tests
+      # run against a Redis Stack instance (port 6383) booted from the version-matched rs- tag;
+      # on >= 8 REDIS_STACK_VERSION is empty (no Stack booted) and the module tests run against
+      # the standalone instance (port 6381).
+      REDIS_STACK_VERSION: ${{ startsWith(matrix.redis_version, '7.2') && 'rs-7.2.0-v20' || startsWith(matrix.redis_version, '7.4') && 'rs-7.4.0-v8' || '' }}
+      REDIS_MODULES_PORT: ${{ (startsWith(matrix.redis_version, '7.2') || startsWith(matrix.redis_version, '7.4')) && '6383' || '6381' }}
       DRIVER: ${{ matrix.driver == 'hiredis' && 'hiredis' || 'ruby' }}
       LOW_TIMEOUT: "0.14"
       # TruffleRuby defaults to a throughput-tuned JIT mode that warms up slowly;
@@ -79,8 +85,13 @@ jobs:
       - name: Boot Redis (all topologies)
         run: docker compose --profile all up -d --wait
 
-      - name: Run standalone, distributed, sentinel suites
-        run: bundle exec rake test:redis test:distributed test:sentinel
+      # Only on Redis < 8, where modules aren't in core; on >= 8 the module tests use standalone.
+      - name: Boot Redis Stack (module tests on Redis < 8)
+        if: env.REDIS_STACK_VERSION != ''
+        run: docker compose --profile modules up -d --wait
+
+      - name: Run standalone, distributed, sentinel, module suites
+        run: bundle exec rake test:redis test:distributed test:sentinel test:modules
 
       - name: Run cluster suite
         env:
@@ -90,4 +101,4 @@ jobs:
 
       - name: Tear down Redis
         if: always()
-        run: docker compose --profile all down -v
+        run: docker compose --profile all --profile modules down -v
