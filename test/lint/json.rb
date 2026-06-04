@@ -67,5 +67,28 @@ module Lint
       assert_equal false, r.json_set("doc", "$.b", 2, xx: true)
       assert_nil r.json_get("doc", "$.b").first
     end
+
+    def test_set_with_raw_passes_encoded_json_through
+      r.json_set("doc", "$", '{"a":1,"b":[2,3]}', raw: true)
+
+      assert_equal({ "a" => 1, "b" => [2, 3] }, r.json_get("doc"))
+    end
+
+    def test_set_without_raw_does_not_double_encode_a_string
+      # A plain Ruby string is a JSON value: it must be stored as a JSON string, not as raw JSON.
+      r.json_set("doc", "$", "hello")
+
+      assert_equal "hello", r.json_get("doc")
+    end
+
+    def test_get_with_raw_returns_unparsed_json_string
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal '[{"a":1}]', r.json_get("doc", "$", raw: true)
+    end
+
+    def test_get_with_raw_on_missing_key_returns_nil
+      assert_nil r.json_get("missing", raw: true)
+    end
   end
 end

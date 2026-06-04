@@ -346,8 +346,8 @@ class Redis
     end
 
     # Get the JSON value(s) at one or more paths in the document stored under a key.
-    def json_get(key, *paths)
-      node_for(key).json_get(key, *paths)
+    def json_get(key, *paths, **options)
+      node_for(key).json_get(key, *paths, **options)
     end
 
     # Get the values of all the given keys as an Array.
