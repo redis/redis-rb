@@ -171,14 +171,20 @@ module Helper
       skip("Requires Redis > #{min_ver}") if version < min_ver
     end
 
-    # Skip unless the named Redis module is loaded (e.g. "ReJSON" for RedisJSON). Module
-    # presence depends on the server image, not the Redis version number — on Redis >= 8 the
-    # module ships in core, on earlier versions it requires Redis Stack — so check MODULE LIST
-    # rather than the version. Redis::Distributed doesn't expose #call, so probe one node.
-    def omit_unless_module(name)
+    # Assert the named Redis module is loaded (e.g. "ReJSON" for RedisJSON), raising if it is
+    # not. The module test suite always runs against a server that is expected to have the
+    # module — the standalone instance on Redis >= 8 (modules in core) or the dedicated Redis
+    # Stack instance on 7.2/7.4 — so a missing module is an infrastructure error we want to
+    # surface loudly rather than silently skip. Redis::Distributed doesn't expose #call, so
+    # probe one node.
+    def require_module(name)
       client = redis.respond_to?(:call) ? redis : redis.nodes.first
       loaded = client.call("MODULE", "LIST").map { |mod| Hash[*mod]["name"] }
-      skip("Requires the #{name} module") unless loaded.include?(name)
+      return if loaded.include?(name)
+
+      raise "Redis module #{name.inspect} is not loaded but the module test suite requires it. " \
+            "Bring up a module-capable server (Redis >= 8, or `make start_modules` for a Redis " \
+            "Stack instance). Modules loaded: #{loaded.inspect}."
     end
 
     def version

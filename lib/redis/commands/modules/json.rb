@@ -22,11 +22,15 @@ class Redis
       #
       # @example
       #   redis.json_set("doc", "$", { "a" => 1, "nested" => { "b" => 2 } })
-      #     # => true
+      #     # => "OK"
       #
       # @example pre-encoded JSON
       #   redis.json_set("doc", "$", '{"a":1}', raw: true)
-      #     # => true
+      #     # => "OK"
+      #
+      # @example conditional set with NX/XX returns a boolean
+      #   redis.json_set("doc", "$.a", 2, nx: true)
+      #     # => false
       #
       # @param [String] key
       # @param [String] path a JSONPath, e.g. "$" for the document root
@@ -37,7 +41,10 @@ class Redis
       # @param [Boolean] raw treat +value+ as an already-encoded JSON string and send it as-is
       # @return [Boolean, String] when +nx+ or +xx+ is given, +true+ on success and +false+
       #   when the condition was not met; otherwise the raw +"OK"+ reply
+      # @raise [ArgumentError] if both +nx+ and +xx+ are given (they are mutually exclusive)
       def json_set(key, path, value, nx: false, xx: false, raw: false)
+        raise ArgumentError, "nx and xx are mutually exclusive" if nx && xx
+
         value = ::JSON.generate(value) unless raw
         args = [:"JSON.SET", key, path, value]
         args << "NX" if nx

@@ -4,7 +4,15 @@ module Lint
   module Json
     def setup
       super
-      omit_unless_module("ReJSON")
+      require_module("ReJSON")
+    end
+
+    def test_set_returns_ok
+      assert_equal "OK", r.json_set("doc", "$", { "a" => 1 })
+    end
+
+    def test_set_with_raw_returns_ok
+      assert_equal "OK", r.json_set("doc", "$", '{"a":1}', raw: true)
     end
 
     def test_set_and_get_whole_document
@@ -66,6 +74,10 @@ module Lint
 
       assert_equal false, r.json_set("doc", "$.b", 2, xx: true)
       assert_nil r.json_get("doc", "$.b").first
+    end
+
+    def test_set_with_both_nx_and_xx_raises
+      assert_raises(ArgumentError) { r.json_set("doc", "$", { "a" => 1 }, nx: true, xx: true) }
     end
 
     def test_set_with_raw_passes_encoded_json_through
