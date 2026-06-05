@@ -311,4 +311,20 @@ module Helper
       Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
     end
   end
+
+  # Like Helper::Distributed, but the single ring node is the module-capable server
+  # (MODULES_PORT): the standalone instance on Redis >= 8, or the dedicated Redis Stack
+  # instance on 7.2/7.4. Used by the distributed JSON test so it routes to a node that
+  # actually has the module loaded — the plain `standalone` is core-only on Redis < 8.
+  module DistributedModules
+    include Distributed
+
+    NODES = ["redis://127.0.0.1:#{MODULES_PORT}/#{DB}"].freeze
+
+    private
+
+    def _new_client(options = {})
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
+    end
+  end
 end

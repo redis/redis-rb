@@ -3,6 +3,6 @@
 require "helper"
 
 class TestDistributedCommandsOnJson < Minitest::Test
-  include Helper::Distributed
+  include Helper::DistributedModules
   include Lint::Json
 end
