@@ -126,6 +126,7 @@ class Redis
       # @param [Boolean] raw return the unparsed JSON strings instead of parsed Ruby objects
       # @return [Array] one value per key (nil for a missing key/path)
       def json_mget(*keys, path, raw: false)
+        keys.flatten!(1)
         send_command([:"JSON.MGET", *keys, path]) do |reply|
           if reply.nil?
             reply

@@ -110,6 +110,14 @@ module Lint
       assert_equal [[1], [2], nil], r.json_mget("doc1", "doc2", "missing", "$.a")
     end
 
+    def test_mget_accepts_an_array_of_keys
+      r.json_set("doc1", "$", { "a" => 1 })
+      r.json_set("doc2", "$", { "a" => 2 })
+
+      # A nested array of keys must behave the same as splatted keys (matches #mget).
+      assert_equal [[1], [2]], r.json_mget(["doc1", "doc2"], "$.a")
+    end
+
     def test_mget_returns_empty_match_for_missing_path
       r.json_set("doc1", "$", { "a" => 1 })
 
