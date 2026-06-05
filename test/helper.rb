@@ -20,11 +20,15 @@ if ENV["DRIVER"] == "hiredis"
   require "hiredis-client"
 end
 
-PORT        = 6381
-DB          = 15
-TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
-LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
-OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
+PORT         = 6381
+# Port the module test suite connects to. On Redis >= 8 the modules are in core, so this is
+# the standalone instance (6381); on 7.2/7.4 CI points it at the dedicated Redis Stack
+# instance (6383) via REDIS_MODULES_PORT.
+MODULES_PORT = Integer(ENV['REDIS_MODULES_PORT'] || PORT)
+DB           = 15
+TIMEOUT      = Float(ENV['TIMEOUT'] || 1.0)
+LOW_TIMEOUT  = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
+OPTIONS      = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
 if ENV['REDIS_SOCKET_PATH'].nil?
   sock_file = File.expand_path('../tmp/redis.sock', __dir__)
@@ -167,6 +171,22 @@ module Helper
       skip("Requires Redis > #{min_ver}") if version < min_ver
     end
 
+    # Assert the named Redis module is loaded (e.g. "ReJSON" for RedisJSON), raising if it is
+    # not. The module test suite always runs against a server that is expected to have the
+    # module — the standalone instance on Redis >= 8 (modules in core) or the dedicated Redis
+    # Stack instance on 7.2/7.4 — so a missing module is an infrastructure error we want to
+    # surface loudly rather than silently skip. Redis::Distributed doesn't expose #call, so
+    # probe one node.
+    def require_module(name)
+      client = redis.respond_to?(:call) ? redis : redis.nodes.first
+      loaded = client.call("MODULE", "LIST").map { |mod| Hash[*mod]["name"] }
+      return if loaded.include?(name)
+
+      raise "Redis module #{name.inspect} is not loaded but the module test suite requires it. " \
+            "Bring up a module-capable server (Redis >= 8, or `make start_modules` for a Redis " \
+            "Stack instance). Modules loaded: #{loaded.inspect}."
+    end
+
     def version
       Version.new(redis.info['redis_version'])
     end
@@ -199,6 +219,22 @@ module Helper
 
     def _format_options(options)
       OPTIONS.merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"]))
+    end
+  end
+
+  # Client for the module test suite. Connects to MODULES_PORT: the core `standalone` instance
+  # on Redis >= 8 (modules in core), or the dedicated Redis Stack instance on 7.2/7.4.
+  module Modules
+    include Generic
+
+    private
+
+    def _format_options(options)
+      OPTIONS.merge(port: MODULES_PORT).merge(options)
     end
 
     def _new_client(options = {})
@@ -270,6 +306,22 @@ module Helper
         timeout: OPTIONS[:timeout],
       }.merge(options)
     end
+
+    def _new_client(options = {})
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
+    end
+  end
+
+  # Like Helper::Distributed, but the single ring node is the module-capable server
+  # (MODULES_PORT): the standalone instance on Redis >= 8, or the dedicated Redis Stack
+  # instance on 7.2/7.4. Used by the distributed JSON test so it routes to a node that
+  # actually has the module loaded — the plain `standalone` is core-only on Redis < 8.
+  module DistributedModules
+    include Distributed
+
+    NODES = ["redis://127.0.0.1:#{MODULES_PORT}/#{DB}"].freeze
+
+    private
 
     def _new_client(options = {})
       Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))

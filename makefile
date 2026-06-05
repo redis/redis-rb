@@ -51,6 +51,14 @@ stop_cluster:
 create_cluster:
 	@true
 
+# Standalone instance with Redis modules (Redis Stack) for the module test suite. Override
+# the image with REDIS_STACK_VERSION=rs-7.2.0-v20 (etc).
+start_modules: ${TMP}
+	@docker compose --profile modules up -d --wait
+
+stop_modules:
+	@docker compose --profile modules down -v
+
 start_all: ${TMP}
 	@docker compose --profile all up -d --wait
 
@@ -65,4 +73,4 @@ clean: stop_all
 
 .PHONY: all test stop start stop_slave start_slave stop_sentinel start_sentinel \
 	wait_for_sentinel stop_cluster start_cluster create_cluster stop_all \
-	start_all clean
+	start_all start_modules stop_modules clean

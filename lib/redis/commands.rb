@@ -8,6 +8,7 @@ require "redis/commands/hashes"
 require "redis/commands/hyper_log_log"
 require "redis/commands/keys"
 require "redis/commands/lists"
+require "redis/commands/modules/json"
 require "redis/commands/pubsub"
 require "redis/commands/scripting"
 require "redis/commands/server"
@@ -27,6 +28,7 @@ class Redis
     include HyperLogLog
     include Keys
     include Lists
+    include Json
     include Pubsub
     include Scripting
     include Server
