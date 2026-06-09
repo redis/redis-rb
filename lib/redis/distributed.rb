@@ -388,6 +388,36 @@ class Redis
       node_for(key).json_merge(key, path, value, **options)
     end
 
+    # Append one or more values to the JSON array at a path in the document stored under a key.
+    def json_arrappend(key, path, *values, **options)
+      node_for(key).json_arrappend(key, path, *values, **options)
+    end
+
+    # Return the index of the first occurrence of a scalar in the JSON array at a path.
+    def json_arrindex(key, path, value, **options)
+      node_for(key).json_arrindex(key, path, value, **options)
+    end
+
+    # Insert one or more values into the JSON array at a path in the document stored under a key.
+    def json_arrinsert(key, path, index, *values, **options)
+      node_for(key).json_arrinsert(key, path, index, *values, **options)
+    end
+
+    # Return the length of the JSON array at a path in the document stored under a key.
+    def json_arrlen(key, path = nil)
+      node_for(key).json_arrlen(key, path)
+    end
+
+    # Remove and return an element from the JSON array at a path in the document stored under a key.
+    def json_arrpop(key, path = nil, index = nil, **options)
+      node_for(key).json_arrpop(key, path, index, **options)
+    end
+
+    # Trim the JSON array at a path in the document stored under a key to an inclusive range.
+    def json_arrtrim(key, path, start, stop)
+      node_for(key).json_arrtrim(key, path, start, stop)
+    end
+
     # Get the values of all the given keys as an Array.
     def mget(*keys)
       keys.flatten!(1)

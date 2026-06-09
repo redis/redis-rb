@@ -206,6 +206,140 @@ class Redis
         value = ::JSON.generate(value) unless raw
         send_command([:"JSON.MERGE", key, path, value])
       end
+
+      # Append one or more values to the array at +path+ in the document stored under +key+.
+      #
+      # By default each value is a Ruby object serialized with JSON.generate; pass +raw: true+ to
+      # send already-encoded JSON strings through untouched.
+      #
+      # @example
+      #   redis.json_arrappend("doc", "$.colors", "blue")
+      #     # => [3]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the target array
+      # @param [Array<Object>] values one or more JSON values to append
+      # @param [Boolean] raw treat each value as an already-encoded JSON string
+      # @return [Array<Integer>, Integer] the new array length(s); an Array for a JSONPath,
+      #   a single Integer for a legacy path (nil for a match that is not an array)
+      def json_arrappend(key, path, *values, raw: false)
+        values = values.map { |value| ::JSON.generate(value) } unless raw
+        send_command([:"JSON.ARRAPPEND", key, path, *values])
+      end
+
+      # Return the index of the first occurrence of a scalar +value+ in the array at +path+. The
+      # optional +start+ (inclusive) and +stop+ (exclusive) bound the search.
+      #
+      # @example
+      #   redis.json_arrindex("doc", "$.colors", "silver")
+      #     # => [1]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the target array
+      # @param [Object] value the scalar JSON value to search for
+      # @param [Integer] start optional inclusive start index
+      # @param [Integer] stop optional exclusive stop index
+      # @param [Boolean] raw treat +value+ as an already-encoded JSON string
+      # @return [Array<Integer>, Integer] the index/indices of the first match (-1 if not found)
+      def json_arrindex(key, path, value, start: nil, stop: nil, raw: false)
+        value = ::JSON.generate(value) unless raw
+        args = [:"JSON.ARRINDEX", key, path, value]
+        unless start.nil? && stop.nil?
+          args << Integer(start || 0)
+          args << Integer(stop) unless stop.nil?
+        end
+        send_command(args)
+      end
+
+      # Insert one or more values into the array at +path+ before +index+ (existing elements at
+      # and after +index+ shift right; 0 prepends, negative counts from the end).
+      #
+      # By default each value is a Ruby object serialized with JSON.generate; pass +raw: true+ to
+      # send already-encoded JSON strings through untouched.
+      #
+      # @example
+      #   redis.json_arrinsert("doc", "$.colors", 1, "gold")
+      #     # => [4]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the target array
+      # @param [Integer] index the position to insert before
+      # @param [Array<Object>] values one or more JSON values to insert
+      # @param [Boolean] raw treat each value as an already-encoded JSON string
+      # @return [Array<Integer>, Integer] the new array length(s)
+      def json_arrinsert(key, path, index, *values, raw: false)
+        values = values.map { |value| ::JSON.generate(value) } unless raw
+        send_command([:"JSON.ARRINSERT", key, path, Integer(index), *values])
+      end
+
+      # Return the length of the array at +path+. When +path+ is omitted it defaults to the root.
+      #
+      # @example
+      #   redis.json_arrlen("doc", "$.colors")
+      #     # => [2]
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root "$")
+      # @return [Array<Integer>, Integer, nil] the array length(s); nil for a match that is not an
+      #   array, or when the key/path does not exist
+      def json_arrlen(key, path = nil)
+        args = [:"JSON.ARRLEN", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Remove and return an element from the array at +path+. When +path+ is omitted it defaults
+      # to the root; when +index+ is omitted it defaults to -1 (the last element).
+      #
+      # The popped element is returned as parsed JSON (a Ruby object), or as the unparsed JSON
+      # string when +raw: true+.
+      #
+      # @example
+      #   redis.json_arrpop("doc", "$.colors", 0)
+      #     # => ["black"]
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath to the target array (defaults to the root "$")
+      # @param [Integer] index an optional position to pop from (defaults to -1, the last element)
+      # @param [Boolean] raw return the unparsed JSON string(s) instead of parsed Ruby objects
+      # @return [Array, Object, nil] the popped value(s); an Array for a JSONPath, a single value
+      #   for a legacy path, nil for an empty array or a non-array match
+      # @raise [ArgumentError] if +index+ is given without a +path+
+      def json_arrpop(key, path = nil, index = nil, raw: false)
+        raise ArgumentError, "index requires a path" if !index.nil? && path.nil?
+
+        args = [:"JSON.ARRPOP", key]
+        if path
+          args << path
+          args << Integer(index) unless index.nil?
+        end
+
+        send_command(args) do |reply|
+          if reply.nil? || raw
+            reply
+          elsif reply.is_a?(Array)
+            reply.map { |value| value.nil? ? nil : ::JSON.parse(value) }
+          else
+            ::JSON.parse(reply)
+          end
+        end
+      end
+
+      # Trim the array at +path+ so it keeps only the inclusive range of elements from +start+ to
+      # +stop+ (negative indices count from the end).
+      #
+      # @example
+      #   redis.json_arrtrim("doc", "$.colors", 0, 1)
+      #     # => [2]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the target array
+      # @param [Integer] start inclusive index of the first element to keep
+      # @param [Integer] stop inclusive index of the last element to keep
+      # @return [Array<Integer>, Integer] the new array length(s)
+      def json_arrtrim(key, path, start, stop)
+        send_command([:"JSON.ARRTRIM", key, path, Integer(start), Integer(stop)])
+      end
     end
   end
 end

@@ -203,5 +203,143 @@ module Lint
       r.json_merge("doc", "$.b", "[1,2]", raw: true)
       assert_equal({ "a" => 1, "b" => [1, 2] }, r.json_get("doc"))
     end
+
+    def test_arrappend_appends_values_and_returns_new_length
+      r.json_set("doc", "$", { "colors" => ["black", "silver"] })
+
+      assert_equal [4], r.json_arrappend("doc", "$.colors", "blue", "red")
+      assert_equal [["black", "silver", "blue", "red"]], r.json_get("doc", "$.colors")
+    end
+
+    def test_arrappend_with_raw_values
+      r.json_set("doc", "$", { "a" => [1] })
+
+      assert_equal [3], r.json_arrappend("doc", "$.a", "2", "3", raw: true)
+      assert_equal [[1, 2, 3]], r.json_get("doc", "$.a")
+    end
+
+    def test_arrappend_on_non_array_match_returns_nil
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [nil], r.json_arrappend("doc", "$.a", "x")
+    end
+
+    def test_arrindex_finds_a_scalar
+      r.json_set("doc", "$", { "colors" => ["black", "silver", "blue"] })
+
+      assert_equal [1], r.json_arrindex("doc", "$.colors", "silver")
+    end
+
+    def test_arrindex_returns_minus_one_when_absent
+      r.json_set("doc", "$", { "colors" => ["black"] })
+
+      assert_equal [-1], r.json_arrindex("doc", "$.colors", "gold")
+    end
+
+    def test_arrindex_with_start_restricts_the_search
+      r.json_set("doc", "$", { "colors" => ["black", "silver", "black"] })
+
+      assert_equal [2], r.json_arrindex("doc", "$.colors", "black", start: 1)
+    end
+
+    def test_arrinsert_inserts_values_and_returns_new_length
+      r.json_set("doc", "$", { "colors" => ["black", "blue"] })
+
+      assert_equal [4], r.json_arrinsert("doc", "$.colors", 1, "silver", "gold")
+      assert_equal [["black", "silver", "gold", "blue"]], r.json_get("doc", "$.colors")
+    end
+
+    def test_arrinsert_with_a_negative_index
+      r.json_set("doc", "$", { "c" => [1, 2, 3] })
+
+      r.json_arrinsert("doc", "$.c", -1, 9)
+      assert_equal [[1, 2, 9, 3]], r.json_get("doc", "$.c")
+    end
+
+    def test_arrlen_returns_the_length
+      r.json_set("doc", "$", { "colors" => %w[a b c] })
+
+      assert_equal [3], r.json_arrlen("doc", "$.colors")
+    end
+
+    def test_arrlen_on_missing_path_returns_no_matches
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [], r.json_arrlen("doc", "$.nope")
+    end
+
+    def test_arrlen_on_non_array_match_returns_nil
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [nil], r.json_arrlen("doc", "$.a")
+    end
+
+    def test_arrpop_without_index_pops_the_last_element
+      r.json_set("doc", "$", { "c" => [1, 2, 3] })
+
+      assert_equal [3], r.json_arrpop("doc", "$.c")
+      assert_equal [[1, 2]], r.json_get("doc", "$.c")
+    end
+
+    def test_arrpop_with_an_index
+      r.json_set("doc", "$", { "c" => %w[x y z] })
+
+      assert_equal ["x"], r.json_arrpop("doc", "$.c", 0)
+    end
+
+    def test_arrpop_with_raw_returns_unparsed_strings
+      r.json_set("doc", "$", { "c" => %w[x y] })
+
+      assert_equal ['"y"'], r.json_arrpop("doc", "$.c", raw: true)
+    end
+
+    def test_arrpop_with_index_but_no_path_raises
+      assert_raises(ArgumentError) { r.json_arrpop("doc", nil, 0) }
+    end
+
+    def test_arrtrim_keeps_the_range_and_returns_new_length
+      r.json_set("doc", "$", { "c" => [1, 2, 3, 4, 5] })
+
+      assert_equal [3], r.json_arrtrim("doc", "$.c", 1, 3)
+      assert_equal [[2, 3, 4]], r.json_get("doc", "$.c")
+    end
+
+    # A legacy path (".foo") returns a single scalar reply rather than the JSONPath array form.
+
+    def test_arrappend_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "colors" => ["black"] })
+
+      assert_equal 2, r.json_arrappend("doc", ".colors", "silver")
+    end
+
+    def test_arrindex_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "colors" => ["black", "silver"] })
+
+      assert_equal 1, r.json_arrindex("doc", ".colors", "silver")
+    end
+
+    def test_arrinsert_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "colors" => ["black", "blue"] })
+
+      assert_equal 3, r.json_arrinsert("doc", ".colors", 1, "silver")
+    end
+
+    def test_arrlen_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "colors" => %w[a b c] })
+
+      assert_equal 3, r.json_arrlen("doc", ".colors")
+    end
+
+    def test_arrpop_with_legacy_path_returns_a_single_value
+      r.json_set("doc", "$", { "colors" => ["black", "silver"] })
+
+      assert_equal "silver", r.json_arrpop("doc", ".colors")
+    end
+
+    def test_arrtrim_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "c" => [1, 2, 3, 4] })
+
+      assert_equal 2, r.json_arrtrim("doc", ".c", 1, 2)
+    end
   end
 end

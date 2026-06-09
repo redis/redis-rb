@@ -48,4 +48,14 @@ class TestCommandsOnJson < Minitest::Test
   def test_mset_with_incomplete_triplet_raises
     assert_raises(ArgumentError) { r.json_mset("doc1", "$") }
   end
+
+  def test_arrpop_in_pipeline_returns_parsed_value
+    r.json_set("doc", "$", { "c" => [1, 2, 3] })
+
+    result = r.pipelined do |pipe|
+      pipe.json_arrpop("doc", "$.c")
+    end
+
+    assert_equal [3], result.first
+  end
 end
