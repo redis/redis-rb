@@ -350,6 +350,44 @@ class Redis
       node_for(key).json_get(key, *paths, **options)
     end
 
+    # Set one or more JSON values. The keys may live on different nodes and the operation must be
+    # atomic, so it cannot be distributed.
+    def json_mset(*)
+      raise CannotDistribute, :json_mset
+    end
+
+    # Get the values at a path from several keys. Keys are grouped by node, queried per node, and
+    # reassembled in the original key order.
+    def json_mget(*keys, path, **options)
+      keys.flatten!(1)
+      values = keys.group_by { |key| node_for(key) }.each_with_object({}) do |(node, subkeys), acc|
+        node.json_mget(*subkeys, path, **options).each_with_index do |value, i|
+          acc[subkeys[i]] = value
+        end
+      end
+      keys.map { |key| values[key] }
+    end
+
+    # Delete the JSON value(s) at a path in the document stored under a key.
+    def json_del(key, path = nil)
+      node_for(key).json_del(key, path)
+    end
+
+    # Delete the JSON value(s) at a path in the document stored under a key (alias of json_del).
+    def json_forget(key, path = nil)
+      node_for(key).json_forget(key, path)
+    end
+
+    # Clear the container and numeric JSON value(s) at a path in the document stored under a key.
+    def json_clear(key, path = nil)
+      node_for(key).json_clear(key, path)
+    end
+
+    # Merge a JSON value into the document stored under a key at a path.
+    def json_merge(key, path, value, **options)
+      node_for(key).json_merge(key, path, value, **options)
+    end
+
     # Get the values of all the given keys as an Array.
     def mget(*keys)
       keys.flatten!(1)

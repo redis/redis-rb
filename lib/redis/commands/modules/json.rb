@@ -85,6 +85,127 @@ class Redis
           end
         end
       end
+
+      # Set one or more JSON values atomically, one per +key+/+path+/+value+ triplet. Either all
+      # of the writes are applied or none are. For a key that does not yet exist the +path+ must
+      # be the root ("$").
+      #
+      # By default each value is a Ruby object serialized with JSON.generate; pass +raw: true+ to
+      # send already-encoded JSON strings through untouched.
+      #
+      # @example
+      #   redis.json_mset("doc1", "$", { "a" => 1 }, "doc2", "$", { "b" => 2 })
+      #     # => "OK"
+      #
+      # @param [Array] args a flat list of key, path, value triplets
+      # @param [Boolean] raw treat each value as an already-encoded JSON string
+      # @return [String] the raw "OK" reply
+      # @raise [ArgumentError] unless +args+ is a non-empty list of complete triplets
+      def json_mset(*args, raw: false)
+        raise ArgumentError, "wrong number of arguments (expected key/path/value triplets)" \
+          if args.empty? || !(args.size % 3).zero?
+
+        command = [:"JSON.MSET"]
+        args.each_slice(3) do |key, path, value|
+          command << key << path << (raw ? value : ::JSON.generate(value))
+        end
+        send_command(command)
+      end
+
+      # Get the values at a single +path+ from one or more +keys+.
+      #
+      # Returns one element per key, in order, parsed from JSON text into a Ruby object (or nil
+      # when the key or path does not exist). Pass +raw: true+ to get the unparsed JSON strings.
+      #
+      # @example
+      #   redis.json_mget("doc1", "doc2", "$.a")
+      #     # => [[1], [2]]
+      #
+      # @param [Array<String>] keys one or more keys to read
+      # @param [String] path a single JSONPath applied to every key
+      # @param [Boolean] raw return the unparsed JSON strings instead of parsed Ruby objects
+      # @return [Array] one value per key (nil for a missing key/path)
+      def json_mget(*keys, path, raw: false)
+        keys.flatten!(1)
+        send_command([:"JSON.MGET", *keys, path]) do |reply|
+          if reply.nil?
+            reply
+          else
+            reply.map { |value| value.nil? || raw ? value : ::JSON.parse(value) }
+          end
+        end
+      end
+
+      # Delete the value(s) at +path+ in the document stored under +key+. When +path+ is omitted
+      # it defaults to the root, so deleting the root removes the whole key.
+      #
+      # @example
+      #   redis.json_del("doc", "$.a")
+      #     # => 1
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root "$")
+      # @return [Integer] the number of values deleted
+      def json_del(key, path = nil)
+        args = [:"JSON.DEL", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Delete the value(s) at +path+ in the document stored under +key+. Alias of {#json_del}.
+      #
+      # @example
+      #   redis.json_forget("doc", "$.a")
+      #     # => 1
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root "$")
+      # @return [Integer] the number of values deleted
+      def json_forget(key, path = nil)
+        args = [:"JSON.FORGET", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Clear the container and numeric value(s) at +path+: arrays and objects are emptied and
+      # numbers are set to 0. Strings, booleans and null are left unchanged. When +path+ is
+      # omitted it defaults to the root.
+      #
+      # @example
+      #   redis.json_clear("doc", "$.arr")
+      #     # => 1
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root "$")
+      # @return [Integer] the number of values cleared
+      def json_clear(key, path = nil)
+        args = [:"JSON.CLEAR", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Merge +value+ into the document stored under +key+ at +path+, following RFC 7396 (JSON
+      # Merge Patch): a null value deletes a key, a non-null value creates or updates it, and any
+      # value merged into an existing array replaces the whole array. For a key that does not yet
+      # exist the +path+ must be the root ("$").
+      #
+      # By default +value+ is a Ruby object serialized with JSON.generate; pass +raw: true+ to
+      # send an already-encoded JSON string through untouched.
+      #
+      # @example
+      #   redis.json_merge("doc", "$.b", 8)
+      #     # => "OK"
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath (must be "$" when creating a new key)
+      # @param [Object] value a JSON-serializable Ruby object, or a pre-encoded JSON string when
+      #   +raw+ is true
+      # @param [Boolean] raw treat +value+ as an already-encoded JSON string and send it as-is
+      # @return [String] the raw "OK" reply
+      def json_merge(key, path, value, raw: false)
+        value = ::JSON.generate(value) unless raw
+        send_command([:"JSON.MERGE", key, path, value])
+      end
     end
   end
 end

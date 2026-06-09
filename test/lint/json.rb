@@ -102,5 +102,106 @@ module Lint
     def test_get_with_raw_on_missing_key_returns_nil
       assert_nil r.json_get("missing", raw: true)
     end
+
+    def test_mget_returns_one_value_per_key_in_order
+      r.json_set("doc1", "$", { "a" => 1 })
+      r.json_set("doc2", "$", { "a" => 2 })
+
+      assert_equal [[1], [2], nil], r.json_mget("doc1", "doc2", "missing", "$.a")
+    end
+
+    def test_mget_accepts_an_array_of_keys
+      r.json_set("doc1", "$", { "a" => 1 })
+      r.json_set("doc2", "$", { "a" => 2 })
+
+      # A nested array of keys must behave the same as splatted keys (matches #mget).
+      assert_equal [[1], [2]], r.json_mget(["doc1", "doc2"], "$.a")
+    end
+
+    def test_mget_returns_empty_match_for_missing_path
+      r.json_set("doc1", "$", { "a" => 1 })
+
+      assert_equal [[]], r.json_mget("doc1", "$.nope")
+    end
+
+    def test_mget_with_raw_returns_unparsed_strings
+      r.json_set("doc1", "$", { "a" => 1 })
+
+      assert_equal ["[1]"], r.json_mget("doc1", "$.a", raw: true)
+    end
+
+    def test_del_with_path_deletes_matching_values
+      r.json_set("doc", "$", { "a" => 1, "nested" => { "a" => 2, "b" => 3 } })
+
+      assert_equal 2, r.json_del("doc", "$..a")
+      assert_equal({ "nested" => { "b" => 3 } }, r.json_get("doc"))
+    end
+
+    def test_del_without_path_removes_the_key
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal 1, r.json_del("doc")
+      assert_nil r.json_get("doc")
+    end
+
+    def test_del_on_missing_path_returns_zero
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal 0, r.json_del("doc", "$.nope")
+    end
+
+    def test_forget_deletes_like_del
+      r.json_set("doc", "$", { "a" => 1, "b" => 2 })
+
+      assert_equal 1, r.json_forget("doc", "$.a")
+      assert_equal({ "b" => 2 }, r.json_get("doc"))
+    end
+
+    def test_clear_empties_containers_and_zeroes_numbers
+      r.json_set("doc", "$", { "obj" => { "a" => 1 }, "arr" => [1, 2, 3], "int" => 42, "str" => "foo" })
+
+      assert_equal 3, r.json_clear("doc", "$.*")
+      assert_equal({ "obj" => {}, "arr" => [], "int" => 0, "str" => "foo" }, r.json_get("doc"))
+    end
+
+    def test_clear_on_already_cleared_value_returns_zero
+      r.json_set("doc", "$", { "arr" => [] })
+
+      assert_equal 0, r.json_clear("doc", "$.arr")
+    end
+
+    def test_merge_creates_key_at_root
+      assert_equal "OK", r.json_merge("doc", "$", { "a" => 1 })
+      assert_equal({ "a" => 1 }, r.json_get("doc"))
+    end
+
+    def test_merge_adds_and_updates_fields
+      r.json_set("doc", "$", { "a" => 2 })
+
+      assert_equal "OK", r.json_merge("doc", "$.b", 8)
+      r.json_merge("doc", "$.a", 3)
+      assert_equal({ "a" => 3, "b" => 8 }, r.json_get("doc"))
+    end
+
+    def test_merge_with_null_deletes_a_field
+      r.json_set("doc", "$", { "a" => 2, "b" => 3 })
+
+      r.json_merge("doc", "$", { "a" => nil })
+      assert_equal({ "b" => 3 }, r.json_get("doc"))
+    end
+
+    def test_merge_replaces_an_existing_array
+      r.json_set("doc", "$", { "a" => [2, 4, 6] })
+
+      r.json_merge("doc", "$.a", [10, 12])
+      assert_equal({ "a" => [10, 12] }, r.json_get("doc"))
+    end
+
+    def test_merge_with_raw_value
+      r.json_set("doc", "$", { "a" => 1 })
+
+      r.json_merge("doc", "$.b", "[1,2]", raw: true)
+      assert_equal({ "a" => 1, "b" => [1, 2] }, r.json_get("doc"))
+    end
   end
 end
