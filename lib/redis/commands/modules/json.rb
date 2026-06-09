@@ -14,6 +14,38 @@ class Redis
     # JSON.NUMINCRBY — DO return differently shaped replies under RESP3 and will need
     # protocol-aware reshaping once RESP3 is supported at this layer.
     module Json
+      # Normalize a JSON.NUMINCRBY reply to a protocol-independent value: an array of numbers for
+      # a JSONPath, a single number for a legacy path. Under RESP2 the result arrives as a
+      # JSON-encoded string ("[3,4]" / "3"); under RESP3 it arrives as native numbers (an array,
+      # even for a legacy path). Both shapes map to the same value.
+      NumincrbyNormalize = lambda do |reply, jsonpath|
+        return nil if reply.nil?
+
+        reply = ::JSON.parse(reply) if reply.is_a?(String) # RESP2 string form
+        if jsonpath
+          Array(reply)
+        elsif reply.is_a?(Array)
+          reply.first # RESP3 wraps even a legacy reply in an array
+        else
+          reply
+        end
+      end
+
+      # Normalize a JSON.TYPE reply to a protocol-independent value: an array of type strings for
+      # a JSONPath, a single type string for a legacy path. RESP2 returns ["integer"] / "integer";
+      # RESP3 nests one level further as [["integer"]] / ["integer"]. Both map to the same value.
+      TypeNormalize = lambda do |reply, jsonpath|
+        return nil if reply.nil?
+
+        if jsonpath
+          reply.flatten # RESP2 ["integer"] stays flat; RESP3 [["integer"]] collapses
+        elsif reply.is_a?(Array)
+          reply.first # RESP3 legacy ["integer"] -> "integer"
+        else
+          reply # RESP2 legacy "integer"
+        end
+      end
+
       # Set the JSON value at +path+ in the document stored under +key+.
       #
       # By default +value+ is a Ruby object that is serialized to JSON text with
@@ -339,6 +371,154 @@ class Redis
       # @return [Array<Integer>, Integer] the new array length(s)
       def json_arrtrim(key, path, start, stop)
         send_command([:"JSON.ARRTRIM", key, path, Integer(start), Integer(stop)])
+      end
+
+      # Increment the numeric value(s) at +path+ in the document stored under +key+ by +number+.
+      #
+      # @example
+      #   redis.json_numincrby("doc", "$.a", 2)
+      #     # => [3]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the numeric value(s)
+      # @param [Numeric] number the amount to add
+      # @return [Array<Numeric>, Numeric, nil] the new value(s): an Array for a JSONPath, a single
+      #   number for a legacy path; nil (or nil element) for a non-numeric match
+      def json_numincrby(key, path, number)
+        jsonpath = json_path?(path)
+        send_command([:"JSON.NUMINCRBY", key, path, number]) do |reply|
+          NumincrbyNormalize.call(reply, jsonpath)
+        end
+      end
+
+      # Return the type name of the value(s) at +path+ (e.g. "integer", "string", "object"). When
+      # +path+ is omitted it defaults to the root.
+      #
+      # @example
+      #   redis.json_type("doc", "$.a")
+      #     # => ["integer"]
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root)
+      # @return [Array<String>, String, nil] the type name(s): an Array for a JSONPath, a single
+      #   string for a legacy path
+      def json_type(key, path = nil)
+        jsonpath = json_path?(path)
+        args = [:"JSON.TYPE", key]
+        args << path if path
+        send_command(args) do |reply|
+          TypeNormalize.call(reply, jsonpath)
+        end
+      end
+
+      # Return the key names of the JSON object(s) at +path+. When +path+ is omitted it defaults
+      # to the root.
+      #
+      # @example
+      #   redis.json_objkeys("doc", "$.nested")
+      #     # => [["b", "c"]]
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root)
+      # @return [Array] an array of key-name arrays (JSONPath) or a single array of key names
+      #   (legacy path); nil for a non-object match
+      def json_objkeys(key, path = nil)
+        args = [:"JSON.OBJKEYS", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Return the number of keys in the JSON object(s) at +path+. When +path+ is omitted it
+      # defaults to the root.
+      #
+      # @example
+      #   redis.json_objlen("doc", "$.nested")
+      #     # => [2]
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root)
+      # @return [Array<Integer>, Integer, nil] the key count(s): an Array for a JSONPath, a single
+      #   integer for a legacy path; nil for a non-object match
+      def json_objlen(key, path = nil)
+        args = [:"JSON.OBJLEN", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Return the length of the JSON string(s) at +path+. When +path+ is omitted it defaults to
+      # the root.
+      #
+      # @example
+      #   redis.json_strlen("doc", "$.a")
+      #     # => [3]
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root)
+      # @return [Array<Integer>, Integer, nil] the string length(s): an Array for a JSONPath, a
+      #   single integer for a legacy path; nil for a non-string match
+      def json_strlen(key, path = nil)
+        args = [:"JSON.STRLEN", key]
+        args << path if path
+        send_command(args)
+      end
+
+      # Append +value+ to the JSON string(s) at +path+ in the document stored under +key+.
+      #
+      # By default +value+ is a Ruby string serialized with JSON.generate; pass +raw: true+ to
+      # send an already-encoded JSON string through untouched.
+      #
+      # @example
+      #   redis.json_strappend("doc", "$.a", "bar")
+      #     # => [6]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the target string(s)
+      # @param [String] value the string to append
+      # @param [Boolean] raw treat +value+ as an already-encoded JSON string and send it as-is
+      # @return [Array<Integer>, Integer, nil] the new string length(s): an Array for a JSONPath, a
+      #   single integer for a legacy path; nil for a non-string match
+      def json_strappend(key, path, value, raw: false)
+        value = ::JSON.generate(value) unless raw
+        send_command([:"JSON.STRAPPEND", key, path, value])
+      end
+
+      # Toggle the boolean value(s) at +path+ in the document stored under +key+.
+      #
+      # @example
+      #   redis.json_toggle("doc", "$.flag")
+      #     # => [0]
+      #
+      # @param [String] key
+      # @param [String] path a JSONPath to the target boolean(s)
+      # @return [Array, Object, nil] +1+/+0+ for the new true/false value(s): an Array for a
+      #   JSONPath, a single value for a legacy path; nil for a non-boolean match
+      def json_toggle(key, path)
+        send_command([:"JSON.TOGGLE", key, path])
+      end
+
+      # Report the size in bytes of the JSON value(s) at +path+ (the JSON.DEBUG MEMORY
+      # subcommand). When +path+ is omitted it defaults to the root.
+      #
+      # @example
+      #   redis.json_debug_memory("doc")
+      #     # => 264
+      #
+      # @param [String] key
+      # @param [String] path an optional JSONPath (defaults to the root)
+      # @return [Array<Integer>, Integer] the size(s) in bytes: an Array for a JSONPath, a single
+      #   integer for a legacy path or when no path is given (0 for a missing key)
+      def json_debug_memory(key, path = nil)
+        args = [:"JSON.DEBUG", "MEMORY", key]
+        args << path if path
+        send_command(args)
+      end
+
+      private
+
+      # RedisJSON distinguishes JSONPath expressions (which start with "$") from legacy paths.
+      # JSONPath queries return an array of matches; legacy paths return a single value.
+      def json_path?(path)
+        path.to_s.start_with?("$")
       end
     end
   end

@@ -58,4 +58,31 @@ class TestCommandsOnJson < Minitest::Test
 
     assert_equal [3], result.first
   end
+
+  # JSON.NUMINCRBY and JSON.TYPE reply differently under RESP2 and RESP3. The client is pinned to
+  # RESP2 today, so these unit-test the reshapes directly with both protocol shapes to prove they
+  # normalize to the same value (guarding the result when RESP3 is eventually enabled).
+
+  def test_numincrby_reshape_is_protocol_compatible
+    norm = Redis::Commands::Json::NumincrbyNormalize
+
+    assert_equal [3, 4], norm.call("[3,4]", true)  # RESP2 JSONPath (JSON string)
+    assert_equal [3, 4], norm.call([3, 4], true)   # RESP3 JSONPath (native array)
+    assert_equal 3, norm.call("3", false)          # RESP2 legacy (JSON string)
+    assert_equal 3, norm.call([3], false)          # RESP3 legacy (wrapped array)
+    assert_equal [nil, 4], norm.call("[null,4]", true)
+    assert_nil norm.call(nil, true)
+  end
+
+  def test_type_reshape_is_protocol_compatible
+    norm = Redis::Commands::Json::TypeNormalize
+
+    assert_equal ["integer"], norm.call(["integer"], true)             # RESP2 JSONPath
+    assert_equal ["integer"], norm.call([["integer"]], true)           # RESP3 JSONPath
+    assert_equal %w[integer boolean], norm.call(%w[integer boolean], true)          # RESP2 multi
+    assert_equal %w[integer boolean], norm.call([["integer"], ["boolean"]], true)   # RESP3 multi
+    assert_equal "string", norm.call("string", false)                  # RESP2 legacy
+    assert_equal "string", norm.call(["string"], false)                # RESP3 legacy
+    assert_nil norm.call(nil, true)
+  end
 end

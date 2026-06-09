@@ -341,5 +341,152 @@ module Lint
 
       assert_equal 2, r.json_arrtrim("doc", ".c", 1, 2)
     end
+
+    def test_numincrby_with_jsonpath_returns_an_array
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [3], r.json_numincrby("doc", "$.a", 2)
+    end
+
+    def test_numincrby_with_legacy_path_returns_a_scalar
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal 3, r.json_numincrby("doc", ".a", 2)
+    end
+
+    def test_numincrby_increments_a_float
+      r.json_set("doc", "$", { "a" => 2.5 })
+
+      assert_equal [3.0], r.json_numincrby("doc", "$.a", 0.5)
+    end
+
+    def test_numincrby_on_non_numeric_match_yields_nil
+      r.json_set("doc", "$", { "a" => "x" })
+
+      assert_equal [nil], r.json_numincrby("doc", "$.a", 1)
+    end
+
+    def test_type_with_jsonpath_returns_an_array_of_type_strings
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal ["integer"], r.json_type("doc", "$.a")
+    end
+
+    def test_type_with_legacy_path_returns_a_single_type_string
+      r.json_set("doc", "$", { "s" => "x" })
+
+      assert_equal "string", r.json_type("doc", ".s")
+    end
+
+    def test_type_without_a_path_returns_the_root_type
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal "object", r.json_type("doc")
+    end
+
+    def test_type_on_a_missing_path_returns_no_matches
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [], r.json_type("doc", "$.zzz")
+    end
+
+    def test_objkeys_with_jsonpath_returns_an_array_of_key_arrays
+      r.json_set("doc", "$", { "obj" => { "b" => 2, "c" => 1 } })
+
+      assert_equal [%w[b c]], r.json_objkeys("doc", "$.obj")
+    end
+
+    def test_objkeys_with_legacy_path_returns_a_key_array
+      r.json_set("doc", "$", { "obj" => { "b" => 2, "c" => 1 } })
+
+      assert_equal %w[b c], r.json_objkeys("doc", ".obj")
+    end
+
+    def test_objkeys_on_non_object_match_yields_nil
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [nil], r.json_objkeys("doc", "$.a")
+    end
+
+    def test_objlen_with_jsonpath_returns_an_array
+      r.json_set("doc", "$", { "obj" => { "b" => 2, "c" => 1 } })
+
+      assert_equal [2], r.json_objlen("doc", "$.obj")
+    end
+
+    def test_objlen_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "obj" => { "b" => 2, "c" => 1 } })
+
+      assert_equal 2, r.json_objlen("doc", ".obj")
+    end
+
+    def test_strlen_with_jsonpath_returns_an_array
+      r.json_set("doc", "$", { "s" => "foo" })
+
+      assert_equal [3], r.json_strlen("doc", "$.s")
+    end
+
+    def test_strlen_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "s" => "foo" })
+
+      assert_equal 3, r.json_strlen("doc", ".s")
+    end
+
+    def test_strappend_appends_and_returns_new_length
+      r.json_set("doc", "$", { "s" => "foo" })
+
+      assert_equal [6], r.json_strappend("doc", "$.s", "bar")
+      assert_equal ["foobar"], r.json_get("doc", "$.s")
+    end
+
+    def test_strappend_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "s" => "foo" })
+
+      assert_equal 6, r.json_strappend("doc", ".s", "bar")
+    end
+
+    def test_strappend_with_raw_value
+      r.json_set("doc", "$", { "s" => "foo" })
+
+      assert_equal [4], r.json_strappend("doc", "$.s", '"X"', raw: true)
+      assert_equal ["fooX"], r.json_get("doc", "$.s")
+    end
+
+    def test_toggle_flips_a_boolean
+      r.json_set("doc", "$", { "flag" => true })
+
+      assert_equal [0], r.json_toggle("doc", "$.flag")
+      assert_equal [1], r.json_toggle("doc", "$.flag")
+    end
+
+    def test_toggle_on_non_boolean_match_yields_nil
+      r.json_set("doc", "$", { "a" => 1 })
+
+      assert_equal [nil], r.json_toggle("doc", "$.a")
+    end
+
+    def test_debug_memory_without_a_path_returns_an_integer
+      r.json_set("doc", "$", { "a" => 1, "obj" => { "b" => 2 } })
+
+      assert_kind_of Integer, r.json_debug_memory("doc")
+    end
+
+    def test_debug_memory_with_jsonpath_returns_an_array
+      r.json_set("doc", "$", { "obj" => { "b" => 2 } })
+
+      result = r.json_debug_memory("doc", "$.obj")
+      assert_kind_of Array, result
+      assert_kind_of Integer, result.first
+    end
+
+    def test_debug_memory_with_legacy_path_returns_an_integer
+      r.json_set("doc", "$", { "obj" => { "b" => 2 } })
+
+      assert_kind_of Integer, r.json_debug_memory("doc", ".obj")
+    end
+
+    def test_debug_memory_on_missing_key_returns_zero
+      assert_equal 0, r.json_debug_memory("missing")
+    end
   end
 end
