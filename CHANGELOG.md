@@ -1,6 +1,7 @@
 # Unreleased
 
 - Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
+- Bump `redis-client` to `>= 0.26.4` to fix reply desynchronization (e.g. `mget` returning `"OK"`) after a Sentinel failover/reconnect.
 
 # 5.4.1
 
