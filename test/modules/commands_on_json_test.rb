@@ -72,6 +72,12 @@ class TestCommandsOnJson < Minitest::Test
     assert_equal 3, norm.call([3], false)          # RESP3 legacy (wrapped array)
     assert_equal [nil, 4], norm.call("[null,4]", true)
     assert_nil norm.call(nil, true)
+
+    # A legacy path can match multiple values (e.g. "..a"): RESP2 returns the last changed
+    # scalar, RESP3 the full match array with nil for non-numeric matches. Both must normalize
+    # to the same RESP2-compatible last-changed value.
+    assert_equal 7, norm.call("7", false)                  # RESP2 legacy multi-match (last scalar)
+    assert_equal 7, norm.call([nil, 4, 7, nil], false)     # RESP3 legacy multi-match (full array)
   end
 
   def test_type_reshape_is_protocol_compatible

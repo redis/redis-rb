@@ -16,8 +16,13 @@ class Redis
     module Json
       # Normalize a JSON.NUMINCRBY reply to a protocol-independent value: an array of numbers for
       # a JSONPath, a single number for a legacy path. Under RESP2 the result arrives as a
-      # JSON-encoded string ("[3,4]" / "3"); under RESP3 it arrives as native numbers (an array,
+      # JSON-encoded string ("[3,4]" / "7"); under RESP3 it arrives as native numbers (an array,
       # even for a legacy path). Both shapes map to the same value.
+      #
+      # A legacy path can also match multiple values (e.g. "..a"). RESP2 collapses those to the
+      # last changed scalar ("7"), while RESP3 returns the full match array with nil for every
+      # non-numeric match ([nil, 4, 7, nil]). To stay RESP2-compatible we take the last non-nil
+      # element of that array, not its first.
       NumincrbyNormalize = lambda do |reply, jsonpath|
         return nil if reply.nil?
 
@@ -25,7 +30,7 @@ class Redis
         if jsonpath
           Array(reply)
         elsif reply.is_a?(Array)
-          reply.first # RESP3 wraps even a legacy reply in an array
+          reply.compact.last # RESP3 wraps even a legacy reply in an array; RESP2 keeps the last changed scalar
         else
           reply
         end
