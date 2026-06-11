@@ -32,6 +32,11 @@ class SentinelTest < Minitest::Test
   end
 
   def test_the_client_can_connect_to_available_slaves
+    # FIXME(RESP3): RedisMock returns RESP2-shaped (flat array) SENTINEL replies and can't emit
+    # RESP3 maps; under RESP3 redis-client expects the sentinel to return native maps for SENTINEL
+    # replicas/sentinels. Real RESP3 sentinel resolution is handled inside redis-client.
+    skip("RedisMock SENTINEL replies are RESP2-shaped") if PROTOCOL == 3
+
     commands = {
       sentinel: lambda do |*_|
         [
@@ -47,6 +52,10 @@ class SentinelTest < Minitest::Test
   end
 
   def test_the_client_raises_error_when_there_is_no_available_slaves
+    # FIXME(RESP3): see test_the_client_can_connect_to_available_slaves — RedisMock SENTINEL
+    # replies are RESP2-shaped flat arrays; under RESP3 redis-client expects native maps.
+    skip("RedisMock SENTINEL replies are RESP2-shaped") if PROTOCOL == 3
+
     commands = {
       sentinel: lambda do |*_|
         [

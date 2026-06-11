@@ -16,12 +16,12 @@ class Redis
       )
 
       class << self
-        def config(**kwargs)
-          super(protocol: 2, **kwargs)
+        def config(protocol: 3, **kwargs)
+          super(protocol: protocol, **kwargs)
         end
 
-        def sentinel(**kwargs)
-          super(protocol: 2, **kwargs)
+        def sentinel(protocol: 3, **kwargs)
+          super(protocol: protocol, **kwargs)
         end
 
         def translate_error!(error, mapping: ERROR_MAPPING)

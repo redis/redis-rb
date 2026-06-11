@@ -57,7 +57,9 @@ class Redis
     }
 
     Hashify = lambda { |value|
-      if value.respond_to?(:each_slice)
+      if value.is_a?(Hash) # RESP3 already returns a map
+        value
+      elsif value.respond_to?(:each_slice) # RESP2 flat [k, v, k, v, ...]
         value.each_slice(2).to_h
       else
         value
@@ -65,10 +67,12 @@ class Redis
     }
 
     Pairify = lambda { |value|
-      if value.respond_to?(:each_slice)
-        value.each_slice(2).to_a
-      else
+      return value unless value.respond_to?(:each_slice)
+
+      if value.first.is_a?(Array) # RESP3 already returns [[k, v], ...]
         value
+      else # RESP2 flat [k, v, k, v, ...]
+        value.each_slice(2).to_a
       end
     }
 
@@ -92,7 +96,26 @@ class Redis
     FloatifyPairs = lambda { |value|
       return value unless value.respond_to?(:each_slice)
 
-      value.each_slice(2).map(&FloatifyPair)
+      if value.first.is_a?(Array) # RESP3 already returns [[member, score], ...]
+        value.map(&FloatifyPair)
+      else # RESP2 flat [member, score, member, score, ...]
+        value.each_slice(2).map(&FloatifyPair)
+      end
+    }
+
+    # GEOPOS and GEOSEARCH/GEORADIUS ... WITHCOORD return coordinates as bulk strings under RESP2
+    # but as doubles under RESP3. Coerce the doubles back to strings so the reply is identical on
+    # both protocols. The only Float in these replies is a coordinate (distances are returned as
+    # strings and hashes as integers in both protocols), so a recursive walk touches nothing else.
+    GeoCoordinatesAsStrings = lambda { |value|
+      case value
+      when Float
+        value.to_s
+      when Array
+        value.map(&GeoCoordinatesAsStrings)
+      else
+        value
+      end
     }
 
     HashifyInfo = lambda { |reply|

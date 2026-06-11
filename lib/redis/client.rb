@@ -20,12 +20,12 @@ class Redis
     end
 
     class << self
-      def config(**kwargs)
-        super(protocol: 2, **kwargs)
+      def config(protocol: 3, **kwargs)
+        super(protocol: protocol, **kwargs)
       end
 
-      def sentinel(**kwargs)
-        super(protocol: 2, **kwargs, client_implementation: ::RedisClient)
+      def sentinel(protocol: 3, **kwargs)
+        super(protocol: protocol, **kwargs, client_implementation: ::RedisClient)
       end
 
       def translate_error!(error, mapping: ERROR_MAPPING)
@@ -60,6 +60,10 @@ class Redis
 
     def db
       config.db
+    end
+
+    def protocol
+      config.protocol
     end
 
     def host

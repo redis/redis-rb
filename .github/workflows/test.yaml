@@ -90,13 +90,30 @@ jobs:
         if: env.REDIS_STACK_VERSION != ''
         run: docker compose --profile modules up -d --wait
 
-      - name: Run standalone, distributed, sentinel, module suites
+      # The suite runs under both RESP protocols: RESP3 first (the default), then RESP2 to verify
+      # protocol compatibility. Replies must be identical under both.
+      - name: Run standalone, distributed, sentinel, module suites (RESP3)
+        env:
+          PROTOCOL: "3"
         run: bundle exec rake test:redis test:distributed test:sentinel test:modules
 
-      - name: Run cluster suite
+      - name: Run standalone, distributed, sentinel, module suites (RESP2)
+        env:
+          PROTOCOL: "2"
+        run: bundle exec rake test:redis test:distributed test:sentinel test:modules
+
+      - name: Run cluster suite (RESP3)
         env:
           BUNDLE_GEMFILE: cluster/Gemfile
           TIMEOUT: "15"
+          PROTOCOL: "3"
+        run: bundle exec rake test:cluster
+
+      - name: Run cluster suite (RESP2)
+        env:
+          BUNDLE_GEMFILE: cluster/Gemfile
+          TIMEOUT: "15"
+          PROTOCOL: "2"
         run: bundle exec rake test:cluster
 
       - name: Tear down Redis

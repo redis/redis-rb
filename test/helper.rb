@@ -8,6 +8,7 @@ require "mocha/minitest"
 $VERBOSE = true
 
 ENV["DRIVER"] ||= "ruby"
+ENV["PROTOCOL"] ||= "3"
 
 require "redis"
 Redis.silence_deprecations = true
@@ -28,6 +29,7 @@ MODULES_PORT = Integer(ENV['REDIS_MODULES_PORT'] || PORT)
 DB           = 15
 TIMEOUT      = Float(ENV['TIMEOUT'] || 1.0)
 LOW_TIMEOUT  = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
+PROTOCOL     = Integer(ENV['PROTOCOL']) # RESP protocol the test client uses (3 by default, 2 for compat runs)
 OPTIONS      = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
 if ENV['REDIS_SOCKET_PATH'].nil?
@@ -179,7 +181,9 @@ module Helper
     # probe one node.
     def require_module(name)
       client = redis.respond_to?(:call) ? redis : redis.nodes.first
-      loaded = client.call("MODULE", "LIST").map { |mod| Hash[*mod]["name"] }
+      # MODULE LIST returns each module as a flat [k, v, ...] array under RESP2 and as a native
+      # Hash under RESP3.
+      loaded = client.call("MODULE", "LIST").map { |mod| (mod.is_a?(Hash) ? mod : Hash[*mod])["name"] }
       return if loaded.include?(name)
 
       raise "Redis module #{name.inspect} is not loaded but the module test suite requires it. " \
@@ -222,7 +226,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"]))
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
   end
 
@@ -238,7 +242,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"]))
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
   end
 
@@ -286,7 +290,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(driver: ENV['DRIVER']))
+      Redis.new(_format_options(options).merge(driver: ENV['DRIVER'], protocol: PROTOCOL))
     end
   end
 
@@ -308,7 +312,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
   end
 
@@ -324,7 +328,7 @@ module Helper
     private
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
   end
 end
