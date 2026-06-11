@@ -418,6 +418,46 @@ class Redis
       node_for(key).json_arrtrim(key, path, start, stop)
     end
 
+    # Increment the numeric JSON value(s) at a path in the document stored under a key.
+    def json_numincrby(key, path, number)
+      node_for(key).json_numincrby(key, path, number)
+    end
+
+    # Return the type name(s) of the JSON value(s) at a path in the document stored under a key.
+    def json_type(key, path = nil)
+      node_for(key).json_type(key, path)
+    end
+
+    # Return the key names of the JSON object(s) at a path in the document stored under a key.
+    def json_objkeys(key, path = nil)
+      node_for(key).json_objkeys(key, path)
+    end
+
+    # Return the number of keys in the JSON object(s) at a path in the document stored under a key.
+    def json_objlen(key, path = nil)
+      node_for(key).json_objlen(key, path)
+    end
+
+    # Return the length of the JSON string(s) at a path in the document stored under a key.
+    def json_strlen(key, path = nil)
+      node_for(key).json_strlen(key, path)
+    end
+
+    # Append a string to the JSON string(s) at a path in the document stored under a key.
+    def json_strappend(key, path, value, **options)
+      node_for(key).json_strappend(key, path, value, **options)
+    end
+
+    # Toggle the boolean JSON value(s) at a path in the document stored under a key.
+    def json_toggle(key, path)
+      node_for(key).json_toggle(key, path)
+    end
+
+    # Report the size in bytes of the JSON value(s) at a path in the document stored under a key.
+    def json_debug_memory(key, path = nil)
+      node_for(key).json_debug_memory(key, path)
+    end
+
     # Get the values of all the given keys as an Array.
     def mget(*keys)
       keys.flatten!(1)
