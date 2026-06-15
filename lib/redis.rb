@@ -150,8 +150,8 @@ class Redis
   end
 
   def send_command(command, &block)
-    with_protocol_fallback do
-      @monitor.synchronize do
+    @monitor.synchronize do
+      with_protocol_fallback do
         @client.call_v(command, &block)
       end
     end
@@ -160,8 +160,8 @@ class Redis
   end
 
   def send_blocking_command(command, timeout, &block)
-    with_protocol_fallback do
-      @monitor.synchronize do
+    @monitor.synchronize do
+      with_protocol_fallback do
         @client.blocking_call_v(timeout, command, &block)
       end
     end
@@ -174,6 +174,9 @@ class Redis
   # Standalone and distributed clients fall back deeper, in Redis::Client#ensure_connected, before
   # the error is translated; sentinel clients (plain RedisClient) and cluster clients surface the
   # raw error here, where rebuilding @client is the only option.
+  #
+  # Must be called while holding @monitor: it closes and replaces @client, so it has to be
+  # serialized with the command execution that uses @client.
   def with_protocol_fallback
     yield
   rescue ::RedisClient::Error => error
