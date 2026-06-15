@@ -240,14 +240,39 @@ class TestInternals < Minitest::Test
   end
 
   def test_bubble_timeout_without_retrying
-    serv = TCPServer.new(6380)
+    serv = TCPServer.new("127.0.0.1", 0)
+    port = serv.addr[1]
 
-    redis = Redis.new(port: 6380, timeout: 0.1)
+    # Complete the RESP3 connection handshake/prelude (we default to RESP3) so the connection is
+    # established, then never reply to PING so the read timeout happens on the command itself.
+    server_thread = Thread.new do
+      session = serv.accept
+      io = RedisClient::RubyConnection::BufferedIO.new(session, read_timeout: 5, write_timeout: 5)
+      loop do
+        command = RedisClient::RESP3.load(io)
+        case command.first.upcase
+        when "HELLO"
+          session.write("%1\r\n$5\r\nproto\r\n:3\r\n")
+        when "PING"
+          sleep # never reply, so the client read times out on the command
+        else
+          session.write("+OK\r\n") # ack the rest of the prelude (CLIENT SETINFO, ...)
+        end
+      end
+    rescue StandardError
+      nil
+    ensure
+      session&.close
+    end
+
+    # reconnect_attempts: 0 so the read timeout bubbles immediately instead of being retried.
+    redis = Redis.new(port: port, timeout: 0.1, reconnect_attempts: 0)
 
     assert_raises(Redis::TimeoutError) do
       redis.ping
     end
   ensure
+    server_thread&.kill
     serv&.close
   end
 
@@ -334,18 +359,25 @@ class TestInternals < Minitest::Test
     server_thread = Thread.new do
       session = tcp_server.accept
       io = RedisClient::RubyConnection::BufferedIO.new(session, read_timeout: 1, write_timeout: 1)
-      2.times do
+      loop do
         command = RedisClient::RESP3.load(io)
         case command.first.upcase
+        when "HELLO"
+          # Accept the RESP3 handshake (we default to RESP3) by replying with a minimal map.
+          session.write("%1\r\n$5\r\nproto\r\n:3\r\n")
         when "PING"
           session.write("+PONG\r\n")
         when "SET"
           session.write("-READONLY You can't write against a read only replica.\r\n")
         else
-          session.write("-ERR Unknown command #{command.first}\r\n")
+          # Ack the rest of the connection prelude (CLIENT SETINFO, etc.).
+          session.write("+OK\r\n")
         end
       end
-      session.close
+    rescue StandardError
+      nil
+    ensure
+      session&.close
     end
 
     redis = Redis.new(host: "127.0.0.1", port: port, timeout: 2, reconnect_attempts: 0)
