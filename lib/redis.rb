@@ -150,17 +150,41 @@ class Redis
   end
 
   def send_command(command, &block)
-    @monitor.synchronize do
-      @client.call_v(command, &block)
+    with_protocol_fallback do
+      @monitor.synchronize do
+        @client.call_v(command, &block)
+      end
     end
   rescue ::RedisClient::Error => error
     Client.translate_error!(error)
   end
 
   def send_blocking_command(command, timeout, &block)
-    @monitor.synchronize do
-      @client.blocking_call_v(timeout, command, &block)
+    with_protocol_fallback do
+      @monitor.synchronize do
+        @client.blocking_call_v(timeout, command, &block)
+      end
     end
+  end
+
+  # We default to RESP3. Servers that don't support it reject the `HELLO 3` handshake (most
+  # notably Redis < 6.0, which has no HELLO command). Rebuild the client as RESP2 once so those
+  # servers keep working without the user setting `protocol: 2`.
+  #
+  # Standalone and distributed clients fall back deeper, in Redis::Client#ensure_connected, before
+  # the error is translated; sentinel clients (plain RedisClient) and cluster clients surface the
+  # raw error here, where rebuilding @client is the only option.
+  def with_protocol_fallback
+    yield
+  rescue ::RedisClient::Error => error
+    if @options.fetch(:protocol, 3).to_i == 3 && Client.resp3_unsupported?(error)
+      @options = @options.merge(protocol: 2)
+      @client.close
+      @client = initialize_client(@options)
+      retry
+    end
+
+    raise
   end
 
   def _subscription(method, timeout, channels, block)

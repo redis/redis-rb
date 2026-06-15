@@ -5,6 +5,36 @@ require "helper"
 class TestInternals < Minitest::Test
   include Helper::Client
 
+  def test_falls_back_to_resp2_when_hello_is_unsupported
+    # Simulate a server without RESP3 support (e.g. Redis < 6): reject HELLO so redis-client
+    # raises UnsupportedServer, and verify the client transparently reconnects as RESP2.
+    commands = {
+      hello: ->(*_) { "-ERR unknown command 'HELLO'" },
+      ping: ->(*_) { "+PONG" },
+    }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, protocol: 3)
+      assert_equal "PONG", redis.ping
+      assert_equal 2, redis._client.protocol
+    ensure
+      redis&.close
+    end
+  end
+
+  def test_keeps_resp3_when_hello_succeeds
+    commands = {
+      hello: ->(*_) { "%1\r\n$7\r\nversion\r\n$5\r\n7.4.0\r\n" },
+      ping: ->(*_) { "+PONG" },
+    }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, protocol: 3)
+      assert_equal "PONG", redis.ping
+      assert_equal 3, redis._client.protocol
+    ensure
+      redis&.close
+    end
+  end
+
   def test_large_payload
     # see: https://github.com/redis/redis-rb/issues/962
     # large payloads will trigger write_nonblock to write a portion

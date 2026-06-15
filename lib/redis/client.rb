@@ -33,6 +33,19 @@ class Redis
         raise redis_error, error.message, error.backtrace
       end
 
+      # Whether +error+ raised during the connection handshake means the server can't speak RESP3
+      # (so we should retry the connection as RESP2). Covers Redis < 6 (no HELLO command, surfaced
+      # by redis-client as UnsupportedServer) and any server replying NOPROTO to `HELLO 3`.
+      def resp3_unsupported?(error)
+        error.is_a?(::RedisClient::UnsupportedServer) ||
+          (error.is_a?(::RedisClient::CommandError) && error.message.include?("NOPROTO"))
+      end
+
+      # Pin the given config to RESP2 so subsequent (re)connects skip the `HELLO 3` handshake.
+      def downgrade_to_resp2!(config)
+        config.instance_variable_set(:@protocol, 2)
+      end
+
       private
 
       def translate_error_class(error_class, mapping: ERROR_MAPPING)
@@ -94,6 +107,15 @@ class Redis
     def ensure_connected(retryable: true, &block)
       super(retryable: retryable, &block)
     rescue ::RedisClient::Error => error
+      # We default to RESP3. Servers that don't support it reject the `HELLO 3` handshake — most
+      # notably Redis < 6.0, which has no HELLO command at all (redis-client raises
+      # UnsupportedServer), but also anything answering NOPROTO. Transparently fall back to RESP2
+      # once, so those servers keep working without the user having to set `protocol: 2`.
+      if config.protocol == 3 && self.class.resp3_unsupported?(error)
+        self.class.downgrade_to_resp2!(config)
+        retry
+      end
+
       Client.translate_error!(error)
     end
 

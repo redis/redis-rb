@@ -22,22 +22,30 @@ class TestClusterCommandsOnGeo < Minitest::Test
     assert_equal %w[sqc8b49rny0 sqdtr74hyu0], redis.geohash('Sicily', %w[Palermo Catania])
   end
 
+  # GEOPOS/GEORADIUS WITHCOORD return coordinates as bulk strings under RESP2 but as doubles under
+  # RESP3. These helpers adapt the expected coordinate pair to the active protocol.
+  def palermo_coord
+    strings = if version >= "8.0"
+      %w[13.361389338970184 38.1155563954963]
+    else
+      %w[13.36138933897018433 38.11555639549629859]
+    end
+    PROTOCOL == 3 ? strings.map(&:to_f) : strings
+  end
+
+  def catania_coord
+    strings = if version >= "8.0"
+      %w[15.087267458438873 37.50266842333162]
+    else
+      %w[15.08726745843887329 37.50266842333162032]
+    end
+    PROTOCOL == 3 ? strings.map(&:to_f) : strings
+  end
+
   def test_geopos
     add_sicily
 
-    expected = if version >= "8.0"
-      [
-        %w[13.361389338970184 38.1155563954963],
-        %w[15.087267458438873 37.50266842333162],
-        nil,
-      ]
-    else
-      [
-        %w[13.36138933897018433 38.11555639549629859],
-        %w[15.08726745843887329 37.50266842333162032],
-        nil,
-      ]
-    end
+    expected = [palermo_coord, catania_coord, nil]
     assert_equal expected, redis.geopos('Sicily', %w[Palermo Catania NonExisting])
   end
 
@@ -54,30 +62,10 @@ class TestClusterCommandsOnGeo < Minitest::Test
     expected = [%w[Palermo 190.4424], %w[Catania 56.4413]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST')
 
-    expected = if version >= "8.0"
-      [
-        ['Palermo', %w[13.361389338970184 38.1155563954963]],
-        ['Catania', %w[15.087267458438873 37.50266842333162]],
-      ]
-    else
-      [
-        ['Palermo', %w[13.36138933897018433 38.11555639549629859]],
-        ['Catania', %w[15.08726745843887329 37.50266842333162032]],
-      ]
-    end
+    expected = [['Palermo', palermo_coord], ['Catania', catania_coord]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHCOORD')
 
-    expected = if version >= "8.0"
-      [
-        ['Palermo', '190.4424', %w[13.361389338970184 38.1155563954963]],
-        ['Catania', '56.4413', %w[15.087267458438873 37.50266842333162]],
-      ]
-    else
-      [
-        ['Palermo', '190.4424', %w[13.36138933897018433 38.11555639549629859]],
-        ['Catania', '56.4413', %w[15.08726745843887329 37.50266842333162032]],
-      ]
-    end
+    expected = [['Palermo', '190.4424', palermo_coord], ['Catania', '56.4413', catania_coord]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST', 'WITHCOORD')
   end
 

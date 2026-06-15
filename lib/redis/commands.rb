@@ -103,21 +103,6 @@ class Redis
       end
     }
 
-    # GEOPOS and GEOSEARCH/GEORADIUS ... WITHCOORD return coordinates as bulk strings under RESP2
-    # but as doubles under RESP3. Coerce the doubles back to strings so the reply is identical on
-    # both protocols. The only Float in these replies is a coordinate (distances are returned as
-    # strings and hashes as integers in both protocols), so a recursive walk touches nothing else.
-    GeoCoordinatesAsStrings = lambda { |value|
-      case value
-      when Float
-        value.to_s
-      when Array
-        value.map(&GeoCoordinatesAsStrings)
-      else
-        value
-      end
-    }
-
     HashifyInfo = lambda { |reply|
       lines = reply.split("\r\n").grep_v(/^(#|$)/)
       lines.map! { |line| line.split(':', 2) }

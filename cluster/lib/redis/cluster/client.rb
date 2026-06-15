@@ -132,6 +132,10 @@ class Redis
       def handle_errors
         yield
       rescue ::RedisClient::Error => error
+        # Let RESP3-unsupported errors (e.g. a node without HELLO) propagate untranslated so
+        # Redis#send_command can transparently fall back to RESP2.
+        raise if Redis::Client.resp3_unsupported?(error)
+
         Redis::Cluster::Client.translate_error!(error)
       end
     end

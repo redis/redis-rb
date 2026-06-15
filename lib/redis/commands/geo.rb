@@ -44,7 +44,7 @@ class Redis
       def georadius(*args, **geoptions)
         geoarguments = _geoarguments(*args, **geoptions)
 
-        send_command([:georadius, *geoarguments], &GeoCoordinatesAsStrings)
+        send_command([:georadius, *geoarguments])
       end
 
       # Query a sorted set representing a geospatial index to fetch members matching a
@@ -60,7 +60,7 @@ class Redis
       def georadiusbymember(*args, **geoptions)
         geoarguments = _geoarguments(*args, **geoptions)
 
-        send_command([:georadiusbymember, *geoarguments], &GeoCoordinatesAsStrings)
+        send_command([:georadiusbymember, *geoarguments])
       end
 
       # Returns longitude and latitude of members of a geospatial index
@@ -70,7 +70,7 @@ class Redis
       # @return [Array<Array<String>, nil>] returns array of elements, where each
       #   element is either array of longitude and latitude or nil
       def geopos(key, member)
-        send_command([:geopos, key, member], &GeoCoordinatesAsStrings)
+        send_command([:geopos, key, member])
       end
 
       # Return the members of a geospatial sorted set that are within the borders of the
@@ -115,7 +115,7 @@ class Redis
 
         geoarguments = _geoarguments(*args, sort: sort, count: count, count_any: count_any, options: options)
 
-        send_command([:geosearch, *geoarguments], &GeoCoordinatesAsStrings)
+        send_command([:geosearch, *geoarguments])
       end
 
       # Like GEOSEARCH, but stores the result in a destination key. By default the destination
