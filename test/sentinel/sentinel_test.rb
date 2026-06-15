@@ -5,6 +5,12 @@ require "helper"
 class SentinelTest < Minitest::Test
   include Helper::Sentinel
 
+  # SENTINEL list replies are native maps under RESP3 but flat [k, v, ...] arrays under RESP2.
+  # Used by mocks whose client follows the suite protocol (e.g. build_slave_role_client).
+  def sentinel_reply(*entries)
+    PROTOCOL == 3 ? entries : entries.map { |entry| entry.to_a.flatten }
+  end
+
   def test_sentinel_master_role_connection
     wait_for_quorum
 
@@ -32,17 +38,12 @@ class SentinelTest < Minitest::Test
   end
 
   def test_the_client_can_connect_to_available_slaves
-    # FIXME(RESP3): RedisMock returns RESP2-shaped (flat array) SENTINEL replies and can't emit
-    # RESP3 maps; under RESP3 redis-client expects the sentinel to return native maps for SENTINEL
-    # replicas/sentinels. Real RESP3 sentinel resolution is handled inside redis-client.
-    skip("RedisMock SENTINEL replies are RESP2-shaped") if PROTOCOL == 3
-
     commands = {
       sentinel: lambda do |*_|
-        [
-          ['ip', '127.0.0.1', 'port', '6382', 'flags', 'slave'],
-          ['ip', '127.0.0.1', 'port', '6383', 'flags', 's_down,slave,disconnected']
-        ]
+        sentinel_reply(
+          { 'ip' => '127.0.0.1', 'port' => '6382', 'flags' => 'slave' },
+          { 'ip' => '127.0.0.1', 'port' => '6383', 'flags' => 's_down,slave,disconnected' }
+        )
       end
     }
     RedisMock.start(commands) do |port|
@@ -52,16 +53,12 @@ class SentinelTest < Minitest::Test
   end
 
   def test_the_client_raises_error_when_there_is_no_available_slaves
-    # FIXME(RESP3): see test_the_client_can_connect_to_available_slaves — RedisMock SENTINEL
-    # replies are RESP2-shaped flat arrays; under RESP3 redis-client expects native maps.
-    skip("RedisMock SENTINEL replies are RESP2-shaped") if PROTOCOL == 3
-
     commands = {
       sentinel: lambda do |*_|
-        [
-          ['ip', '127.0.0.1', 'port', '6382', 'flags', 's_down,slave,disconnected'],
-          ['ip', '127.0.0.1', 'port', '6383', 'flags', 's_down,slave,disconnected']
-        ]
+        sentinel_reply(
+          { 'ip' => '127.0.0.1', 'port' => '6382', 'flags' => 's_down,slave,disconnected' },
+          { 'ip' => '127.0.0.1', 'port' => '6383', 'flags' => 's_down,slave,disconnected' }
+        )
       end
     }
     RedisMock.start(commands) do |port|
@@ -138,8 +135,8 @@ class SentinelTest < Minitest::Test
           ["127.0.0.1", "6381"]
         when "sentinels"
           [
-            ["ip", "127.0.0.1", "port", "26381"],
-            ["ip", "127.0.0.1", "port", "26382"],
+            { "ip" => "127.0.0.1", "port" => "26381" },
+            { "ip" => "127.0.0.1", "port" => "26382" },
           ]
         else
           raise "Unexpected command #{[command, *args].inspect}"
@@ -185,8 +182,8 @@ class SentinelTest < Minitest::Test
             ["127.0.0.1", port.to_s]
           when "sentinels"
             [
-              ["ip", "127.0.0.1", "port", "26381"],
-              ["ip", "127.0.0.1", "port", "26382"],
+              { "ip" => "127.0.0.1", "port" => "26381" },
+              { "ip" => "127.0.0.1", "port" => "26382" },
             ]
           else
             raise "Unexpected command #{[command, *args].inspect}"
@@ -215,7 +212,7 @@ class SentinelTest < Minitest::Test
     end
 
     assert_equal [%w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
-    assert_equal [%w[auth foo], %w[role]], commands[:m1]
+    assert_equal [%w[auth default foo], %w[role]], commands[:m1]
   end
 
   def test_authentication_for_sentinel
@@ -238,8 +235,8 @@ class SentinelTest < Minitest::Test
             ["127.0.0.1", port.to_s]
           when "sentinels"
             [
-              ["ip", "127.0.0.1", "port", "26381"],
-              ["ip", "127.0.0.1", "port", "26382"],
+              { "ip" => "127.0.0.1", "port" => "26381" },
+              { "ip" => "127.0.0.1", "port" => "26382" },
             ]
           else
             raise "Unexpected command #{[command, *args].inspect}"
@@ -267,7 +264,7 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [%w[auth default foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[role]], commands[:m1]
   end
 
@@ -291,8 +288,8 @@ class SentinelTest < Minitest::Test
             ["127.0.0.1", port.to_s]
           when "sentinels"
             [
-              ["ip", "127.0.0.1", "port", "26381"],
-              ["ip", "127.0.0.1", "port", "26382"],
+              { "ip" => "127.0.0.1", "port" => "26381" },
+              { "ip" => "127.0.0.1", "port" => "26382" },
             ]
           else
             raise "Unexpected command #{[command, *args].inspect}"
@@ -323,8 +320,8 @@ class SentinelTest < Minitest::Test
       end
     end
 
-    assert_equal [%w[auth foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
-    assert_equal [%w[auth bar], %w[role]], commands[:m1]
+    assert_equal [%w[auth default foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [%w[auth default bar], %w[role]], commands[:m1]
   end
 
   def test_authentication_with_acl
@@ -347,8 +344,8 @@ class SentinelTest < Minitest::Test
             ["127.0.0.1", port.to_s]
           when "sentinels"
             [
-              ["ip", "127.0.0.1", "port", "26381"],
-              ["ip", "127.0.0.1", "port", "26382"],
+              { "ip" => "127.0.0.1", "port" => "26381" },
+              { "ip" => "127.0.0.1", "port" => "26382" },
             ]
           else
             raise "Unexpected command #{[command, *args].inspect}"
@@ -391,7 +388,7 @@ class SentinelTest < Minitest::Test
             ["127.0.0.1", port.to_s]
           when "sentinels"
             [
-              ["ip", "127.0.0.1", "port", "26381"],
+              { "ip" => "127.0.0.1", "port" => "26381" },
             ]
           else
             raise "Unexpected command #{[command, *args].inspect}"
@@ -442,8 +439,8 @@ class SentinelTest < Minitest::Test
               ["127.0.0.1", port.to_s]
             when "sentinels"
               [
-                ["ip", "127.0.0.1", "port", "26381"],
-                ["ip", "127.0.0.1", "port", "26382"],
+                { "ip" => "127.0.0.1", "port" => "26381" },
+                { "ip" => "127.0.0.1", "port" => "26382" },
               ]
             else
               raise "Unexpected command #{[command, *args].inspect}"

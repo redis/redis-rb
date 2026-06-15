@@ -91,6 +91,25 @@ module RedisMock
   #     assert_equal "PONG", Redis.new(:port => port).ping
   #   end
   #
+  # Encode a Ruby value as RESP for the mock server: Array -> `*`, Hash -> RESP3 map `%`, and any
+  # other value as a bulk string. Recurses so sentinel mocks can return arrays of maps.
+  def self.write_resp_value(session, value)
+    case value
+    when Array
+      session.write("*#{value.size}\r\n")
+      value.each { |element| write_resp_value(session, element) }
+    when Hash
+      session.write("%#{value.size}\r\n")
+      value.each do |key, val|
+        write_resp_value(session, key)
+        write_resp_value(session, val)
+      end
+    else
+      str = value.to_s
+      session.write("$#{str.bytesize}\r\n#{str}\r\n")
+    end
+  end
+
   def self.start(commands, options = {}, &blk)
     handler = lambda do |session|
       while line = session.gets
@@ -102,6 +121,18 @@ module RedisMock
         end
 
         command = argv.shift
+
+        # Under RESP3 the client authenticates via `HELLO 3 AUTH <user> <pass>` rather than a
+        # separate AUTH command. Unless the test mocks HELLO itself, route the embedded credentials
+        # to the `auth` handler (so existing auth mocks still see them) and ack the handshake.
+        if command&.casecmp?("HELLO") && !commands.key?(:hello)
+          if (auth_idx = argv.index { |a| a.to_s.casecmp?("AUTH") }) && commands[:auth]
+            commands[:auth].call(argv[auth_idx + 1], argv[auth_idx + 2])
+          end
+          session.write("+OK\r\n")
+          next
+        end
+
         blk = commands[command.downcase.to_sym]
         blk ||= ->(*_) { "+OK" }
 
@@ -115,19 +146,10 @@ module RedisMock
           break :exit
         when :close
           break :close
-        when Array
-          session.write("*%d\r\n" % response.size)
-
-          response.each do |resp|
-            if resp.is_a?(Array)
-              session.write("*%d\r\n" % resp.size)
-              resp.each do |r|
-                session.write("$%d\r\n%s\r\n" % [r.length, r])
-              end
-            else
-              session.write("$%d\r\n%s\r\n" % [resp.length, resp])
-            end
-          end
+        when Array, Hash
+          # Recursively encode arrays (RESP `*`) and hashes (RESP3 map `%`); leaf values are
+          # written as bulk strings. This lets sentinel mocks return RESP3-shaped map replies.
+          RedisMock.write_resp_value(session, response)
         else
           session.write(response)
           session.write("\r\n") unless response.end_with?("\r\n")

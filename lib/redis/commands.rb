@@ -227,14 +227,15 @@ class Redis
         when "get-master-addr-by-name"
           reply
         else
-          if reply.is_a?(Array)
-            if reply[0].is_a?(Array)
-              reply.map(&Hashify)
-            else
-              Hashify.call(reply)
+          case reply
+          when Array
+            case reply[0]
+            when Array then reply.map(&Hashify) # RESP2: list of flat [k, v, ...] arrays
+            when Hash then reply                 # RESP3: list of maps (already hashes)
+            else Hashify.call(reply)             # RESP2: a single flat [k, v, ...] array
             end
           else
-            reply
+            reply # RESP3 single map, or a scalar reply
           end
         end
       end
