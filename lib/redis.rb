@@ -53,6 +53,8 @@ class Redis
   # @option options [String] :password Password to authenticate against server
   # @option options [Integer] :db (0) Database to select after connect and on reconnects
   # @option options [Symbol] :driver Driver to use, currently supported: `:ruby`, `:hiredis`
+  # @option options [Integer] :protocol (3) RESP protocol version to negotiate (`HELLO`). Defaults
+  #   to RESP3; set to `2` for RESP2. Servers without RESP3 support automatically fall back to RESP2.
   # @option options [String] :id ID for the client connection, assigns name to current connection by sending
   #   `CLIENT SETNAME`
   # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,

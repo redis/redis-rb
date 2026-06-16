@@ -71,6 +71,25 @@ redis.get("mykey")
 All commands, their arguments, and return values are documented and
 available on [RubyDoc.info][rubydoc].
 
+## Protocol (RESP3)
+
+Starting in 6.0, the client negotiates the [RESP3 protocol][resp3] (`HELLO 3`)
+by default. Command return values are unchanged from 5.x, with one exception:
+`GEOPOS` and `GEOSEARCH`/`GEORADIUS` with `WITHCOORD` now return coordinates as
+`Float` instead of `String`.
+
+To keep the previous RESP2 behavior, pass `protocol: 2`:
+
+```ruby
+redis = Redis.new(protocol: 2)
+```
+
+Servers without RESP3 support (Redis < 6.0, or anything replying `NOPROTO`) are
+detected on connect and the client transparently falls back to RESP2, so no
+configuration is needed for older servers.
+
+See [the RESP3 migration guide](specs/migration-resp3.md) for full details.
+
 ## Connection Pooling and Thread safety
 
 The client does not provide connection pooling. Each `Redis` instance
@@ -451,3 +470,4 @@ requests.
 [gh-actions-image]:  https://github.com/redis/redis-rb/workflows/Test/badge.svg
 [gh-actions-link]:   https://github.com/redis/redis-rb/actions
 [rubydoc]:           https://rubydoc.info/gems/redis
+[resp3]:             https://github.com/redis/redis-specifications/blob/master/protocol/RESP3.md
