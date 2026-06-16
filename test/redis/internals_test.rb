@@ -21,6 +21,29 @@ class TestInternals < Minitest::Test
     end
   end
 
+  def test_pipelined_falls_back_to_resp2_when_hello_is_unsupported
+    # Standalone clients fall back inside Redis::Client#ensure_connected, which covers every entry
+    # point. Sentinel and cluster clients don't have that override, so their fallback relies on
+    # Redis#synchronize wrapping with_protocol_fallback. Pipelines flow through #synchronize too, so
+    # swap in a plain RedisClient (the sentinel implementation) to prove the pipelined path falls
+    # back without the connection-layer hook.
+    commands = {
+      hello: ->(*_) { "-ERR unknown command 'HELLO'" },
+      ping: ->(*_) { "+PONG" },
+    }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, protocol: 3)
+      redis.instance_variable_set(:@client, RedisClient.config(port: port, protocol: 3).new_client)
+
+      result = redis.pipelined { |pipeline| pipeline.ping }
+
+      assert_equal ["PONG"], result
+      assert_equal 2, redis._client.protocol
+    ensure
+      redis&.close
+    end
+  end
+
   def test_keeps_resp3_when_hello_succeeds
     commands = {
       hello: ->(*_) { "%1\r\n$7\r\nversion\r\n$5\r\n7.4.0\r\n" },

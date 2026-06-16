@@ -5,12 +5,6 @@ require "helper"
 class SentinelTest < Minitest::Test
   include Helper::Sentinel
 
-  # SENTINEL list replies are native maps under RESP3 but flat [k, v, ...] arrays under RESP2.
-  # Used by mocks whose client follows the suite protocol (e.g. build_slave_role_client).
-  def sentinel_reply(*entries)
-    PROTOCOL == 3 ? entries : entries.map { |entry| entry.to_a.flatten }
-  end
-
   def test_sentinel_master_role_connection
     wait_for_quorum
 
@@ -40,10 +34,10 @@ class SentinelTest < Minitest::Test
   def test_the_client_can_connect_to_available_slaves
     commands = {
       sentinel: lambda do |*_|
-        sentinel_reply(
+        [
           { 'ip' => '127.0.0.1', 'port' => '6382', 'flags' => 'slave' },
           { 'ip' => '127.0.0.1', 'port' => '6383', 'flags' => 's_down,slave,disconnected' }
-        )
+        ]
       end
     }
     RedisMock.start(commands) do |port|
@@ -55,10 +49,10 @@ class SentinelTest < Minitest::Test
   def test_the_client_raises_error_when_there_is_no_available_slaves
     commands = {
       sentinel: lambda do |*_|
-        sentinel_reply(
+        [
           { 'ip' => '127.0.0.1', 'port' => '6382', 'flags' => 's_down,slave,disconnected' },
           { 'ip' => '127.0.0.1', 'port' => '6383', 'flags' => 's_down,slave,disconnected' }
-        )
+        ]
       end
     }
     RedisMock.start(commands) do |port|

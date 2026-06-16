@@ -145,25 +145,28 @@ class Redis
     end
   end
 
+  # All access to @client funnels through here: it serializes on @monitor and applies the RESP3
+  # protocol fallback. Routing pipelined/multi/watch (which all call synchronize) through the same
+  # path means they fall back to RESP2 against pre-HELLO servers just like single commands do.
   def synchronize
-    @monitor.synchronize { yield(@client) }
+    @monitor.synchronize do
+      with_protocol_fallback do
+        yield(@client)
+      end
+    end
   end
 
   def send_command(command, &block)
-    @monitor.synchronize do
-      with_protocol_fallback do
-        @client.call_v(command, &block)
-      end
+    synchronize do |client|
+      client.call_v(command, &block)
     end
   rescue ::RedisClient::Error => error
     Client.translate_error!(error)
   end
 
   def send_blocking_command(command, timeout, &block)
-    @monitor.synchronize do
-      with_protocol_fallback do
-        @client.blocking_call_v(timeout, command, &block)
-      end
+    synchronize do |client|
+      client.blocking_call_v(timeout, command, &block)
     end
   end
 
@@ -173,10 +176,14 @@ class Redis
   #
   # Standalone and distributed clients fall back deeper, in Redis::Client#ensure_connected, before
   # the error is translated; sentinel clients (plain RedisClient) and cluster clients surface the
-  # raw error here, where rebuilding @client is the only option.
+  # raw error here, where rebuilding @client is the only option. Because every @client access
+  # (single commands, pipelined, multi, watch) flows through #synchronize, wrapping it here covers
+  # them all, not just send_command.
   #
   # Must be called while holding @monitor: it closes and replaces @client, so it has to be
-  # serialized with the command execution that uses @client.
+  # serialized with the command execution that uses @client. The retried block re-reads @client, so
+  # callers must reference the rebuilt instance (via the synchronize block argument), not a cached
+  # one.
   def with_protocol_fallback
     yield
   rescue ::RedisClient::Error => error

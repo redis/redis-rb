@@ -91,18 +91,22 @@ module RedisMock
   #     assert_equal "PONG", Redis.new(:port => port).ping
   #   end
   #
-  # Encode a Ruby value as RESP for the mock server: Array -> `*`, Hash -> RESP3 map `%`, and any
-  # other value as a bulk string. Recurses so sentinel mocks can return arrays of maps.
-  def self.write_resp_value(session, value)
+  # Encode a Ruby value as RESP for the mock server, matching what a real server sends on a
+  # connection negotiated at +protocol+: Array -> `*`, any other value -> bulk string, and a Hash ->
+  # RESP3 map `%` under protocol 3 but a flat `*` array of alternating key/value entries under
+  # protocol 2 (a RESP2 server has no map type). Recurses so sentinel mocks can return arrays of
+  # maps. Keeping this protocol-faithful means the PROTOCOL=2 suite exercises the real RESP2
+  # flat-array reshaping path rather than relying on the parser leniently decoding `%` frames.
+  def self.write_resp_value(session, value, protocol = 3)
     case value
     when Array
       session.write("*#{value.size}\r\n")
-      value.each { |element| write_resp_value(session, element) }
+      value.each { |element| write_resp_value(session, element, protocol) }
     when Hash
-      session.write("%#{value.size}\r\n")
+      session.write(protocol >= 3 ? "%#{value.size}\r\n" : "*#{value.size * 2}\r\n")
       value.each do |key, val|
-        write_resp_value(session, key)
-        write_resp_value(session, val)
+        write_resp_value(session, key, protocol)
+        write_resp_value(session, val, protocol)
       end
     else
       str = value.to_s
@@ -112,6 +116,9 @@ module RedisMock
 
   def self.start(commands, options = {}, &blk)
     handler = lambda do |session|
+      # Connections start RESP2; a `HELLO 3` handshake upgrades this session to RESP3. We use it to
+      # encode Hash replies in the wire format the negotiated protocol actually produces.
+      protocol = 2
       while line = session.gets
         argv = Array.new(line[1..-3].to_i) do
           bytes = session.gets[1..-3].to_i
@@ -123,9 +130,11 @@ module RedisMock
         command = argv.shift
 
         # Under RESP3 the client authenticates via `HELLO 3 AUTH <user> <pass>` rather than a
-        # separate AUTH command. Unless the test mocks HELLO itself, route the embedded credentials
-        # to the `auth` handler (so existing auth mocks still see them) and ack the handshake.
+        # separate AUTH command. Unless the test mocks HELLO itself, note the negotiated protocol,
+        # route the embedded credentials to the `auth` handler (so existing auth mocks still see
+        # them) and ack the handshake.
         if command&.casecmp?("HELLO") && !commands.key?(:hello)
+          protocol = argv.first.to_i if argv.first.to_s.match?(/\A\d+\z/)
           if (auth_idx = argv.index { |a| a.to_s.casecmp?("AUTH") }) && commands[:auth]
             commands[:auth].call(argv[auth_idx + 1], argv[auth_idx + 2])
           end
@@ -147,9 +156,10 @@ module RedisMock
         when :close
           break :close
         when Array, Hash
-          # Recursively encode arrays (RESP `*`) and hashes (RESP3 map `%`); leaf values are
-          # written as bulk strings. This lets sentinel mocks return RESP3-shaped map replies.
-          RedisMock.write_resp_value(session, response)
+          # Recursively encode arrays and hashes in the wire format the session's negotiated
+          # protocol produces (RESP3 map `%` vs RESP2 flat `*` array); leaf values are written as
+          # bulk strings. This lets sentinel mocks return hash-shaped replies under both protocols.
+          RedisMock.write_resp_value(session, response, protocol)
         else
           session.write(response)
           session.write("\r\n") unless response.end_with?("\r\n")
