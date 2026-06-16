@@ -53,6 +53,25 @@ class TestClusterClientInternals < Minitest::Test
     assert_equal expected, redis.inspect
   end
 
+  def test_resp3_unsupported_detects_initial_setup_error_from_old_nodes
+    # When cluster nodes don't speak RESP3, the per-node HELLO failures are wrapped into an
+    # InitialSetupError that discards the original classes; resp3_unsupported? must still recognize
+    # it (by message) so Redis#send_command can fall back to RESP2 for pre-6.0 clusters.
+    no_hello = RedisClient::UnsupportedServer.new(
+      "redis-client requires Redis 6+ with HELLO command available (redis://127.0.0.1:16380)"
+    )
+    noproto = RedisClient::CommandError.new("NOPROTO unsupported protocol version")
+
+    assert Redis::Client.resp3_unsupported?(RedisClient::Cluster::InitialSetupError.from_errors([no_hello]))
+    assert Redis::Client.resp3_unsupported?(RedisClient::Cluster::InitialSetupError.from_errors([noproto]))
+  end
+
+  def test_resp3_unsupported_ignores_unrelated_initial_setup_error
+    # A topology failure for other reasons (e.g. auth/connectivity) must NOT trigger the fallback.
+    other = RedisClient::CommandError.new("WRONGPASS invalid username-password pair")
+    refute Redis::Client.resp3_unsupported?(RedisClient::Cluster::InitialSetupError.from_errors([other]))
+  end
+
   def test_acl_auth_success
     target_version "6.0.0" do
       with_acl do |username, password|

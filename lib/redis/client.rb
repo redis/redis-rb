@@ -37,8 +37,18 @@ class Redis
       # (so we should retry the connection as RESP2). Covers Redis < 6 (no HELLO command, surfaced
       # by redis-client as UnsupportedServer) and any server replying NOPROTO to `HELLO 3`.
       def resp3_unsupported?(error)
-        error.is_a?(::RedisClient::UnsupportedServer) ||
-          (error.is_a?(::RedisClient::CommandError) && error.message.include?("NOPROTO"))
+        return true if error.is_a?(::RedisClient::UnsupportedServer)
+        return true if error.is_a?(::RedisClient::CommandError) && error.message.include?("NOPROTO")
+
+        # Redis::Cluster discovers its topology by connecting to each startup node. When those nodes
+        # don't speak RESP3, redis-cluster-client collects the per-node failures and re-raises them
+        # wrapped in an InitialSetupError, discarding the original error classes (see
+        # RedisClient::Cluster::InitialSetupError.from_errors). Only the concatenated message
+        # survives, so match it to still trigger the RESP2 fallback for pre-6.0 clusters. Guarded by
+        # defined? because the cluster error class is only loaded with the redis-clustering gem.
+        defined?(::RedisClient::Cluster::InitialSetupError) &&
+          error.is_a?(::RedisClient::Cluster::InitialSetupError) &&
+          (error.message.include?("NOPROTO") || error.message.include?("HELLO command"))
       end
 
       # Pin the given config to RESP2 so subsequent (re)connects skip the `HELLO 3` handshake.
