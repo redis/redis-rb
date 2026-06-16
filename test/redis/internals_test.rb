@@ -366,12 +366,16 @@ class TestInternals < Minitest::Test
   end
 
   def test_can_be_duped_to_create_a_new_connection
-    clients = r.info["connected_clients"].to_i
-
     r2 = r.dup
     r2.ping
 
-    assert_equal clients + 1, r.info["connected_clients"].to_i
+    # dup must open its own independent connection rather than share r's socket. Asserting on the
+    # per-connection CLIENT ID is deterministic; the previous check against the global
+    # connected_clients counter was racy, since other clients opening/closing on the shared server
+    # could offset the expected +1 between the two INFO reads.
+    refute_equal r.call("CLIENT", "ID"), r2.call("CLIENT", "ID")
+  ensure
+    r2&.close
   end
 
   def test_reconnect_on_readonly_errors
