@@ -229,10 +229,14 @@ class Redis
         else
           case reply
           when Array
-            case reply[0]
-            when Array then reply.map(&Hashify) # RESP2: list of flat [k, v, ...] arrays
-            when Hash then reply                 # RESP3: list of maps (already hashes)
-            else Hashify.call(reply)             # RESP2: a single flat [k, v, ...] array
+            if reply.empty?
+              reply # empty list (e.g. sentinels/slaves with no entries) stays []; don't Hashify to {}
+            else
+              case reply[0]
+              when Array then reply.map(&Hashify) # RESP2: list of flat [k, v, ...] arrays
+              when Hash then reply                 # RESP3: list of maps (already hashes)
+              else Hashify.call(reply)             # RESP2: a single flat [k, v, ...] array
+              end
             end
           else
             reply # RESP3 single map, or a scalar reply
