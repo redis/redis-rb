@@ -44,6 +44,28 @@ class TestInternals < Minitest::Test
     end
   end
 
+  def test_inherit_socket_is_preserved_after_resp2_fallback
+    # The fallback rebuilds @client; inherit_socket lives outside @options (it's applied via
+    # inherit_socket!), so the rebuild must re-apply it or fork safety is silently lost after a
+    # downgrade. Use the plain-RedisClient path (sentinel/cluster style), whose fallback rebuilds
+    # via build_client, rather than the standalone ensure_connected path that mutates in place.
+    commands = {
+      hello: ->(*_) { "-ERR unknown command 'HELLO'" },
+      ping: ->(*_) { "+PONG" },
+    }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, protocol: 3, inherit_socket: true)
+      redis.instance_variable_set(:@client, RedisClient.config(port: port, protocol: 3).new_client)
+
+      assert_equal "PONG", redis.ping
+      assert_equal 2, redis._client.protocol
+      assert redis._client.instance_variable_get(:@inherit_socket),
+             "inherit_socket should be re-applied after the RESP3->RESP2 fallback rebuilds @client"
+    ensure
+      redis&.close
+    end
+  end
+
   def test_keeps_resp3_when_hello_succeeds
     commands = {
       hello: ->(*_) { "%1\r\n$7\r\nversion\r\n$5\r\n7.4.0\r\n" },

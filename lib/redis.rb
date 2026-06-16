@@ -71,11 +71,12 @@ class Redis
     if ENV["REDIS_URL"] && SERVER_URL_OPTIONS.none? { |o| @options.key?(o) }
       @options[:url] = ENV["REDIS_URL"]
     end
-    inherit_socket = @options.delete(:inherit_socket)
+    # Kept as state, not just a local: the RESP3->RESP2 fallback rebuilds @client and must re-apply
+    # socket inheritance, otherwise fork safety would be silently lost after a downgrade.
+    @inherit_socket = @options.delete(:inherit_socket)
     @subscription_client = nil
 
-    @client = initialize_client(@options)
-    @client.inherit_socket! if inherit_socket
+    @client = build_client
   end
 
   # Run code without the client reconnecting
@@ -135,6 +136,15 @@ class Redis
 
   private
 
+  # Builds @client from @options and applies any instance-level settings (socket inheritance) that
+  # live outside @options. Used both at construction and when the RESP3->RESP2 fallback rebuilds the
+  # client, so those settings survive a protocol downgrade.
+  def build_client
+    client = initialize_client(@options)
+    client.inherit_socket! if @inherit_socket
+    client
+  end
+
   def initialize_client(options)
     if options.key?(:cluster)
       raise "Redis Cluster support was moved to the `redis-clustering` gem."
@@ -192,7 +202,7 @@ class Redis
     if @options.fetch(:protocol, 3).to_i == 3 && Client.resp3_unsupported?(error)
       @options = @options.merge(protocol: 2)
       @client.close
-      @client = initialize_client(@options)
+      @client = build_client
       retry
     end
 
