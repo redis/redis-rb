@@ -201,13 +201,14 @@ class Redis
     yield
   rescue ::RedisClient::Error => error
     if @options.fetch(:protocol, 3).to_i == 3 && Client.resp3_unsupported?(error)
-      # Fires once per client: after the downgrade @options[:protocol] is 2, so this branch never
-      # re-enters. Passing `protocol: 2` explicitly skips it entirely (and silences this warning).
-      warn("Redis: #{id} does not support RESP3 (the HELLO 3 handshake failed); falling back to " \
-           "RESP2. Pass `protocol: 2` to select RESP2 explicitly and silence this warning.")
       @options = @options.merge(protocol: 2)
       @client.close
       @client = build_client
+      # Warn only once the RESP2 client is actually in place — if the rebuild itself raises we
+      # haven't really fallen back. Fires once per client: @options[:protocol] is now 2, so this
+      # branch never re-enters. Passing `protocol: 2` explicitly skips it (and silences this).
+      warn("Redis: #{id} does not support RESP3 (the HELLO 3 handshake failed); falling back to " \
+           "RESP2. Pass `protocol: 2` to select RESP2 explicitly and silence this warning.")
       retry
     end
 
