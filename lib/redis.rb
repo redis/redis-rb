@@ -180,6 +180,8 @@ class Redis
     synchronize do |client|
       client.blocking_call_v(timeout, command, &block)
     end
+  rescue ::RedisClient::Error => error
+    Client.translate_error!(error)
   end
 
   # We default to RESP3. Servers that don't support it reject the `HELLO 3` handshake (most

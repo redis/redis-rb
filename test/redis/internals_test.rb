@@ -133,6 +133,22 @@ class TestInternals < Minitest::Test
     end
   end
 
+  def test_send_blocking_command_translates_redis_client_errors
+    # Blocking commands must translate RedisClient errors to Redis errors like non-blocking ones.
+    # The risk path: a raw RedisClient::Error escapes with_protocol_fallback (e.g. a non-translating
+    # plain client, or build_client raising during the RESP2 rebuild). Use the plain-RedisClient
+    # path so the error reaches send_blocking_command untranslated.
+    commands = { blpop: ->(*_) { "-ERR something went wrong" } }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, protocol: 3)
+      redis.instance_variable_set(:@client, RedisClient.config(port: port, protocol: 2).new_client)
+
+      assert_raises(Redis::CommandError) { redis.blpop("key", timeout: 1) }
+    ensure
+      redis&.close
+    end
+  end
+
   def test_keeps_resp3_when_hello_succeeds
     commands = {
       hello: ->(*_) { "%1\r\n$7\r\nversion\r\n$5\r\n7.4.0\r\n" },
