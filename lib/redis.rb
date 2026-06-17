@@ -186,11 +186,12 @@ class Redis
   # notably Redis < 6.0, which has no HELLO command). Rebuild the client as RESP2 once so those
   # servers keep working without the user setting `protocol: 2`.
   #
-  # Standalone and distributed clients fall back deeper, in Redis::Client#ensure_connected, before
-  # the error is translated; sentinel clients (plain RedisClient) and cluster clients surface the
-  # raw error here, where rebuilding @client is the only option. Because every @client access
-  # (single commands, pipelined, multi, watch) flows through #synchronize, wrapping it here covers
-  # them all, not just send_command.
+  # This is the single fallback point for every client type. Each one surfaces the resp3-unsupported
+  # error here untranslated (still a RedisClient::Error): standalone/distributed via
+  # Redis::Client#call_v et al., sentinel via the plain RedisClient (which never translates), and
+  # cluster via Redis::Cluster::Client#handle_errors. Because every @client access — single commands,
+  # pipelined, multi, watch, and the pub/sub socket — flows through #synchronize, wrapping it here
+  # covers them all.
   #
   # Must be called while holding @monitor: it closes and replaces @client, so it has to be
   # serialized with the command execution that uses @client. The retried block re-reads @client, so
@@ -200,6 +201,10 @@ class Redis
     yield
   rescue ::RedisClient::Error => error
     if @options.fetch(:protocol, 3).to_i == 3 && Client.resp3_unsupported?(error)
+      # Fires once per client: after the downgrade @options[:protocol] is 2, so this branch never
+      # re-enters. Passing `protocol: 2` explicitly skips it entirely (and silences this warning).
+      warn("Redis: #{id} does not support RESP3 (the HELLO 3 handshake failed); falling back to " \
+           "RESP2. Pass `protocol: 2` to select RESP2 explicitly and silence this warning.")
       @options = @options.merge(protocol: 2)
       @client.close
       @client = build_client
@@ -216,7 +221,10 @@ class Redis
       end
 
       begin
-        @subscription_client = SubscribedClient.new(@client.pubsub)
+        # The pub/sub second socket is opened via @client.pubsub, which connects through
+        # ensure_connected rather than a command path. Route it through #synchronize so the same
+        # RESP3->RESP2 fallback applies when subscribe is the first operation against an old server.
+        @subscription_client = SubscribedClient.new(synchronize(&:pubsub))
         if timeout > 0
           @subscription_client.send(method, timeout, *channels, &block)
         else

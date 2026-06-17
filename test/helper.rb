@@ -258,7 +258,7 @@ module Helper
 
     def build_sentinel_client(options = {})
       opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT }
-      Redis.new(opts.merge(options))
+      Redis.new(opts.merge(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
 
     def build_slave_role_client(options = {})

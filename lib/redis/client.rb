@@ -51,11 +51,6 @@ class Redis
           (error.message.include?("NOPROTO") || error.message.include?("HELLO command"))
       end
 
-      # Pin the given config to RESP2 so subsequent (re)connects skip the `HELLO 3` handshake.
-      def downgrade_to_resp2!(config)
-        config.instance_variable_set(:@protocol, 2)
-      end
-
       private
 
       def translate_error_class(error_class, mapping: ERROR_MAPPING)
@@ -114,24 +109,16 @@ class Redis
     undef_method :call_once_v
     undef_method :blocking_call
 
-    def ensure_connected(retryable: true, &block)
-      super(retryable: retryable, &block)
-    rescue ::RedisClient::Error => error
-      # We default to RESP3. Servers that don't support it reject the `HELLO 3` handshake — most
-      # notably Redis < 6.0, which has no HELLO command at all (redis-client raises
-      # UnsupportedServer), but also anything answering NOPROTO. Transparently fall back to RESP2
-      # once, so those servers keep working without the user having to set `protocol: 2`.
-      if config.protocol == 3 && self.class.resp3_unsupported?(error)
-        self.class.downgrade_to_resp2!(config)
-        retry
-      end
-
-      Client.translate_error!(error)
-    end
-
+    # We default to RESP3. Servers that can't speak it reject the `HELLO 3` handshake (Redis < 6.0
+    # has no HELLO at all; others answer NOPROTO). Re-raise those errors untranslated so they reach
+    # Redis#with_protocol_fallback as RedisClient::Error and trigger a transparent rebuild as RESP2 —
+    # the same path the sentinel and cluster clients already use. Everything else is translated to
+    # the matching Redis::* error.
     def call_v(command, &block)
       super(command, &block)
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 
@@ -145,18 +132,24 @@ class Redis
 
       super(timeout, command, &block)
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 
     def pipelined(exception: true)
       super
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 
     def multi(watch: nil)
       super
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 

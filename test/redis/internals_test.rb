@@ -21,19 +21,36 @@ class TestInternals < Minitest::Test
     end
   end
 
-  def test_pipelined_falls_back_to_resp2_when_hello_is_unsupported
-    # Standalone clients fall back inside Redis::Client#ensure_connected, which covers every entry
-    # point. Sentinel and cluster clients don't have that override, so their fallback relies on
-    # Redis#synchronize wrapping with_protocol_fallback. Pipelines flow through #synchronize too, so
-    # swap in a plain RedisClient (the sentinel implementation) to prove the pipelined path falls
-    # back without the connection-layer hook.
+  def test_warns_once_when_falling_back_to_resp2
     commands = {
       hello: ->(*_) { "-ERR unknown command 'HELLO'" },
       ping: ->(*_) { "+PONG" },
     }
     RedisMock.start(commands) do |port|
       redis = Redis.new(port: port, protocol: 3)
-      redis.instance_variable_set(:@client, RedisClient.config(port: port, protocol: 3).new_client)
+      results = nil
+      _out, err = capture_io do
+        results = [redis.ping, redis.ping] # second call is already RESP2: must not warn again
+      end
+
+      assert_equal %w[PONG PONG], results
+      assert_match(/falling back to RESP2/, err)
+      assert_equal 1, err.scan("falling back to RESP2").size, "expected exactly one fallback warning"
+    ensure
+      redis&.close
+    end
+  end
+
+  def test_pipelined_falls_back_to_resp2_when_hello_is_unsupported
+    # All client types fall back through the same path now: the resp3-unsupported error reaches
+    # Redis#with_protocol_fallback untranslated and @client is rebuilt as RESP2. pipelined flows
+    # through #synchronize, so it falls back just like a single command.
+    commands = {
+      hello: ->(*_) { "-ERR unknown command 'HELLO'" },
+      ping: ->(*_) { "+PONG" },
+    }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, protocol: 3)
 
       result = redis.pipelined { |pipeline| pipeline.ping }
 
@@ -47,20 +64,70 @@ class TestInternals < Minitest::Test
   def test_inherit_socket_is_preserved_after_resp2_fallback
     # The fallback rebuilds @client; inherit_socket lives outside @options (it's applied via
     # inherit_socket!), so the rebuild must re-apply it or fork safety is silently lost after a
-    # downgrade. Use the plain-RedisClient path (sentinel/cluster style), whose fallback rebuilds
-    # via build_client, rather than the standalone ensure_connected path that mutates in place.
+    # downgrade.
     commands = {
       hello: ->(*_) { "-ERR unknown command 'HELLO'" },
       ping: ->(*_) { "+PONG" },
     }
     RedisMock.start(commands) do |port|
       redis = Redis.new(port: port, protocol: 3, inherit_socket: true)
-      redis.instance_variable_set(:@client, RedisClient.config(port: port, protocol: 3).new_client)
 
       assert_equal "PONG", redis.ping
       assert_equal 2, redis._client.protocol
       assert redis._client.instance_variable_get(:@inherit_socket),
              "inherit_socket should be re-applied after the RESP3->RESP2 fallback rebuilds @client"
+    ensure
+      redis&.close
+    end
+  end
+
+  def test_subscribe_falls_back_to_resp2_when_hello_is_unsupported
+    # subscribe opens the pub/sub socket via @client.pubsub (ensure_connected), not a command path.
+    # _subscription routes that through #synchronize so subscribe-as-first-operation against an old
+    # server still falls back to RESP2. The mock rejects HELLO, then speaks RESP2.
+    read_command = lambda do |session|
+      line = session.gets
+      next nil if line.nil?
+
+      Array.new(line[1..-3].to_i) do
+        bytes = session.gets[1..-3].to_i
+        arg = session.read(bytes)
+        session.read(2) # discard \r\n
+        arg
+      end
+    end
+
+    handler = lambda do |session|
+      subscribed = nil
+      while (argv = read_command.call(session))
+        case argv.first.to_s.upcase
+        when "HELLO"
+          session.write("-ERR unknown command 'HELLO'\r\n")
+        when "SUBSCRIBE"
+          subscribed = argv[1]
+          session.write("*3\r\n$9\r\nsubscribe\r\n$#{subscribed.bytesize}\r\n#{subscribed}\r\n:1\r\n")
+          session.write("*3\r\n$7\r\nmessage\r\n$#{subscribed.bytesize}\r\n#{subscribed}\r\n$2\r\nhi\r\n")
+        when "UNSUBSCRIBE"
+          chan = argv[1] || subscribed # `unsubscribe` with no args means unsubscribe from all
+          session.write("*3\r\n$11\r\nunsubscribe\r\n$#{chan.bytesize}\r\n#{chan}\r\n:0\r\n")
+        else
+          session.write("+OK\r\n")
+        end
+      end
+    end
+
+    RedisMock.start_with_handler(handler) do |port|
+      redis = Redis.new(port: port, protocol: 3)
+      messages = []
+      redis.subscribe("chan") do |on|
+        on.message do |_channel, message|
+          messages << message
+          redis.unsubscribe
+        end
+      end
+
+      assert_equal ["hi"], messages
+      assert_equal 2, redis._client.protocol
     ensure
       redis&.close
     end
