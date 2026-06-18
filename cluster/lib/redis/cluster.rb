@@ -128,7 +128,8 @@ class Redis
     private
 
     def initialize_client(options)
-      cluster_config = RedisClient.cluster(**options, protocol: 2, client_implementation: ::Redis::Cluster::Client)
+      # protocol defaults to 3 (RESP3) but a caller-provided protocol: in options overrides it.
+      cluster_config = RedisClient.cluster(protocol: 3, **options, client_implementation: ::Redis::Cluster::Client)
       cluster_config.new_client
     end
   end

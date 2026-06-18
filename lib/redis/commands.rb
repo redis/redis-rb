@@ -57,7 +57,9 @@ class Redis
     }
 
     Hashify = lambda { |value|
-      if value.respond_to?(:each_slice)
+      if value.is_a?(Hash) # RESP3 already returns a map
+        value
+      elsif value.respond_to?(:each_slice) # RESP2 flat [k, v, k, v, ...]
         value.each_slice(2).to_h
       else
         value
@@ -65,10 +67,12 @@ class Redis
     }
 
     Pairify = lambda { |value|
-      if value.respond_to?(:each_slice)
-        value.each_slice(2).to_a
-      else
+      return value unless value.respond_to?(:each_slice)
+
+      if value.first.is_a?(Array) # RESP3 already returns [[k, v], ...]
         value
+      else # RESP2 flat [k, v, k, v, ...]
+        value.each_slice(2).to_a
       end
     }
 
@@ -92,7 +96,11 @@ class Redis
     FloatifyPairs = lambda { |value|
       return value unless value.respond_to?(:each_slice)
 
-      value.each_slice(2).map(&FloatifyPair)
+      if value.first.is_a?(Array) # RESP3 already returns [[member, score], ...]
+        value.map(&FloatifyPair)
+      else # RESP2 flat [member, score, member, score, ...]
+        value.each_slice(2).map(&FloatifyPair)
+      end
     }
 
     HashifyInfo = lambda { |reply|
@@ -219,14 +227,19 @@ class Redis
         when "get-master-addr-by-name"
           reply
         else
-          if reply.is_a?(Array)
-            if reply[0].is_a?(Array)
-              reply.map(&Hashify)
+          case reply
+          when Array
+            if reply.empty?
+              reply # empty list (e.g. sentinels/slaves with no entries) stays []; don't Hashify to {}
             else
-              Hashify.call(reply)
+              case reply[0]
+              when Array then reply.map(&Hashify) # RESP2: list of flat [k, v, ...] arrays
+              when Hash then reply                 # RESP3: list of maps (already hashes)
+              else Hashify.call(reply)             # RESP2: a single flat [k, v, ...] array
+              end
             end
           else
-            reply
+            reply # RESP3 single map, or a scalar reply
           end
         end
       end

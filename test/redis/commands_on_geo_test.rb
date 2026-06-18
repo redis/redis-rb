@@ -113,20 +113,26 @@ class TestCommandsGeo < Minitest::Test
     end
   end
 
+  # GEOPOS/GEOSEARCH return coordinates as bulk strings under RESP2 but as doubles under RESP3.
+  # Tests that only need the coordinate value use these helpers, which adapt to the active
+  # protocol. Tests that specifically assert the per-protocol *type* live in the dedicated
+  # `*_on_resp2` / `*_on_resp3` cases below.
   def coordinates_catania
-    if version >= "8.0"
+    strings = if version >= "8.0"
       ["15.087267458438873", "37.50266842333162"]
     else
       ["15.08726745843887329", "37.50266842333162032"]
     end
+    PROTOCOL == 3 ? strings.map(&:to_f) : strings
   end
 
   def coordinates_palermo
-    if version >= "8.0"
+    strings = if version >= "8.0"
       ["13.361389338970184", "38.1155563954963"]
     else
       ["13.36138933897018433", "38.11555639549629859"]
     end
+    PROTOCOL == 3 ? strings.map(&:to_f) : strings
   end
 
   def test_geopos
@@ -135,6 +141,28 @@ class TestCommandsGeo < Minitest::Test
 
     locations = r.geopos("Sicily", ["Palermo", "Catania"])
     assert_equal [coordinates_palermo, coordinates_catania], locations
+  end
+
+  # GEOPOS returns coordinates as bulk strings under RESP2 but as doubles under RESP3. This is an
+  # intentional, protocol-dependent difference (we no longer coerce RESP3 doubles back to strings).
+  def test_geopos_returns_string_coordinates_on_resp2
+    skip("RESP2-specific behaviour") unless PROTOCOL == 2
+
+    lon, lat = r.geopos("Sicily", "Catania").first
+    assert_instance_of String, lon
+    assert_instance_of String, lat
+    assert_in_delta 15.0872, lon.to_f, 0.001
+    assert_in_delta 37.5026, lat.to_f, 0.001
+  end
+
+  def test_geopos_returns_float_coordinates_on_resp3
+    skip("RESP3-specific behaviour") unless PROTOCOL == 3
+
+    lon, lat = r.geopos("Sicily", "Catania").first
+    assert_instance_of Float, lon
+    assert_instance_of Float, lat
+    assert_in_delta 15.0872, lon, 0.001
+    assert_in_delta 37.5026, lat, 0.001
   end
 
   def test_geopos_nonexistant_location
@@ -240,6 +268,30 @@ class TestCommandsGeo < Minitest::Test
       assert_equal "190.4424", palermo[1]
       assert_kind_of Integer, palermo[2]
       assert_equal coordinates_palermo, palermo[3]
+    end
+  end
+
+  # GEOSEARCH ... WITHCOORD returns the coordinate pair as bulk strings under RESP2 but as doubles
+  # under RESP3 (the WITHDIST distance stays a string and WITHHASH stays an integer in both).
+  def test_geosearch_withcoord_returns_string_coordinates_on_resp2
+    skip("RESP2-specific behaviour") unless PROTOCOL == 2
+
+    target_version "6.2" do
+      _member, coord = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                             sort: "asc", withcoord: true).first
+      assert_instance_of String, coord[0]
+      assert_instance_of String, coord[1]
+    end
+  end
+
+  def test_geosearch_withcoord_returns_float_coordinates_on_resp3
+    skip("RESP3-specific behaviour") unless PROTOCOL == 3
+
+    target_version "6.2" do
+      _member, coord = r.geosearch("Sicily", fromlonlat: [15, 37], byradius: [200, "km"],
+                                             sort: "asc", withcoord: true).first
+      assert_instance_of Float, coord[0]
+      assert_instance_of Float, coord[1]
     end
   end
 

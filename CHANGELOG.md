@@ -1,5 +1,10 @@
 # Unreleased
 
+- **Breaking**: the client now negotiates RESP3 (`HELLO 3`) by default; pass `protocol: 2` to keep
+  RESP2. The only command whose return value changes is GEO — `GEOPOS` and `GEOSEARCH`/`GEORADIUS`
+  with `WITHCOORD` now return coordinates as `Float` instead of `String`. Servers without RESP3
+  (Redis < 6.0, or anything replying `NOPROTO`) transparently fall back to RESP2. See
+  [specs/migration-resp3.md](specs/migration-resp3.md).
 - Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
 - Bump `redis-client` to `>= 0.26.4` to fix reply desynchronization (e.g. `mget` returning `"OK"`) after a Sentinel failover/reconnect.
 

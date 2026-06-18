@@ -216,7 +216,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis::Cluster.new(_format_options(options).merge(driver: ENV['DRIVER']))
+      Redis::Cluster.new(_format_options(options).merge(driver: ENV['DRIVER'], protocol: PROTOCOL))
     end
 
     # ACL commands are not propagated across cluster nodes by default, so applying
