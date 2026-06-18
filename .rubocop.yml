@@ -1,7 +1,11 @@
 inherit_from: .rubocop_todo.yml
 
 AllCops:
-  TargetRubyVersion: 2.6
+  TargetRubyVersion: 3.3
+
+# Ruby 3.1+ lets you omit hash values (`{ x: }`); allow both forms rather than forcing a rewrite.
+Style/HashSyntax:
+  EnforcedShorthandSyntax: either
 
 Layout/LineLength:
   Max: 120

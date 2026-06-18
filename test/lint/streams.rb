@@ -3,7 +3,7 @@
 module Lint
   module Streams
     MIN_REDIS_VERSION = '4.9.0'
-    ENTRY_ID_FORMAT = /\d+-\d+/.freeze
+    ENTRY_ID_FORMAT = /\d+-\d+/
 
     def setup
       super

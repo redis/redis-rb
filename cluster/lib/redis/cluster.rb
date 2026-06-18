@@ -65,7 +65,7 @@ class Redis
     # @option options [Class] :connector Class of custom connector
     #
     # @return [Redis::Cluster] a new client instance
-    def initialize(*) # rubocop:disable Lint/UselessMethodDefinition
+    def initialize(*)
       super
     end
     ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
