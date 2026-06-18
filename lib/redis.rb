@@ -81,7 +81,14 @@ class Redis
 
   # Run code without the client reconnecting
   def without_reconnect(&block)
-    @client.disable_reconnection(&block)
+    # Route through #synchronize like every other @client access: it holds @monitor and applies the
+    # RESP3->RESP2 fallback. disable_reconnection establishes the connection eagerly, so if that
+    # handshake fails the fallback rebuilds @client and the whole block re-runs against the new
+    # (RESP2) client — keeping disable_reconnection bound to the live @client rather than a discarded
+    # one. Referencing the block argument (not @client) is what makes the retry pick up the rebuild.
+    synchronize do |client|
+      client.disable_reconnection(&block)
+    end
   end
 
   # Test whether or not the client is connected
@@ -209,8 +216,8 @@ class Redis
       # Warn only once the RESP2 client is actually in place — if the rebuild itself raises we
       # haven't really fallen back. Fires once per client: @options[:protocol] is now 2, so this
       # branch never re-enters. Passing `protocol: 2` explicitly skips it (and silences this).
-      warn("Redis: #{id} does not support RESP3 (the HELLO 3 handshake failed); falling back to " \
-           "RESP2. Pass `protocol: 2` to select RESP2 explicitly and silence this warning.")
+      warn("Redis: the server does not support RESP3 (the HELLO 3 handshake failed); falling back " \
+           "to RESP2. Pass `protocol: 2` to select RESP2 explicitly and silence this warning.")
       retry
     end
 

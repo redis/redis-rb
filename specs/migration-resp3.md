@@ -67,9 +67,9 @@ When a fallback happens, the client emits a one-time warning so the protocol
 switch isn't silent:
 
 ```
-Redis: redis://127.0.0.1:6379 does not support RESP3 (the HELLO 3 handshake
-failed); falling back to RESP2. Pass `protocol: 2` to select RESP2 explicitly
-and silence this warning.
+Redis: the server does not support RESP3 (the HELLO 3 handshake failed);
+falling back to RESP2. Pass `protocol: 2` to select RESP2 explicitly and
+silence this warning.
 ```
 
 Passing `protocol: 2` (see below) skips the RESP3 handshake entirely, so it both

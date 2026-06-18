@@ -5,6 +5,19 @@ require "helper"
 class SentinelTest < Minitest::Test
   include Helper::Sentinel
 
+  # The recorded AUTH command differs by protocol: RESP3 folds it into HELLO with an explicit
+  # username (defaulting to "default"), while RESP2 sends a separate AUTH command that only carries
+  # a username when one was configured. Build the expected entry so auth assertions hold under both.
+  def expected_auth(username, password)
+    if PROTOCOL == 3
+      ["auth", username || "default", password]
+    elsif username
+      ["auth", username, password]
+    else
+      ["auth", password]
+    end
+  end
+
   def test_sentinel_master_role_connection
     wait_for_quorum
 
@@ -95,7 +108,7 @@ class SentinelTest < Minitest::Test
       RedisMock.start(s2) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
-        redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master)
+        redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, protocol: PROTOCOL)
 
         assert redis.ping
       end
@@ -142,7 +155,7 @@ class SentinelTest < Minitest::Test
       RedisMock.start(s2) do |s2_port|
         sentinels[0][:port] = s1_port
         sentinels[1][:port] = s2_port
-        redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master)
+        redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, protocol: PROTOCOL)
 
         assert redis.ping
 
@@ -200,13 +213,13 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port }]
-        redis = Redis.new(url: 'redis://:foo@master1/15', sentinels: s, role: :master)
+        redis = Redis.new(url: 'redis://:foo@master1/15', sentinels: s, role: :master, protocol: PROTOCOL)
         assert redis.ping
       end
     end
 
     assert_equal [%w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
-    assert_equal [%w[auth default foo], %w[role]], commands[:m1]
+    assert_equal [expected_auth(nil, 'foo'), %w[role]], commands[:m1]
   end
 
   def test_authentication_for_sentinel
@@ -253,12 +266,12 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port }]
-        r = Redis.new(name: 'master1', sentinels: s, role: :master, sentinel_password: 'foo')
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, sentinel_password: 'foo', protocol: PROTOCOL)
         assert r.ping
       end
     end
 
-    assert_equal [%w[auth default foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [expected_auth(nil, 'foo'), %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
     assert_equal [%w[role]], commands[:m1]
   end
 
@@ -309,13 +322,14 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port }]
-        r = Redis.new(name: 'master1', sentinels: s, role: :master, password: 'bar', sentinel_password: 'foo')
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, password: 'bar', sentinel_password: 'foo',
+                      protocol: PROTOCOL)
         assert r.ping
       end
     end
 
-    assert_equal [%w[auth default foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
-    assert_equal [%w[auth default bar], %w[role]], commands[:m1]
+    assert_equal [expected_auth(nil, 'foo'), %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [expected_auth(nil, 'bar'), %w[role]], commands[:m1]
   end
 
   def test_authentication_with_acl
@@ -362,13 +376,14 @@ class SentinelTest < Minitest::Test
     RedisMock.start(master) do |master_port|
       RedisMock.start(sentinel.call(master_port)) do |sen_port|
         s = [{ host: '127.0.0.1', port: sen_port }]
-        r = Redis.new(name: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar', sentinel_username: 'bob', sentinel_password: 'foo')
+        r = Redis.new(name: 'master1', sentinels: s, role: :master, username: 'alice', password: 'bar',
+                      sentinel_username: 'bob', sentinel_password: 'foo', protocol: PROTOCOL)
         assert r.ping
       end
     end
 
-    assert_equal [%w[auth bob foo], %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
-    assert_equal [%w[auth alice bar], %w[role]], commands[:m1]
+    assert_equal [expected_auth('bob', 'foo'), %w[get-master-addr-by-name master1], ["sentinels", "master1"]], commands[:s1]
+    assert_equal [expected_auth('alice', 'bar'), %w[role]], commands[:m1]
   end
 
   def test_sentinel_role_mismatch
@@ -401,7 +416,8 @@ class SentinelTest < Minitest::Test
       RedisMock.start(master) do |master_port|
         RedisMock.start(sentinel.call(master_port)) do |sen_port|
           sentinels[0][:port] = sen_port
-          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 0)
+          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 0,
+                            protocol: PROTOCOL)
 
           assert redis.ping
         end
@@ -455,7 +471,8 @@ class SentinelTest < Minitest::Test
         RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
           sentinels[0][:port] = s1_port
           sentinels[1][:port] = s2_port
-          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 1)
+          redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 1,
+                            protocol: PROTOCOL)
 
           assert redis.ping
         end
@@ -473,7 +490,8 @@ class SentinelTest < Minitest::Test
           RedisMock.start(handler.call(:s2, master_port)) do |s2_port|
             sentinels[0][:port] = s1_port + 1
             sentinels[1][:port] = s2_port + 2
-            redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 0)
+            redis = Redis.new(url: "redis://master1", sentinels: sentinels, role: :master, reconnect_attempts: 0,
+                              protocol: PROTOCOL)
 
             assert redis.ping
           end
