@@ -71,6 +71,17 @@ redis.get("mykey")
 All commands, their arguments, and return values are documented and
 available on [RubyDoc.info][rubydoc].
 
+## Language and server support
+
+redis-rb targets actively supported runtimes on both the language and the server side:
+
+- **Ruby:** the versions still under official maintenance (normal or security); a version is
+  dropped once it reaches end-of-life. See the [Ruby maintenance branches][ruby-branches] page for
+  each version's status and dates. The current minimum is **Ruby 3.3**.
+- **Redis server:** the versions designated for support (LTS) by Redis. See
+  [Supported Redis database versions][redis-versions]. The test suite runs against those versions
+  (currently the 7.2, 7.4, 8.2 and 8.8 lines).
+
 ## Protocol (RESP3)
 
 Starting in 6.0, the client negotiates the [RESP3 protocol][resp3] (`HELLO 3`)
@@ -440,11 +451,6 @@ the client object, specify hiredis:
 redis = Redis.new(driver: :hiredis)
 ```
 
-## Testing
-
-This library is tested against recent Ruby and Redis versions.
-Check [Github Actions][gh-actions-link] for the exact versions supported.
-
 ## See Also
 
 - [async-redis](https://github.com/socketry/async-redis) — An [async](https://github.com/socketry/async) compatible Redis client.
@@ -471,3 +477,5 @@ requests.
 [gh-actions-link]:   https://github.com/redis/redis-rb/actions
 [rubydoc]:           https://rubydoc.info/gems/redis
 [resp3]:             https://github.com/redis/redis-specifications/blob/master/protocol/RESP3.md
+[ruby-branches]:     https://www.ruby-lang.org/en/downloads/branches/
+[redis-versions]:    https://redis.io/docs/latest/operate/rc/databases/version-management/#supported-database-versions

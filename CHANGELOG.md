@@ -5,6 +5,9 @@
   with `WITHCOORD` now return coordinates as `Float` instead of `String`. Servers without RESP3
   (Redis < 6.0, or anything replying `NOPROTO`) transparently fall back to RESP2. See
   [specs/migration-resp3.md](specs/migration-resp3.md).
+- **Breaking**: now requires Ruby 3.3 or newer. redis-rb tracks the Ruby versions still under
+  official maintenance and drops them at end-of-life; see
+  https://www.ruby-lang.org/en/downloads/branches/.
 - Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
 - Bump `redis-client` to `>= 0.26.4` to fix reply desynchronization (e.g. `mget` returning `"OK"`) after a Sentinel failover/reconnect.
 
