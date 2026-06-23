@@ -7,3 +7,5 @@
   [the RESP3 migration guide](../specs/migration-resp3.md).
 - **Breaking**: now requires Ruby 3.3 or newer, tracking the Ruby versions still under official
   maintenance. See https://www.ruby-lang.org/en/downloads/branches/.
+- Pin `redis-cluster-client` to `~> 0.16.0` (patch-only), so bug/security patches flow automatically
+  while minor/major upgrades are gated behind a deliberate release.

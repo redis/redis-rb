@@ -9,7 +9,7 @@
   official maintenance and drops them at end-of-life; see
   https://www.ruby-lang.org/en/downloads/branches/.
 - Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
-- Bump `redis-client` to `>= 0.26.4` to fix reply desynchronization (e.g. `mget` returning `"OK"`) after a Sentinel failover/reconnect.
+- Pin `redis-client` to `~> 0.30.0` (patch-only). redis-rb couples tightly to redis-client internals and redis-client is pre-1.0 (minors may break), so this lets bug/security patches flow automatically while gating minor/major upgrades behind a deliberate release. Includes the reply-desynchronization fix (e.g. `mget` returning `"OK"` after a Sentinel failover/reconnect) that landed in 0.26.4.
 
 # 5.4.1
 

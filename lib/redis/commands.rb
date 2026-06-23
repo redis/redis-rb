@@ -97,7 +97,10 @@ class Redis
       return value unless value.respond_to?(:each_slice)
 
       if value.first.is_a?(Array) # RESP3 already returns [[member, score], ...]
-        value.map(&FloatifyPair)
+        # Scores arrive as native doubles, so the pairs are already in the final shape and
+        # re-mapping would only re-allocate identical arrays. Floatify only transforms Strings, so
+        # unless a score came back as one (it shouldn't under RESP3) return the parser's array as-is.
+        value.first.last.is_a?(String) ? value.map(&FloatifyPair) : value
       else # RESP2 flat [member, score, member, score, ...]
         value.each_slice(2).map(&FloatifyPair)
       end

@@ -47,5 +47,7 @@ Gem::Specification.new do |s|
   s.required_ruby_version = '>= 3.3.0'
 
   s.add_runtime_dependency('redis', s.version)
-  s.add_runtime_dependency('redis-cluster-client', '>= 0.10.0')
+  # Patch-only within the current redis-cluster-client minor (pre-1.0, so minors may break and we
+  # rely on its internals — e.g. InitialSetupError). Bug/security patches flow; minors are gated.
+  s.add_runtime_dependency('redis-cluster-client', '~> 0.16.0')
 end
