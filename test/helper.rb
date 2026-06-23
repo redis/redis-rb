@@ -68,7 +68,7 @@ module Helper
   class Version
     include Comparable
 
-    attr :parts
+    attr_reader :parts
 
     def initialize(version)
       @parts = case version

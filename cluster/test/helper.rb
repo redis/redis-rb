@@ -11,7 +11,7 @@ module Helper
     include Generic
 
     DEFAULT_HOST = '127.0.0.1'
-    DEFAULT_PORTS = (16_380..16_385).freeze
+    DEFAULT_PORTS = (16_380..16_385)
 
     ClusterSlotsRawReply = lambda { |host, port|
       # @see https://redis.io/topics/protocol

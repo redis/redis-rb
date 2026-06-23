@@ -80,7 +80,7 @@ class Redis
   end
 
   class Subscription
-    attr :callbacks
+    attr_reader :callbacks
 
     def initialize
       @callbacks = {}

@@ -27,7 +27,7 @@ class Redis
         def translate_error!(error, mapping: ERROR_MAPPING)
           case error
           when RedisClient::Cluster::ErrorCollection
-            error.errors.each do |_node, node_error|
+            error.errors.each_value do |node_error|
               if node_error.is_a?(RedisClient::AuthenticationError)
                 raise mapping.fetch(node_error.class), node_error.message, node_error.backtrace
               end

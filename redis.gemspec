@@ -42,7 +42,7 @@ Gem::Specification.new do |s|
 
   s.files = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
 
-  s.required_ruby_version = '>= 2.6.0'
+  s.required_ruby_version = '>= 3.3.0'
 
   # Pinned to a single redis-client minor: redis-rb couples tightly to redis-client internals
   # (subclassing, ensure_connected/call_v overrides, config access, RESP3/HELLO behavior), and

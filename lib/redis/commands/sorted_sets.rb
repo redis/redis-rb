@@ -366,7 +366,6 @@ class Redis
       #   - when `:with_scores` is specified, an array with `[member, score]` pairs
       def zrange(key, start, stop, byscore: false, by_score: byscore, bylex: false, by_lex: bylex,
                  rev: false, limit: nil, withscores: false, with_scores: withscores)
-
         if by_score && by_lex
           raise ArgumentError, "only one of :by_score or :by_lex can be specified"
         end
