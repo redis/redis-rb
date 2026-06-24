@@ -20,17 +20,35 @@ class Redis
     end
 
     class << self
-      def config(**kwargs)
-        super(protocol: 2, **kwargs)
+      def config(protocol: 3, **kwargs)
+        super(protocol: protocol, **kwargs)
       end
 
-      def sentinel(**kwargs)
-        super(protocol: 2, **kwargs, client_implementation: ::RedisClient)
+      def sentinel(protocol: 3, **kwargs)
+        super(protocol: protocol, **kwargs, client_implementation: ::RedisClient)
       end
 
       def translate_error!(error, mapping: ERROR_MAPPING)
         redis_error = translate_error_class(error.class, mapping: mapping)
         raise redis_error, error.message, error.backtrace
+      end
+
+      # Whether +error+ raised during the connection handshake means the server can't speak RESP3
+      # (so we should retry the connection as RESP2). Covers Redis < 6 (no HELLO command, surfaced
+      # by redis-client as UnsupportedServer) and any server replying NOPROTO to `HELLO 3`.
+      def resp3_unsupported?(error)
+        return true if error.is_a?(::RedisClient::UnsupportedServer)
+        return true if error.is_a?(::RedisClient::CommandError) && error.message.include?("NOPROTO")
+
+        # Redis::Cluster discovers its topology by connecting to each startup node. When those nodes
+        # don't speak RESP3, redis-cluster-client collects the per-node failures and re-raises them
+        # wrapped in an InitialSetupError, discarding the original error classes (see
+        # RedisClient::Cluster::InitialSetupError.from_errors). Only the concatenated message
+        # survives, so match it to still trigger the RESP2 fallback for pre-6.0 clusters. Guarded by
+        # defined? because the cluster error class is only loaded with the redis-clustering gem.
+        defined?(::RedisClient::Cluster::InitialSetupError) &&
+          error.is_a?(::RedisClient::Cluster::InitialSetupError) &&
+          (error.message.include?("NOPROTO") || error.message.include?("HELLO command"))
       end
 
       private
@@ -62,6 +80,10 @@ class Redis
       config.db
     end
 
+    def protocol
+      config.protocol
+    end
+
     def host
       config.host unless config.path
     end
@@ -87,15 +109,16 @@ class Redis
     undef_method :call_once_v
     undef_method :blocking_call
 
-    def ensure_connected(retryable: true, &block)
-      super(retryable: retryable, &block)
-    rescue ::RedisClient::Error => error
-      Client.translate_error!(error)
-    end
-
+    # We default to RESP3. Servers that can't speak it reject the `HELLO 3` handshake (Redis < 6.0
+    # has no HELLO at all; others answer NOPROTO). Re-raise those errors untranslated so they reach
+    # Redis#with_protocol_fallback as RedisClient::Error and trigger a transparent rebuild as RESP2 —
+    # the same path the sentinel and cluster clients already use. Everything else is translated to
+    # the matching Redis::* error.
     def call_v(command, &block)
       super(command, &block)
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 
@@ -109,18 +132,24 @@ class Redis
 
       super(timeout, command, &block)
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 
     def pipelined(exception: true)
       super
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 
     def multi(watch: nil)
       super
     rescue ::RedisClient::Error => error
+      raise if Client.resp3_unsupported?(error)
+
       Client.translate_error!(error)
     end
 

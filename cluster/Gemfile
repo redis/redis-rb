@@ -7,5 +7,9 @@ gemspec
 gem 'redis', path: File.expand_path("..", __dir__)
 gem 'minitest'
 gem 'rake'
-gem 'rubocop', '~> 1.25.1'
+gem 'rubocop', '~> 1.88.0'
 gem 'mocha'
+
+group :test do
+  gem 'hiredis-client'
+end

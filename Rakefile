@@ -6,7 +6,9 @@ Bundler::GemHelper.install_tasks(dir: "cluster", name: "redis-clustering")
 require 'rake/testtask'
 
 namespace :test do
-  groups = %i(redis distributed sentinel)
+  # `modules` (Redis module commands, e.g. RedisJSON) gets its own task; in CI this runs against
+  # standalone on Redis >= 8, or a Redis Stack service started with the `modules` compose profile on older Redis.
+  groups = %i(redis distributed sentinel modules)
   groups.each do |group|
     Rake::TestTask.new(group) do |t|
       t.libs << "test"
@@ -29,6 +31,6 @@ namespace :test do
   end
 end
 
-task test: ["test:redis", "test:distributed", "test:sentinel", "test:cluster"]
+task test: ["test:redis", "test:distributed", "test:sentinel", "test:modules", "test:cluster"]
 
 task default: :test

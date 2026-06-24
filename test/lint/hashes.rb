@@ -250,5 +250,49 @@ module Lint
         assert_in_range(1..4, r.httl("foo", "f1")[0])
       end
     end
+
+    def test_hpexpire
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [1], r.hpexpire("foo", 500, "f1")
+        assert_in_range(1..500, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hpexpire_options
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+        assert_equal [0], r.hpexpire("foo", 500_000, "f1", xx: true)
+        assert_equal [-1], r.hpttl("foo", "f1")
+
+        assert_equal [1], r.hpexpire("foo", 500_000, "f1", nx: true)
+        assert_in_range(1..500_000, r.hpttl("foo", "f1")[0])
+        assert_equal [0], r.hpexpire("foo", 500_000, "f1", nx: true)
+
+        assert_equal [1], r.hpexpire("foo", 500_000, "f1", xx: true)
+
+        assert_equal [0], r.hpexpire("foo", 5_000_000, "f1", lt: true)
+        assert_equal [1], r.hpexpire("foo", 50_000, "f1", lt: true)
+
+        assert_in_range(1..50_000, r.hpttl("foo", "f1")[0])
+        assert_equal [1], r.hpexpire("foo", 5_000_000, "f1", gt: true)
+        assert_in_range(50_000..5_000_000, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hpttl
+      target_version "7.4.0" do
+        assert [-2], r.hpttl("foo", "f1")
+
+        r.hset("foo", "f1", "v2")
+
+        assert [-1], r.hpttl("foo", "f1")
+
+        r.hpexpire("foo", 400, "f1")
+
+        assert_in_range(1..400, r.hpttl("foo", "f1")[0])
+      end
+    end
   end
 end

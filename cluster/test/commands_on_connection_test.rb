@@ -23,7 +23,7 @@ class TestClusterCommandsOnConnection < Minitest::Test
   end
 
   def test_select
-    assert_raises(Redis::CommandError, 'ERR SELECT is not allowed in cluster mode') do
+    assert_raises(Redis::Cluster::CommandErrorCollection, 'ERR SELECT is not allowed in cluster mode') do
       redis.select(1)
     end
   end

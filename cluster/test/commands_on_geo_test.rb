@@ -22,22 +22,30 @@ class TestClusterCommandsOnGeo < Minitest::Test
     assert_equal %w[sqc8b49rny0 sqdtr74hyu0], redis.geohash('Sicily', %w[Palermo Catania])
   end
 
+  # GEOPOS/GEORADIUS WITHCOORD return coordinates as bulk strings under RESP2 but as doubles under
+  # RESP3. These helpers adapt the expected coordinate pair to the active protocol.
+  def palermo_coord
+    strings = if version >= "8.0"
+      %w[13.361389338970184 38.1155563954963]
+    else
+      %w[13.36138933897018433 38.11555639549629859]
+    end
+    PROTOCOL == 3 ? strings.map(&:to_f) : strings
+  end
+
+  def catania_coord
+    strings = if version >= "8.0"
+      %w[15.087267458438873 37.50266842333162]
+    else
+      %w[15.08726745843887329 37.50266842333162032]
+    end
+    PROTOCOL == 3 ? strings.map(&:to_f) : strings
+  end
+
   def test_geopos
     add_sicily
 
-    expected = if version >= "8.0"
-      [
-        %w[13.361389338970184 38.1155563954963],
-        %w[15.087267458438873 37.50266842333162],
-        nil,
-      ]
-    else
-      [
-        %w[13.36138933897018433 38.11555639549629859],
-        %w[15.08726745843887329 37.50266842333162032],
-        nil,
-      ]
-    end
+    expected = [palermo_coord, catania_coord, nil]
     assert_equal expected, redis.geopos('Sicily', %w[Palermo Catania NonExisting])
   end
 
@@ -54,30 +62,10 @@ class TestClusterCommandsOnGeo < Minitest::Test
     expected = [%w[Palermo 190.4424], %w[Catania 56.4413]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST')
 
-    expected = if version >= "8.0"
-      [
-        ['Palermo', %w[13.361389338970184 38.1155563954963]],
-        ['Catania', %w[15.087267458438873 37.50266842333162]],
-      ]
-    else
-      [
-        ['Palermo', %w[13.36138933897018433 38.11555639549629859]],
-        ['Catania', %w[15.08726745843887329 37.50266842333162032]],
-      ]
-    end
+    expected = [['Palermo', palermo_coord], ['Catania', catania_coord]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHCOORD')
 
-    expected = if version >= "8.0"
-      [
-        ['Palermo', '190.4424', %w[13.361389338970184 38.1155563954963]],
-        ['Catania', '56.4413', %w[15.087267458438873 37.50266842333162]],
-      ]
-    else
-      [
-        ['Palermo', '190.4424', %w[13.36138933897018433 38.11555639549629859]],
-        ['Catania', '56.4413', %w[15.08726745843887329 37.50266842333162032]],
-      ]
-    end
+    expected = [['Palermo', '190.4424', palermo_coord], ['Catania', '56.4413', catania_coord]]
     assert_equal expected, redis.georadius('Sicily', 15, 37, 200, 'km', 'WITHDIST', 'WITHCOORD')
   end
 
@@ -85,5 +73,47 @@ class TestClusterCommandsOnGeo < Minitest::Test
     redis.geoadd('Sicily', 13.583333, 37.316667, 'Agrigento')
     add_sicily
     assert_equal %w[Agrigento Palermo], redis.georadiusbymember('Sicily', 'Agrigento', 100, 'km')
+  end
+
+  def test_geosearch
+    target_version "6.2" do
+      add_sicily
+
+      assert_equal %w[Catania Palermo],
+                   redis.geosearch('Sicily', fromlonlat: [15, 37], byradius: [200, 'km'], sort: 'asc')
+
+      assert_equal %w[Catania Palermo],
+                   redis.geosearch('Sicily', frommember: 'Catania', byradius: [200, 'km'], sort: 'asc')
+
+      assert_equal %w[Catania Palermo],
+                   redis.geosearch('Sicily', fromlonlat: [15, 37], bybox: [400, 400, 'km'], sort: 'asc')
+
+      assert_equal %w[Catania],
+                   redis.geosearch('Sicily', fromlonlat: [15, 37], byradius: [200, 'km'], sort: 'asc', count: 1)
+
+      result = redis.geosearch('Sicily', fromlonlat: [15, 37], byradius: [200, 'km'], sort: 'asc',
+                                         withcoord: true, withdist: true, withhash: true)
+      assert_equal 2, result.size
+      assert_equal 'Catania', result[0][0]
+      assert_equal '56.4413', result[0][1]
+      assert_kind_of Integer, result[0][2]
+      assert_equal 2, result[0][3].size
+    end
+  end
+
+  def test_geosearchstore
+    target_version "6.2" do
+      redis.geoadd('{tag}.src', 13.361389, 38.115556, 'Palermo', 15.087269, 37.502669, 'Catania')
+
+      stored = redis.geosearchstore('{tag}.dest', '{tag}.src', fromlonlat: [15, 37], byradius: [200, 'km'])
+      assert_equal 2, stored
+      assert_equal %w[Catania Palermo].sort, redis.zrange('{tag}.dest', 0, -1).sort
+
+      stored = redis.geosearchstore('{tag}.dist', '{tag}.src', fromlonlat: [15, 37], byradius: [200, 'km'],
+                                                               storedist: true)
+      assert_equal 2, stored
+      # STOREDIST stores distance as score, so nearest comes first.
+      assert_equal %w[Catania Palermo], redis.zrange('{tag}.dist', 0, -1)
+    end
   end
 end

@@ -16,18 +16,18 @@ class Redis
       )
 
       class << self
-        def config(**kwargs)
-          super(protocol: 2, **kwargs)
+        def config(protocol: 3, **kwargs)
+          super(protocol: protocol, **kwargs)
         end
 
-        def sentinel(**kwargs)
-          super(protocol: 2, **kwargs)
+        def sentinel(protocol: 3, **kwargs)
+          super(protocol: protocol, **kwargs)
         end
 
         def translate_error!(error, mapping: ERROR_MAPPING)
           case error
           when RedisClient::Cluster::ErrorCollection
-            error.errors.each do |_node, node_error|
+            error.errors.each_value do |node_error|
               if node_error.is_a?(RedisClient::AuthenticationError)
                 raise mapping.fetch(node_error.class), node_error.message, node_error.backtrace
               end
@@ -132,6 +132,10 @@ class Redis
       def handle_errors
         yield
       rescue ::RedisClient::Error => error
+        # Let RESP3-unsupported errors (e.g. a node without HELLO) propagate untranslated so
+        # Redis#send_command can transparently fall back to RESP2.
+        raise if Redis::Client.resp3_unsupported?(error)
+
         Redis::Cluster::Client.translate_error!(error)
       end
     end

@@ -71,6 +71,35 @@ redis.get("mykey")
 All commands, their arguments, and return values are documented and
 available on [RubyDoc.info][rubydoc].
 
+## Language and server support
+
+redis-rb targets actively supported runtimes on both the language and the server side:
+
+- **Ruby:** the versions still under official maintenance (normal or security); a version is
+  dropped once it reaches end-of-life. See the [Ruby maintenance branches][ruby-branches] page for
+  each version's status and dates. The current minimum is **Ruby 3.3**.
+- **Redis server:** the versions designated for support by Redis. See 
+[Supported Redis database versions][redis-versions].
+
+## Protocol (RESP3)
+
+Starting in 6.0, the client negotiates the [RESP3 protocol][resp3] (`HELLO 3`)
+by default. Command return values are unchanged from 5.x, with one exception:
+`GEOPOS` and `GEOSEARCH`/`GEORADIUS` with `WITHCOORD` now return coordinates as
+`Float` instead of `String`.
+
+To keep the previous RESP2 behavior, pass `protocol: 2`:
+
+```ruby
+redis = Redis.new(protocol: 2)
+```
+
+Servers without RESP3 support (Redis < 6.0, or anything replying `NOPROTO`) are
+detected on connect and the client transparently falls back to RESP2, so no
+configuration is needed for older servers.
+
+See [the RESP3 migration guide](specs/migration-resp3.md) for full details.
+
 ## Connection Pooling and Thread safety
 
 The client does not provide connection pooling. Each `Redis` instance
@@ -421,11 +450,6 @@ the client object, specify hiredis:
 redis = Redis.new(driver: :hiredis)
 ```
 
-## Testing
-
-This library is tested against recent Ruby and Redis versions.
-Check [Github Actions][gh-actions-link] for the exact versions supported.
-
 ## See Also
 
 - [async-redis](https://github.com/socketry/async-redis) — An [async](https://github.com/socketry/async) compatible Redis client.
@@ -451,3 +475,6 @@ requests.
 [gh-actions-image]:  https://github.com/redis/redis-rb/workflows/Test/badge.svg
 [gh-actions-link]:   https://github.com/redis/redis-rb/actions
 [rubydoc]:           https://rubydoc.info/gems/redis
+[resp3]:             https://github.com/redis/redis-specifications/blob/master/protocol/RESP3.md
+[ruby-branches]:     https://www.ruby-lang.org/en/downloads/branches/
+[redis-versions]:    https://redis.io/docs/latest/operate/rc/databases/version-management/#supported-database-versions

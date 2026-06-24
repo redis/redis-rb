@@ -1,5 +1,16 @@
 # Unreleased
 
+- **Breaking**: the client now negotiates RESP3 (`HELLO 3`) by default; pass `protocol: 2` to keep
+  RESP2. The only command whose return value changes is GEO — `GEOPOS` and `GEOSEARCH`/`GEORADIUS`
+  with `WITHCOORD` now return coordinates as `Float` instead of `String`. Servers without RESP3
+  (Redis < 6.0, or anything replying `NOPROTO`) transparently fall back to RESP2. See
+  [specs/migration-resp3.md](specs/migration-resp3.md).
+- **Breaking**: now requires Ruby 3.3 or newer. redis-rb tracks the Ruby versions still under
+  official maintenance and drops them at end-of-life; see
+  https://www.ruby-lang.org/en/downloads/branches/.
+- Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
+- Pin `redis-client` to `~> 0.30.0` (patch-only). redis-rb couples tightly to redis-client internals and redis-client is pre-1.0 (minors may break), so this lets bug/security patches flow automatically while gating minor/major upgrades behind a deliberate release. Includes the reply-desynchronization fix (e.g. `mget` returning `"OK"` after a Sentinel failover/reconnect) that landed in 0.26.4.
+
 # 5.4.1
 
 - Properly handle NOSCRIPT errors.

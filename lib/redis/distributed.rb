@@ -340,6 +340,124 @@ class Redis
       node_for(key).getex(key, **options)
     end
 
+    # Set the JSON value at a path in the document stored under a key.
+    def json_set(key, path, value, **options)
+      node_for(key).json_set(key, path, value, **options)
+    end
+
+    # Get the JSON value(s) at one or more paths in the document stored under a key.
+    def json_get(key, *paths, **options)
+      node_for(key).json_get(key, *paths, **options)
+    end
+
+    # Set one or more JSON values. The keys may live on different nodes and the operation must be
+    # atomic, so it cannot be distributed.
+    def json_mset(*)
+      raise CannotDistribute, :json_mset
+    end
+
+    # Get the values at a path from several keys. Keys are grouped by node, queried per node, and
+    # reassembled in the original key order.
+    def json_mget(*keys, path, **options)
+      keys.flatten!(1)
+      values = keys.group_by { |key| node_for(key) }.each_with_object({}) do |(node, subkeys), acc|
+        node.json_mget(*subkeys, path, **options).each_with_index do |value, i|
+          acc[subkeys[i]] = value
+        end
+      end
+      keys.map { |key| values[key] }
+    end
+
+    # Delete the JSON value(s) at a path in the document stored under a key.
+    def json_del(key, path = nil)
+      node_for(key).json_del(key, path)
+    end
+
+    # Delete the JSON value(s) at a path in the document stored under a key (alias of json_del).
+    def json_forget(key, path = nil)
+      node_for(key).json_forget(key, path)
+    end
+
+    # Clear the container and numeric JSON value(s) at a path in the document stored under a key.
+    def json_clear(key, path = nil)
+      node_for(key).json_clear(key, path)
+    end
+
+    # Merge a JSON value into the document stored under a key at a path.
+    def json_merge(key, path, value, **options)
+      node_for(key).json_merge(key, path, value, **options)
+    end
+
+    # Append one or more values to the JSON array at a path in the document stored under a key.
+    def json_arrappend(key, path, *values, **options)
+      node_for(key).json_arrappend(key, path, *values, **options)
+    end
+
+    # Return the index of the first occurrence of a scalar in the JSON array at a path.
+    def json_arrindex(key, path, value, **options)
+      node_for(key).json_arrindex(key, path, value, **options)
+    end
+
+    # Insert one or more values into the JSON array at a path in the document stored under a key.
+    def json_arrinsert(key, path, index, *values, **options)
+      node_for(key).json_arrinsert(key, path, index, *values, **options)
+    end
+
+    # Return the length of the JSON array at a path in the document stored under a key.
+    def json_arrlen(key, path = nil)
+      node_for(key).json_arrlen(key, path)
+    end
+
+    # Remove and return an element from the JSON array at a path in the document stored under a key.
+    def json_arrpop(key, path = nil, index = nil, **options)
+      node_for(key).json_arrpop(key, path, index, **options)
+    end
+
+    # Trim the JSON array at a path in the document stored under a key to an inclusive range.
+    def json_arrtrim(key, path, start, stop)
+      node_for(key).json_arrtrim(key, path, start, stop)
+    end
+
+    # Increment the numeric JSON value(s) at a path in the document stored under a key.
+    def json_numincrby(key, path, number)
+      node_for(key).json_numincrby(key, path, number)
+    end
+
+    # Return the type name(s) of the JSON value(s) at a path in the document stored under a key.
+    def json_type(key, path = nil)
+      node_for(key).json_type(key, path)
+    end
+
+    # Return the key names of the JSON object(s) at a path in the document stored under a key.
+    def json_objkeys(key, path = nil)
+      node_for(key).json_objkeys(key, path)
+    end
+
+    # Return the number of keys in the JSON object(s) at a path in the document stored under a key.
+    def json_objlen(key, path = nil)
+      node_for(key).json_objlen(key, path)
+    end
+
+    # Return the length of the JSON string(s) at a path in the document stored under a key.
+    def json_strlen(key, path = nil)
+      node_for(key).json_strlen(key, path)
+    end
+
+    # Append a string to the JSON string(s) at a path in the document stored under a key.
+    def json_strappend(key, path, value, **options)
+      node_for(key).json_strappend(key, path, value, **options)
+    end
+
+    # Toggle the boolean JSON value(s) at a path in the document stored under a key.
+    def json_toggle(key, path)
+      node_for(key).json_toggle(key, path)
+    end
+
+    # Report the size in bytes of the JSON value(s) at a path in the document stored under a key.
+    def json_debug_memory(key, path = nil)
+      node_for(key).json_debug_memory(key, path)
+    end
+
     # Get the values of all the given keys as an Array.
     def mget(*keys)
       keys.flatten!(1)
@@ -939,6 +1057,59 @@ class Redis
     # Get the length of the value stored in a hash field
     def hstrlen(key, field)
       node_for(key).hstrlen(key, field)
+    end
+
+    def hpexpire(key, ttl, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).hpexpire(key, ttl, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    def hpttl(key, *fields)
+      node_for(key).hpttl(key, *fields)
+    end
+
+    # Add one or more geospatial items to a sorted set.
+    def geoadd(key, *member, **options)
+      node_for(key).geoadd(key, *member, **options)
+    end
+
+    # Get geohash strings representing the position of one or more members.
+    def geohash(key, member)
+      node_for(key).geohash(key, member)
+    end
+
+    # Get longitude and latitude of one or more members of a geospatial index.
+    def geopos(key, member)
+      node_for(key).geopos(key, member)
+    end
+
+    # Get the distance between two members of a geospatial index.
+    def geodist(key, member1, member2, unit = 'm')
+      node_for(key).geodist(key, member1, member2, unit)
+    end
+
+    # Query a geospatial index for members within a given radius from a point.
+    def georadius(*args, **geoptions)
+      key = args.first
+      node_for(key).georadius(*args, **geoptions)
+    end
+
+    # Query a geospatial index for members within a given radius from an existing member.
+    def georadiusbymember(*args, **geoptions)
+      key = args.first
+      node_for(key).georadiusbymember(*args, **geoptions)
+    end
+
+    # Search a geospatial index for members within a given shape from a center point.
+    def geosearch(key, **options)
+      node_for(key).geosearch(key, **options)
+    end
+
+    # Like #geosearch, but stores the result in a destination key.
+    # Destination and source must hash to the same node; use a key tag to ensure that.
+    def geosearchstore(destination, source, **options)
+      ensure_same_node(:geosearchstore, [destination, source]) do |node|
+        node.geosearchstore(destination, source, **options)
+      end
     end
 
     # Post a message to a channel.

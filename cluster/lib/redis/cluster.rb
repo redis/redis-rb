@@ -65,7 +65,7 @@ class Redis
     # @option options [Class] :connector Class of custom connector
     #
     # @return [Redis::Cluster] a new client instance
-    def initialize(*) # rubocop:disable Lint/UselessMethodDefinition
+    def initialize(*)
       super
     end
     ruby2_keywords :initialize if respond_to?(:ruby2_keywords, true)
@@ -128,7 +128,8 @@ class Redis
     private
 
     def initialize_client(options)
-      cluster_config = RedisClient.cluster(**options, protocol: 2, client_implementation: ::Redis::Cluster::Client)
+      # protocol defaults to 3 (RESP3) but a caller-provided protocol: in options overrides it.
+      cluster_config = RedisClient.cluster(protocol: 3, **options, client_implementation: ::Redis::Cluster::Client)
       cluster_config.new_client
     end
   end

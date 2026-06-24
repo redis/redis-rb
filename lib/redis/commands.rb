@@ -8,6 +8,7 @@ require "redis/commands/hashes"
 require "redis/commands/hyper_log_log"
 require "redis/commands/keys"
 require "redis/commands/lists"
+require "redis/commands/modules/json"
 require "redis/commands/pubsub"
 require "redis/commands/scripting"
 require "redis/commands/search"
@@ -28,6 +29,7 @@ class Redis
     include HyperLogLog
     include Keys
     include Lists
+    include Json
     include Pubsub
     include Scripting
     include Search
@@ -57,7 +59,9 @@ class Redis
     }
 
     Hashify = lambda { |value|
-      if value.respond_to?(:each_slice)
+      if value.is_a?(Hash) # RESP3 already returns a map
+        value
+      elsif value.respond_to?(:each_slice) # RESP2 flat [k, v, k, v, ...]
         value.each_slice(2).to_h
       else
         value
@@ -65,10 +69,12 @@ class Redis
     }
 
     Pairify = lambda { |value|
-      if value.respond_to?(:each_slice)
-        value.each_slice(2).to_a
-      else
+      return value unless value.respond_to?(:each_slice)
+
+      if value.first.is_a?(Array) # RESP3 already returns [[k, v], ...]
         value
+      else # RESP2 flat [k, v, k, v, ...]
+        value.each_slice(2).to_a
       end
     }
 
@@ -92,7 +98,14 @@ class Redis
     FloatifyPairs = lambda { |value|
       return value unless value.respond_to?(:each_slice)
 
-      value.each_slice(2).map(&FloatifyPair)
+      if value.first.is_a?(Array) # RESP3 already returns [[member, score], ...]
+        # Scores arrive as native doubles, so the pairs are already in the final shape and
+        # re-mapping would only re-allocate identical arrays. Floatify only transforms Strings, so
+        # unless a score came back as one (it shouldn't under RESP3) return the parser's array as-is.
+        value.first.last.is_a?(String) ? value.map(&FloatifyPair) : value
+      else # RESP2 flat [member, score, member, score, ...]
+        value.each_slice(2).map(&FloatifyPair)
+      end
     }
 
     HashifyInfo = lambda { |reply|
@@ -219,14 +232,19 @@ class Redis
         when "get-master-addr-by-name"
           reply
         else
-          if reply.is_a?(Array)
-            if reply[0].is_a?(Array)
-              reply.map(&Hashify)
+          case reply
+          when Array
+            if reply.empty?
+              reply # empty list (e.g. sentinels/slaves with no entries) stays []; don't Hashify to {}
             else
-              Hashify.call(reply)
+              case reply[0]
+              when Array then reply.map(&Hashify) # RESP2: list of flat [k, v, ...] arrays
+              when Hash then reply                 # RESP3: list of maps (already hashes)
+              else Hashify.call(reply)             # RESP2: a single flat [k, v, ...] array
+              end
             end
           else
-            reply
+            reply # RESP3 single map, or a scalar reply
           end
         end
       end

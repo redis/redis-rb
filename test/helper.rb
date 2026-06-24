@@ -8,6 +8,7 @@ require "mocha/minitest"
 $VERBOSE = true
 
 ENV["DRIVER"] ||= "ruby"
+ENV["PROTOCOL"] ||= "3"
 
 require "redis"
 Redis.silence_deprecations = true
@@ -20,17 +21,22 @@ if ENV["DRIVER"] == "hiredis"
   require "hiredis-client"
 end
 
-PORT        = 6381
-DB          = 15
-TIMEOUT     = Float(ENV['TIMEOUT'] || 1.0)
-LOW_TIMEOUT = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
-OPTIONS     = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
+PORT         = 6381
+# Port the module test suite connects to. On Redis >= 8 the modules are in core, so this is
+# the standalone instance (6381); on 7.2/7.4 CI points it at the dedicated Redis Stack
+# instance (6383) via REDIS_MODULES_PORT.
+MODULES_PORT = Integer(ENV['REDIS_MODULES_PORT'] || PORT)
+DB           = 15
+TIMEOUT      = Float(ENV['TIMEOUT'] || 1.0)
+LOW_TIMEOUT  = Float(ENV['LOW_TIMEOUT'] || 0.01) # for blocking-command tests
+PROTOCOL     = Integer(ENV['PROTOCOL']) # RESP protocol the test client uses (3 by default, 2 for compat runs)
+OPTIONS      = { port: PORT, db: DB, timeout: TIMEOUT }.freeze
 
 if ENV['REDIS_SOCKET_PATH'].nil?
   sock_file = File.expand_path('../tmp/redis.sock', __dir__)
 
   unless File.exist?(sock_file)
-    abort "Couldn't locate the redis unix socket, did you run `make start`?"
+    abort "Couldn't locate the redis unix socket at #{sock_file}, did you run `make start` (or `docker compose --profile standalone up -d --wait`)?"
   end
 
   ENV['REDIS_SOCKET_PATH'] = sock_file
@@ -62,7 +68,7 @@ module Helper
   class Version
     include Comparable
 
-    attr :parts
+    attr_reader :parts
 
     def initialize(version)
       @parts = case version
@@ -167,6 +173,24 @@ module Helper
       skip("Requires Redis > #{min_ver}") if version < min_ver
     end
 
+    # Assert the named Redis module is loaded (e.g. "ReJSON" for RedisJSON), raising if it is
+    # not. The module test suite always runs against a server that is expected to have the
+    # module — the standalone instance on Redis >= 8 (modules in core) or the dedicated Redis
+    # Stack instance on 7.2/7.4 — so a missing module is an infrastructure error we want to
+    # surface loudly rather than silently skip. Redis::Distributed doesn't expose #call, so
+    # probe one node.
+    def require_module(name)
+      client = redis.respond_to?(:call) ? redis : redis.nodes.first
+      # MODULE LIST returns each module as a flat [k, v, ...] array under RESP2 and as a native
+      # Hash under RESP3.
+      loaded = client.call("MODULE", "LIST").map { |mod| (mod.is_a?(Hash) ? mod : Hash[*mod])["name"] }
+      return if loaded.include?(name)
+
+      raise "Redis module #{name.inspect} is not loaded but the module test suite requires it. " \
+            "Bring up a module-capable server (Redis >= 8, or `make start_modules` for a Redis " \
+            "Stack instance). Modules loaded: #{loaded.inspect}."
+    end
+
     def version
       Version.new(redis.info['redis_version'])
     end
@@ -174,7 +198,7 @@ module Helper
     def with_acl
       admin = _new_client
       admin.acl('SETUSER', 'johndoe', 'on',
-                '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes', '+readonly',
+                '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes', '+cluster|shards', '+readonly',
                 '>mysecret')
       yield('johndoe', 'mysecret')
     ensure
@@ -202,7 +226,23 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"]))
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
+    end
+  end
+
+  # Client for the module test suite. Connects to MODULES_PORT: the core `standalone` instance
+  # on Redis >= 8 (modules in core), or the dedicated Redis Stack instance on 7.2/7.4.
+  module Modules
+    include Generic
+
+    private
+
+    def _format_options(options)
+      OPTIONS.merge(port: MODULES_PORT).merge(options)
+    end
+
+    def _new_client(options = {})
+      Redis.new(_format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
   end
 
@@ -218,7 +258,7 @@ module Helper
 
     def build_sentinel_client(options = {})
       opts = { host: LOCALHOST, port: SENTINEL_PORT, timeout: TIMEOUT }
-      Redis.new(opts.merge(options))
+      Redis.new(opts.merge(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
 
     def build_slave_role_client(options = {})
@@ -250,7 +290,7 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis.new(_format_options(options).merge(driver: ENV['DRIVER']))
+      Redis.new(_format_options(options).merge(driver: ENV['DRIVER'], protocol: PROTOCOL))
     end
   end
 
@@ -272,7 +312,23 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["conn"]))
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
+    end
+  end
+
+  # Like Helper::Distributed, but the single ring node is the module-capable server
+  # (MODULES_PORT): the standalone instance on Redis >= 8, or the dedicated Redis Stack
+  # instance on 7.2/7.4. Used by the distributed JSON test so it routes to a node that
+  # actually has the module loaded — the plain `standalone` is core-only on Redis < 8.
+  module DistributedModules
+    include Distributed
+
+    NODES = ["redis://127.0.0.1:#{MODULES_PORT}/#{DB}"].freeze
+
+    private
+
+    def _new_client(options = {})
+      Redis::Distributed.new(NODES, _format_options(options).merge(driver: ENV["DRIVER"], protocol: PROTOCOL))
     end
   end
 end

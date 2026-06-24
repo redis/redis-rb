@@ -58,6 +58,19 @@ class SentinelCommandsTest < Minitest::Test
     assert_equal result, [LOCALHOST, MASTER_PORT]
   end
 
+  def test_sentinel_command_list_subcommand_returns_empty_array_when_no_entries
+    # A list-returning subcommand (sentinels/slaves/masters) with no entries replies with an empty
+    # array under both protocols. The reshape must keep it an Array, not Hashify [] into {}. The
+    # live topology always has peers/slaves, so drive an empty reply through a mock.
+    commands = { sentinel: ->(*_) { [] } }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port)
+      assert_equal [], redis.sentinel('sentinels', MASTER_NAME)
+    ensure
+      redis&.close
+    end
+  end
+
   def test_sentinel_command_ckquorum
     wait_for_quorum
 

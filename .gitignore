@@ -20,4 +20,6 @@ appendonly.aof
 appendonlydir
 temp-rewriteaof-*.aof
 .history
+.bundle/
+dockers/
 

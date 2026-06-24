@@ -3,7 +3,7 @@
 module Lint
   module Streams
     MIN_REDIS_VERSION = '4.9.0'
-    ENTRY_ID_FORMAT = /\d+-\d+/.freeze
+    ENTRY_ID_FORMAT = /\d+-\d+/
 
     def setup
       super
@@ -97,6 +97,29 @@ module Lint
 
     def test_xadd_with_both_maxlen_and_minid
       assert_raises(ArgumentError) { redis.xadd('s1', { f1: 'v1', f2: 'v2' }, maxlen: 2, minid: '0-1', approximate: true) }
+    end
+
+    def test_xadd_with_limit_option
+      omit_version('6.2.0')
+
+      begin
+        original = redis.config(:get, 'stream-node-max-entries')['stream-node-max-entries']
+        redis.config(:set, 'stream-node-max-entries', 1)
+
+        redis.xadd('s1', { f: 'v1' }, id: '1-1')
+        redis.xadd('s1', { f: 'v2' }, id: '2-1')
+        redis.xadd('s1', { f: 'v3' }, id: '3-1')
+
+        actual = redis.xadd('s1', { f: 'v4' }, maxlen: 1, approximate: true, limit: 2)
+        assert_match ENTRY_ID_FORMAT, actual
+
+        error = assert_raises(Redis::CommandError) do
+          redis.xadd('s1', { f: 'v5' }, maxlen: 1, limit: 2)
+        end
+        assert_includes error.message, "ERR syntax error, LIMIT cannot be used without the special ~ option"
+      ensure
+        redis.config(:set, 'stream-node-max-entries', original)
+      end
     end
 
     def test_xadd_with_nomkstream_option
@@ -286,6 +309,18 @@ module Lint
       assert_equal %w(0-1 0-2), actual.map(&:first)
     end
 
+    def test_xrange_with_exclusive_range_options
+      target_version "6.2" do
+        redis.xadd('s1', { f: 'v' }, id: '0-1')
+        redis.xadd('s1', { f: 'v' }, id: '0-2')
+        redis.xadd('s1', { f: 'v' }, id: '0-3')
+
+        actual = redis.xrange('s1', '(0-1', '(0-3')
+
+        assert_equal %w(0-2), actual.map(&:first)
+      end
+    end
+
     def test_xrange_with_not_existed_stream_key
       assert_equal([], redis.xrange('not-existed'))
     end
@@ -360,6 +395,18 @@ module Lint
 
       assert_equal 2, actual.size
       assert_equal '0-3', actual.first.first
+    end
+
+    def test_xrevrange_with_exclusive_range_options
+      target_version "6.2" do
+        redis.xadd('s1', { f: 'v' }, id: '0-1')
+        redis.xadd('s1', { f: 'v' }, id: '0-2')
+        redis.xadd('s1', { f: 'v' }, id: '0-3')
+
+        actual = redis.xrevrange('s1', '(0-3', '(0-1')
+
+        assert_equal %w(0-2), actual.map(&:first)
+      end
     end
 
     def test_xrevrange_with_not_existed_stream_key
@@ -840,6 +887,23 @@ module Lint
       assert_equal 'c2', actual[2]['consumer']
       assert_equal true, actual[2]['elapsed'] >= 0
       assert_equal 1, actual[2]['count']
+    end
+
+    def test_xpending_with_exclusive_range_options
+      target_version "6.2" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '$')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xadd('s1', { f: 'v3' }, id: '0-3')
+        redis.xadd('s1', { f: 'v4' }, id: '0-4')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        actual = redis.xpending('s1', 'g1', '(0-2', '(0-4', 10)
+
+        assert_equal 1, actual.size
+        assert_equal '0-3', actual[0]['entry_id']
+        assert_equal 'c1', actual[0]['consumer']
+      end
     end
 
     def test_xpending_with_range_and_idle_options

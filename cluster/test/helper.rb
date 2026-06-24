@@ -11,7 +11,7 @@ module Helper
     include Generic
 
     DEFAULT_HOST = '127.0.0.1'
-    DEFAULT_PORTS = (16_380..16_385).freeze
+    DEFAULT_PORTS = (16_380..16_385)
 
     ClusterSlotsRawReply = lambda { |host, port|
       # @see https://redis.io/topics/protocol
@@ -41,6 +41,48 @@ module Helper
       "$#{line.size}\r\n#{line}\r\n"
     }
 
+    ClusterShardsRawReply = lambda { |host, port|
+      <<-REPLY.delete(' ')
+        *1\r
+        *4\r
+        $5\r
+        slots\r
+        *2\r
+        :0\r
+        :16383\r
+        $5\r
+        nodes\r
+        *1\r
+        *14\r
+        $2\r
+        id\r
+        $40\r
+        51a0020c166dab7f3f259b6cc46ce4ed4437fa1d\r
+        $4\r
+        port\r
+        :#{port}\r
+        $2\r
+        ip\r
+        $#{host.size}\r
+        #{host}\r
+        $8\r
+        endpoint\r
+        $#{host.size}\r
+        #{host}\r
+        $4\r
+        role\r
+        $6\r
+        master\r
+        $18\r
+        replication-offset\r
+        :967228\r
+        $6\r
+        health\r
+        $6\r
+        online\r
+      REPLY
+    }
+
     def init(redis)
       redis.flushall
       redis
@@ -64,7 +106,25 @@ module Helper
     end
 
     def build_another_client(options = {})
-      _new_client(options)
+      client = _new_client(options)
+      # Replica-aware bootstrap occasionally fails on a freshly created cluster because
+      # replica nodes can briefly serve an incoherent CLUSTER SHARDS view. Pre-warm the
+      # client so the test's first real command doesn't hit a transient InitialSetupError.
+      warmup_cluster_client(client) if options[:replica]
+      client
+    end
+
+    def warmup_cluster_client(client, max_attempts: 30, backoff: 0.1)
+      attempts = 0
+      begin
+        client.ping
+      rescue Redis::Cluster::InitialSetupError
+        attempts += 1
+        raise if attempts >= max_attempts
+
+        sleep backoff
+        retry
+      end
     end
 
     def redis_cluster_mock(commands, options = {})
@@ -85,6 +145,7 @@ module Helper
           case subcommand.downcase
           when 'slots' then ClusterSlotsRawReply.call(host, port)
           when 'nodes' then ClusterNodesRawReply.call(host, port)
+          when 'shards' then ClusterShardsRawReply.call(host, port)
           else '+OK'
           end
         end
@@ -155,7 +216,26 @@ module Helper
     end
 
     def _new_client(options = {})
-      Redis::Cluster.new(_format_options(options).merge(driver: ENV['DRIVER']))
+      Redis::Cluster.new(_format_options(options).merge(driver: ENV['DRIVER'], protocol: PROTOCOL))
+    end
+
+    # ACL commands are not propagated across cluster nodes by default, so applying
+    # `ACL SETUSER` through the cluster client only creates the user on a single node.
+    # Apply it on every primary and replica directly so the test client can authenticate
+    # against any bootstrap node.
+    def with_acl
+      admins = DEFAULT_PORTS.map { |port| Redis.new(host: DEFAULT_HOST, port: port) }
+      admins.each do |admin|
+        admin.acl('SETUSER', 'johndoe', 'on',
+                  '+ping', '+select', '+command', '+cluster|slots', '+cluster|nodes', '+cluster|shards',
+                  '+readonly', '>mysecret')
+      end
+      yield('johndoe', 'mysecret')
+    ensure
+      admins&.each do |admin|
+        admin.acl('DELUSER', 'johndoe')
+        admin.close
+      end
     end
   end
 end
