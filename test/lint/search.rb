@@ -674,6 +674,17 @@ module Lint
       assert_includes suggestions, "hello"
     end
 
+    def test_index_spellcheck_accepts_keyword_options
+      index = r.create_index(@index_name, Schema.build { text_field :title })
+      index.add("doc1", title: "hello")
+      wait_for_index(@index_name)
+
+      # Index#spellcheck must forward keyword options (e.g. distance:) to FT.SPELLCHECK.
+      result = index.spellcheck("hell", distance: 2)
+      suggestions = result.fetch("hell", []).map { |s| s["suggestion"] }
+      assert_includes suggestions, "hello"
+    end
+
     def test_ft_synupdate_and_syndump
       schema = Schema.build { text_field :name }
       r.ft_create(@index_name, schema)

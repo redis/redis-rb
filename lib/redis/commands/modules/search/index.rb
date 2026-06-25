@@ -274,10 +274,12 @@ class Redis
         # Perform spelling correction over a query against the index (delegates to +FT.SPELLCHECK+).
         #
         # @param query [String] the query whose terms are checked
-        # @param args [Array] additional spellcheck arguments
+        # @param distance [Integer, nil] maximum Levenshtein distance for suggestions (+DISTANCE+)
+        # @param include [String, nil] a custom dictionary to include terms from (+TERMS INCLUDE+)
+        # @param exclude [String, nil] a custom dictionary to exclude terms from (+TERMS EXCLUDE+)
         # @return [Hash{String=>Array<Hash>}] misspelled terms mapped to suggestions
-        def spellcheck(query, *args)
-          @redis.ft_spellcheck(@name, query, *args)
+        def spellcheck(query, distance: nil, include: nil, exclude: nil)
+          @redis.ft_spellcheck(@name, query, distance: distance, include: include, exclude: exclude)
         end
 
         # Add or update a synonym group on the index (delegates to +FT.SYNUPDATE+).
