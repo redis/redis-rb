@@ -92,6 +92,20 @@ class TestSearchOffline < Minitest::Test
     assert_empty IndexDefinition.new.prefixes
   end
 
+  def test_index_definition_prefix_is_nil_safe
+    # An explicit prefix: nil must not raise and must emit no PREFIX clause.
+    definition = IndexDefinition.new(prefix: nil)
+    assert_empty definition.prefixes
+    refute_includes definition.args, "PREFIX"
+  end
+
+  def test_index_definition_accepts_single_string_prefix
+    # A lone String prefix is wrapped into a one-element list (PREFIX 1 <prefix>), not split.
+    definition = IndexDefinition.new(prefix: "bicycle:")
+    assert_equal ["bicycle:"], definition.prefixes
+    assert_equal ["PREFIX", 1, "bicycle:"], definition.args.first(3)
+  end
+
   def test_index_key_prefix_derivation
     # A single definition prefix is used verbatim; the keyword form appends ":".
     defn = IndexDefinition.new(prefix: ["bicycle:"])
@@ -160,6 +174,20 @@ class TestSearchOffline < Minitest::Test
     assert_equal "JSON", captured[captured.index("ON") + 1]
   end
 
+  def test_ft_hybrid_search_omits_dialect
+    # FT.HYBRID rejects a DIALECT token (server-enforced); it must never be appended.
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+    query = HybridQuery.new(
+      HybridSearchQuery.new("@color:{red}"),
+      HybridVsimQuery.new(vector_field_name: "@v", vector_data: "$vec")
+    )
+
+    client.ft_hybrid_search("idx", query: query, params_substitution: { "vec" => "blob" })
+    refute_includes captured, "DIALECT"
+  end
+
   def test_ft_add_flattens_field_pairs
     # FIELDS must be flattened into the command, not nested as a single array element.
     captured = nil
@@ -198,6 +226,43 @@ class TestSearchOffline < Minitest::Test
     assert_includes captured[0], "PARAMS"
     refute_includes captured[1], "PARAMS"
     refute query.options.key?(:params), "Index#search must not mutate the Query"
+  end
+
+  def test_index_search_empty_return_fields_falls_back_to_query
+    captured = []
+    client = Redis.new
+    client.define_singleton_method(:send_command) do |command, &block|
+      captured << command
+      block ? block.call([0]) : [0]
+    end
+    index = Index.new(client, "idx", Schema.build { text_field :title }, "hash")
+    query = Query.new("x").return("title")
+
+    index.search(query, return_fields: [])         # empty -> use the Query's RETURN
+    index.search(query, return_fields: ["price"])  # explicit -> override
+
+    ret0 = captured[0].index("RETURN")
+    refute_nil ret0, "empty return_fields must not omit the Query's RETURN clause"
+    assert_equal "title", captured[0][ret0 + 2]
+    ret1 = captured[1].index("RETURN")
+    assert_equal "price", captured[1][ret1 + 2]
+  end
+
+  def test_index_search_explicit_false_overrides_query_flag
+    captured = []
+    client = Redis.new
+    client.define_singleton_method(:send_command) do |command, &block|
+      captured << command
+      block ? block.call([0]) : [0]
+    end
+    index = Index.new(client, "idx", Schema.build { text_field :t }, "hash")
+    query = Query.new("hello").no_content # the Query enables NOCONTENT
+
+    index.search(query) # inherits NOCONTENT from the Query
+    index.search(query, nocontent: false) # explicit false turns it off
+
+    assert_includes captured[0], "NOCONTENT"
+    refute_includes captured[1], "NOCONTENT"
   end
 
   def test_ft_search_emits_timeout_infields_and_expander

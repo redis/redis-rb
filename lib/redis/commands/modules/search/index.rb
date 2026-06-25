@@ -150,38 +150,42 @@ class Redis
 
           query_string = query.to_redis_args.first
 
-          sortby = if sort_by
-            [sort_by, asc == false ? "DESC" : "ASC"]
-else
-  query.options[:sortby]
-          end
+          sort_order = asc == false ? "DESC" : "ASC"
+          sortby = sort_by ? [sort_by, sort_order] : query.options[:sortby]
           limit_ids = query.limit_ids_value
           limit_ids = limit_ids.map { |id| "#{@prefix}#{id}" } if limit_ids && @prefix
 
-          # Build a fresh options hash per call: each option is the per-call keyword argument
-          # falling back to whatever the Query was built with. The Query is never mutated, so
-          # reusing one Query across searches never leaks options (e.g. stale PARAMS) between calls.
+          # An empty RETURN list is not a meaningful per-call value (it would just omit RETURN and
+          # return all fields), so treat it as "unset" and fall back to the Query's RETURN list.
+          return_fields = nil if return_fields.is_a?(Array) && return_fields.empty?
+
+          # Build a fresh options hash per call. A per-call keyword argument wins when explicitly
+          # given (including +false+, to turn a flag off); +nil+ falls back to whatever the Query
+          # was built with. The Query is never mutated, so reusing one Query across searches never
+          # leaks options between calls and per-call flags can both enable and disable.
+          pick = ->(call_value, query_value) { call_value.nil? ? query_value : call_value }
+
           options = {
             filter: query.filters,
             geo_filter: query.geo_filters,
             limit_ids: limit_ids,
             limit: query.options[:limit],
             sortby: sortby,
-            dialect: dialect || query.options[:dialect],
-            return: return_fields || query.return_fields,
+            dialect: pick.call(dialect, query.options[:dialect]),
+            return: pick.call(return_fields, query.return_fields),
             decode_fields: query.return_fields_decode,
-            highlight: highlight || query.highlight_options,
-            summarize: summarize || query.summarize_options,
-            verbatim: verbatim || query.verbatim_value,
-            no_stopwords: no_stopwords || query.no_stopwords_value,
-            no_content: nocontent || query.no_content_value,
-            with_scores: with_scores || query.options[:withscores],
-            scorer: scorer || query.options[:scorer],
-            explain_score: explain_score || query.options[:explainscore],
-            language: language || query.language_value,
-            with_payloads: with_payloads || query.with_payloads_value,
-            slop: slop || query.slop_value,
-            in_order: in_order || query.in_order_value,
+            highlight: pick.call(highlight, query.highlight_options),
+            summarize: pick.call(summarize, query.summarize_options),
+            verbatim: pick.call(verbatim, query.verbatim_value),
+            no_stopwords: pick.call(no_stopwords, query.no_stopwords_value),
+            no_content: pick.call(nocontent, query.no_content_value),
+            with_scores: pick.call(with_scores, query.options[:withscores]),
+            scorer: pick.call(scorer, query.options[:scorer]),
+            explain_score: pick.call(explain_score, query.options[:explainscore]),
+            language: pick.call(language, query.language_value),
+            with_payloads: pick.call(with_payloads, query.with_payloads_value),
+            slop: pick.call(slop, query.slop_value),
+            in_order: pick.call(in_order, query.in_order_value),
             timeout: query.timeout_value,
             limit_fields: query.limit_fields_value,
             expander: query.expander_value

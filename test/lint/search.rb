@@ -167,6 +167,33 @@ module Lint
       assert_includes info_field_names(info), "body"
     end
 
+    def test_index_search_empty_return_fields_keeps_query_return
+      schema = Schema.build do
+        text_field :title
+        text_field :body
+      end
+      index = r.create_index(@index_name, schema, prefix: "ret2")
+      index.add("1", title: "hello", body: "world")
+      wait_for_index(@index_name)
+
+      # An empty per-call return_fields must not discard the Query's configured RETURN.
+      query = Query.new("hello").return("title")
+      doc = index.search(query, return_fields: [])[0]
+      assert_equal "hello", doc["title"]
+      assert_nil doc["body"]
+    end
+
+    def test_index_search_per_call_false_disables_query_flag
+      index = r.create_index(@index_name, Schema.build { text_field :title }, prefix: "ovr")
+      index.add("1", title: "hello")
+      wait_for_index(@index_name)
+
+      query = Query.new("hello").no_content # Query enables NOCONTENT (id-only)
+      assert_empty index.search(query)[0].attributes
+      # An explicit nocontent: false must override the flag set on the reused Query.
+      assert_equal "hello", index.search(query, nocontent: false)[0]["title"]
+    end
+
     def test_index_search_does_not_persist_per_call_options
       index = r.create_index(@index_name, Schema.build { text_field :title }, prefix: "reuse")
       index.add("1", title: "hello")

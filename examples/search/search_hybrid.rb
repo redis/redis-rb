@@ -1,4 +1,4 @@
-# !/usr/bin/env ruby
+#!/usr/bin/env ruby
 # frozen_string_literal: true
 
 # Redis Query Engine - Hybrid Search (FT.HYBRID)

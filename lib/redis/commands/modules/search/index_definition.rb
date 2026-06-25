@@ -23,7 +23,8 @@ class Redis
         #   Redis::Commands::Search::IndexDefinition.new(prefix: ["doc:"], index_type: IndexType::JSON).args
         #     # => ["ON", "JSON", "PREFIX", 1, "doc:", "SCORE", 1.0]
         #
-        # @param [Array<String>] prefix key prefixes the index applies to (+PREFIX+)
+        # @param [Array<String>, String, nil] prefix key prefix(es) the index applies to (+PREFIX+);
+        #   a single String is wrapped into a one-element list and nil means "no prefix"
         # @param [String, nil] filter a filter expression (+FILTER+)
         # @param [String, nil] language_field the field holding each document's language (+LANGUAGE_FIELD+)
         # @param [String, nil] language the default document language (+LANGUAGE+)
@@ -37,9 +38,11 @@ class Redis
           score_field: nil, score: 1.0, payload_field: nil, index_type: nil
         )
           @args = []
+          # Array() makes the prefix handling nil-safe (nil -> []) and wraps a lone String prefix
+          # into a one-element list, so PREFIX always emits the correct count.
           @prefixes = Array(prefix)
           append_index_type(index_type)
-          append_prefix(prefix)
+          append_prefix(@prefixes)
           append_filter(filter)
           append_language(language_field, language)
           append_score(score_field, score)

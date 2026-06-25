@@ -283,7 +283,10 @@ Both styles produce the same wire commands and the same reshaped results. The ch
   it when no dialect is given. Override per query with `Query#dialect(n)`,
   `AggregateRequest#dialect(n)` (or `AggregateRequest.new(dialect: n)`), or the `dialect:` option to
   `ft_search` / `ft_aggregate` — e.g. vector and geoshape examples pass `dialect: 2`/`dialect: 3`
-  explicitly.
+  explicitly. **Exception: `FT.HYBRID`** rejects a per-command `DIALECT` token (the server errors
+  with "DIALECT is not supported in FT.HYBRID"), so `ft_hybrid_search` never appends it; the dialect
+  for hybrid queries is governed by the server's `search-default-dialect` config
+  (`ft_config_set("DEFAULT_DIALECT", n)`).
 - **db 0 only.** The Query Engine creates indexes on logical database 0; create indexes there.
 - **Distributed & cluster.** `FT.*` commands are index-scoped, not key-shardable. They are **not**
   available on `Redis::Distributed` (calling them raises `NoMethodError`). `Redis::Cluster` inherits

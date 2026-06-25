@@ -1,6 +1,7 @@
-# rubocop:disable Layout/LineLength
-# !/usr/bin/env ruby
+#!/usr/bin/env ruby
 # frozen_string_literal: true
+
+# rubocop:disable Layout/LineLength
 
 # EXAMPLE: query_ft
 # HIDE_START

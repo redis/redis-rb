@@ -444,6 +444,9 @@ class Redis
         end
         args.concat(["TIMEOUT", timeout]) if timeout
         args.concat(cursor.build_args) if cursor
+        # NOTE: unlike FT.SEARCH/FT.AGGREGATE, FT.HYBRID does NOT accept a DIALECT token (the
+        # server rejects it: "DIALECT is not supported in FT.HYBRID or any of its subqueries").
+        # Its legs use the server's search-default-dialect config, so do not append DEFAULT_DIALECT.
         send_command(args) { |reply| ResultParser.hybrid(reply) }
       end
 
