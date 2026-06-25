@@ -88,6 +88,25 @@ module Lint
       assert_equal 0, index.search("Test").total
     end
 
+    def test_index_add_to_json_index
+      schema = Schema.build do
+        text_field "$.brand", as: "brand"
+        numeric_field "$.price", as: "price"
+      end
+      index = r.create_index(
+        @index_name, schema,
+        definition: IndexDefinition.new(prefix: ["bike:"], index_type: IndexType::JSON)
+      )
+      index.add("1", brand: "Velorim", price: 270)
+      wait_for_index(@index_name)
+
+      # On a JSON index, #add must write a JSON document (not a HASH) so the index picks it up.
+      assert_equal({ "brand" => "Velorim", "price" => 270 }, r.json_get("bike:1"))
+      result = index.search("@brand:Velorim")
+      assert_equal 1, result.total
+      assert_equal "1", result[0].id
+    end
+
     # ---- Schema / index management -----------------------------------------------------------
 
     def test_index_uses_definition_prefix_for_add_and_search

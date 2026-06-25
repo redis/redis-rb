@@ -133,6 +133,41 @@ class TestSearchOffline < Minitest::Test
     assert_nil Index.key_prefix(nil, nil)
   end
 
+  def test_index_resolve_storage_type
+    # A definition (preferred by FT.CREATE over the storage_type keyword) decides the type;
+    # otherwise the storage_type argument does.
+    json_defn = IndexDefinition.new(index_type: IndexType::JSON)
+    hash_defn = IndexDefinition.new(index_type: IndexType::HASH)
+    assert_equal IndexType::JSON, Index.resolve_storage_type("hash", json_defn)
+    assert_equal IndexType::HASH, Index.resolve_storage_type("json", hash_defn)
+    assert_equal IndexType::JSON, Index.resolve_storage_type("json", nil)
+    assert_equal IndexType::HASH, Index.resolve_storage_type("hash", nil)
+  end
+
+  def test_index_add_uses_json_set_for_json_index
+    commands = []
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| commands << command; "OK" }
+    definition = IndexDefinition.new(prefix: ["d:"], index_type: IndexType::JSON)
+    index = Index.create(client, "idx", Schema.build { text_field "$.t", as: "t" }, "hash",
+                         definition: definition)
+
+    index.add("1", t: "hello")
+    assert_equal "JSON.SET", commands.last.first.to_s
+    assert_equal "d:1", commands.last[1]
+  end
+
+  def test_index_add_uses_hset_for_hash_index
+    commands = []
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| commands << command; "OK" }
+    index = Index.create(client, "idx", Schema.build { text_field :t }, "hash", prefix: "d")
+
+    index.add("1", t: "hello")
+    assert_equal "hset", commands.last.first.to_s
+    assert_equal "d:1", commands.last[1]
+  end
+
   def test_index_definition_emits_explicit_zero_score
     # In Ruby 0/0.0 are truthy, so an explicit zero score is emitted; only nil means "unset".
     assert_equal ["SCORE", 0], IndexDefinition.new(score: 0).args

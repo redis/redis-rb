@@ -56,9 +56,10 @@ class Redis
           )
           # The Index stores the *literal* key prefix it prepends to (and strips from) document
           # ids. A definition (which FT.CREATE prefers over the +prefix:+ keyword) carries its
-          # prefixes verbatim, e.g. "bicycle:"; the +prefix:+ keyword form appends the ":".
+          # prefixes verbatim, e.g. "bicycle:"; the +prefix:+ keyword form appends the ":". It also
+          # records the resolved storage type (HASH/JSON) so #add writes documents the right way.
           new(
-            redis, name, schema, storage_type,
+            redis, name, schema, resolve_storage_type(storage_type, options[:definition]),
             prefix: key_prefix(prefix, options[:definition]), stopwords: stopwords
           )
         end
@@ -73,15 +74,29 @@ class Redis
           end
         end
 
-        # Add (or replace) a document by writing its fields to the underlying HASH key
-        # (+"<prefix>:<doc_id>"+ when a prefix is set, otherwise +doc_id+).
+        # The effective storage type, mirroring FT.CREATE: a definition (preferred over the
+        # +storage_type+ keyword) decides it, otherwise the +storage_type+ argument does.
+        def self.resolve_storage_type(storage_type, definition)
+          if definition.is_a?(IndexDefinition)
+            definition.index_type == IndexType::JSON ? IndexType::JSON : IndexType::HASH
+          elsif storage_type.to_s.casecmp?(IndexType::JSON)
+            IndexType::JSON
+          else
+            IndexType::HASH
+          end
+        end
+
+        # Add (or replace) a document under the key +"<prefix><doc_id>"+ (or +doc_id+ when no
+        # prefix is set). The document is written to match the index's storage type: a HASH
+        # (+HSET+) for a HASH index, or a JSON document at the root path (+JSON.SET+) for a JSON
+        # index — so the index actually picks it up either way.
         #
         # @example
         #   index.add("1", title: "hello", price: 10)
         #
         # @param doc_id [String] the logical document id
         # @param fields [Hash{Symbol,String => Object}] the field/value pairs to store
-        # @return [Integer] the number of fields that were newly added (the +HSET+ reply)
+        # @return [Integer, String] the +HSET+ reply (HASH index) or the +JSON.SET+ reply (JSON index)
         # @raise [Redis::CommandError] if a value for a {NumericField} is not Numeric, or the write fails
         def add(doc_id, **fields)
           key = @prefix ? "#{@prefix}#{doc_id}" : doc_id
@@ -95,7 +110,7 @@ class Redis
           end
 
           begin
-            @redis.hset(key, fields)
+            json? ? @redis.json_set(key, "$", fields) : @redis.hset(key, fields)
           rescue Redis::CommandError => error
             raise Redis::CommandError, "Error adding document: #{error.message}"
           end
@@ -316,6 +331,11 @@ class Redis
         end
 
         private
+
+        # Whether this index is built over JSON documents (vs. HASH keys).
+        def json?
+          @storage_type.to_s.casecmp?(IndexType::JSON)
+        end
 
         def create_from_schema(schema)
           @redis.ft_create(@name, schema)

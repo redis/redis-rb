@@ -15,7 +15,8 @@ class Redis
       class IndexDefinition
         # @return [Array] the rendered +FT.CREATE+ definition tokens
         # @return [Array<String>] the literal key prefixes the index applies to
-        attr_reader :args, :prefixes
+        # @return [String, nil] the indexed data structure ({IndexType::HASH}/{IndexType::JSON}), or nil
+        attr_reader :args, :prefixes, :index_type
 
         # Build an index definition and pre-render its +FT.CREATE+ tokens.
         #
@@ -38,6 +39,7 @@ class Redis
           score_field: nil, score: 1.0, payload_field: nil, index_type: nil
         )
           @args = []
+          @index_type = index_type
           # Array() makes the prefix handling nil-safe (nil -> []) and wraps a lone String prefix
           # into a one-element list, so PREFIX always emits the correct count.
           @prefixes = Array(prefix)
