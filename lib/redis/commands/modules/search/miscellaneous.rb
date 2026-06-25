@@ -145,6 +145,9 @@ class Redis
       # @option options [String] :language stemming language (+LANGUAGE+)
       # @option options [Integer] :slop allowed term reordering distance (+SLOP+)
       # @option options [Boolean] :in_order require terms in query order (+INORDER+)
+      # @option options [Integer] :timeout per-query timeout in milliseconds (+TIMEOUT+)
+      # @option options [String] :expander custom query expander (+EXPANDER+)
+      # @option options [Array<String>] :limit_fields restrict full-text matching to these fields (+INFIELDS+)
       # @option options [Array(Integer, Integer)] :limit +[offset, count]+ paging (+LIMIT+)
       # @option options [Array(String, String)] :sortby +[field, "ASC"|"DESC"]+ (+SORTBY+)
       # @option options [String] :sort_by sort field (convenience; pair with +:asc+)
@@ -173,6 +176,12 @@ class Redis
         args << "LANGUAGE" << options[:language] if options[:language]
         args << "SLOP" << options[:slop] if options[:slop]
         args << "INORDER" if options[:in_order]
+        args << "TIMEOUT" << options[:timeout] if options[:timeout]
+        args << "EXPANDER" << options[:expander] if options[:expander]
+        if options[:limit_fields] && !options[:limit_fields].empty?
+          args << "INFIELDS" << options[:limit_fields].size
+          args.concat(options[:limit_fields].map(&:to_s))
+        end
         args << "LIMIT" << options[:limit][0] << options[:limit][1] if options[:limit]
 
         # Handle both :sortby (array format) and :sort_by (convenience format)

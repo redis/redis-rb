@@ -346,6 +346,21 @@ class Redis
           @in_order
         end
 
+        # :nodoc:
+        def timeout_value
+          @timeout
+        end
+
+        # :nodoc:
+        def limit_fields_value
+          @limit_fields
+        end
+
+        # :nodoc:
+        def expander_value
+          @expander
+        end
+
         ## -------------
         ## query builder
         ## -------------

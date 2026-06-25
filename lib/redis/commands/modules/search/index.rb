@@ -188,6 +188,9 @@ class Redis
           options[:with_payloads] = query.with_payloads_value
           options[:slop] = query.slop_value
           options[:in_order] = query.in_order_value
+          options[:timeout] = query.timeout_value
+          options[:limit_fields] = query.limit_fields_value
+          options[:expander] = query.expander_value
 
           if query_params
             options[:params] = query_params

@@ -797,6 +797,21 @@ module Lint
       assert_equal "hello", res[0]["heading"]
     end
 
+    def test_index_search_limit_fields_restricts_matching
+      schema = Schema.build do
+        text_field :title
+        text_field :body
+      end
+      index = r.create_index(@index_name, schema, prefix: "inf")
+      index.add("doc1", title: "alpha", body: "beta")
+      wait_for_index(@index_name)
+
+      # "beta" only lives in body. INFIELDS (limit_fields) must flow through Index#search:
+      # restricting to :title finds nothing; restricting to :body finds the doc.
+      assert_equal 0, index.search(Query.new("beta").limit_fields(:title)).total
+      assert_equal 1, index.search(Query.new("beta").limit_fields(:body)).total
+    end
+
     def test_ft_search_with_params
       schema = Schema.build do
         text_field :name

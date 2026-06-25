@@ -81,6 +81,13 @@ class TestSearchOffline < Minitest::Test
     assert_raises(ArgumentError) { IndexDefinition.new(index_type: "bogus") }
   end
 
+  def test_index_definition_emits_explicit_zero_score
+    # In Ruby 0/0.0 are truthy, so an explicit zero score is emitted; only nil means "unset".
+    assert_equal ["SCORE", 0], IndexDefinition.new(score: 0).args
+    assert_equal ["SCORE", 0.0], IndexDefinition.new(score: 0.0).args
+    assert_empty IndexDefinition.new(score: nil).args
+  end
+
   # ---- Query building ----------------------------------------------------------------------
 
   def test_query_predicate_string
@@ -94,6 +101,45 @@ class TestSearchOffline < Minitest::Test
     query_string = query.to_redis_args.first
     assert_includes query_string, "@category:{greeting}"
     assert_includes query_string, "@title:Hel*"
+  end
+
+  def test_predicate_helpers_use_field_alias
+    # A field created with `as:` must build predicates against the alias, not the raw name/path
+    # (e.g. an aliased JSON path `$.brand AS brand` is queried as @brand, not @$.brand).
+    query = Query.new
+    Redis::Commands::Search::TagField.new("$.category", query, as: "category").eq("electronics")
+    Redis::Commands::Search::TextField.new("$.brand", query, as: "brand").match("velorim")
+    Redis::Commands::Search::NumericField.new("$.price", query, as: "price").between(10, 100)
+
+    query_string = query.to_redis_args.first
+    assert_includes query_string, "@category:{electronics}"
+    assert_includes query_string, "@brand:velorim"
+    assert_includes query_string, "@price:[10 100]"
+    refute_includes query_string, "$."
+  end
+
+  def test_predicate_helpers_fall_back_to_name_without_alias
+    query = Query.new
+    Redis::Commands::Search::NumericField.new("price", query).gt(50)
+    assert_includes query.to_redis_args.first, "@price:[(50 +inf]"
+  end
+
+  def test_ft_search_emits_timeout_infields_and_expander
+    # ft_search must translate these options into FT.SEARCH tokens (previously dropped).
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) do |command, &block|
+      captured = command
+      block ? block.call([0]) : [0]
+    end
+
+    client.ft_search("idx", "hello", timeout: 500, expander: "SBSTEM", limit_fields: %w[title body])
+
+    assert_equal 500, captured[captured.index("TIMEOUT") + 1]
+    assert_equal "SBSTEM", captured[captured.index("EXPANDER") + 1]
+    infields = captured.index("INFIELDS")
+    assert_equal 2, captured[infields + 1]
+    assert_equal %w[title body], captured[(infields + 2)..(infields + 3)]
   end
 
   def test_query_options_emitted

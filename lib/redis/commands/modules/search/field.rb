@@ -78,7 +78,7 @@ class Redis
         # @param [String] value the tag to match
         # @return [Query] the bound query with the predicate added
         def eq(value)
-          query.add_predicate(TagEqualityPredicate.new(@alias || name, value))
+          query.add_predicate(TagEqualityPredicate.new(@alias_name || name, value))
         end
       end
 
@@ -128,7 +128,7 @@ class Redis
         # @param [String] pattern the text pattern to match
         # @return [Query] the bound query with the predicate added
         def match(pattern)
-          query.add_predicate(TextMatchPredicate.new(@alias || name, pattern))
+          query.add_predicate(TextMatchPredicate.new(@alias_name || name, pattern))
         end
       end
 
@@ -147,7 +147,7 @@ class Redis
         # @param [Numeric] value the exclusive lower bound
         # @return [Query] the bound query with the predicate added
         def gt(value)
-          query.add_predicate(RangePredicate.new(@alias || name, "(#{value}", "+inf"))
+          query.add_predicate(RangePredicate.new(@alias_name || name, "(#{value}", "+inf"))
         end
 
         # Add a less-than range predicate to the bound query.
@@ -155,7 +155,7 @@ class Redis
         # @param [Numeric] value the exclusive upper bound
         # @return [Query] the bound query with the predicate added
         def lt(value)
-          query.add_predicate(RangePredicate.new(@alias || name, "-inf", "(#{value}"))
+          query.add_predicate(RangePredicate.new(@alias_name || name, "-inf", "(#{value}"))
         end
 
         # Add an inclusive range predicate to the bound query.
@@ -164,7 +164,7 @@ class Redis
         # @param [Numeric] max the inclusive upper bound
         # @return [Query] the bound query with the predicate added
         def between(min, max)
-          query.add_predicate(RangePredicate.new(@alias || name, min, max))
+          query.add_predicate(RangePredicate.new(@alias_name || name, min, max))
         end
       end
 
