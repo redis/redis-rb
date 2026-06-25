@@ -81,6 +81,21 @@ class TestSearchOffline < Minitest::Test
     assert_raises(ArgumentError) { IndexDefinition.new(index_type: "bogus") }
   end
 
+  def test_index_definition_exposes_prefixes
+    assert_equal ["bicycle:"], IndexDefinition.new(prefix: ["bicycle:"]).prefixes
+    assert_empty IndexDefinition.new.prefixes
+  end
+
+  def test_index_key_prefix_derivation
+    # A single definition prefix is used verbatim; the keyword form appends ":".
+    defn = IndexDefinition.new(prefix: ["bicycle:"])
+    assert_equal "bicycle:", Index.key_prefix(nil, defn)
+    assert_equal "doc:", Index.key_prefix("doc", nil)
+    # Multiple (or zero) definition prefixes can't be managed unambiguously.
+    assert_nil Index.key_prefix(nil, IndexDefinition.new(prefix: %w[a: b:]))
+    assert_nil Index.key_prefix(nil, nil)
+  end
+
   def test_index_definition_emits_explicit_zero_score
     # In Ruby 0/0.0 are truthy, so an explicit zero score is emitted; only nil means "unset".
     assert_equal ["SCORE", 0], IndexDefinition.new(score: 0).args
@@ -122,6 +137,43 @@ class TestSearchOffline < Minitest::Test
     query = Query.new
     Redis::Commands::Search::NumericField.new("price", query).gt(50)
     assert_includes query.to_redis_args.first, "@price:[(50 +inf]"
+  end
+
+  def test_ft_create_upcases_storage_type
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+    schema = Schema.build { text_field :title }
+
+    client.ft_create("idx", schema, "hash", prefix: "x")
+    on = captured.index("ON")
+    assert_equal "HASH", captured[on + 1]
+
+    captured = nil
+    client.ft_create("idx", schema, :json)
+    assert_equal "JSON", captured[captured.index("ON") + 1]
+  end
+
+  def test_ft_add_flattens_field_pairs
+    # FIELDS must be flattened into the command, not nested as a single array element.
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+
+    client.ft_add("idx", "doc1", 1.0, fields: ["title", "hello", "body", "world"])
+    fields = captured.index("FIELDS")
+    assert_equal %w[title hello body world], captured[(fields + 1)..]
+    refute(captured.any?(Array), "FIELDS values must be flattened, not nested")
+  end
+
+  def test_ft_add_accepts_hash_fields
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+
+    client.ft_add("idx", "doc1", 1.0, fields: { "title" => "hello" })
+    fields = captured.index("FIELDS")
+    assert_equal %w[title hello], captured[(fields + 1)..]
   end
 
   def test_ft_search_emits_timeout_infields_and_expander

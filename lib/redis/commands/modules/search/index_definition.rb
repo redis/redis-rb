@@ -13,7 +13,9 @@ class Redis
       # is built over and how documents are scored and filtered. Renders into a
       # token array exposed via {#args}.
       class IndexDefinition
-        attr_reader :args
+        # @return [Array] the rendered +FT.CREATE+ definition tokens
+        # @return [Array<String>] the literal key prefixes the index applies to
+        attr_reader :args, :prefixes
 
         # Build an index definition and pre-render its +FT.CREATE+ tokens.
         #
@@ -35,6 +37,7 @@ class Redis
           score_field: nil, score: 1.0, payload_field: nil, index_type: nil
         )
           @args = []
+          @prefixes = Array(prefix)
           append_index_type(index_type)
           append_prefix(prefix)
           append_filter(filter)

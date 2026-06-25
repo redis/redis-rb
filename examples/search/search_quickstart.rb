@@ -164,25 +164,25 @@ puts "Documents found: #{result1.total}"
 # STEP_START query_single_term
 result2 = index.search('@model:Jigger')
 result2.each { |doc| puts "#{doc.id}: #{doc.attributes}" }
-# Prints: bicycle:0: {"$"=>"{\"brand\":\"Velorim\",\"model\":\"Jigger\",\"price\":270,...}"}
+# Prints: 0: {"$"=>"{\"brand\":\"Velorim\",\"model\":\"Jigger\",\"price\":270,...}"}
 # STEP_END
 
 # STEP_START query_single_term_limit_fields
 result3 = index.search('@model:Jigger', return_fields: ['price'])
 result3.each { |doc| puts "#{doc.id}: price #{doc['price']}" }
-# Prints: bicycle:0: price 270
+# Prints: 0: price 270
 # STEP_END
 
 # STEP_START query_single_term_and_num_range
 result4 = index.search('basic @price:[500 1000]')
 result4.each { |doc| puts "#{doc.id}: #{doc.attributes}" }
-# Prints: bicycle:5: {"$"=>"{\"brand\":\"Breakout\",\"model\":\"XBN 2.1 Alloy\",\"price\":810,...}"}
+# Prints: 5: {"$"=>"{\"brand\":\"Breakout\",\"model\":\"XBN 2.1 Alloy\",\"price\":810,...}"}
 # STEP_END
 
 # STEP_START query_exact_matching
 result5 = index.search('@brand:"Noka Bikes"')
 result5.each { |doc| puts "#{doc.id}: #{doc.attributes}" }
-# Prints: bicycle:4: {"$"=>"{\"brand\":\"Noka Bikes\",\"model\":\"Kahuna\",\"price\":3200,...}"}
+# Prints: 4: {"$"=>"{\"brand\":\"Noka Bikes\",\"model\":\"Kahuna\",\"price\":3200,...}"}
 # STEP_END
 
 # STEP_START simple_aggregation

@@ -109,7 +109,36 @@ module Lint
       assert_includes [0, 1], del_result
     end
 
+    def test_ft_add_indexes_document
+      r.ft_create(@index_name, Schema.build { text_field :title })
+      # Legacy FT.ADD: a flat fields array must reach the server as alternating name/value tokens.
+      assert_equal "OK", r.ft_add(@index_name, "doc1", 1.0, fields: ["title", "hello world"])
+      wait_for_index(@index_name)
+
+      result = r.ft_search(@index_name, "hello")
+      assert_equal 1, result.total
+      assert_equal "doc1", result[0].id
+      assert_equal "hello world", result[0]["title"]
+    end
+
     # ---- Schema / index management -----------------------------------------------------------
+
+    def test_index_uses_definition_prefix_for_add_and_search
+      schema = Schema.build { text_field :title }
+      index = r.create_index(
+        @index_name, schema,
+        definition: IndexDefinition.new(prefix: ["doc:"], index_type: IndexType::HASH)
+      )
+      index.add("1", title: "hello")
+      wait_for_index(@index_name)
+
+      # #add must write the key under the definition's prefix...
+      assert_equal 1, r.exists("doc:1")
+      # ...and #search must find it and strip that prefix back off the id.
+      result = index.search("hello")
+      assert_equal 1, result.total
+      assert_equal "1", result[0].id
+    end
 
     def test_create_index_with_schema
       schema = Schema.build do

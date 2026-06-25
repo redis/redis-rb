@@ -145,8 +145,8 @@ puts res1.total # >>> 2
 res1.each do |doc|
   puts doc.id
 end
-# >>> bicycle:1
-# >>> bicycle:2
+# >>> 1
+# >>> 2
 # STEP_END
 
 # STEP_START ft2
@@ -157,7 +157,7 @@ puts res2.total # >>> 1
 res2.each do |doc|
   puts doc.id
 end
-# >>> bicycle:4
+# >>> 4
 # STEP_END
 
 # STEP_START ft3
@@ -168,8 +168,8 @@ puts res3.total # >>> 2
 res3.each do |doc|
   puts doc.id
 end
-# >>> bicycle:4
-# >>> bicycle:6
+# >>> 4
+# >>> 6
 # STEP_END
 
 # STEP_START ft4
@@ -180,7 +180,7 @@ puts res4.total # >>> 1
 res4.each do |doc|
   puts doc.id
 end
-# >>> bicycle:3
+# >>> 3
 # STEP_END
 
 # STEP_START ft5
@@ -191,7 +191,7 @@ puts res5.total # >>> 1
 res5.each do |doc|
   puts doc.id
 end
-# >>> bicycle:3
+# >>> 3
 # STEP_END
 
 # STEP_START ft6
@@ -204,7 +204,7 @@ puts res6.total # >>> 1
 res6.each do |doc|
   puts doc.id
 end
-# >>> bicycle:0
+# >>> 0
 # STEP_END
 
 # STEP_START ft7
@@ -218,7 +218,7 @@ puts res7.total # >>> 1
 res7.each do |doc|
   puts doc.id
 end
-# >>> bicycle:0
+# >>> 0
 # STEP_END
 
 # STEP_START ft8
@@ -232,11 +232,11 @@ puts res8.total # >>> 5
 res8.each do |doc|
   puts doc.id
 end
-# >>> bicycle:0
-# >>> bicycle:1
-# >>> bicycle:2
-# >>> bicycle:3
-# >>> bicycle:4
+# >>> 0
+# >>> 1
+# >>> 2
+# >>> 3
+# >>> 4
 # STEP_END
 
 puts "\n=== FT.SEARCH Query Examples Complete ==="

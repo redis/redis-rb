@@ -10,7 +10,8 @@ class Redis
       # or a block in {#search}. Obtain one via +Redis#create_index+ or {Index.create}.
       class Index
         # @return [String] the index name
-        # @return [String, nil] the key prefix indexed/added documents live under
+        # @return [String, nil] the literal key prefix prepended to (and stripped from) document
+        #   ids, e.g. "doc:"; nil when the index manages no single prefix
         attr_reader :name, :prefix
 
         # @param redis [Redis] the client used for all index operations
@@ -53,7 +54,23 @@ class Redis
             prefix: prefix, stopwords: stopwords,
             skip_initial_scan: skip_initial_scan, **options
           )
-          new(redis, name, schema, storage_type, prefix: prefix, stopwords: stopwords)
+          # The Index stores the *literal* key prefix it prepends to (and strips from) document
+          # ids. A definition (which FT.CREATE prefers over the +prefix:+ keyword) carries its
+          # prefixes verbatim, e.g. "bicycle:"; the +prefix:+ keyword form appends the ":".
+          new(
+            redis, name, schema, storage_type,
+            prefix: key_prefix(prefix, options[:definition]), stopwords: stopwords
+          )
+        end
+
+        # The single literal key prefix the Index should manage, or nil when it can't be
+        # determined unambiguously (no prefix, or a definition with several prefixes).
+        def self.key_prefix(prefix, definition)
+          if definition.is_a?(IndexDefinition) && definition.prefixes.size == 1
+            definition.prefixes.first
+          elsif prefix
+            "#{prefix}:"
+          end
         end
 
         # Add (or replace) a document by writing its fields to the underlying HASH key
@@ -67,7 +84,7 @@ class Redis
         # @return [Integer] the number of fields that were newly added (the +HSET+ reply)
         # @raise [Redis::CommandError] if a value for a {NumericField} is not Numeric, or the write fails
         def add(doc_id, **fields)
-          key = @prefix ? "#{@prefix}:#{doc_id}" : doc_id
+          key = @prefix ? "#{@prefix}#{doc_id}" : doc_id
 
           # Validate fields
           fields.each do |field_name, value|
@@ -160,7 +177,7 @@ class Redis
 
           # Add prefix to limit_ids if a prefix is set
           options[:limit_ids] = if query.limit_ids_value && @prefix
-            query.limit_ids_value.map { |id| "#{@prefix}:#{id}" }
+            query.limit_ids_value.map { |id| "#{@prefix}#{id}" }
           else
             query.limit_ids_value
           end
@@ -201,12 +218,11 @@ class Redis
           # Strip the index prefix from document IDs if one is set, so callers see the
           # logical doc id they passed to #add rather than the underlying Redis key.
           if @prefix && result.is_a?(SearchResult)
-            prefix = "#{@prefix}:"
             result.documents.map! do |doc|
-              next doc unless doc.id.is_a?(String) && doc.id.start_with?(prefix)
+              next doc unless doc.id.is_a?(String) && doc.id.start_with?(@prefix)
 
               Document.new(
-                doc.id.delete_prefix(prefix),
+                doc.id.delete_prefix(@prefix),
                 attributes: doc.attributes, score: doc.score, payload: doc.payload
               )
             end

@@ -144,9 +144,9 @@ puts res1.total # >>> 3
 res1.each do |doc|
   puts "#{doc.id} : price #{doc['price']}"
 end
-# >>> bicycle:2 : price 815
-# >>> bicycle:5 : price 810
-# >>> bicycle:9 : price 815
+# >>> 2 : price 815
+# >>> 5 : price 810
+# >>> 9 : price 815
 # STEP_END
 
 # STEP_START range2
@@ -156,9 +156,9 @@ puts res2.total # >>> 3
 res2.each do |doc|
   puts "#{doc.id} : price #{doc['price']}"
 end
-# >>> bicycle:2 : price 815
-# >>> bicycle:5 : price 810
-# >>> bicycle:9 : price 815
+# >>> 2 : price 815
+# >>> 5 : price 810
+# >>> 9 : price 815
 # STEP_END
 
 # STEP_START range3
@@ -168,11 +168,11 @@ puts res3.total # >>> 5
 res3.each do |doc|
   puts "#{doc.id} : price #{doc['price']}"
 end
-# >>> bicycle:1 : price 1200
-# >>> bicycle:4 : price 3200
-# >>> bicycle:6 : price 2300
-# >>> bicycle:3 : price 3400
-# >>> bicycle:8 : price 1200
+# >>> 1 : price 1200
+# >>> 4 : price 3200
+# >>> 6 : price 2300
+# >>> 3 : price 3400
+# >>> 8 : price 1200
 # STEP_END
 
 # STEP_START range4
@@ -185,11 +185,11 @@ puts res4.total # >>> 7
 res4.each do |doc|
   puts "#{doc.id} : price #{doc['price']}"
 end
-# >>> bicycle:0 : price 270
-# >>> bicycle:7 : price 430
-# >>> bicycle:5 : price 810
-# >>> bicycle:2 : price 815
-# >>> bicycle:9 : price 815
+# >>> 0 : price 270
+# >>> 7 : price 430
+# >>> 5 : price 810
+# >>> 2 : price 815
+# >>> 9 : price 815
 # STEP_END
 
 puts "\n=== Range Query Examples Complete ==="

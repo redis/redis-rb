@@ -49,7 +49,9 @@ class Redis
         if definition
           args += definition.args
         else
-          args += ["ON", storage_type] if storage_type
+          # Normalize the ON token to HASH/JSON; a lowercase value is rejected by some
+          # Query Engine versions (and IndexType/the docs use the uppercase form).
+          args += ["ON", storage_type.to_s.upcase] if storage_type
           args += ["PREFIX", 1, "#{prefix}:"] if prefix
         end
 
@@ -273,13 +275,18 @@ class Redis
       # @param options [Hash]
       # @option options [Boolean] :replace replace an existing document (+REPLACE+)
       # @option options [String] :language stemming language (+LANGUAGE+)
-      # @option options [Array] :fields the field/value pairs to index (+FIELDS+)
+      # @option options [Array, Hash] :fields the field/value pairs to index (+FIELDS+); a flat
+      #   +[field, value, ...]+ array or a +{ field => value }+ hash. FT.ADD's FIELDS clause takes
+      #   the pairs directly (no count), so the values are flattened into the command.
       # @return [String] +"OK"+
       def ft_add(index_name, doc_id, score, options = {})
         args = ["FT.ADD", index_name, doc_id, score]
         args << 'REPLACE' if options[:replace]
         args << 'LANGUAGE' << options[:language] if options[:language]
-        args << 'FIELDS' << options[:fields] if options[:fields]
+        if (fields = options[:fields])
+          args << 'FIELDS'
+          args.concat(fields.is_a?(Hash) ? fields.to_a.flatten : Array(fields).flatten)
+        end
         send_command(args)
       end
 
