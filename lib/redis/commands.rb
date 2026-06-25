@@ -11,6 +11,7 @@ require "redis/commands/lists"
 require "redis/commands/modules/json"
 require "redis/commands/pubsub"
 require "redis/commands/scripting"
+require "redis/commands/modules/search"
 require "redis/commands/server"
 require "redis/commands/sets"
 require "redis/commands/sorted_sets"
@@ -31,6 +32,7 @@ class Redis
     include Json
     include Pubsub
     include Scripting
+    include Search
     include Server
     include Sets
     include SortedSets
