@@ -17,7 +17,7 @@
 # rows (each a hash including the synthetic "__key" and "__score"), plus #total, #warnings and
 # #execution_time.
 #
-# Requires Redis >= 8 (FT.HYBRID). Run with: ruby examples/search_hybrid.rb
+# Requires Redis >= 8.4 (FT.HYBRID). Run with: ruby examples/search/search_hybrid.rb
 
 require 'redis'
 

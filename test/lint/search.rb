@@ -901,18 +901,21 @@ module Lint
     end
 
     def test_ft_aggregate_add_scores
-      schema = Schema.build do
-        text_field :name, sortable: true, weight: 5.0
-        numeric_field :age, sortable: true
-      end
-      r.ft_create(@index_name, schema, prefix: "as")
-      r.hset("as:1", "name", "bar", "age", 25)
-      r.hset("as:2", "name", "foo", "age", 19)
-      wait_for_index(@index_name)
+      # ADDSCORES was added in RediSearch 2.10 (Redis Stack 7.4 / Redis 8); older servers reject it.
+      target_version("7.4") do
+        schema = Schema.build do
+          text_field :name, sortable: true, weight: 5.0
+          numeric_field :age, sortable: true
+        end
+        r.ft_create(@index_name, schema, prefix: "as")
+        r.hset("as:1", "name", "bar", "age", 25)
+        r.hset("as:2", "name", "foo", "age", 19)
+        wait_for_index(@index_name)
 
-      res = r.ft_aggregate(@index_name, AggregateRequest.new("*").add_scores)
-      assert_equal 2, res.size
-      res.each { |row| assert row.key?("__score") }
+        res = r.ft_aggregate(@index_name, AggregateRequest.new("*").add_scores)
+        assert_equal 2, res.size
+        res.each { |row| assert row.key?("__score") }
+      end
     end
 
     def test_ft_aggregate_with_cursor
@@ -937,10 +940,10 @@ module Lint
     #
     # FT.HYBRID fuses a lexical SEARCH leg with a vector VSIM leg. ft_hybrid_search returns a
     # Search::HybridResult (Enumerable over row hashes, plus #total/#warnings/#execution_time, and
-    # #search_cursor/#vsim_cursor for WITHCURSOR). These tests need FT.HYBRID (Redis >= 8.x).
+    # #search_cursor/#vsim_cursor for WITHCURSOR). FT.HYBRID is available since Redis 8.4.
 
     def test_hybrid_basic
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 3)
 
@@ -959,7 +962,7 @@ module Lint
     end
 
     def test_hybrid_combine_linear_with_limit
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)
 
@@ -977,7 +980,7 @@ module Lint
     end
 
     def test_hybrid_combine_rrf
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 5)
 
@@ -992,7 +995,7 @@ module Lint
     end
 
     def test_hybrid_post_processing_limit
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)
 
@@ -1005,7 +1008,7 @@ module Lint
     end
 
     def test_hybrid_post_processing_load
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 5)
 
@@ -1020,7 +1023,7 @@ module Lint
     end
 
     def test_hybrid_post_processing_load_apply_sortby
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 1)
 
@@ -1038,7 +1041,7 @@ module Lint
     end
 
     def test_hybrid_post_processing_groupby
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)
 
@@ -1056,7 +1059,7 @@ module Lint
     end
 
     def test_hybrid_vsim_knn
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)
 
@@ -1072,7 +1075,7 @@ module Lint
     end
 
     def test_hybrid_vsim_range
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)
 
@@ -1088,7 +1091,7 @@ module Lint
     end
 
     def test_hybrid_vsim_filter
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 5)
 
@@ -1105,7 +1108,7 @@ module Lint
     end
 
     def test_hybrid_search_scorer
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 5)
 
@@ -1118,7 +1121,7 @@ module Lint
     end
 
     def test_hybrid_search_score_alias
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 5)
 
@@ -1135,7 +1138,7 @@ module Lint
     end
 
     def test_hybrid_vsim_score_alias
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 5)
 
@@ -1151,7 +1154,7 @@ module Lint
     end
 
     def test_hybrid_with_timeout
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 3)
         result = r.ft_hybrid_search(@index_name, query: hybrid_query(search: "@color:{red}"),
@@ -1161,7 +1164,7 @@ module Lint
     end
 
     def test_hybrid_with_cursor
-      target_version("8.0") do
+      target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)
 
@@ -1176,7 +1179,7 @@ module Lint
     end
 
     def test_index_hybrid_search
-      target_version("8.0") do
+      target_version("8.4") do
         schema = Schema.build do
           text_field :description
           tag_field :color
