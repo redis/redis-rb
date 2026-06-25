@@ -835,6 +835,22 @@ module Lint
       assert_equal 2, r.ft_search(@index_name, "Jon").total
     end
 
+    def test_search_with_indonesian_language
+      target_version("8.9") do
+        schema = Schema.build { text_field :content }
+        definition = IndexDefinition.new(prefix: ["doc:"], language: "indonesian")
+        r.ft_create(@index_name, schema, definition: definition)
+        r.hset("doc:1", "content", "mereka membaca buku di perpustakaan")
+        wait_for_index(@index_name)
+
+        # The Indonesian stemmer reduces "membaca" to its root "baca", so querying the stem
+        # with LANGUAGE indonesian matches the indexed document.
+        result = r.ft_search(@index_name, "baca", language: "indonesian", no_content: true)
+        assert_equal 1, result.total
+        assert_equal "doc:1", result[0].id
+      end
+    end
+
     def test_withsuffixtrie_reflected_in_info
       r.ft_create(@index_name, Schema.build { text_field :t, withsuffixtrie: true })
       wait_for_index(@index_name)
