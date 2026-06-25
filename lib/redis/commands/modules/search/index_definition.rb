@@ -3,9 +3,33 @@
 class Redis
   module Commands
     module Search
+      # The data structure an index is built over, passed as IndexDefinition(index_type:).
+      module IndexType
+        HASH = "HASH"
+        JSON = "JSON"
+      end
+
+      # The definition portion of an +FT.CREATE+ call: which keyspace the index
+      # is built over and how documents are scored and filtered. Renders into a
+      # token array exposed via {#args}.
       class IndexDefinition
         attr_reader :args
 
+        # Build an index definition and pre-render its +FT.CREATE+ tokens.
+        #
+        # @example
+        #   Redis::Commands::Search::IndexDefinition.new(prefix: ["doc:"], index_type: IndexType::JSON).args
+        #     # => ["ON", "JSON", "PREFIX", 1, "doc:", "SCORE", 1.0]
+        #
+        # @param [Array<String>] prefix key prefixes the index applies to (+PREFIX+)
+        # @param [String, nil] filter a filter expression (+FILTER+)
+        # @param [String, nil] language_field the field holding each document's language (+LANGUAGE_FIELD+)
+        # @param [String, nil] language the default document language (+LANGUAGE+)
+        # @param [String, nil] score_field the field holding each document's score (+SCORE_FIELD+)
+        # @param [Numeric] score the default document score (+SCORE+)
+        # @param [String, nil] payload_field the field holding each document's payload (+PAYLOAD_FIELD+)
+        # @param [String, nil] index_type the indexed data structure, {IndexType::HASH} or {IndexType::JSON} (+ON+)
+        # @raise [ArgumentError] if +index_type+ is given but is not {IndexType::HASH} or {IndexType::JSON}
         def initialize(
           prefix: [], filter: nil, language_field: nil, language: nil,
           score_field: nil, score: 1.0, payload_field: nil, index_type: nil

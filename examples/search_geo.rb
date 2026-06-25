@@ -17,7 +17,7 @@ require 'redis'
 require 'json'
 
 # Connect to Redis
-redis = Redis.new(host: 'localhost', port: 6400)
+redis = Redis.new(host: 'localhost', port: 6379)
 
 # Clean up any existing index
 begin
@@ -42,7 +42,7 @@ definition = Redis::Commands::Search::IndexDefinition.new(
   index_type: Redis::Commands::Search::IndexType::JSON
 )
 
-redis.create_index('idx:bicycle', schema, definition: definition)
+index = redis.create_index('idx:bicycle', schema, definition: definition)
 
 # Bicycle data with geospatial information
 bicycles = [
@@ -151,51 +151,47 @@ puts "=== Geospatial Search Examples ==="
 # STEP_START geo1
 # Search for bicycles within a radius using parameterized query
 puts "\n1. Search within radius (20 miles from London coordinates):"
-result1 = redis.ft_search('idx:bicycle',
-                          '@store_location:[$lon $lat $radius $units]',
-                          params: {
-                            lon: -0.1778,
-                            lat: 51.5524,
-                            radius: 20,
-                            units: 'mi'
-                          },
-                          dialect: 2)
+result1 = index.search('@store_location:[$lon $lat $radius $units]',
+                       params: {
+                         lon: -0.1778,
+                         lat: 51.5524,
+                         radius: 20,
+                         units: 'mi'
+                       })
 
-puts "Total results: #{result1[0]}"
-result1[1..-1].each_slice(2) do |id, _fields|
-  puts "  #{id}"
+puts "Total results: #{result1.total}"
+result1.each do |doc|
+  puts "  #{doc.id}"
 end
 # STEP_END
 
 # STEP_START geo2
 # Search for bicycles where pickup zone contains a specific point
 puts "\n2. Search where pickup zone CONTAINS a point (London store location):"
-result2 = redis.ft_search('idx:bicycle',
-                          '@pickup_zone:[CONTAINS $bike]',
-                          params: {
-                            bike: 'POINT(-0.1278 51.5074)'
-                          },
-                          dialect: 3)
+result2 = index.search('@pickup_zone:[CONTAINS $bike]',
+                       params: {
+                         bike: 'POINT(-0.1278 51.5074)'
+                       },
+                       dialect: 3)
 
-puts "Total results: #{result2[0]}"
-result2[1..-1].each_slice(2) do |id, _fields|
-  puts "  #{id}"
+puts "Total results: #{result2.total}"
+result2.each do |doc|
+  puts "  #{doc.id}"
 end
 # STEP_END
 
 # STEP_START geo3
 # Search for bicycles where pickup zone is within a larger polygon (Europe)
 puts "\n3. Search where pickup zone is WITHIN Europe polygon:"
-result3 = redis.ft_search('idx:bicycle',
-                          '@pickup_zone:[WITHIN $europe]',
-                          params: {
-                            europe: 'POLYGON((-25 35, 40 35, 40 70, -25 70, -25 35))'
-                          },
-                          dialect: 3)
+result3 = index.search('@pickup_zone:[WITHIN $europe]',
+                       params: {
+                         europe: 'POLYGON((-25 35, 40 35, 40 70, -25 70, -25 35))'
+                       },
+                       dialect: 3)
 
-puts "Total results: #{result3[0]}"
-result3[1..-1].each_slice(2) do |id, _fields|
-  puts "  #{id}"
+puts "Total results: #{result3.total}"
+result3.each do |doc|
+  puts "  #{doc.id}"
 end
 # STEP_END
 

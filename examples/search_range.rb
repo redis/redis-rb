@@ -9,7 +9,7 @@ require 'json'
 # HIDE_END
 
 # STEP_START connect
-redis = Redis.new(host: 'localhost', port: 6400)
+redis = Redis.new(host: 'localhost', port: 6379)
 # STEP_END
 
 # Clean up any existing index
@@ -33,8 +33,10 @@ definition = Redis::Commands::Search::IndexDefinition.new(
   index_type: Redis::Commands::Search::IndexType::JSON
 )
 
-redis.ft_create('idx:bicycle', schema, definition: definition)
+index = redis.create_index('idx:bicycle', schema, definition: definition)
 # STEP_END
+
+Q = Redis::Commands::Search::Query
 
 # STEP_START add_documents
 bicycle_jsons = [
@@ -136,26 +138,11 @@ end
 # STEP_END
 
 # STEP_START range1
-res1 = redis.ft_search('idx:bicycle', '@price:[500 1000]', return: ['price'])
-puts res1[0] # >>> 3
+res1 = index.search('@price:[500 1000]', return_fields: ['price'])
+puts res1.total # >>> 3
 
-docs1 = []
-i = 1
-while i < res1.length
-  doc_id = res1[i]
-  fields = res1[i + 1]
-  docs1 << doc_id
-
-  # Extract price from fields array
-  price = nil
-  if fields.is_a?(Array)
-    fields.each_slice(2) do |key, value|
-      price = value if key == 'price'
-    end
-  end
-
-  puts "#{doc_id} : price #{price}"
-  i += 2
+res1.each do |doc|
+  puts "#{doc.id} : price #{doc['price']}"
 end
 # >>> bicycle:2 : price 815
 # >>> bicycle:5 : price 810
@@ -163,26 +150,11 @@ end
 # STEP_END
 
 # STEP_START range2
-res2 = redis.ft_search('idx:bicycle', '*', return: ['price'], filter: { price: [500, 1000] })
-puts res2[0] # >>> 3
+res2 = index.search(Q.new('*').return('price').filter('price', 500, 1000))
+puts res2.total # >>> 3
 
-docs2 = []
-i = 1
-while i < res2.length
-  doc_id = res2[i]
-  fields = res2[i + 1]
-  docs2 << doc_id
-
-  # Extract price from fields array
-  price = nil
-  if fields.is_a?(Array)
-    fields.each_slice(2) do |key, value|
-      price = value if key == 'price'
-    end
-  end
-
-  puts "#{doc_id} : price #{price}"
-  i += 2
+res2.each do |doc|
+  puts "#{doc.id} : price #{doc['price']}"
 end
 # >>> bicycle:2 : price 815
 # >>> bicycle:5 : price 810
@@ -190,26 +162,11 @@ end
 # STEP_END
 
 # STEP_START range3
-res3 = redis.ft_search('idx:bicycle', '*', return: ['price'], filter: { price: ['(1000', '+inf'] })
-puts res3[0] # >>> 5
+res3 = index.search(Q.new('*').return('price').filter('price', '(1000', '+inf'))
+puts res3.total # >>> 5
 
-docs3 = []
-i = 1
-while i < res3.length
-  doc_id = res3[i]
-  fields = res3[i + 1]
-  docs3 << doc_id
-
-  # Extract price from fields array
-  price = nil
-  if fields.is_a?(Array)
-    fields.each_slice(2) do |key, value|
-      price = value if key == 'price'
-    end
-  end
-
-  puts "#{doc_id} : price #{price}"
-  i += 2
+res3.each do |doc|
+  puts "#{doc.id} : price #{doc['price']}"
 end
 # >>> bicycle:1 : price 1200
 # >>> bicycle:4 : price 3200
@@ -219,30 +176,14 @@ end
 # STEP_END
 
 # STEP_START range4
-res4 = redis.ft_search('idx:bicycle', '@price:[-inf 2000]',
-                       return: ['price'],
-                       sortby: 'price',
-                       order: 'asc',
-                       limit: [0, 5])
-puts res4[0] # >>> 7
+res4 = index.search(Q.new('@price:[-inf 2000]')
+                     .return('price')
+                     .sort_by('price', asc: true)
+                     .paging(0, 5))
+puts res4.total # >>> 7
 
-docs4 = []
-i = 1
-while i < res4.length
-  doc_id = res4[i]
-  fields = res4[i + 1]
-  docs4 << doc_id
-
-  # Extract price from fields array
-  price = nil
-  if fields.is_a?(Array)
-    fields.each_slice(2) do |key, value|
-      price = value if key == 'price'
-    end
-  end
-
-  puts "#{doc_id} : price #{price}"
-  i += 2
+res4.each do |doc|
+  puts "#{doc.id} : price #{doc['price']}"
 end
 # >>> bicycle:0 : price 270
 # >>> bicycle:7 : price 430

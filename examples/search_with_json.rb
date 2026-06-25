@@ -93,28 +93,24 @@ class SearchWithJSON
   private
 
   def print_results(res)
-    puts "Total results: #{res[0]}"
-    res[1..-1].each_slice(2) do |id, fields|
-      puts "ID: #{id}"
-      if fields.is_a?(Array)
-        fields.each_slice(2) do |key, value|
-          if key == "$"
-            begin
-              json = JSON.parse(value)
-              user = json['user']
-              puts "  Name: #{user['name']}"
-              puts "  City: #{user['city']}"
-              puts "  Age: #{user['age']}"
-            rescue JSON::ParserError => e
-              puts "Error parsing JSON: #{e.message}"
-              puts "Raw JSON string: #{value}"
-            end
-          else
-            puts "  #{key}: #{value}"
+    puts "Total results: #{res.total}"
+    res.each do |doc|
+      puts "ID: #{doc.id}"
+      doc.attributes.each do |key, value|
+        if key == "$"
+          begin
+            json = JSON.parse(value)
+            user = json['user']
+            puts "  Name: #{user['name']}"
+            puts "  City: #{user['city']}"
+            puts "  Age: #{user['age']}"
+          rescue JSON::ParserError => e
+            puts "Error parsing JSON: #{e.message}"
+            puts "Raw JSON string: #{value}"
           end
+        else
+          puts "  #{key}: #{value}"
         end
-      else
-        puts "  Fields: #{fields.inspect}"
       end
       puts
     end
@@ -122,8 +118,8 @@ class SearchWithJSON
 
   def print_aggregation(res)
     puts "Aggregation results:"
-    res[1..-1].each do |group|
-      puts "#{group[1]}: #{group[3]} users"
+    res.each do |row|
+      puts "#{row['city']}: #{row['count']} users"
     end
   end
 end

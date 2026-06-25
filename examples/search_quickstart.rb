@@ -17,7 +17,7 @@ require 'redis'
 require 'json'
 
 # STEP_START connect
-redis = Redis.new(host: 'localhost', port: 6400)
+redis = Redis.new(host: 'localhost', port: 6379)
 # STEP_END
 
 # Clean up any existing index
@@ -41,7 +41,7 @@ definition = Redis::Commands::Search::IndexDefinition.new(
   index_type: Redis::Commands::Search::IndexType::JSON
 )
 
-redis.create_index('idx:bicycle', schema, definition: definition)
+index = redis.create_index('idx:bicycle', schema, definition: definition)
 # STEP_END
 
 # Bicycle data
@@ -156,44 +156,41 @@ end
 sleep 0.5
 
 # STEP_START wildcard_query
-result1 = redis.ft_search('idx:bicycle', '*')
-puts "Documents found: #{result1[0]}"
+result1 = index.search('*')
+puts "Documents found: #{result1.total}"
 # Prints: Documents found: 10
 # STEP_END
 
 # STEP_START query_single_term
-result2 = redis.ft_search('idx:bicycle', '@model:Jigger')
-puts result2.inspect
-# Prints: [1, "bicycle:0", ["$", "{\"brand\":\"Velorim\",\"model\":\"Jigger\",\"price\":270,...}"]]
+result2 = index.search('@model:Jigger')
+result2.each { |doc| puts "#{doc.id}: #{doc.attributes}" }
+# Prints: bicycle:0: {"$"=>"{\"brand\":\"Velorim\",\"model\":\"Jigger\",\"price\":270,...}"}
 # STEP_END
 
 # STEP_START query_single_term_limit_fields
-query3 = Redis::Commands::Search::Query.new('@model:Jigger').return(:price)
-result3 = redis.ft_search('idx:bicycle', query3.to_redis_args[0], return: ['price'])
-puts result3.inspect
-# Prints: [1, "bicycle:0", ["price", "270"]]
+result3 = index.search('@model:Jigger', return_fields: ['price'])
+result3.each { |doc| puts "#{doc.id}: price #{doc['price']}" }
+# Prints: bicycle:0: price 270
 # STEP_END
 
 # STEP_START query_single_term_and_num_range
-result4 = redis.ft_search('idx:bicycle', 'basic @price:[500 1000]')
-puts result4.inspect
-# Prints: [1, "bicycle:5", ["$", "{\"brand\":\"Breakout\",\"model\":\"XBN 2.1 Alloy\",\"price\":810,...}"]]
+result4 = index.search('basic @price:[500 1000]')
+result4.each { |doc| puts "#{doc.id}: #{doc.attributes}" }
+# Prints: bicycle:5: {"$"=>"{\"brand\":\"Breakout\",\"model\":\"XBN 2.1 Alloy\",\"price\":810,...}"}
 # STEP_END
 
 # STEP_START query_exact_matching
-result5 = redis.ft_search('idx:bicycle', '@brand:"Noka Bikes"')
-puts result5.inspect
-# Prints: [1, "bicycle:4", ["$", "{\"brand\":\"Noka Bikes\",\"model\":\"Kahuna\",\"price\":3200,...}"]]
+result5 = index.search('@brand:"Noka Bikes"')
+result5.each { |doc| puts "#{doc.id}: #{doc.attributes}" }
+# Prints: bicycle:4: {"$"=>"{\"brand\":\"Noka Bikes\",\"model\":\"Kahuna\",\"price\":3200,...}"}
 # STEP_END
 
 # STEP_START simple_aggregation
-agg_result = redis.ft_aggregate('idx:bicycle', '*',
-                                'GROUPBY', 1, '@condition',
-                                'REDUCE', 'COUNT', 0, 'AS', 'count')
-agg_result[1..-1].each do |row|
-  condition = row[1]
-  count = row[3]
-  puts "#{condition} - #{count}"
+agg_result = index.aggregate('*',
+                             'GROUPBY', 1, '@condition',
+                             'REDUCE', 'COUNT', 0, 'AS', 'count')
+agg_result.each do |row|
+  puts "#{row['condition']} - #{row['count']}"
 end
 # Prints:
 # refurbished - 1
@@ -203,59 +200,60 @@ end
 
 puts "\n=== Additional Search Examples ==="
 
+Q = Redis::Commands::Search::Query
+
 # Simple search for all documents
 puts "\n1. Get all documents (wildcard search):"
-result = redis.ft_search('idx:bicycle', '*')
-puts "Total documents: #{result[0]}"
+result = index.search('*')
+puts "Total documents: #{result.total}"
 
 # Numeric filter
 puts "\n2. Numeric filter - bikes priced between 500 and 1000:"
-result = redis.ft_search('idx:bicycle', '@price:[500 1000]')
-puts "Found #{result[0]} bike(s)"
-result[1..-1].each_slice(2) do |id, _fields|
-  puts "  - #{id}"
+result = index.search('@price:[500 1000]')
+puts "Found #{result.total} bike(s)"
+result.each do |doc|
+  puts "  - #{doc.id}"
 end
 
 # Tag filter
 puts "\n3. Tag filter - search for 'new' condition bikes:"
-result = redis.ft_search('idx:bicycle', '@condition:{new}')
-puts "Found #{result[0]} new bike(s)"
+result = index.search('@condition:{new}')
+puts "Found #{result.total} new bike(s)"
 
 # Text search
 puts "\n4. Text search - search for 'kids' in description:"
-result = redis.ft_search('idx:bicycle', '@description:kids')
-puts "Found #{result[0]} bike(s) for kids"
+result = index.search('@description:kids')
+puts "Found #{result.total} bike(s) for kids"
 
 # Fuzzy search
 puts "\n5. Fuzzy search - search for 'Noka' with typo tolerance:"
-result = redis.ft_search('idx:bicycle', '%Noka%')
-puts "Found #{result[0]} bike(s) matching fuzzy search"
+result = index.search('%Noka%')
+puts "Found #{result.total} bike(s) matching fuzzy search"
 
 # Prefix search
 puts "\n6. Prefix search - models starting with 'Bike':"
-result = redis.ft_search('idx:bicycle', '@model:Bike*')
-puts "Found #{result[0]} bike(s) with model starting with 'Bike'"
+result = index.search('@model:Bike*')
+puts "Found #{result.total} bike(s) with model starting with 'Bike'"
 
 # Limit results
 puts "\n7. Limit results - get only 3 bikes:"
-result = redis.ft_search('idx:bicycle', '*', limit: [0, 3])
-puts "Returned #{(result.length - 1) / 2} bike(s) (limited to 3)"
+result = index.search(Q.new('*').paging(0, 3))
+puts "Returned #{result.size} bike(s) (limited to 3)"
 
 # Count results
 puts "\n8. Count results - count all bikes without returning documents:"
-query = Redis::Commands::Search::Query.new('*').no_content
-result = redis.ft_search('idx:bicycle', query.to_redis_args[0], no_content: true)
-puts "Total count: #{result[0]} (no documents returned)"
+result = index.search('*', nocontent: true)
+puts "Total count: #{result.total} (no documents returned)"
 
 # Pagination
 puts "\n9. Pagination - get page 2 with 3 items per page:"
 page = 2
 page_size = 3
 offset = (page - 1) * page_size
-result = redis.ft_search('idx:bicycle', '*', limit: [offset, page_size])
-puts "Page #{page}: #{(result.length - 1) / 2} bike(s)"
-result[1..-1].each_slice(2) do |id, _fields|
-  puts "  - #{id}"
+result = index.search(Q.new('*').paging(offset, page_size))
+puts "Page #{page}: #{result.size} bike(s)"
+result.each do |doc|
+  puts "  - #{doc.id}"
 end
 
 puts "\n=== Search Quickstart Complete ==="

@@ -13,11 +13,10 @@ class SearchWithHashes
   def run
     # Define print_search_results as a lambda
     print_search_results = lambda do |results|
-      total = results[0]
-      puts "Total results: #{total}"
-      results[1..-1].each_slice(2) do |id, fields|
-        puts "ID: #{id}"
-        fields.each_slice(2) { |k, v| puts "  #{k}: #{v}" }
+      puts "Total results: #{results.total}"
+      results.each do |doc|
+        puts "ID: #{doc.id}"
+        doc.attributes.each { |k, v| puts "  #{k}: #{v}" }
         puts
       end
     end
@@ -90,8 +89,8 @@ class SearchWithHashes
     ]
     results = index.aggregate(agg_query, *agg_args)
     puts "Aggregation results:"
-    results[1..-1].each do |group|
-      puts "#{group[1]}: #{group[3]} users"
+    results.each do |row|
+      puts "#{row['city']}: #{row['count']} users"
     end
 
     puts "\n8. Fuzzy search"

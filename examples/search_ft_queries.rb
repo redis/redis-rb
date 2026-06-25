@@ -9,7 +9,7 @@ require 'json'
 # HIDE_END
 
 # STEP_START connect
-redis = Redis.new(host: 'localhost', port: 6400)
+redis = Redis.new(host: 'localhost', port: 6379)
 # STEP_END
 
 # Clean up any existing index
@@ -26,6 +26,8 @@ schema = Redis::Commands::Search::Schema.build do
   text_field '$.description', as: 'description'
   numeric_field '$.price', as: 'price'
   tag_field '$.condition', as: 'condition'
+  geo_field '$.store_location', as: 'store_location'
+  geoshape_field '$.pickup_zone', Redis::Commands::Search::GeoShapeField::FLAT, as: 'pickup_zone'
 end
 
 definition = Redis::Commands::Search::IndexDefinition.new(
@@ -33,7 +35,7 @@ definition = Redis::Commands::Search::IndexDefinition.new(
   index_type: Redis::Commands::Search::IndexType::JSON
 )
 
-redis.ft_create('idx:bicycle', schema, definition: definition)
+index = redis.create_index('idx:bicycle', schema, definition: definition)
 # STEP_END
 
 # STEP_START add_documents
@@ -137,18 +139,11 @@ end
 
 # STEP_START ft1
 # Simple text search - search for "kids" in description field
-res1 = redis.ft_search('idx:bicycle', '@description:kids')
-puts res1[0] # >>> 2
+res1 = index.search('@description:kids')
+puts res1.total # >>> 2
 
-docs1 = []
-i = 1
-while i < res1.length
-  docs1 << res1[i]
-  i += 2 # Skip the document content
-end
-
-docs1.each do |doc_id|
-  puts doc_id
+res1.each do |doc|
+  puts doc.id
 end
 # >>> bicycle:1
 # >>> bicycle:2
@@ -156,36 +151,22 @@ end
 
 # STEP_START ft2
 # Prefix search - search for models starting with "ka"
-res2 = redis.ft_search('idx:bicycle', '@model:ka*')
-puts res2[0] # >>> 1
+res2 = index.search('@model:ka*')
+puts res2.total # >>> 1
 
-docs2 = []
-i = 1
-while i < res2.length
-  docs2 << res2[i]
-  i += 2
-end
-
-docs2.each do |doc_id|
-  puts doc_id
+res2.each do |doc|
+  puts doc.id
 end
 # >>> bicycle:4
 # STEP_END
 
 # STEP_START ft3
 # Suffix search - search for brands ending with "bikes"
-res3 = redis.ft_search('idx:bicycle', '@brand:*bikes')
-puts res3[0] # >>> 2
+res3 = index.search('@brand:*bikes')
+puts res3.total # >>> 2
 
-docs3 = []
-i = 1
-while i < res3.length
-  docs3 << res3[i]
-  i += 2
-end
-
-docs3.each do |doc_id|
-  puts doc_id
+res3.each do |doc|
+  puts doc.id
 end
 # >>> bicycle:4
 # >>> bicycle:6
@@ -193,38 +174,69 @@ end
 
 # STEP_START ft4
 # Fuzzy search with 1 Levenshtein distance - search for "optamized" (misspelled "optimized")
-res4 = redis.ft_search('idx:bicycle', '%optamized%')
-puts res4[0] # >>> 1
+res4 = index.search('%optamized%')
+puts res4.total # >>> 1
 
-docs4 = []
-i = 1
-while i < res4.length
-  docs4 << res4[i]
-  i += 2
-end
-
-docs4.each do |doc_id|
-  puts doc_id
+res4.each do |doc|
+  puts doc.id
 end
 # >>> bicycle:3
 # STEP_END
 
 # STEP_START ft5
 # Fuzzy search with 2 Levenshtein distance - search for "optamised" (misspelled "optimized")
-res5 = redis.ft_search('idx:bicycle', '%%optamised%%')
-puts res5[0] # >>> 1
+res5 = index.search('%%optamised%%')
+puts res5.total # >>> 1
 
-docs5 = []
-i = 1
-while i < res5.length
-  docs5 << res5[i]
-  i += 2
-end
-
-docs5.each do |doc_id|
-  puts doc_id
+res5.each do |doc|
+  puts doc.id
 end
 # >>> bicycle:3
+# STEP_END
+
+# STEP_START ft6
+# Geo search - find bicycles whose store is within a radius of a point.
+# The query is parameterized: [$lon $lat $radius $units].
+res6 = index.search('@store_location:[$lon $lat $radius $units]',
+                    params: { lon: -74.0060, lat: 40.7128, radius: 100, units: 'mi' })
+puts res6.total # >>> 1
+
+res6.each do |doc|
+  puts doc.id
+end
+# >>> bicycle:0
+# STEP_END
+
+# STEP_START ft7
+# Geoshape search - find bicycles whose pickup zone CONTAINS a given point.
+# Geoshape predicates require dialect 3.
+res7 = index.search('@pickup_zone:[CONTAINS $point]',
+                    params: { point: 'POINT(-74.0000 40.7100)' },
+                    dialect: 3)
+puts res7.total # >>> 1
+
+res7.each do |doc|
+  puts doc.id
+end
+# >>> bicycle:0
+# STEP_END
+
+# STEP_START ft8
+# Geoshape search - find bicycles whose pickup zone is WITHIN a larger polygon
+# (here, a box covering the continental United States).
+res8 = index.search('@pickup_zone:[WITHIN $area]',
+                    params: { area: 'POLYGON((-125 24, -66 24, -66 50, -125 50, -125 24))' },
+                    dialect: 3)
+puts res8.total # >>> 5
+
+res8.each do |doc|
+  puts doc.id
+end
+# >>> bicycle:0
+# >>> bicycle:1
+# >>> bicycle:2
+# >>> bicycle:3
+# >>> bicycle:4
 # STEP_END
 
 puts "\n=== FT.SEARCH Query Examples Complete ==="

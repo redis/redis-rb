@@ -21,7 +21,7 @@ require 'redis'
 require 'json'
 
 # STEP_START connect
-redis = Redis.new(host: 'localhost', port: 6400)
+redis = Redis.new(host: 'localhost', port: 6379)
 # STEP_END
 
 puts "=== Redis Vector Similarity Search Example ==="
@@ -46,11 +46,7 @@ puts "\n--- Creating HNSW Vector Index ---"
 schema_hnsw = Redis::Commands::Search::Schema.build do
   tag_field 'tag'
   text_field 'content'
-  vector_field 'vector', 'HNSW', {
-    'TYPE' => 'FLOAT32',
-    'DIM' => 6,
-    'DISTANCE_METRIC' => 'COSINE'
-  }
+  vector_field 'vector', 'HNSW', type: 'FLOAT32', dim: 6, distance_metric: 'COSINE'
 end
 
 definition_hnsw = Redis::Commands::Search::IndexDefinition.new(
@@ -58,7 +54,7 @@ definition_hnsw = Redis::Commands::Search::IndexDefinition.new(
   index_type: Redis::Commands::Search::IndexType::HASH
 )
 
-redis.create_index('idx:vector_hnsw', schema_hnsw, definition: definition_hnsw)
+index_hnsw = redis.create_index('idx:vector_hnsw', schema_hnsw, definition: definition_hnsw)
 puts "Created HNSW index: idx:vector_hnsw"
 # STEP_END
 
@@ -68,11 +64,7 @@ puts "\n--- Creating FLAT Vector Index ---"
 schema_flat = Redis::Commands::Search::Schema.build do
   tag_field 'tag'
   text_field 'content'
-  vector_field 'vector', 'FLAT', {
-    'TYPE' => 'FLOAT32',
-    'DIM' => 6,
-    'DISTANCE_METRIC' => 'L2'
-  }
+  vector_field 'vector', 'FLAT', type: 'FLOAT32', dim: 6, distance_metric: 'L2'
 end
 
 definition_flat = Redis::Commands::Search::IndexDefinition.new(
@@ -80,7 +72,7 @@ definition_flat = Redis::Commands::Search::IndexDefinition.new(
   index_type: Redis::Commands::Search::IndexType::HASH
 )
 
-redis.create_index('idx:vector_flat', schema_flat, definition: definition_flat)
+index_flat = redis.create_index('idx:vector_flat', schema_flat, definition: definition_flat)
 puts "Created FLAT index: idx:vector_flat"
 # STEP_END
 
@@ -124,22 +116,16 @@ query_vector = [0.15, 0.25, 0.35, 0.45, 0.55, 0.65]
 query_bytes = query_vector.pack('f*')
 
 # Using FT.SEARCH with KNN syntax
-result = redis.ft_search(
-  'idx:vector_hnsw',
+result = index_hnsw.search(
   '*=>[KNN 2 @vector $query_vector AS score]',
-  sortby: ['score', 'ASC'],
-  return: ['content', 'tag', 'score'],
-  dialect: 2,
+  sort_by: 'score',
+  return_fields: ['content', 'tag', 'score'],
   params: { 'query_vector' => query_bytes }
 )
 
-puts "Found #{result[0]} results:"
-i = 1
-while i < result.length
-  doc_id = result[i]
-  fields = result[i + 1]
-  puts "  #{doc_id}: #{fields.inspect}"
-  i += 2
+puts "Found #{result.total} results:"
+result.each do |doc|
+  puts "  #{doc.id}: #{doc.attributes}"
 end
 # STEP_END
 
@@ -147,47 +133,35 @@ end
 puts "\n--- Hybrid Search (Vector + Tag Filter) ---"
 # Combine vector similarity with traditional filters
 # Find vectors similar to query, but only with tag 'foo'
-result = redis.ft_search(
-  'idx:vector_hnsw',
+result = index_hnsw.search(
   '(@tag:{foo})=>[KNN 2 @vector $query_vector AS score]',
-  sortby: ['score', 'ASC'],
-  return: ['content', 'tag', 'score'],
-  dialect: 2,
+  sort_by: 'score',
+  return_fields: ['content', 'tag', 'score'],
   params: { 'query_vector' => query_bytes }
 )
 
-puts "Found #{result[0]} results with tag 'foo':"
-i = 1
-while i < result.length
-  doc_id = result[i]
-  fields = result[i + 1]
-  puts "  #{doc_id}: #{fields.inspect}"
-  i += 2
+puts "Found #{result.total} results with tag 'foo':"
+result.each do |doc|
+  puts "  #{doc.id}: #{doc.attributes}"
 end
 # STEP_END
 
 # STEP_START range_query
 puts "\n--- Range Query (Distance Threshold) ---"
 # Find all vectors within a certain distance threshold
-result = redis.ft_search(
-  'idx:vector_flat',
+result = index_flat.search(
   '@vector:[VECTOR_RANGE $radius $query_vector]=>{$YIELD_DISTANCE_AS: score}',
-  sortby: ['score', 'ASC'],
-  return: ['content', 'tag', 'score'],
-  dialect: 2,
+  sort_by: 'score',
+  return_fields: ['content', 'tag', 'score'],
   params: {
     'query_vector' => query_bytes,
     'radius' => 0.5
   }
 )
 
-puts "Found #{result[0]} results within distance 0.5:"
-i = 1
-while i < result.length
-  doc_id = result[i]
-  fields = result[i + 1]
-  puts "  #{doc_id}: #{fields.inspect}"
-  i += 2
+puts "Found #{result.total} results within distance 0.5:"
+result.each do |doc|
+  puts "  #{doc.id}: #{doc.attributes}"
 end
 # STEP_END
 
@@ -200,67 +174,45 @@ query = Redis::Commands::Search::Query.new('*=>[KNN 3 @vector $query_vector AS s
                                       .return_field('tag')
                                       .return_field('score')
                                       .paging(0, 3)
-                                      .dialect(2)
 
-# Convert query to string for ft_search
-query_string = query.to_redis_args[0]
-result = redis.ft_search(
-  'idx:vector_hnsw',
-  query_string,
-  sortby: ['score', 'ASC'],
-  return: ['content', 'tag', 'score'],
-  dialect: 2,
+# Pass the Query object directly to the index
+result = index_hnsw.search(
+  query,
   params: { 'query_vector' => query_bytes }
 )
 
-puts "Found #{result[0]} results using Query object:"
-i = 1
-while i < result.length
-  doc_id = result[i]
-  fields = result[i + 1]
-  puts "  #{doc_id}: #{fields.inspect}"
-  i += 2
+puts "Found #{result.total} results using Query object:"
+result.each do |doc|
+  puts "  #{doc.id}: #{doc.attributes}"
 end
 # STEP_END
 
 # STEP_START flat_vs_hnsw
 puts "\n--- Comparing FLAT vs HNSW ---"
 # FLAT: Exact search (brute-force), slower but 100% accurate
-flat_result = redis.ft_search(
-  'idx:vector_flat',
+flat_result = index_flat.search(
   '*=>[KNN 2 @vector $query_vector AS score]',
-  sortby: ['score', 'ASC'],
-  return: ['content', 'score'],
-  dialect: 2,
+  sort_by: 'score',
+  return_fields: ['content', 'score'],
   params: { 'query_vector' => query_bytes }
 )
 
 puts "FLAT results (exact search):"
-i = 1
-while i < flat_result.length
-  doc_id = flat_result[i]
-  fields = flat_result[i + 1]
-  puts "  #{doc_id}: score=#{fields[fields.index('score') + 1]}"
-  i += 2
+flat_result.each do |doc|
+  puts "  #{doc.id}: score=#{doc['score']}"
 end
 
 # HNSW: Approximate search, faster but may miss some results
-hnsw_result = redis.ft_search(
-  'idx:vector_hnsw',
+hnsw_result = index_hnsw.search(
   '*=>[KNN 2 @vector $query_vector AS score]',
-  sortby: ['score', 'ASC'],
-  return: ['content', 'score'],
-  dialect: 2,
+  sort_by: 'score',
+  return_fields: ['content', 'score'],
   params: { 'query_vector' => query_bytes }
 )
 
 puts "\nHNSW results (approximate search):"
-i = 1
-while i < hnsw_result.length
-  doc_id = hnsw_result[i]
-  fields = hnsw_result[i + 1]
-  puts "  #{doc_id}: score=#{fields[fields.index('score') + 1]}"
-  i += 2
+hnsw_result.each do |doc|
+  puts "  #{doc.id}: score=#{doc['score']}"
 end
 # STEP_END
 
@@ -274,26 +226,20 @@ redis.hset('doc:hnsw:f', 'tag', 'premium', 'content', 'Vector F', 'price', '200'
 
 # Add numeric field to schema (alter index)
 begin
-  redis.ft_alter('idx:vector_hnsw', 'SCHEMA', 'ADD', 'price', 'NUMERIC')
+  index_hnsw.alter(Redis::Commands::Search::NumericField.new('price'))
   sleep 0.5
 
   # Search with both tag and numeric filter
-  result = redis.ft_search(
-    'idx:vector_hnsw',
+  result = index_hnsw.search(
     '(@tag:{premium} @price:[100 150])=>[KNN 2 @vector $query_vector AS score]',
-    sortby: ['score', 'ASC'],
-    return: ['content', 'tag', 'price', 'score'],
-    dialect: 2,
+    sort_by: 'score',
+    return_fields: ['content', 'tag', 'price', 'score'],
     params: { 'query_vector' => query_bytes }
   )
 
-  puts "Found #{result[0]} premium results with price 100-150:"
-  i = 1
-  while i < result.length
-    doc_id = result[i]
-    fields = result[i + 1]
-    puts "  #{doc_id}: #{fields.inspect}"
-    i += 2
+  puts "Found #{result.total} premium results with price 100-150:"
+  result.each do |doc|
+    puts "  #{doc.id}: #{doc.attributes}"
   end
 rescue Redis::CommandError => e
   puts "Note: Numeric filter example skipped (#{e.message})"
@@ -307,4 +253,4 @@ puts "2. FLAT is exact but slower (brute-force search)"
 puts "3. Use COSINE for normalized vectors, L2 for absolute distances"
 puts "4. Hybrid queries combine vector search with traditional filters"
 puts "5. Range queries find all vectors within a distance threshold"
-puts "6. Always use dialect 2 for vector search queries"
+puts "6. DIALECT 2 is the default; vector search relies on it"
