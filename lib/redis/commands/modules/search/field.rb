@@ -253,7 +253,9 @@ class Redis
         # @param [Object] value the attribute value
         # @return [Object] the stored value
         def add_attribute(key, value)
-          @attributes[key.to_s.upcase] = value
+          # Normalize like #initialize does for the kwargs form, so block-DSL attributes
+          # (vector_field(...) { type "float32" }) reach FT.CREATE with the expected casing.
+          @attributes[key.to_s.upcase] = value.to_s.upcase
         end
 
         # Render this field as the array of +FT.CREATE+ +SCHEMA+ tokens.

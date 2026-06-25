@@ -153,7 +153,8 @@ class Redis
       # @option options [Array(Integer, Integer)] :limit +[offset, count]+ paging (+LIMIT+)
       # @option options [Array(String, String)] :sortby +[field, "ASC"|"DESC"]+ (+SORTBY+)
       # @option options [String] :sort_by sort field (convenience; pair with +:asc+)
-      # @option options [Boolean] :asc sort ascending when +:sort_by+ is used (default descending)
+      # @option options [Boolean] :asc sort ascending when +:sort_by+ is used (default; pass
+      #   +false+ for descending)
       # @option options [Array<Array>] :filter numeric filters, each +[field, min, max]+ (+FILTER+)
       # @option options [Array<Array>] :geo_filter geo filters, each +[field, lon, lat, radius, unit]+
       # @option options [Array<String>] :limit_ids restrict to these keys (+INKEYS+)
@@ -190,7 +191,9 @@ class Redis
         if options[:sortby]
           args << "SORTBY" << options[:sortby][0] << options[:sortby][1]
         elsif options[:sort_by]
-          direction = options[:asc] ? 'ASC' : 'DESC'
+          # Default to ASC when :asc is omitted (matching Index#search, Query#sort_by and the
+          # server's own SORTBY default); only an explicit asc: false sorts descending.
+          direction = options[:asc] == false ? 'DESC' : 'ASC'
           args << "SORTBY" << options[:sort_by] << direction
         end
 

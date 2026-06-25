@@ -57,6 +57,23 @@ class TestSearchOffline < Minitest::Test
     assert_includes args, "128"
   end
 
+  def test_vector_field_block_dsl_upcases_values
+    # The block DSL (add_attribute) must normalize values the same as the kwargs form, so
+    # FT.CREATE receives canonical uppercase tokens (e.g. FLOAT32/COSINE, not float32/cosine).
+    schema = Schema.build do
+      vector_field(:v, "HNSW") do
+        type "float32"
+        dim 4
+        distance_metric "cosine"
+      end
+    end
+    args = schema.fields.first.to_args
+    assert_includes args, "FLOAT32"
+    assert_includes args, "COSINE"
+    refute_includes args, "float32"
+    refute_includes args, "cosine"
+  end
+
   def test_vector_field_rejects_unknown_algorithm
     assert_raises(ArgumentError) do
       Redis::Commands::Search::VectorField.new("v", "BOGUS", { "TYPE" => "FLOAT32" })
@@ -263,6 +280,33 @@ class TestSearchOffline < Minitest::Test
 
     assert_includes captured[0], "NOCONTENT"
     refute_includes captured[1], "NOCONTENT"
+  end
+
+  def test_sort_by_without_asc_defaults_to_ascending_consistently
+    # Raw ft_search and Index#search must emit the same SORTBY direction for the same call shape.
+    captured = []
+    client = Redis.new
+    client.define_singleton_method(:send_command) do |command, &block|
+      captured << command
+      block ? block.call([0]) : [0]
+    end
+
+    client.ft_search("idx", "*", sort_by: "price") # raw convenience, no :asc
+    index = Index.new(client, "idx", Schema.build { numeric_field :price }, "hash")
+    index.search("*", sort_by: "price")            # Index#search, no :asc
+
+    raw, idx = captured
+    assert_equal "ASC", raw[raw.index("SORTBY") + 2]
+    assert_equal "ASC", idx[idx.index("SORTBY") + 2]
+  end
+
+  def test_ft_search_sort_by_asc_false_is_descending
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+
+    client.ft_search("idx", "*", sort_by: "price", asc: false)
+    assert_equal "DESC", captured[captured.index("SORTBY") + 2]
   end
 
   def test_ft_search_emits_timeout_infields_and_expander
