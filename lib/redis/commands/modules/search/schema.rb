@@ -17,12 +17,14 @@ class Redis
           @fields = fields
         end
 
-        # Find a field by name.
+        # Find a field by its name/path or its +AS+ alias, so e.g. a JSON field declared as
+        # "$.price" AS "price" is found by either "$.price" or "price".
         #
-        # @param [String, Symbol] name the field name to look up
+        # @param [String, Symbol] name the field name/path or alias to look up
         # @return [Field, nil] the matching field, or +nil+ if none matches
         def field(name)
-          @fields.find { |f| f.name.to_s == name.to_s }
+          name = name.to_s
+          @fields.find { |f| f.name.to_s == name || f.alias_name&.to_s == name }
         end
 
         # Iterate over the schema's fields.

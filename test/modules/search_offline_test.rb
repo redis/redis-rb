@@ -37,6 +37,23 @@ class TestSearchOffline < Minitest::Test
     assert_includes args, "TEXT"
   end
 
+  def test_schema_field_lookup_by_name_or_alias
+    schema = Schema.build { numeric_field "$.price", as: "price" }
+    field = schema.fields.first
+    assert_same field, schema.field("$.price") # by path
+    assert_same field, schema.field("price")   # by alias
+    assert_same field, schema.field(:price)    # symbol alias
+    assert_nil schema.field("nope")
+  end
+
+  def test_index_add_validates_numeric_via_alias
+    # A JSON index's numeric field is declared by path with an AS alias; #add is called with the
+    # alias, so the numeric check must resolve the field by alias and reject non-numeric values.
+    schema = Schema.build { numeric_field "$.price", as: "price" }
+    index = Index.new(Redis.new, "idx", schema, IndexType::JSON, prefix: "d:")
+    assert_raises(Redis::CommandError) { index.add("1", price: "not-a-number") }
+  end
+
   def test_text_field_supports_index_missing
     # text_field must accept index_missing (TextField#to_args emits INDEXMISSING).
     schema = Schema.build { text_field :title, index_missing: true }

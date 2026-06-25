@@ -75,15 +75,10 @@ class Redis
         end
 
         # The effective storage type, mirroring FT.CREATE: a definition (preferred over the
-        # +storage_type+ keyword) decides it, otherwise the +storage_type+ argument does.
+        # +storage_type+ keyword) supplies the type, otherwise the +storage_type+ argument does.
         def self.resolve_storage_type(storage_type, definition)
-          if definition.is_a?(IndexDefinition)
-            definition.index_type == IndexType::JSON ? IndexType::JSON : IndexType::HASH
-          elsif storage_type.to_s.casecmp?(IndexType::JSON)
-            IndexType::JSON
-          else
-            IndexType::HASH
-          end
+          type = definition ? definition.index_type : storage_type
+          type.to_s.casecmp?(IndexType::JSON) ? IndexType::JSON : IndexType::HASH
         end
 
         # Add (or replace) a document under the key +"<prefix><doc_id>"+ (or +doc_id+ when no
