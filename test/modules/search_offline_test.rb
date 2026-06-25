@@ -205,28 +205,6 @@ class TestSearchOffline < Minitest::Test
     refute_includes captured, "DIALECT"
   end
 
-  def test_ft_add_flattens_field_pairs
-    # FIELDS must be flattened into the command, not nested as a single array element.
-    captured = nil
-    client = Redis.new
-    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
-
-    client.ft_add("idx", "doc1", 1.0, fields: ["title", "hello", "body", "world"])
-    fields = captured.index("FIELDS")
-    assert_equal %w[title hello body world], captured[(fields + 1)..]
-    refute(captured.any?(Array), "FIELDS values must be flattened, not nested")
-  end
-
-  def test_ft_add_accepts_hash_fields
-    captured = nil
-    client = Redis.new
-    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
-
-    client.ft_add("idx", "doc1", 1.0, fields: { "title" => "hello" })
-    fields = captured.index("FIELDS")
-    assert_equal %w[title hello], captured[(fields + 1)..]
-  end
-
   def test_index_search_does_not_leak_options_across_calls
     captured = []
     client = Redis.new

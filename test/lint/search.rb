@@ -56,7 +56,7 @@ module Lint
 
     # ---- Basic CRUD + search -----------------------------------------------------------------
 
-    def test_ft_add_and_search
+    def test_add_and_search
       schema = Schema.build do
         text_field :title
         text_field :body
@@ -76,28 +76,6 @@ module Lint
       assert_includes result.map(&:id), "doc2"
     end
 
-    def test_ft_mget_documents
-      schema = Schema.build do
-        text_field :f1
-        text_field :f2
-      end
-      r.create_index(@index_name, schema)
-
-      assert_equal [nil], r.ft_mget(@index_name, "mget_doc1")
-
-      r.hset("mget_doc1", "f1", "some valid content dd1", "f2", "this is sample text f1")
-      r.hset("mget_doc2", "f1", "some valid content dd2", "f2", "this is sample text f2")
-
-      result = r.ft_mget(@index_name, "mget_doc2")
-      assert_equal 1, result.length
-      assert_includes flatten_fields(result[0]), "some valid content dd2"
-
-      result = r.ft_mget(@index_name, "mget_doc1", "mget_doc2")
-      assert_equal 2, result.length
-      assert_includes flatten_fields(result[0]), "some valid content dd1"
-      assert_includes flatten_fields(result[1]), "some valid content dd2"
-    end
-
     def test_delete_document
       schema = Schema.build { text_field :title }
       index = r.create_index(@index_name, schema, prefix: "doc")
@@ -105,20 +83,9 @@ module Lint
       index.add("doc1", title: "Test Document")
       assert_equal 1, index.search("Test").total
 
-      del_result = r.ft_del(@index_name, "doc1")
-      assert_includes [0, 1], del_result
-    end
-
-    def test_ft_add_indexes_document
-      r.ft_create(@index_name, Schema.build { text_field :title })
-      # Legacy FT.ADD: a flat fields array must reach the server as alternating name/value tokens.
-      assert_equal "OK", r.ft_add(@index_name, "doc1", 1.0, fields: ["title", "hello world"])
-      wait_for_index(@index_name)
-
-      result = r.ft_search(@index_name, "hello")
-      assert_equal 1, result.total
-      assert_equal "doc1", result[0].id
-      assert_equal "hello world", result[0]["title"]
+      # Documents are removed by deleting the underlying key; the index syncs automatically.
+      r.del("doc:doc1")
+      assert_equal 0, index.search("Test").total
     end
 
     # ---- Schema / index management -----------------------------------------------------------
@@ -1396,13 +1363,6 @@ module Lint
     end
 
     private
-
-    # FT.MGET returns each document's fields as a flat array (RESP2) or a map (RESP3).
-    def flatten_fields(entry)
-      return [] if entry.nil?
-
-      entry.is_a?(Hash) ? entry.to_a.flatten : entry
-    end
 
     # Pack floats as a little-endian FLOAT32 binary blob (the vector wire format).
     def f32(*values)

@@ -269,30 +269,6 @@ class Redis
         end
       end
 
-      # Add a document to an index (legacy +FT.ADD+; deprecated in modern RediSearch in favour of
-      # writing the source HASH/JSON key directly).
-      #
-      # @param index_name [String] the index name
-      # @param doc_id [String] the document id
-      # @param score [Numeric] the document's initial score
-      # @param options [Hash]
-      # @option options [Boolean] :replace replace an existing document (+REPLACE+)
-      # @option options [String] :language stemming language (+LANGUAGE+)
-      # @option options [Array, Hash] :fields the field/value pairs to index (+FIELDS+); a flat
-      #   +[field, value, ...]+ array or a +{ field => value }+ hash. FT.ADD's FIELDS clause takes
-      #   the pairs directly (no count), so the values are flattened into the command.
-      # @return [String] +"OK"+
-      def ft_add(index_name, doc_id, score, options = {})
-        args = ["FT.ADD", index_name, doc_id, score]
-        args << 'REPLACE' if options[:replace]
-        args << 'LANGUAGE' << options[:language] if options[:language]
-        if (fields = options[:fields])
-          args << 'FIELDS'
-          args.concat(fields.is_a?(Hash) ? fields.to_a.flatten : Array(fields).flatten)
-        end
-        send_command(args)
-      end
-
       # Return information and statistics about an index.
       #
       # @example
@@ -313,25 +289,6 @@ class Redis
         args = ["FT.DROPINDEX", index_name]
         args << 'DD' if delete_documents
         send_command(args)
-      end
-
-      # Delete a document from an index (legacy +FT.DEL+).
-      #
-      # @param index_name [String] the index name
-      # @param doc_id [String] the document id
-      # @return [Integer] +1+ if the document was deleted, +0+ otherwise
-      def ft_del(index_name, doc_id)
-        send_command(["FT.DEL", index_name, doc_id])
-      end
-
-      # Fetch the indexed fields of one or more documents by id.
-      #
-      # @param index_name [String] the index name
-      # @param doc_ids [Array<String>] document ids
-      # @return [Array] one entry per id, each the document's fields (a flat +[field, value, ...]+
-      #   array under RESP2, a Hash under RESP3) or +nil+ when the id does not exist
-      def ft_mget(index_name, *doc_ids)
-        send_command(["FT.MGET", index_name] + doc_ids)
       end
 
       # Run an aggregation pipeline, or read the next batch of a cursor.
