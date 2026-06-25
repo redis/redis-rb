@@ -37,6 +37,12 @@ class TestSearchOffline < Minitest::Test
     assert_includes args, "TEXT"
   end
 
+  def test_text_field_supports_index_missing
+    # text_field must accept index_missing (TextField#to_args emits INDEXMISSING).
+    schema = Schema.build { text_field :title, index_missing: true }
+    assert_includes schema.fields.first.to_args, "INDEXMISSING"
+  end
+
   def test_svs_vamana_vector_field_to_args
     schema = Schema.build do
       vector_field :v, "SVS-VAMANA", type: "FLOAT32", dim: 128, distance_metric: "COSINE"
@@ -176,6 +182,24 @@ class TestSearchOffline < Minitest::Test
     assert_equal %w[title hello], captured[(fields + 1)..]
   end
 
+  def test_index_search_does_not_leak_options_across_calls
+    captured = []
+    client = Redis.new
+    client.define_singleton_method(:send_command) do |command, &block|
+      captured << command
+      block ? block.call([0]) : [0]
+    end
+    index = Index.new(client, "idx", Schema.build { text_field :t }, "hash")
+    query = Query.new("hello")
+
+    index.search(query, params: { a: 1 }) # call 1: with PARAMS
+    index.search(query) # call 2: same Query, no PARAMS
+
+    assert_includes captured[0], "PARAMS"
+    refute_includes captured[1], "PARAMS"
+    refute query.options.key?(:params), "Index#search must not mutate the Query"
+  end
+
   def test_ft_search_emits_timeout_infields_and_expander
     # ft_search must translate these options into FT.SEARCH tokens (previously dropped).
     captured = nil
@@ -242,6 +266,17 @@ class TestSearchOffline < Minitest::Test
     assert_equal 2, args[args.index("DIALECT") + 1]
   end
 
+  def test_aggregate_request_apply_accepts_keyword_and_hash_forms
+    # apply(expressions) takes a positional Hash; Ruby collects trailing key: value args into
+    # it, so both the keyword form and an explicit hash render the same APPLY ... AS tokens.
+    keyword = AggregateRequest.new("*").apply(times_ten: "@n * 10").to_redis_args
+    hash = AggregateRequest.new("*").apply({ times_ten: "@n * 10" }).to_redis_args
+    expected = ["APPLY", "@n * 10", "AS", "times_ten"]
+
+    assert_equal expected, keyword.last(4)
+    assert_equal expected, hash.last(4)
+  end
+
   # ---- RESP2 reshaping ---------------------------------------------------------------------
 
   def test_search_resp2_basic
@@ -260,15 +295,25 @@ class TestSearchOffline < Minitest::Test
   end
 
   def test_search_resp2_with_scores
+    # RESP2 returns the score as a bulk string; the parser normalizes it to a Float.
     result = RP.search([1, "doc1", "1.5", ["title", "Hi"]], with_scores: true)
-    assert_equal "1.5", result[0].score
+    assert_in_delta 1.5, result[0].score
+    assert_instance_of Float, result[0].score
     assert_equal "Hi", result[0]["title"]
   end
 
   def test_search_resp2_with_scores_and_nocontent
     result = RP.search([2, "doc1", "1.5", "doc2", "0.9"], with_scores: true, no_content: true)
     assert_equal "doc2", result[1].id
-    assert_equal "0.9", result[1].score
+    assert_in_delta 0.9, result[1].score
+    assert_instance_of Float, result[1].score
+  end
+
+  def test_search_score_explainscore_keeps_explanation_with_float_score
+    # WITHSCORES + EXPLAINSCORE (RESP2): score slot is [score, explanation]; coerce the score
+    # part to Float and keep the explanation intact.
+    result = RP.search([1, "doc1", ["1.5", ["TFIDF", "0.5"]], ["title", "Hi"]], with_scores: true)
+    assert_equal [1.5, ["TFIDF", "0.5"]], result[0].score
   end
 
   def test_search_decode_fields_parses_json
@@ -279,6 +324,19 @@ class TestSearchOffline < Minitest::Test
   def test_search_decode_fields_falls_back_on_non_json
     result = RP.search([1, "d", ["meta", "plain"]], decode_fields: { "meta" => true })
     assert_equal "plain", result[0]["meta"]
+  end
+
+  def test_search_decode_fields_with_symbol_keys_resp2
+    # Symbol-keyed decode_fields (e.g. Query#return_field(:meta)) must still trigger decoding.
+    result = RP.search([1, "d", ["meta", '{"a":1}']], decode_fields: { meta: true })
+    assert_equal({ "a" => 1 }, result[0]["meta"])
+  end
+
+  def test_search_decode_fields_with_symbol_keys_resp3
+    reply = { "total_results" => 1,
+              "results" => [{ "id" => "d", "extra_attributes" => { "meta" => '{"a":1}' } }] }
+    result = RP.search(reply, decode_fields: { meta: true })
+    assert_equal({ "a" => 1 }, result[0]["meta"])
   end
 
   # ---- RESP3 reshaping ---------------------------------------------------------------------

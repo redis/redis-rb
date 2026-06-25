@@ -11,14 +11,15 @@ class Redis
       # exposing the document +id+ and, when requested, its +score+ and +payload+.
       class Document
         # @return [String] the document key/id
-        # @return [Float, nil] the relevance score (present when WITHSCORES was set)
+        # @return [Float, Array, nil] the relevance score (present when WITHSCORES was set),
+        #   normalized to a Float across RESP2/RESP3; with EXPLAINSCORE it is +[Float, explanation]+
         # @return [String, nil] the document payload (present when WITHPAYLOADS was set)
         # @return [Hash{String => Object}] the returned fields keyed by field name
         attr_reader :id, :score, :payload, :attributes
 
         # @param id [String] the document key/id
         # @param attributes [Hash{String => Object}] the returned fields keyed by field name
-        # @param score [Float, nil] the relevance score
+        # @param score [Float, Array, nil] the relevance score (Float; +[Float, explanation]+ with EXPLAINSCORE)
         # @param payload [String, nil] the document payload
         def initialize(id, attributes: {}, score: nil, payload: nil)
           @id = id
@@ -255,7 +256,7 @@ class Redis
 
             score = nil
             if with_scores
-              score = reply[index]
+              score = normalize_score(reply[index])
               index += 1
             end
 
@@ -285,7 +286,8 @@ class Redis
         def search_resp3(reply, decode_fields)
           documents = (reply["results"] || []).map do |row|
             attributes = hashify_fields(row["extra_attributes"], decode_fields)
-            Document.new(row["id"], attributes: attributes, score: row["score"], payload: row["payload"])
+            Document.new(row["id"], attributes: attributes, score: normalize_score(row["score"]),
+                                    payload: row["payload"])
           end
 
           SearchResult.new(reply["total_results"], documents)
@@ -419,13 +421,30 @@ class Redis
         # @param fields [Array, Hash, nil] the field/value pairs
         # @param decode_fields [Hash] field name => whether to JSON-decode its value
         # @return [Hash{String => Object}] the fields as a hash (empty when +fields+ is nil)
+        # Normalize a WITHSCORES value to a Float so Document#score is the same type regardless of
+        # protocol (RESP2 returns the score as a bulk string, RESP3 as a native double). With
+        # EXPLAINSCORE the RESP2 value is +[score, explanation]+; coerce the score part and keep
+        # the explanation. Anything non-numeric is returned untouched.
+        def normalize_score(score)
+          case score
+          when nil then nil
+          when Array then [normalize_score(score[0]), *score[1..]]
+          else Float(score)
+          end
+        rescue ArgumentError, TypeError
+          score
+        end
+
         def hashify_fields(fields, decode_fields)
           return {} if fields.nil?
 
+          # Reply field names are strings, but callers may key decode_fields with symbols
+          # (e.g. Query#return_field(:brand)). Normalize so decoding is caller-type-independent.
+          decode = decode_fields.transform_keys(&:to_s)
           pairs = fields.is_a?(Hash) ? fields.to_a : fields.each_slice(2).to_a
 
           pairs.each_with_object({}) do |(name, value), acc|
-            acc[name] = decode_fields[name] ? decode_value(value) : value
+            acc[name] = decode[name.to_s] ? decode_value(value) : value
           end
         end
 

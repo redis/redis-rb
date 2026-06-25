@@ -167,6 +167,29 @@ module Lint
       assert_includes info_field_names(info), "body"
     end
 
+    def test_index_search_does_not_persist_per_call_options
+      index = r.create_index(@index_name, Schema.build { text_field :title }, prefix: "reuse")
+      index.add("1", title: "hello")
+      wait_for_index(@index_name)
+
+      query = Query.new("hello")
+      with_nocontent = index.search(query, nocontent: true)
+      without_nocontent = index.search(query)
+
+      # nocontent applied to the first call only; it must not stick to the reused Query.
+      assert_empty with_nocontent[0].attributes
+      assert_equal "hello", without_nocontent[0]["title"]
+    end
+
+    def test_index_alter_adds_field
+      index = r.create_index(@index_name, Schema.build { text_field :title }, prefix: "alt")
+      assert_equal "OK", index.alter(Redis::Commands::Search::TextField.new(:body))
+
+      index.add("doc1", title: "hello", body: "world")
+      wait_for_index(@index_name)
+      assert_equal 1, index.search("@body:world").total
+    end
+
     def test_ft_info
       schema = Schema.build { text_field :title }
       r.create_index(@index_name, schema, prefix: "ftinfo")

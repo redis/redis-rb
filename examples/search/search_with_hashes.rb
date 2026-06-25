@@ -38,12 +38,14 @@ class SearchWithHashes
 
     index = @redis.create_index(index_name, schema, storage_type: 'hash', prefix: 'user')
 
-    # Add sample data
+    # Add sample data. Pass the *logical* id (e.g. "1"): Index#add prepends the index prefix,
+    # so these become the keys user:1, user:2, ... (don't include the prefix here, or you'd get
+    # user:user:1). Search results report the logical id with the prefix stripped back off.
     users = [
-      { id: "user:1", name: "John Doe", email: "john@example.com", age: 30, city: "New York" },
-      { id: "user:2", name: "Jane Smith", email: "jane@example.com", age: 28, city: "Los Angeles" },
-      { id: "user:3", name: "Bob Johnson", email: "bob@example.com", age: 35, city: "Chicago" },
-      { id: "user:4", name: "Alice Brown", email: "alice@example.com", age: 32, city: "New York" }
+      { id: "1", name: "John Doe", email: "john@example.com", age: 30, city: "New York" },
+      { id: "2", name: "Jane Smith", email: "jane@example.com", age: 28, city: "Los Angeles" },
+      { id: "3", name: "Bob Johnson", email: "bob@example.com", age: 35, city: "Chicago" },
+      { id: "4", name: "Alice Brown", email: "alice@example.com", age: 32, city: "New York" }
     ]
 
     users.each do |user|

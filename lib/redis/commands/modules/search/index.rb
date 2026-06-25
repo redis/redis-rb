@@ -148,70 +148,46 @@ class Redis
 
           raise ArgumentError, "Invalid query" unless query.is_a?(Query)
 
-          # Apply keyword argument options to the query
-          query.no_content if nocontent
-          query.verbatim if verbatim
-          query.no_stopwords if no_stopwords
-          query.with_scores if with_scores
-          query.with_payloads if with_payloads
-          query.slop(slop) if slop
-          query.in_order if in_order
-          query.language(language) if language
-          query.scorer(scorer) if scorer
-          query.explain_score if explain_score
-          query.return_fields = return_fields if return_fields
-          query.summarize_options = summarize if summarize
-          query.highlight_options = highlight if highlight
+          query_string = query.to_redis_args.first
 
-          if sort_by
-            order = asc == false ? "DESC" : "ASC"
-            query.options[:sortby] = [sort_by, order]
+          sortby = if sort_by
+            [sort_by, asc == false ? "DESC" : "ASC"]
+else
+  query.options[:sortby]
           end
+          limit_ids = query.limit_ids_value
+          limit_ids = limit_ids.map { |id| "#{@prefix}#{id}" } if limit_ids && @prefix
 
-          redis_args = query.to_redis_args
-          query_string = redis_args.shift
-
-          options = query.options
-          options[:filter] = query.filters
-          options[:geo_filter] = query.geo_filters
-
-          # Add prefix to limit_ids if a prefix is set
-          options[:limit_ids] = if query.limit_ids_value && @prefix
-            query.limit_ids_value.map { |id| "#{@prefix}#{id}" }
-          else
-            query.limit_ids_value
-          end
-
-          options[:sortby] = query.options[:sortby]
-
-          # Get dialect from query options or method parameter
-          query_dialect = query.options[:dialect]
-          options[:dialect] = dialect || query_dialect
-
-          options[:params] = params if params
-
-          options[:return] = query.return_fields
-          options[:decode_fields] = query.return_fields_decode
-
-          options[:highlight] = query.highlight_options
-          options[:summarize] = query.summarize_options
-          options[:verbatim] = query.verbatim_value
-          options[:no_stopwords] = query.no_stopwords_value
-          options[:no_content] = query.no_content_value
-          options[:with_scores] = query.options[:withscores]
-          options[:scorer] = query.options[:scorer]
-          options[:explain_score] = query.options[:explainscore]
-          options[:language] = query.language_value
-          options[:with_payloads] = query.with_payloads_value
-          options[:slop] = query.slop_value
-          options[:in_order] = query.in_order_value
-          options[:timeout] = query.timeout_value
-          options[:limit_fields] = query.limit_fields_value
-          options[:expander] = query.expander_value
-
-          if query_params
-            options[:params] = query_params
-          end
+          # Build a fresh options hash per call: each option is the per-call keyword argument
+          # falling back to whatever the Query was built with. The Query is never mutated, so
+          # reusing one Query across searches never leaks options (e.g. stale PARAMS) between calls.
+          options = {
+            filter: query.filters,
+            geo_filter: query.geo_filters,
+            limit_ids: limit_ids,
+            limit: query.options[:limit],
+            sortby: sortby,
+            dialect: dialect || query.options[:dialect],
+            return: return_fields || query.return_fields,
+            decode_fields: query.return_fields_decode,
+            highlight: highlight || query.highlight_options,
+            summarize: summarize || query.summarize_options,
+            verbatim: verbatim || query.verbatim_value,
+            no_stopwords: no_stopwords || query.no_stopwords_value,
+            no_content: nocontent || query.no_content_value,
+            with_scores: with_scores || query.options[:withscores],
+            scorer: scorer || query.options[:scorer],
+            explain_score: explain_score || query.options[:explainscore],
+            language: language || query.language_value,
+            with_payloads: with_payloads || query.with_payloads_value,
+            slop: slop || query.slop_value,
+            in_order: in_order || query.in_order_value,
+            timeout: query.timeout_value,
+            limit_fields: query.limit_fields_value,
+            expander: query.expander_value
+          }
+          substitutions = query_params || params
+          options[:params] = substitutions if substitutions
 
           result = @redis.ft_search(@name, query_string, **options)
 
@@ -284,10 +260,11 @@ class Redis
 
         # Add a field to the index schema (delegates to +FT.ALTER+).
         #
-        # @param args [Array] a {Field} or raw token array describing the field to add
+        # @param field_or_args [Search::Field, Array] a {Search::Field} (rendered via +#to_args+)
+        #   or a raw token array describing the field to add
         # @return [String] +"OK"+
-        def alter(*args)
-          @redis.ft_alter(@name, *args)
+        def alter(field_or_args)
+          @redis.ft_alter(@name, field_or_args)
         end
 
         # Perform spelling correction over a query against the index (delegates to +FT.SPELLCHECK+).

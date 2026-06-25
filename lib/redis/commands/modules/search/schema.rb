@@ -87,7 +87,7 @@ class Redis
         # @return [Array<Field>] the updated field list
         # @raise [ArgumentError] if an unknown option key is given
         def text_field(name, **options)
-          valid_options = %i[weight sortable no_index as phonetic no_stem index_empty withsuffixtrie]
+          valid_options = %i[weight sortable no_index as phonetic no_stem index_empty index_missing withsuffixtrie]
           invalid_options = options.keys - valid_options
           if invalid_options.any?
             raise ArgumentError, "Invalid options for text field: #{invalid_options.join(', ')}"
