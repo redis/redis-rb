@@ -987,6 +987,26 @@ module Lint
       assert_equal "2", r.ft_config_get("DEFAULT_DIALECT")["DEFAULT_DIALECT"]
     end
 
+    def test_ft_search_nil_dialect_falls_back_to_default_not_server
+      # KNN vector syntax requires DIALECT >= 2. Force the server's own DEFAULT_DIALECT to 1, so
+      # that unless redis-rb sends DIALECT 2 itself the query is parsed under dialect 1 and errors.
+      original = r.ft_config_get("DEFAULT_DIALECT")["DEFAULT_DIALECT"]
+      r.ft_config_set("DEFAULT_DIALECT", 1)
+
+      schema = Schema.build { vector_field :embedding, :flat, type: :float32, dim: 2, distance_metric: :l2 }
+      r.create_index(@index_name, schema)
+      r.hset("doc1", embedding: [0.1, 0.9].pack("f*"))
+      wait_for_index(@index_name)
+
+      # dialect: nil must behave like omitting the keyword (-> DIALECT 2), not defer to the
+      # server default, so the KNN query parses and returns the document.
+      result = r.ft_search(@index_name, "(*)=>[KNN 1 @embedding $q]",
+                           params: { q: [0.1, 0.9].pack("f*") }, dialect: nil)
+      assert_equal 1, result.total
+    ensure
+      r.ft_config_set("DEFAULT_DIALECT", original) if original
+    end
+
     def test_ft_profile_search
       r.ft_create(@index_name, Schema.build { text_field :t }, prefix: "prof")
       r.hset("prof:1", "t", "hello")

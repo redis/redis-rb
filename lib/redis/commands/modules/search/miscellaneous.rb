@@ -249,9 +249,11 @@ class Redis
           end
         end
 
-        # Default to DIALECT 2 (matching redis-py) unless the caller specified one.
-        dialect = options.fetch(:dialect, DEFAULT_DIALECT)
-        args << "DIALECT" << dialect if dialect
+        # Default to DIALECT 2 (matching redis-py) unless the caller specified one. An explicit
+        # dialect: nil (e.g. flowing from an unset Query option) falls back to the default too, so
+        # it behaves the same as omitting the keyword rather than deferring to the server default.
+        dialect = options[:dialect] || DEFAULT_DIALECT
+        args << "DIALECT" << dialect
 
         with_scores = options[:with_scores]
         with_payloads = options[:with_payloads]
