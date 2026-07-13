@@ -176,6 +176,16 @@ module Lint
       assert_includes info_field_names(info), "body"
     end
 
+    def test_query_return_resets_stale_decode_flags
+      query = Query.new("*").return_field("brand", decode_field: true)
+      assert_equal({ "brand" => true }, query.return_fields_decode)
+
+      # Replacing the RETURN list must drop decode flags set via #return_field, otherwise a stale
+      # flag would keep decoding an overlapping field name ("brand") in the new list.
+      query.return("brand", "price")
+      assert_empty query.return_fields_decode
+    end
+
     def test_index_search_empty_return_fields_keeps_query_return
       schema = Schema.build do
         text_field :title
@@ -944,6 +954,19 @@ module Lint
       # restricting to :title finds nothing; restricting to :body finds the doc.
       assert_equal 0, index.search(Query.new("beta").limit_fields(:title)).total
       assert_equal 1, index.search(Query.new("beta").limit_fields(:body)).total
+    end
+
+    def test_index_search_limit_ids_accepts_logical_and_full_keys
+      index = r.create_index(@index_name, Schema.build { text_field :title }, prefix: "doc")
+      index.add("1", title: "hello")
+      index.add("2", title: "hello")
+      wait_for_index(@index_name)
+
+      # A logical id gets the index prefix prepended (INKEYS needs the full "doc:1" key).
+      assert_equal ["1"], index.search(Query.new("hello").limit_ids("1")).map(&:id)
+      # A full Redis key already carries the prefix; it must not be doubled to "doc:doc:2"
+      # (which would match nothing) but still restrict the search to that document.
+      assert_equal ["2"], index.search(Query.new("hello").limit_ids("doc:2")).map(&:id)
     end
 
     def test_ft_search_with_params

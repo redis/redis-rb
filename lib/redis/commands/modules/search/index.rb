@@ -170,7 +170,12 @@ class Redis
           sort_order = asc == false ? "DESC" : "ASC"
           sortby = sort_by ? [sort_by, sort_order] : query.options[:sortby]
           limit_ids = query.limit_ids_value
-          limit_ids = limit_ids.map { |id| "#{@prefix}#{id}" } if limit_ids && @prefix
+          # INKEYS needs full Redis keys. Prepend the index prefix to logical ids (mirroring
+          # #add), but leave ids that already carry it alone so callers passing full keys don't
+          # get a doubled prefix that matches nothing.
+          if limit_ids && @prefix
+            limit_ids = limit_ids.map { |id| id.to_s.start_with?(@prefix) ? id : "#{@prefix}#{id}" }
+          end
 
           # An empty RETURN list is not a meaningful per-call value (it would just omit RETURN and
           # return all fields), so treat it as "unset" and fall back to the Query's RETURN list.

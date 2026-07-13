@@ -132,6 +132,9 @@ class Redis
         # @return [self]
         def return(*fields)
           @return_fields = fields
+          # Replacing the RETURN list drops any decode flags set via #return_field; otherwise a
+          # stale flag would keep decoding an overlapping field name in the new list.
+          @return_fields_decode = {}
           self
         end
 
