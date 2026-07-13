@@ -41,8 +41,10 @@ class Redis
           @args = []
           @index_type = index_type
           # Array() makes the prefix handling nil-safe (nil -> []) and wraps a lone String prefix
-          # into a one-element list, so PREFIX always emits the correct count.
-          @prefixes = Array(prefix)
+          # into a one-element list, so PREFIX always emits the correct count. dup detaches us from
+          # the caller's list (Array() returns it unchanged when it's already an Array) so later
+          # external mutations can't alter this definition.
+          @prefixes = Array(prefix).dup
           append_index_type(index_type)
           append_prefix(@prefixes)
           append_filter(filter)

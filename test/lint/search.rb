@@ -32,14 +32,17 @@ module Lint
     def wait_for_index(index_name, timeout = 5.0)
       deadline = now + timeout
       loop do
-        info = r.ft_info(index_name)
-        break if info["indexing"].to_i.zero?
+        begin
+          info = r.ft_info(index_name)
+          break if info["indexing"].to_i.zero?
+        rescue Redis::CommandError
+          # The index may not be visible yet right after creation; keep polling until the
+          # deadline rather than giving up (and silently not waiting) on the first miss.
+        end
         raise "Timeout waiting for index #{index_name}" if now > deadline
 
         sleep 0.05
       end
-    rescue Redis::CommandError
-      nil
     end
 
     def now
@@ -103,6 +106,26 @@ module Lint
       # On a JSON index, #add must write a JSON document (not a HASH) so the index picks it up.
       assert_equal({ "brand" => "Velorim", "price" => 270 }, r.json_get("bike:1"))
       result = index.search("@brand:Velorim")
+      assert_equal 1, result.total
+      assert_equal "1", result[0].id
+    end
+
+    def test_index_add_to_nested_json_index_with_full_document_shape
+      schema = Schema.build do
+        text_field "$.user.name", as: "name"
+      end
+      index = r.create_index(
+        @index_name, schema,
+        definition: IndexDefinition.new(prefix: ["person:"], index_type: IndexType::JSON)
+      )
+
+      # #add writes fields at the JSON root, so a nested "$.user.name" path is only indexed when
+      # the caller supplies the full document shape rather than a flat alias-shaped value.
+      index.add("1", user: { name: "Ann" })
+      wait_for_index(@index_name)
+
+      assert_equal({ "user" => { "name" => "Ann" } }, r.json_get("person:1"))
+      result = index.search("@name:Ann")
       assert_equal 1, result.total
       assert_equal "1", result[0].id
     end
@@ -590,6 +613,7 @@ module Lint
       r.hset("doc1", embedding: [0.1, 0.9, 0.2, 0.8].pack("f*"), tag: "a")
       r.hset("doc2", embedding: [0.2, 0.8, 0.3, 0.7].pack("f*"), tag: "b")
       r.hset("doc3", embedding: [0.8, 0.2, 0.7, 0.3].pack("f*"), tag: "c")
+      wait_for_index(@index_name)
 
       query_vector = [0.15, 0.85, 0.25, 0.75].pack("f*")
 
@@ -613,6 +637,7 @@ module Lint
 
       r.hset("doc1", title: "foo", embedding: [0.1, 0.9].pack("f*"))
       r.hset("doc2", title: "bar", embedding: [0.8, 0.2].pack("f*"))
+      wait_for_index(@index_name)
 
       result = r.ft_search(@index_name, "(*)=>[KNN 2 @embedding $query_vector]",
                            params: { query_vector: [0.1, 0.9].pack("f*") }, dialect: 2)
@@ -887,6 +912,23 @@ module Lint
                         return: query.return_fields, decode_fields: query.return_fields_decode)
       assert_equal 1, res.total
       assert_equal "hello", res[0]["heading"]
+    end
+
+    def test_ft_search_return_field_decodes_under_alias
+      schema = Schema.build { text_field "$.user.name", as: "name" }
+      r.ft_create(@index_name, schema,
+                  definition: IndexDefinition.new(prefix: ["ret:"], index_type: IndexType::JSON))
+      r.json_set("ret:1", "$", { user: { name: "Ann" } })
+      wait_for_index(@index_name)
+
+      # Redis returns the value keyed under the alias ("who"), so the decode flag must be keyed
+      # by the alias too — otherwise the JSON-encoded value comes back as a raw string.
+      query = Query.new("*").return_field("$.user", as_field: "who")
+      query_string = query.to_redis_args.shift
+      res = r.ft_search(@index_name, query_string,
+                        return: query.return_fields, decode_fields: query.return_fields_decode)
+      assert_equal 1, res.total
+      assert_equal({ "name" => "Ann" }, res[0]["who"])
     end
 
     def test_index_search_limit_fields_restricts_matching

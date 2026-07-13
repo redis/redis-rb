@@ -86,6 +86,13 @@ class Redis
         # (+HSET+) for a HASH index, or a JSON document at the root path (+JSON.SET+) for a JSON
         # index — so the index actually picks it up either way.
         #
+        # For a JSON index the given +fields+ are written verbatim as the JSON document at the
+        # root path (+$+), so each key lands at a top-level attribute. This works when the schema
+        # indexes root-level JSONPaths (+$.brand AS brand+, so +add("1", brand: "x")+ stores
+        # +{"brand":"x"}+ which +$.brand+ matches). It does *not* build nested structure: a field
+        # over a nested path (+$.user.name AS name+) is not satisfied by a flat +name: "..."+
+        # write — pass the full document shape instead (+add("1", user: { name: "Ann" })+).
+        #
         # @example
         #   index.add("1", title: "hello", price: 10)
         #

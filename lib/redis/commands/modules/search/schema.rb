@@ -140,9 +140,10 @@ class Redis
         # Add a {GeoShapeField} to the schema.
         #
         # @param [String, Symbol] name the document attribute the field indexes
-        # @param [String] coord_system the coordinate system, +FLAT+ or +SPHERICAL+
+        # @param [String, nil] coord_system the coordinate system, +FLAT+ or +SPHERICAL+;
+        #   nil (the default) omits the token so the server default (+SPHERICAL+) applies
         # @return [Array<Field>] the updated field list
-        def geoshape_field(name, coord_system = GeoShapeField::FLAT, **options)
+        def geoshape_field(name, coord_system = nil, **options)
           @fields << GeoShapeField.new(name, coord_system, **options)
         end
 

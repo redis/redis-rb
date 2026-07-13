@@ -334,14 +334,12 @@ class Redis
       # Represents an +FT.CURSOR+ read for paging through aggregation results.
       class Cursor
         # @return [Integer] the cursor id
-        # @return [Integer] the +MAXIDLE+ in milliseconds (0 to omit)
         # @return [Integer] the +COUNT+ (batch size, 0 to omit)
-        attr_accessor :cid, :max_idle, :count
+        attr_accessor :cid, :count
 
         # @param cid [Integer] the cursor id returned by a prior aggregation
         def initialize(cid)
           @cid = cid
-          @max_idle = 0
           @count = 0
         end
 
@@ -350,7 +348,6 @@ class Redis
         # @return [Array<String>] the argument token array
         def build_args
           args = [@cid.to_s]
-          args.concat(["MAXIDLE", @max_idle.to_s]) if @max_idle > 0
           args.concat(["COUNT", @count.to_s]) if @count > 0
           args
         end

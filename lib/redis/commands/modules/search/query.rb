@@ -146,7 +146,9 @@ class Redis
           @return_fields_decode ||= {}
 
           @return_fields << field
-          @return_fields_decode[field] = decode_field
+          # Results are keyed by the alias when one is given (Redis returns the value under AS),
+          # so the decode flag must be keyed the same way or hashify_fields won't match it.
+          @return_fields_decode[as_field || field] = decode_field
 
           if as_field
             @return_fields << "AS" << as_field

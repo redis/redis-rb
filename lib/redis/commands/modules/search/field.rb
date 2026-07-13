@@ -187,8 +187,9 @@ class Redis
         # Build a +GEOSHAPE+ field.
         #
         # @param [String, Symbol] name the document attribute the field indexes
-        # @param [String] coord_system the coordinate system, {FLAT} or {SPHERICAL}
-        def initialize(name, coord_system = FLAT, **options)
+        # @param [String, nil] coord_system the coordinate system, {FLAT} or {SPHERICAL};
+        #   nil (the default) omits the token so the server default ({SPHERICAL}) applies
+        def initialize(name, coord_system = nil, **options)
           super(name, :geoshape, nil, **options)
           @coord_system = coord_system
         end
@@ -200,7 +201,7 @@ class Redis
           args = [@name]
           args << "AS" << @alias_name if @alias_name
           args << @type.to_s.upcase
-          args << @coord_system
+          args << @coord_system if @coord_system
 
           # Add suffix options
           args << "NOINDEX" if @options[:no_index]
