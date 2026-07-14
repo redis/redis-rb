@@ -61,13 +61,18 @@ class Redis
 
         # Add a numeric +FILTER+ clause.
         #
+        # Bounds are validated so a malformed or untrusted value can't inject query syntax, the
+        # same guarantee the numeric-predicate DSL gives. Beyond plain numbers, the RediSearch
+        # bound forms +inf+/+-inf+ and the exclusive +(+ prefix (e.g. +"(10"+) are accepted.
+        #
         # @param field [String] the numeric field name
         # @param min [Numeric, String] the lower bound (also used as upper bound when +max+ is nil)
         # @param max [Numeric, String, nil] the upper bound
         # @return [self]
+        # @raise [ArgumentError] if a bound is neither numeric nor a valid RediSearch bound token
         def filter(field, min, max = nil)
           max ||= min
-          @filters << [field, min, max]
+          @filters << [field, coerce_filter_bound(min), coerce_filter_bound(max)]
           self
         end
 
@@ -494,6 +499,10 @@ class Redis
 
         def append_with_scores(args)
           args << "WITHSCORES" if @options[:withscores]
+          # EXPLAINSCORE requires WITHSCORES; emit it whenever requested and let the server enforce
+          # that (matching the ft_search options path), so a Query built with #explain_score
+          # actually carries the token through #to_redis_args.
+          args << "EXPLAINSCORE" if @options[:explainscore]
         end
 
         def append_limit_fields(args)
@@ -512,6 +521,20 @@ class Redis
           @filters.each do |field, min, max|
             args.concat(["FILTER", field, min, max])
           end
+        end
+
+        # Validate a FILTER bound. Numeric values pass through; strings must be a valid RediSearch
+        # numeric bound — an optional exclusive "(" prefix followed by a number or +inf/-inf.
+        # Anything else (e.g. injected query syntax) raises, matching the guarded predicate DSL.
+        def coerce_filter_bound(value)
+          return value if value.is_a?(Numeric)
+
+          token = value.to_s
+          body = token.start_with?("(") ? token[1..] : token
+          return token if body.match?(/\A[+-]?inf\z/i)
+
+          Float(body) # raises ArgumentError unless body is a plain number
+          token
         end
 
         def append_geo_filters(args)

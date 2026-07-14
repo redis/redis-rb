@@ -230,6 +230,24 @@ class TestSearchOffline < Minitest::Test
     assert_includes query.to_redis_args.first, "@price:[(50.0 +inf]"
   end
 
+  def test_filter_accepts_numeric_inf_and_exclusive_bounds
+    args = Query.new("*").filter("@price", 0, 800).to_redis_args
+    assert_equal ["FILTER", "@price", 0, 800], args[args.index("FILTER"), 4]
+
+    # RediSearch bound forms the numeric-predicate DSL never needs must still pass through.
+    inf = Query.new("*").filter("@score", "-inf", "+inf").to_redis_args
+    assert_equal ["FILTER", "@score", "-inf", "+inf"], inf[inf.index("FILTER"), 4]
+
+    excl = Query.new("*").filter("@n", "(2", "+inf").to_redis_args
+    assert_equal ["FILTER", "@n", "(2", "+inf"], excl[excl.index("FILTER"), 4]
+  end
+
+  def test_filter_rejects_non_numeric_bounds
+    # A malformed/untrusted bound must not inject query syntax; it is rejected up front.
+    assert_raises(ArgumentError) { Query.new("*").filter("@price", 10, "10 | @admin:{x}") }
+    assert_raises(ArgumentError) { Query.new("*").filter("@price", "; DROP", 10) }
+  end
+
   def test_ft_create_upcases_storage_type
     captured = nil
     client = Redis.new
@@ -371,6 +389,13 @@ class TestSearchOffline < Minitest::Test
     assert_includes args, "NOCONTENT"
     assert_includes args, "SORTBY"
     assert_includes args, "LIMIT"
+  end
+
+  def test_query_explain_score_emits_token
+    args = Query.new("*").with_scores.explain_score.to_redis_args
+    assert_includes args, "EXPLAINSCORE"
+    # EXPLAINSCORE must follow WITHSCORES, which it requires.
+    assert_operator args.index("EXPLAINSCORE"), :>, args.index("WITHSCORES")
   end
 
   def test_query_defaults_to_dialect_2
@@ -589,6 +614,29 @@ class TestSearchOffline < Minitest::Test
     # TOLIST-style columns are arrays of scalars, not entry-maps, and must not be reshaped.
     row = RP.aggregate([1, ["k", "a", "values", %w[10 3 8]]])[0]
     assert_equal(%w[10 3 8], row["values"])
+  end
+
+  # ---- Hybrid combine building -------------------------------------------------------------
+
+  def test_combine_method_emits_zero_valued_params
+    # 0 is a legitimate value and must be sent; only an omitted (nil) param is dropped. (0 is
+    # truthy in Ruby, but the builder must guard on nil, not truthiness, to stay correct.)
+    assert_equal(
+      ["COMBINE", "LINEAR", "4", "ALPHA", "0", "BETA", "0"],
+      Redis::Commands::Search::CombineResultsMethod.linear(alpha: 0, beta: 0).args
+    )
+    assert_equal(
+      ["COMBINE", "RRF", "4", "WINDOW", "0", "CONSTANT", "0"],
+      Redis::Commands::Search::CombineResultsMethod.rrf(window: 0, constant: 0).args
+    )
+  end
+
+  def test_combine_method_omits_nil_params
+    assert_equal(
+      ["COMBINE", "LINEAR", "2", "ALPHA", "0.5"],
+      Redis::Commands::Search::CombineResultsMethod.linear(alpha: 0.5).args
+    )
+    assert_equal(["COMBINE", "RRF", "0"], Redis::Commands::Search::CombineResultsMethod.rrf.args)
   end
 
   # ---- Hybrid reshaping --------------------------------------------------------------------

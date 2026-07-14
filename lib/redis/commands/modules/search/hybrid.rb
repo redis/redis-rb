@@ -181,9 +181,11 @@ class Redis
         # @param constant [Numeric, nil] the +CONSTANT+ value
         # @return [CombineResultsMethod]
         def self.rrf(window: nil, constant: nil)
+          # Guard on nil (not truthiness): 0 is a legitimate value and, unlike some languages,
+          # truthy in Ruby — but nil-checking keeps "was it provided?" explicit and correct.
           kwargs = {}
-          kwargs[:window] = window if window
-          kwargs[:constant] = constant if constant
+          kwargs[:window] = window unless window.nil?
+          kwargs[:constant] = constant unless constant.nil?
           new(CombinationMethods::RRF, **kwargs)
         end
 
@@ -193,9 +195,10 @@ class Redis
         # @param beta [Numeric, nil] the weight of the second leg
         # @return [CombineResultsMethod]
         def self.linear(alpha: nil, beta: nil)
+          # Guard on nil (not truthiness) so alpha/beta of 0 are still emitted.
           kwargs = {}
-          kwargs[:alpha] = alpha if alpha
-          kwargs[:beta] = beta if beta
+          kwargs[:alpha] = alpha unless alpha.nil?
+          kwargs[:beta] = beta unless beta.nil?
           new(CombinationMethods::LINEAR, **kwargs)
         end
       end
