@@ -47,6 +47,10 @@ class Redis
 
         # Use IndexDefinition if provided, otherwise use legacy parameters
         if definition
+          # The definition supplies the ON/PREFIX/FILTER clause. When it doesn't declare an index
+          # type, fall back to the storage_type keyword so e.g. a JSON index isn't silently created
+          # as HASH. Normalize to the uppercase HASH/JSON form some Query Engine versions require.
+          args += ["ON", storage_type.to_s.upcase] if definition.index_type.nil? && storage_type
           args += definition.args
         else
           # Normalize the ON token to HASH/JSON; a lowercase value is rejected by some

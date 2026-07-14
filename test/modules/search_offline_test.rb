@@ -263,6 +263,33 @@ class TestSearchOffline < Minitest::Test
     assert_equal "JSON", captured[captured.index("ON") + 1]
   end
 
+  def test_ft_create_definition_without_type_falls_back_to_storage_type
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+    schema = Schema.build { text_field "$.brand", as: "brand" }
+
+    # A definition that omits the index type must not silently create a HASH index when the
+    # caller asked for JSON via storage_type.
+    client.ft_create("idx", schema, :json, definition: IndexDefinition.new(prefix: ["bike:"]))
+    assert_equal "JSON", captured[captured.index("ON") + 1]
+
+    # A definition that declares its own type still wins over the storage_type keyword.
+    captured = nil
+    client.ft_create("idx", schema, "hash",
+                     definition: IndexDefinition.new(prefix: ["bike:"], index_type: IndexType::JSON))
+    assert_equal "JSON", captured[captured.index("ON") + 1]
+  end
+
+  def test_resolve_storage_type_prefers_definition_then_storage_type
+    no_type = IndexDefinition.new(prefix: ["x:"])
+    json = IndexDefinition.new(prefix: ["x:"], index_type: IndexType::JSON)
+    assert_equal IndexType::JSON, Index.resolve_storage_type(:json, no_type)
+    assert_equal IndexType::HASH, Index.resolve_storage_type("hash", no_type)
+    assert_equal IndexType::JSON, Index.resolve_storage_type("hash", json)
+    assert_equal IndexType::JSON, Index.resolve_storage_type(:json, nil)
+  end
+
   def test_ft_hybrid_search_omits_dialect
     # FT.HYBRID rejects a DIALECT token (server-enforced); it must never be appended.
     captured = nil

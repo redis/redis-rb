@@ -110,6 +110,24 @@ module Lint
       assert_equal "1", result[0].id
     end
 
+    def test_index_add_to_json_index_via_storage_type_with_typeless_definition
+      schema = Schema.build { text_field "$.brand", as: "brand" }
+      # The definition omits the index type; storage_type: :json must fill it in so the index is
+      # created ON JSON and #add writes a JSON document (json_set) rather than a HASH (hset).
+      index = r.create_index(
+        @index_name, schema,
+        storage_type: :json,
+        definition: IndexDefinition.new(prefix: ["bike:"])
+      )
+      index.add("1", brand: "Velorim")
+      wait_for_index(@index_name)
+
+      assert_equal({ "brand" => "Velorim" }, r.json_get("bike:1"))
+      result = index.search("@brand:Velorim")
+      assert_equal 1, result.total
+      assert_equal "1", result[0].id
+    end
+
     def test_index_add_to_nested_json_index_with_full_document_shape
       schema = Schema.build do
         text_field "$.user.name", as: "name"

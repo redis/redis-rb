@@ -74,10 +74,12 @@ class Redis
           end
         end
 
-        # The effective storage type, mirroring FT.CREATE: a definition (preferred over the
-        # +storage_type+ keyword) supplies the type, otherwise the +storage_type+ argument does.
+        # The effective storage type, mirroring FT.CREATE: a definition's own +index_type+ wins
+        # when set, otherwise fall back to the +storage_type+ keyword. This keeps #add's write
+        # path (hset vs json_set) consistent with the ON clause, so a definition without a type
+        # plus +storage_type: :json+ still indexes as JSON.
         def self.resolve_storage_type(storage_type, definition)
-          type = definition ? definition.index_type : storage_type
+          type = definition&.index_type || storage_type
           type.to_s.casecmp?(IndexType::JSON) ? IndexType::JSON : IndexType::HASH
         end
 
