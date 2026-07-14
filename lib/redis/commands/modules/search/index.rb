@@ -343,10 +343,6 @@ class Redis
         def json?
           @storage_type.to_s.casecmp?(IndexType::JSON)
         end
-
-        def create_from_schema(schema)
-          @redis.ft_create(@name, schema)
-        end
       end
     end
   end
