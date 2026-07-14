@@ -442,6 +442,23 @@ class TestSearchOffline < Minitest::Test
     assert_operator captured.index("EXPLAINSCORE"), :>, captured.index("WITHSCORES")
   end
 
+  def test_ft_search_explain_score_parses_resp2_score_column
+    # explain_score emits WITHSCORES, so the RESP2 reply carries a score column. ft_search must
+    # tell the parser to expect it; otherwise the score slot is mis-read as fields and the id,
+    # attributes, and score all shift.
+    client = Redis.new
+    # RESP2 WITHSCORES + EXPLAINSCORE layout: [total, id, [score, explanation], [fields...]]
+    resp2 = [1, "doc:1", ["1.5", ["TFIDF", "0.5"]], ["title", "hello"]]
+    client.define_singleton_method(:send_command) { |_command, &block| block.call(resp2) }
+
+    result = client.ft_search("idx", "*", explain_score: true)
+    assert_equal 1, result.total
+    doc = result[0]
+    assert_equal "doc:1", doc.id
+    assert_equal "hello", doc["title"]
+    assert_equal [1.5, ["TFIDF", "0.5"]], doc.score
+  end
+
   def test_query_defaults_to_dialect_2
     assert_equal 2, Redis::Commands::Search::DEFAULT_DIALECT
 

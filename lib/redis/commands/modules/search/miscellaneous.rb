@@ -260,7 +260,9 @@ class Redis
         dialect = options[:dialect] || DEFAULT_DIALECT
         args << "DIALECT" << dialect
 
-        with_scores = options[:with_scores]
+        # WITHSCORES is emitted for explain_score too (EXPLAINSCORE requires it), so the RESP2
+        # parser must expect a score column in the same cases or it mis-reads the reply layout.
+        with_scores = options[:with_scores] || options[:explain_score]
         with_payloads = options[:with_payloads]
         no_content = options[:no_content]
         decode_fields = options[:decode_fields] || {}
