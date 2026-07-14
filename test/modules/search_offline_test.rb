@@ -198,13 +198,14 @@ class TestSearchOffline < Minitest::Test
     query = Query.build do
       and_ do
         tag(:category).eq("greeting")
-        text(:title).match("Hel*")
+        text(:title).match("Hel*", raw: true)
       end
     end
 
     query_string = query.to_redis_args.first
     assert_includes query_string, "@category:{greeting}"
-    assert_includes query_string, "@title:Hel*"
+    # The pattern is grouped so "@title:" scopes the whole thing; raw: true keeps the wildcard.
+    assert_includes query_string, "@title:(Hel*)"
   end
 
   def test_predicate_helpers_use_field_alias
@@ -217,15 +218,16 @@ class TestSearchOffline < Minitest::Test
 
     query_string = query.to_redis_args.first
     assert_includes query_string, "@category:{electronics}"
-    assert_includes query_string, "@brand:velorim"
-    assert_includes query_string, "@price:[10 100]"
+    # Text patterns are grouped ("@brand:(velorim)") and numeric bounds are coerced to floats.
+    assert_includes query_string, "@brand:(velorim)"
+    assert_includes query_string, "@price:[10.0 100.0]"
     refute_includes query_string, "$."
   end
 
   def test_predicate_helpers_fall_back_to_name_without_alias
     query = Query.new
     Redis::Commands::Search::NumericField.new("price", query).gt(50)
-    assert_includes query.to_redis_args.first, "@price:[(50 +inf]"
+    assert_includes query.to_redis_args.first, "@price:[(50.0 +inf]"
   end
 
   def test_ft_create_upcases_storage_type
