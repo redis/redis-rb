@@ -418,6 +418,60 @@ class TestSearchOffline < Minitest::Test
     assert_equal expected, hash.last(4)
   end
 
+  # Extract the "REDUCE ..." run from a rendered FT.AGGREGATE arg list. group_by is the last step
+  # here, so the reducer tokens run to the end.
+  def collect_reduce_tokens(args)
+    args[args.index("REDUCE")..]
+  end
+
+  def test_collect_reducer_fields_all
+    req = AggregateRequest.new("*").group_by("@color", Reducers.collect(fields: :all, alias_name: "x"))
+    reduce = collect_reduce_tokens(req.to_redis_args)
+    # narg is 2 (FIELDS *) and excludes the trailing AS <alias>.
+    assert_equal ["REDUCE", "COLLECT", "2", "FIELDS", "*", "AS", "x"], reduce
+  end
+
+  def test_collect_reducer_explicit_fields_sort_and_limit
+    req = AggregateRequest.new("*").group_by(
+      "@color",
+      Reducers.collect(
+        fields: ["@name", "@sweetness"],
+        sort_by: [Desc.new("@sweetness")],
+        limit: [0, 2]
+      ).as("fruits")
+    )
+    reduce = collect_reduce_tokens(req.to_redis_args)
+    assert_equal(
+      ["REDUCE", "COLLECT", "11",
+       "FIELDS", "2", "@name", "@sweetness",
+       "SORTBY", "2", "@sweetness", "DESC",
+       "LIMIT", 0, 2,
+       "AS", "fruits"],
+      reduce
+    )
+    # narg must equal the token count between it and AS (11 here), excluding AS <alias>.
+    narg = Integer(reduce[2])
+    assert_equal narg, reduce[3...reduce.index("AS")].size
+  end
+
+  def test_collect_reducer_distinct_is_placed_after_fields_and_counted
+    req = AggregateRequest.new("*").group_by("@color", Reducers.collect(fields: :all, distinct: true, alias_name: "x"))
+    reduce = collect_reduce_tokens(req.to_redis_args)
+    assert_equal ["REDUCE", "COLLECT", "3", "FIELDS", "*", "DISTINCT", "AS", "x"], reduce
+    assert_operator reduce.index("DISTINCT"), :>, reduce.index("FIELDS")
+  end
+
+  def test_collect_reducer_plain_string_sort_is_ascending
+    req = AggregateRequest.new("*").group_by("@color", Reducers.collect(fields: ["@n"], sort_by: ["@n"]))
+    reduce = collect_reduce_tokens(req.to_redis_args)
+    # A plain String sort key emits just the name; ASC is implicit (no direction token).
+    assert_equal ["REDUCE", "COLLECT", "6", "FIELDS", "1", "@n", "SORTBY", "1", "@n"], reduce
+  end
+
+  def test_collect_reducer_rejects_empty_fields
+    assert_raises(ArgumentError) { Reducers.collect(fields: []) }
+  end
+
   # ---- RESP2 reshaping ---------------------------------------------------------------------
 
   def test_search_resp2_basic
@@ -507,6 +561,34 @@ class TestSearchOffline < Minitest::Test
     result = RP.aggregate([[1, %w[k a]], 42])
     assert_equal 42, result.cursor
     assert_equal({ "k" => "a" }, result[0])
+  end
+
+  def test_aggregate_collect_column_resp2_entries_become_hashes
+    # A COLLECT column under RESP2 is an array of flat [k, v, ...] entries; it must be reshaped
+    # into an array of Hashes so callers see the same type as under RESP3.
+    reply = [1, ["color", "red",
+                 "fruits", [%w[name apple sweetness 4], %w[name strawberry sweetness 3]]]]
+    row = RP.aggregate(reply)[0]
+    assert_equal "red", row["color"]
+    assert_equal(
+      [{ "name" => "apple", "sweetness" => "4" }, { "name" => "strawberry", "sweetness" => "3" }],
+      row["fruits"]
+    )
+  end
+
+  def test_aggregate_collect_column_resp3_entries_stay_hashes
+    reply = { "results" => [
+      { "extra_attributes" => { "color" => "red",
+                                "fruits" => [{ "name" => "apple", "sweetness" => "4" }] } }
+    ] }
+    row = RP.aggregate(reply)[0]
+    assert_equal([{ "name" => "apple", "sweetness" => "4" }], row["fruits"])
+  end
+
+  def test_aggregate_array_of_scalars_column_is_left_untouched
+    # TOLIST-style columns are arrays of scalars, not entry-maps, and must not be reshaped.
+    row = RP.aggregate([1, ["k", "a", "values", %w[10 3 8]]])[0]
+    assert_equal(%w[10 3 8], row["values"])
   end
 
   # ---- Hybrid reshaping --------------------------------------------------------------------

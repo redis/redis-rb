@@ -320,7 +320,25 @@ class Redis
               body[1..-1].to_a.map { |row| hashify_fields(row, {}) }
             end
 
-          AggregateResult.new(rows, cursor: cursor)
+          AggregateResult.new(rows.map { |row| normalize_aggregate_row(row) }, cursor: cursor)
+        end
+
+        # A COLLECT reducer column is an array of entry-maps: +Array<Hash>+ under RESP3 but
+        # +Array<[k, v, ...]>+ (flat key/value arrays) under RESP2. Normalize both to
+        # +Array<Hash>+ so callers see a uniform type regardless of protocol. Scalar values and
+        # arrays of scalars (e.g. TOLIST) are left untouched, and the RESP3 case is idempotent.
+        #
+        # @param row [Hash] an already-hashified aggregate row
+        # @return [Hash] the row with any array-of-entries column reshaped to +Array<Hash>+
+        def normalize_aggregate_row(row)
+          row.each_with_object({}) do |(key, value), acc|
+            acc[key] =
+              if value.is_a?(Array) && !value.empty? && value.all? { |e| e.is_a?(Array) || e.is_a?(Hash) }
+                value.map { |entry| hashify_fields(entry, {}) }
+              else
+                value
+              end
+          end
         end
 
         # FT.HYBRID -> HybridResult

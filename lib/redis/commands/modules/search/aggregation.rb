@@ -307,6 +307,67 @@ class Redis
           new("RANDOM_SAMPLE", property, sample_size, alias_name: alias_name)
         end
 
+        # Build a +COLLECT+ reducer, which gathers each group's rows, projects a chosen set of
+        # fields, optionally deduplicates, sorts and limits them, and emits them as an array of
+        # per-entry maps under the reducer alias.
+        #
+        # Field and sort-key names must carry an +@+ prefix on the wire (like the other reducers,
+        # the caller supplies it); output map keys are the same names with the +@+ stripped.
+        #
+        # @example top 5 per group by rating
+        #   Reducers.collect(
+        #     fields: ["@title", "@rating"],
+        #     sort_by: [Desc.new("@rating")],
+        #     limit: [0, 5],
+        #     alias_name: "top"
+        #   )
+        #
+        # @param fields [Symbol, Array<String>] +:all+ emits +FIELDS *+ (projects the fields the
+        #   pipeline has materialized at this stage — not a whole-document fetch); an Array emits
+        #   +FIELDS <count> <@field> ...+
+        # @param distinct [Boolean] emit +DISTINCT+ to deduplicate entries. NOTE: not yet
+        #   implemented server-side; sending it currently fails parsing. Kept for forward
+        #   compatibility — do not rely on it until the server ships it.
+        # @param sort_by [Array<String, Asc, Desc>, nil] sort keys; a plain String sorts ascending
+        #   (the default), an +Asc+/+Desc+ wrapper sets the direction explicitly. NOTE: +SORTBY+
+        #   without +limit+ returns at most 10 entries per group (the server default).
+        # @param limit [Array(Integer, Integer), nil] a +[offset, count]+ pair emitting
+        #   +LIMIT <offset> <count>+; with +sort_by+ this is a bounded top-N selection
+        # @param alias_name [String, nil] the reducer output column name (+AS+)
+        # @return [Reducers]
+        # @raise [ArgumentError] if +fields+ is an empty list and not +:all+
+        def self.collect(fields:, distinct: false, sort_by: nil, limit: nil, alias_name: nil)
+          tokens = collect_fields_tokens(fields)
+          tokens << "DISTINCT" if distinct
+          tokens.concat(collect_sortby_tokens(sort_by))
+          tokens.concat(["LIMIT", *limit]) if limit
+
+          new("COLLECT", *tokens, alias_name: alias_name)
+        end
+
+        # Render the +FIELDS+ clause tokens for {collect}.
+        def self.collect_fields_tokens(fields)
+          return ["FIELDS", "*"] if fields == :all
+
+          fields = Array(fields)
+          raise ArgumentError, "collect fields must be :all or a non-empty list" if fields.empty?
+
+          ["FIELDS", fields.size.to_s, *fields]
+        end
+        private_class_method :collect_fields_tokens
+
+        # Render the optional +SORTBY+ clause tokens for {collect}. Each Asc/Desc wrapper emits a
+        # name and its direction (2 tokens); a plain String emits just the name (ASC is implicit).
+        def self.collect_sortby_tokens(sort_by)
+          return [] if sort_by.nil? || sort_by.empty?
+
+          sort_tokens = sort_by.flat_map do |field|
+            field.is_a?(Asc) || field.is_a?(Desc) ? [field.name, field.order] : [field]
+          end
+          ["SORTBY", sort_tokens.size.to_s, *sort_tokens]
+        end
+        private_class_method :collect_sortby_tokens
+
         # @return [String] the reducer function name
         # @return [Array] the reducer arguments
         # @return [String, nil] the result alias

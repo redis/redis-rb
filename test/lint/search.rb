@@ -1143,6 +1143,58 @@ module Lint
       assert_equal %w[10 3 8].sort, Array(row["values"]).sort
     end
 
+    def test_ft_aggregate_collect
+      # Pre-declared at method scope so the ensure can restore it even though it is assigned
+      # inside the target_version block.
+      original = nil
+
+      # COLLECT shipped in RediSearch with Redis 8.9.
+      target_version("8.9") do
+        # COLLECT is a preview reducer gated behind the core search-enable-unstable-features config.
+        original = r.config(:get, "search-enable-unstable-features")["search-enable-unstable-features"]
+        r.config(:set, "search-enable-unstable-features", "yes")
+
+        schema = Schema.build do
+          tag_field :color
+          text_field :name, sortable: true
+          numeric_field :sweetness, sortable: true
+        end
+        r.ft_create(@index_name, schema, prefix: "fruit")
+        r.hset("fruit:1", "color", "red", "name", "apple", "sweetness", 4)
+        r.hset("fruit:2", "color", "red", "name", "strawberry", "sweetness", 3)
+        r.hset("fruit:3", "color", "red", "name", "cherry", "sweetness", 5)
+        r.hset("fruit:4", "color", "yellow", "name", "banana", "sweetness", 4)
+        wait_for_index(@index_name)
+
+        req = AggregateRequest.new("*")
+                              .load("@name", "@sweetness")
+                              .group_by(
+                                "@color",
+                                Reducers.collect(
+                                  fields: ["@name", "@sweetness"],
+                                  sort_by: [Desc.new("@sweetness")],
+                                  limit: [0, 2]
+                                ).as("fruits")
+                              )
+                              .sort_by("@color")
+
+        res = r.ft_aggregate(@index_name, req)
+        by_color = res.rows.to_h { |row| [row["color"], Array(row["fruits"])] }
+
+        # Entries are maps (uniform across RESP2/RESP3), sorted by sweetness DESC and capped at 2.
+        red = by_color.fetch("red")
+        assert_equal 2, red.size
+        assert(red.all? { |entry| entry.is_a?(Hash) })
+        assert_equal(%w[cherry apple], red.map { |entry| entry["name"] })
+        assert_equal(%w[5 4], red.map { |entry| entry["sweetness"] })
+
+        yellow = by_color.fetch("yellow")
+        assert_equal [{ "name" => "banana", "sweetness" => "4" }], yellow
+      end
+    ensure
+      r.config(:set, "search-enable-unstable-features", original) if original
+    end
+
     def test_ft_aggregate_sort_by_directions_and_max
       r.ft_create(@index_name, Schema.build do
         text_field :t1
