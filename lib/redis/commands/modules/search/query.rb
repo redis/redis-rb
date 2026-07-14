@@ -591,6 +591,18 @@ class Redis
         # @return [String] the field the predicate applies to
         attr_reader :field
 
+        # RediSearch query operators/metacharacters. Escaped with a backslash so an interpolated
+        # value is matched literally instead of altering (or breaking) the query.
+        TEXT_SPECIAL_CHARACTERS = [
+          ',', '.', '<', '>', '{', '}', '[', ']', '"', "'", ':', ';', '!', '@',
+          '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '=', '~', '|', '/', '\\'
+        ].freeze
+        # TAG values are single literal tokens, so whitespace is significant and must be escaped
+        # too. TEXT queries keep spaces, which separate terms (a multi-word match is an AND).
+        TAG_SPECIAL_CHARACTERS = (TEXT_SPECIAL_CHARACTERS + [' ']).freeze
+        TEXT_ESCAPE_PATTERN = Regexp.union(TEXT_SPECIAL_CHARACTERS)
+        TAG_ESCAPE_PATTERN = Regexp.union(TAG_SPECIAL_CHARACTERS)
+
         # @param field [String] the field name
         def initialize(field)
           @field = field
@@ -600,6 +612,18 @@ class Redis
         # @return [String] the query-string fragment
         def to_s
           raise NotImplementedError
+        end
+
+        private
+
+        # Escape query metacharacters in a literal text value, keeping spaces as term separators.
+        def escape_text(value)
+          value.to_s.gsub(TEXT_ESCAPE_PATTERN) { |char| "\\#{char}" }
+        end
+
+        # Escape query metacharacters in a literal tag value, including whitespace.
+        def escape_tag(value)
+          value.to_s.gsub(TAG_ESCAPE_PATTERN) { |char| "\\#{char}" }
         end
       end
 
@@ -614,22 +638,32 @@ class Redis
 
         # @return [String] the query-string fragment, e.g. +(@color:{red})+
         def to_s
-          "(@#{@field}:{#{@value}})"
+          "(@#{@field}:{#{escape_tag(@value)}})"
         end
       end
 
-      # A text-match predicate rendering +(@field:pattern)+.
+      # A text-match predicate rendering +(@field:(pattern))+.
       class TextMatchPredicate < Predicate
         # @param field [String] the text field name
         # @param pattern [String] the text pattern to match
-        def initialize(field, pattern)
+        # @param raw [Boolean] when +true+ the pattern is interpolated verbatim so RediSearch
+        #   operators (wildcards, +|+ OR, ...) apply; when +false+ (default) metacharacters are
+        #   escaped and the pattern is matched literally
+        def initialize(field, pattern, raw: false)
           super(field)
           @pattern = pattern
+          @raw = raw
         end
 
-        # @return [String] the query-string fragment, e.g. +(@title:hello)+
+        # @return [String] the query-string fragment, e.g. +(@title:(hello world))+
         def to_s
-          "(@#{@field}:#{@pattern})"
+          # Group the pattern: RediSearch scopes "@field:" only to the term immediately after it,
+          # so a bare "@title:hello world" would match "hello" on the field but "world" globally
+          # (across all fields). Wrapping in parentheses scopes the whole pattern to the field;
+          # it is a no-op for single-term patterns. Unless raw, escape metacharacters so a value
+          # can't inject query syntax.
+          pattern = @raw ? @pattern : escape_text(@pattern)
+          "(@#{@field}:(#{pattern}))"
         end
       end
 

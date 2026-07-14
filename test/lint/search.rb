@@ -281,7 +281,7 @@ module Lint
       query = Query.build do
         and_ do
           tag(:category).eq("greeting")
-          text(:title).match("Hel*")
+          text(:title).match("Hel*", raw: true)
         end
       end
       query.filter(:score, 0.3, "+inf")
@@ -289,6 +289,54 @@ module Lint
       result = index.search(query)
       assert_equal 1, result.total
       assert_equal "doc1", result[0].id
+    end
+
+    def test_text_match_multi_word_pattern_is_scoped_to_field
+      schema = Schema.build do
+        text_field :title
+        text_field :body
+      end
+      index = r.create_index(@index_name, schema, prefix: "tm")
+      index.add("doc1", title: "hello world", body: "nothing")
+      # "world" lives in body, not title. A bare "@title:hello world" would match this doc via a
+      # global "world" term; the pattern must be grouped so it only matches "world" in the title.
+      index.add("doc2", title: "hello", body: "world")
+      wait_for_index(@index_name)
+
+      result = index.search { text(:title).match("hello world") }
+      assert_equal 1, result.total
+      assert_equal "doc1", result[0].id
+    end
+
+    def test_tag_eq_escapes_special_characters
+      index = r.create_index(@index_name, Schema.build { tag_field :category }, prefix: "tge")
+      index.add("1", category: "a|b") # a single tag value that contains a pipe
+      index.add("2", category: "b")
+      wait_for_index(@index_name)
+
+      # Unescaped, {a|b} would parse as the tags "a" OR "b" and match doc 2. Escaping the pipe
+      # makes eq match the literal tag value "a|b".
+      result = index.search { tag(:category).eq("a|b") }
+      assert_equal ["1"], result.map(&:id)
+    end
+
+    def test_text_match_escapes_wildcard_unless_raw
+      index = r.create_index(@index_name, Schema.build { text_field :title }, prefix: "wc")
+      index.add("1", title: "hello")
+      index.add("2", title: "help")
+      wait_for_index(@index_name)
+
+      # Escaped by default: "*" is a literal char, so "hel*" matches no indexed term.
+      assert_equal 0, index.search { text(:title).match("hel*") }.total
+      # raw: true restores wildcard semantics and matches both "hello" and "help".
+      assert_equal 2, index.search { text(:title).match("hel*", raw: true) }.total
+    end
+
+    def test_numeric_predicate_rejects_non_numeric_values
+      index = r.create_index(@index_name, Schema.build { numeric_field :price }, prefix: "nm")
+      # A non-numeric bound can't inject range/query syntax: it is rejected up front.
+      assert_raises(ArgumentError) { index.search { numeric(:price).gt("5 | @x:{y}") } }
+      assert_raises(ArgumentError) { index.search { numeric(:price).between("a", 10) } }
     end
 
     def test_query_with_or_predicates
@@ -304,7 +352,7 @@ module Lint
 
       query = Query.build do
         or_ do
-          text(:title).match("Hello*")
+          text(:title).match("Hello*", raw: true)
           tag(:category).eq("farewell")
         end
       end
@@ -332,7 +380,7 @@ module Lint
       query = Query.build do
         or_ do
           and_ do
-            text(:title).match("Redis*")
+            text(:title).match("Redis*", raw: true)
             or_ do
               tag(:category).eq("programming")
               and_ do
@@ -398,7 +446,7 @@ module Lint
       query = Query.build do
         or_ do
           and_ do
-            text(:title).match("iPhone|Galaxy")
+            text(:title).match("iPhone|Galaxy", raw: true)
             tag(:category).eq("electronics")
           end
           and_ do
@@ -801,6 +849,27 @@ module Lint
         contains = r.ft_search(@index_name, "@geom:[CONTAINS $poly]",
                                params: { poly: "POLYGON((2 2, 2 50, 50 50, 50 2, 2 2))" }, dialect: 3)
         assert_equal %w[large small], contains.map(&:id).sort
+      end
+    end
+
+    def test_geoshape_field_index_missing
+      # GEOSHAPE supports INDEXMISSING, which enables the ismissing(@field) query for documents
+      # that lack the field entirely.
+      field_args = Schema.build { geoshape_field :geom, index_missing: true }.fields.first.to_args
+      assert_equal %w[geom GEOSHAPE INDEXMISSING], field_args
+
+      target_version("7.4") do
+        schema = Schema.build do
+          text_field :name
+          geoshape_field :geom, GeoShapeField::FLAT, index_missing: true
+        end
+        r.ft_create(@index_name, schema)
+        r.hset("has", "name", "a", "geom", "POLYGON((1 1, 1 10, 10 10, 10 1, 1 1))")
+        r.hset("missing", "name", "b") # no geom field at all
+        wait_for_index(@index_name)
+
+        result = r.ft_search(@index_name, "ismissing(@geom)", dialect: 2, no_content: true)
+        assert_equal %w[missing], result.map(&:id)
       end
     end
 

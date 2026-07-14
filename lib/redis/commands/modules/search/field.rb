@@ -123,12 +123,15 @@ class Redis
           args
         end
 
-        # Add a text-match predicate (+@field:pattern+) to the bound query.
+        # Add a text-match predicate (+@field:(pattern)+) to the bound query.
         #
         # @param [String] pattern the text pattern to match
+        # @param [Boolean] raw when +true+, treat +pattern+ as a raw RediSearch expression so
+        #   operators such as wildcards (+*+) and OR (+|+) apply; when +false+ (default) the
+        #   pattern is escaped and matched literally
         # @return [Query] the bound query with the predicate added
-        def match(pattern)
-          query.add_predicate(TextMatchPredicate.new(@alias_name || name, pattern))
+        def match(pattern, raw: false)
+          query.add_predicate(TextMatchPredicate.new(@alias_name || name, pattern, raw: raw))
         end
       end
 
@@ -146,16 +149,18 @@ class Redis
         #
         # @param [Numeric] value the exclusive lower bound
         # @return [Query] the bound query with the predicate added
+        # @raise [ArgumentError] if +value+ is not numeric
         def gt(value)
-          query.add_predicate(RangePredicate.new(@alias_name || name, "(#{value}", "+inf"))
+          query.add_predicate(RangePredicate.new(@alias_name || name, "(#{Float(value)}", "+inf"))
         end
 
         # Add a less-than range predicate to the bound query.
         #
         # @param [Numeric] value the exclusive upper bound
         # @return [Query] the bound query with the predicate added
+        # @raise [ArgumentError] if +value+ is not numeric
         def lt(value)
-          query.add_predicate(RangePredicate.new(@alias_name || name, "-inf", "(#{value}"))
+          query.add_predicate(RangePredicate.new(@alias_name || name, "-inf", "(#{Float(value)}"))
         end
 
         # Add an inclusive range predicate to the bound query.
@@ -163,8 +168,11 @@ class Redis
         # @param [Numeric] min the inclusive lower bound
         # @param [Numeric] max the inclusive upper bound
         # @return [Query] the bound query with the predicate added
+        # @raise [ArgumentError] if +min+ or +max+ is not numeric
         def between(min, max)
-          query.add_predicate(RangePredicate.new(@alias_name || name, min, max))
+          # Coerce to numeric so a value can't inject range/query syntax. RangePredicate renders
+          # bounds verbatim, so the field boundary is where untrusted input must be validated.
+          query.add_predicate(RangePredicate.new(@alias_name || name, Float(min), Float(max)))
         end
       end
 
@@ -189,6 +197,9 @@ class Redis
         # @param [String, Symbol] name the document attribute the field indexes
         # @param [String, nil] coord_system the coordinate system, {FLAT} or {SPHERICAL};
         #   nil (the default) omits the token so the server default ({SPHERICAL}) applies
+        # @option options [Boolean] :no_index do not index the field (+NOINDEX+)
+        # @option options [Boolean] :index_missing index documents missing the field (+INDEXMISSING+)
+        # @option options [Boolean] :sortable allow sorting by the field (+SORTABLE+)
         def initialize(name, coord_system = nil, **options)
           super(name, :geoshape, nil, **options)
           @coord_system = coord_system
@@ -203,8 +214,10 @@ class Redis
           args << @type.to_s.upcase
           args << @coord_system if @coord_system
 
-          # Add suffix options
+          # Add suffix options (order mirrors the base Field: NOINDEX, INDEXMISSING, SORTABLE).
+          # GEOSHAPE supports INDEXMISSING but not INDEXEMPTY/WITHSUFFIXTRIE.
           args << "NOINDEX" if @options[:no_index]
+          args << "INDEXMISSING" if @options[:index_missing]
           args << "SORTABLE" if @options[:sortable]
 
           args
