@@ -498,10 +498,10 @@ class Redis
         end
 
         def append_with_scores(args)
-          args << "WITHSCORES" if @options[:withscores]
-          # EXPLAINSCORE requires WITHSCORES; emit it whenever requested and let the server enforce
-          # that (matching the ft_search options path), so a Query built with #explain_score
-          # actually carries the token through #to_redis_args.
+          # EXPLAINSCORE is only valid alongside WITHSCORES, and requesting an explanation implies
+          # wanting the score, so emit WITHSCORES whenever either is set. This keeps #explain_score
+          # self-sufficient rather than producing an invalid EXPLAINSCORE-without-WITHSCORES command.
+          args << "WITHSCORES" if @options[:withscores] || @options[:explainscore]
           args << "EXPLAINSCORE" if @options[:explainscore]
         end
 

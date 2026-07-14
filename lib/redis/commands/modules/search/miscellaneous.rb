@@ -176,7 +176,8 @@ class Redis
         args << "NOCONTENT" if options[:no_content]
         args << "VERBATIM" if options[:verbatim]
         args << "NOSTOPWORDS" if options[:no_stopwords]
-        args << "WITHSCORES" if options[:with_scores]
+        # EXPLAINSCORE requires WITHSCORES, so emit WITHSCORES whenever an explanation is asked for.
+        args << "WITHSCORES" if options[:with_scores] || options[:explain_score]
         args << "WITHPAYLOADS" if options[:with_payloads]
         args << "SCORER" << options[:scorer] if options[:scorer]
         args << "EXPLAINSCORE" if options[:explain_score]

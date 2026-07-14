@@ -425,6 +425,23 @@ class TestSearchOffline < Minitest::Test
     assert_operator args.index("EXPLAINSCORE"), :>, args.index("WITHSCORES")
   end
 
+  def test_query_explain_score_without_with_scores_still_emits_with_scores
+    # EXPLAINSCORE requires WITHSCORES; #explain_score alone must not produce an invalid command.
+    args = Query.new("*").explain_score.to_redis_args
+    assert_includes args, "WITHSCORES"
+    assert_operator args.index("EXPLAINSCORE"), :>, args.index("WITHSCORES")
+  end
+
+  def test_ft_search_explain_score_without_with_scores_still_emits_with_scores
+    captured = nil
+    client = Redis.new
+    client.define_singleton_method(:send_command) { |command, &_block| captured = command }
+
+    client.ft_search("idx", "*", explain_score: true)
+    assert_includes captured, "WITHSCORES"
+    assert_operator captured.index("EXPLAINSCORE"), :>, captured.index("WITHSCORES")
+  end
+
   def test_query_defaults_to_dialect_2
     assert_equal 2, Redis::Commands::Search::DEFAULT_DIALECT
 
