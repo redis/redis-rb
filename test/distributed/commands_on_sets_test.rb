@@ -79,6 +79,18 @@ class TestDistributedCommandsOnSets < Minitest::Test
     end
   end
 
+  def test_sdiffcard_with_keys_on_different_nodes
+    assert_raises Redis::Distributed::CannotDistribute do
+      r.sdiffcard('foo', 'bar')
+    end
+  end
+
+  def test_sunioncard_with_keys_on_different_nodes
+    assert_raises Redis::Distributed::CannotDistribute do
+      r.sunioncard('foo', 'bar')
+    end
+  end
+
   def test_sscan
     r.sadd 'foo', 's1'
     r.sadd 'foo', 's2'
