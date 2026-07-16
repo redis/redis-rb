@@ -469,6 +469,82 @@ module Lint
       assert_equal 1, actual['s1'].size
     end
 
+    def test_xread_with_max_count_option
+      target_version('8.10') do
+        redis.xadd('{s}1', { f: 'v01' }, id: '0-1')
+        redis.xadd('{s}1', { f: 'v02' }, id: '0-2')
+        redis.xadd('{s}2', { f: 'v11' }, id: '1-1')
+        redis.xadd('{s}2', { f: 'v12' }, id: '1-2')
+
+        actual = redis.xread(%w[{s}1 {s}2], %w[0 0], max_count: 3)
+
+        assert_equal 2, actual['{s}1'].size
+        assert_equal 1, actual['{s}2'].size
+        assert_equal 'v11', actual['{s}2'][0].last['f']
+      end
+    end
+
+    def test_xread_with_count_and_max_count_options
+      target_version('8.10') do
+        redis.xadd('{s}1', { f: 'v01' }, id: '0-1')
+        redis.xadd('{s}1', { f: 'v02' }, id: '0-2')
+        redis.xadd('{s}1', { f: 'v03' }, id: '0-3')
+        redis.xadd('{s}2', { f: 'v11' }, id: '1-1')
+        redis.xadd('{s}2', { f: 'v12' }, id: '1-2')
+
+        actual = redis.xread(%w[{s}1 {s}2], %w[0 0], count: 2, max_count: 3)
+
+        assert_equal 2, actual['{s}1'].size
+        assert_equal 1, actual['{s}2'].size
+      end
+    end
+
+    def test_xread_with_max_size_option
+      target_version('8.10') do
+        redis.xadd('{s}1', { f: 'v01' }, id: '0-1')
+        redis.xadd('{s}1', { f: 'v02' }, id: '0-2')
+        redis.xadd('{s}2', { f: 'v11' }, id: '1-1')
+
+        capped = redis.xread(%w[{s}1 {s}2], %w[0 0], max_size: 1)
+
+        assert_equal 1, capped['{s}1'].size
+        assert_equal 'v01', capped['{s}1'][0].last['f']
+        refute capped.key?('{s}2')
+
+        uncapped = redis.xread(%w[{s}1 {s}2], %w[0 0], max_size: 1_048_576)
+
+        assert_equal 2, uncapped['{s}1'].size
+        assert_equal 1, uncapped['{s}2'].size
+      end
+    end
+
+    def test_xread_with_max_count_and_block_options
+      target_version('8.10') do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+
+        actual = redis.xread('s1', 0, max_count: 1, block: LOW_TIMEOUT * 1000)
+
+        assert_equal 1, actual['s1'].size
+
+        empty = redis.xread('s1', '$', max_count: 1, block: LOW_TIMEOUT * 1000)
+
+        assert_equal({}, empty)
+      end
+    end
+
+    def test_xread_with_invalid_max_count_and_max_size
+      target_version('8.10') do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+
+        assert_raises(Redis::CommandError) { redis.xread('s1', 0, max_count: 0) }
+        assert_raises(Redis::CommandError) { redis.xread('s1', 0, max_size: 0) }
+        assert_raises(Redis::CommandError) { redis.xread('s1', 0, count: 2, max_count: 1) }
+        assert_raises(ArgumentError) { redis.xread('s1', 0, max_count: 'a') }
+        assert_raises(ArgumentError) { redis.xread('s1', 0, max_size: 'a') }
+      end
+    end
+
     def test_xread_with_block_option
       actual = redis.xread('s1', '$', block: LOW_TIMEOUT * 1000)
       assert_equal({}, actual)
@@ -599,6 +675,48 @@ module Lint
       actual = redis.xreadgroup('g1', 'c1', 's1', '>', block: LOW_TIMEOUT * 1000)
 
       assert_equal({}, actual)
+    end
+
+    def test_xreadgroup_with_max_count_option
+      target_version('8.10') do
+        redis.xadd('{s}1', { f: 'v01' }, id: '0-1')
+        redis.xadd('{s}1', { f: 'v02' }, id: '0-2')
+        redis.xadd('{s}2', { f: 'v11' }, id: '1-1')
+        redis.xadd('{s}2', { f: 'v12' }, id: '1-2')
+        redis.xgroup(:create, '{s}1', 'g1', '0')
+        redis.xgroup(:create, '{s}2', 'g1', '0')
+
+        actual = redis.xreadgroup('g1', 'c1', %w[{s}1 {s}2], %w[> >], max_count: 3)
+
+        assert_equal 2, actual['{s}1'].size
+        assert_equal 1, actual['{s}2'].size
+        assert_equal 'v11', actual['{s}2'][0].last['f']
+      end
+    end
+
+    def test_xreadgroup_with_max_size_option
+      target_version('8.10') do
+        redis.xadd('{s}1', { f: 'v01' }, id: '0-1')
+        redis.xadd('{s}1', { f: 'v02' }, id: '0-2')
+        redis.xgroup(:create, '{s}1', 'g1', '0')
+
+        actual = redis.xreadgroup('g1', 'c1', '{s}1', '>', max_size: 1)
+
+        assert_equal 1, actual['{s}1'].size
+        assert_equal 'v01', actual['{s}1'][0].last['f']
+      end
+    end
+
+    def test_xreadgroup_with_invalid_max_count_and_max_size
+      target_version('8.10') do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+
+        assert_raises(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', '>', max_count: 0) }
+        assert_raises(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', '>', max_size: 0) }
+        assert_raises(Redis::CommandError) { redis.xreadgroup('g1', 'c1', 's1', '>', count: 2, max_count: 1) }
+        assert_raises(ArgumentError) { redis.xreadgroup('g1', 'c1', 's1', '>', max_count: 'a') }
+      end
     end
 
     def test_xreadgroup_with_invalid_arguments
