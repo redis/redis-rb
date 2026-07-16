@@ -37,7 +37,7 @@ jobs:
       matrix:
         ruby_distribution: [MRI, TruffleRuby]
         ruby_version: ["3.3", "3.4", "4.0"]
-        redis_version: ["7.2.14", "7.4.9", "8.2.6", "8.8.0", "unstable-27987813126-debian"]
+        redis_version: ["7.2.14", "7.4.9", "8.2.6", "8.8.0", "unstable-29454887387-debian"]
         driver: [default, hiredis]
         exclude:
           # TruffleRuby's C extension support (Sulong) cannot build hiredis cleanly.
