@@ -318,6 +318,93 @@ module Lint
       assert_equal 2, r.sdiffstore('{1}baz', '{1}foo', '{1}bar')
     end
 
+    def test_sdiffcard
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3 s4 s5])
+        r.sadd('{1}bar', %w[s3 s4])
+        r.sadd('{1}baz', 's5')
+
+        assert_equal 2, r.sdiffcard('{1}foo', '{1}bar', '{1}baz')
+        assert_equal 0, r.sdiffcard('{1}bar', '{1}foo')
+      end
+    end
+
+    def test_sdiffcard_with_single_key
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+
+        assert_equal 3, r.sdiffcard('{1}foo')
+        assert_equal 0, r.sdiffcard('{1}nonexistent')
+      end
+    end
+
+    def test_variadic_sdiffcard_expand
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+        r.sadd('{1}bar', 's3')
+
+        assert_equal 2, r.sdiffcard(['{1}foo', '{1}bar'])
+      end
+    end
+
+    def test_sdiffcard_with_limit
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3 s4])
+        r.sadd('{1}bar', 's4')
+
+        assert_equal 2, r.sdiffcard('{1}foo', '{1}bar', limit: 2)
+        assert_equal 3, r.sdiffcard('{1}foo', '{1}bar', limit: 0)
+      end
+    end
+
+    def test_sunioncard
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+        r.sadd('{1}bar', %w[s3 s4])
+
+        assert_equal 4, r.sunioncard('{1}foo', '{1}bar')
+      end
+    end
+
+    def test_sunioncard_with_single_key
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+
+        assert_equal 3, r.sunioncard('{1}foo')
+        assert_equal 0, r.sunioncard('{1}nonexistent')
+      end
+    end
+
+    def test_variadic_sunioncard_expand
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2])
+        r.sadd('{1}bar', %w[s2 s3])
+
+        assert_equal 3, r.sunioncard(['{1}foo', '{1}bar'])
+      end
+    end
+
+    def test_sunioncard_with_approx
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+        r.sadd('{1}bar', %w[s3 s4])
+
+        assert_equal r.sunioncard('{1}foo', '{1}bar'),
+                     r.sunioncard('{1}foo', '{1}bar', approx: true)
+      end
+    end
+
+    def test_sunioncard_with_limit
+      target_version('8.10') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+        r.sadd('{1}bar', %w[s3 s4])
+
+        assert_equal 2, r.sunioncard('{1}foo', '{1}bar', limit: 2)
+        assert_equal 4, r.sunioncard('{1}foo', '{1}bar', limit: 0)
+        assert_equal 2, r.sunioncard('{1}foo', '{1}bar', approx: true, limit: 2)
+      end
+    end
+
     def test_sscan
       r.sadd('foo', %w[1 2 3 foo foobar feelsgood])
       assert_equal %w[0 feelsgood foo foobar], r.sscan('foo', 0, match: 'f*').flatten.sort
