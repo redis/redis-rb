@@ -183,18 +183,28 @@ class Redis
       #   redis.xread(%w[mystream1 mystream2], %w[0-0 0-0])
       # @example With count option
       #   redis.xread('mystream', '0-0', count: 2)
+      # @example With max_count option
+      #   redis.xread(%w[mystream1 mystream2], %w[0-0 0-0], max_count: 10)
       # @example With block option
       #   redis.xread('mystream', '$', block: 1000)
       #
-      # @param keys  [Array<String>] one or multiple stream keys
-      # @param ids   [Array<String>] one or multiple entry ids
-      # @param count [Integer]       the number of entries as limit per stream
-      # @param block [Integer]       the number of milliseconds as blocking timeout
+      # @param keys      [Array<String>] one or multiple stream keys
+      # @param ids       [Array<String>] one or multiple entry ids
+      # @param count     [Integer]       the number of entries as limit per stream
+      # @param max_count [Integer]       the total number of entries as limit across all streams
+      #   combined, must be greater than or equal to `count` when both are given (Redis 8.10+).
+      #   Defaults to unlimited.
+      # @param max_size  [Integer]       soft cap on the total reply size in bytes across all
+      #   streams combined, measured on the serialized server reply including protocol overhead;
+      #   a single oversized first entry can still be returned (Redis 8.10+). Defaults to unlimited.
+      # @param block     [Integer]       the number of milliseconds as blocking timeout
       #
       # @return [Hash{String => Hash{String => Hash}}] the entries
-      def xread(keys, ids, count: nil, block: nil)
+      def xread(keys, ids, count: nil, max_count: nil, max_size: nil, block: nil)
         args = [:xread]
         args << 'COUNT' << count if count
+        args << 'MAXCOUNT' << Integer(max_count) if max_count
+        args << 'MAXSIZE' << Integer(max_size) if max_size
         args << 'BLOCK' << block.to_i if block
         _xread(args, keys, ids, block)
       end
@@ -245,14 +255,22 @@ class Redis
       # @param ids      [Array<String>] one or multiple entry ids
       # @param opts     [Hash]          several options for `XREADGROUP` command
       #
-      # @option opts [Integer] :count the number of entries as limit
+      # @option opts [Integer] :count the number of entries as limit per stream
+      # @option opts [Integer] :max_count the total number of entries as limit across all streams
+      #   combined, must be greater than or equal to `count` when both are given (Redis 8.10+).
+      #   Defaults to unlimited.
+      # @option opts [Integer] :max_size soft cap on the total reply size in bytes across all
+      #   streams combined, measured on the serialized server reply including protocol overhead;
+      #   a single oversized first entry can still be returned (Redis 8.10+). Defaults to unlimited.
       # @option opts [Integer] :block the number of milliseconds as blocking timeout
       # @option opts [Boolean] :noack whether message loss is acceptable or not
       #
       # @return [Hash{String => Hash{String => Hash}}] the entries
-      def xreadgroup(group, consumer, keys, ids, count: nil, block: nil, noack: nil)
+      def xreadgroup(group, consumer, keys, ids, count: nil, max_count: nil, max_size: nil, block: nil, noack: nil)
         args = [:xreadgroup, 'GROUP', group, consumer]
         args << 'COUNT' << count if count
+        args << 'MAXCOUNT' << Integer(max_count) if max_count
+        args << 'MAXSIZE' << Integer(max_size) if max_size
         args << 'BLOCK' << block.to_i if block
         args << 'NOACK' if noack
         _xread(args, keys, ids, block)
