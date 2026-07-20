@@ -910,6 +910,25 @@ module Lint
       r.ft_dropindex("new_index")
     end
 
+    def test_ft_aliaslist
+      target_version("8.10") do
+        schema = Schema.build { text_field :title }
+        r.create_index(@index_name, schema)
+
+        assert_equal [], r.ft_aliaslist(@index_name)
+
+        r.ft_aliasadd("alias1", @index_name)
+        r.ft_aliasadd("alias2", @index_name)
+
+        assert_equal %w[alias1 alias2], r.ft_aliaslist(@index_name).sort
+
+        r.ft_aliasdel("alias1")
+        assert_equal ["alias2"], r.ft_aliaslist(@index_name)
+
+        assert_raises(Redis::CommandError) { r.ft_aliaslist("nonexistent-index") }
+      end
+    end
+
     # ---- Filters (numeric + geo) -------------------------------------------------------------
 
     def test_ft_search_numeric_and_geo_filters
