@@ -135,6 +135,26 @@ class Redis
         send_command([:sdiffstore, destination].concat(keys))
       end
 
+      # Get the number of members in the difference between the first set and
+      # all successive sets.
+      #
+      # @example
+      #   redis.sadd("foo", ["s1", "s2", "s3"])
+      #   redis.sadd("bar", "s3")
+      #   redis.sdiffcard("foo", "bar")
+      #     # => 2
+      #
+      # @param [String, Array<String>] keys keys pointing to sets to subtract
+      # @param [Integer] limit stop counting once the difference reaches `limit`
+      #   members (`0` means unlimited)
+      # @return [Integer] number of members in the difference
+      def sdiffcard(*keys, limit: nil)
+        keys.flatten!(1)
+        args = [:sdiffcard, keys.size].concat(keys)
+        args << "LIMIT" << Integer(limit) if limit
+        send_command(args)
+      end
+
       # Intersect multiple sets.
       #
       # @param [String, Array<String>] keys keys pointing to sets to intersect
@@ -171,6 +191,27 @@ class Redis
       def sunionstore(destination, *keys)
         keys.flatten!(1)
         send_command([:sunionstore, destination].concat(keys))
+      end
+
+      # Get the number of distinct members in the union of multiple sets.
+      #
+      # @example
+      #   redis.sadd("foo", ["s1", "s2", "s3"])
+      #   redis.sadd("bar", ["s3", "s4"])
+      #   redis.sunioncard("foo", "bar")
+      #     # => 4
+      #
+      # @param [String, Array<String>] keys keys pointing to sets to unify
+      # @param [Boolean] approx return an approximate cardinality computed with HyperLogLog
+      # @param [Integer] limit stop counting once the union reaches `limit`
+      #   members (`0` means unlimited)
+      # @return [Integer] number of distinct members in the union
+      def sunioncard(*keys, approx: false, limit: nil)
+        keys.flatten!(1)
+        args = [:sunioncard, keys.size].concat(keys)
+        args << "APPROX" if approx
+        args << "LIMIT" << Integer(limit) if limit
+        send_command(args)
       end
 
       # Scan a set

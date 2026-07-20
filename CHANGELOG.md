@@ -1,5 +1,12 @@
 # Unreleased
 
+- Add support for the Redis Query Engine (RediSearch, `FT.*`): index management
+  (`ft_create`/`create_index`, `ft_alter`, `ft_dropindex`, `ft_info`), querying (`ft_search` with a
+  `Search::Query` builder, `ft_aggregate` with `Search::AggregateRequest`), vector and hybrid search,
+  suggestions, dictionaries, synonyms, aliases, and spellcheck. Replies are reshaped into
+  `Search::SearchResult`/`Search::Document` and `Search::AggregateResult` objects (RESP2- and
+  RESP3-compatible). Available on standalone and cluster clients; not supported by
+  `Redis::Distributed` (indexes are not key-shardable).
 - **Breaking**: the client now negotiates RESP3 (`HELLO 3`) by default; pass `protocol: 2` to keep
   RESP2. The only command whose return value changes is GEO — `GEOPOS` and `GEOSEARCH`/`GEORADIUS`
   with `WITHCOORD` now return coordinates as `Float` instead of `String`. Servers without RESP3

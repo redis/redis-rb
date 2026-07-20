@@ -767,6 +767,15 @@ class Redis
       end
     end
 
+    # Get the number of members in the difference between the first set and
+    # all successive sets.
+    def sdiffcard(*keys, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:sdiffcard, keys) do |node|
+        node.sdiffcard(keys, limit: limit)
+      end
+    end
+
     # Intersect multiple sets.
     def sinter(*keys)
       keys.flatten!(1)
@@ -796,6 +805,14 @@ class Redis
       keys.flatten!(1)
       ensure_same_node(:sunionstore, [destination].concat(keys)) do |node|
         node.sunionstore(destination, keys)
+      end
+    end
+
+    # Get the number of distinct members in the union of multiple sets.
+    def sunioncard(*keys, approx: false, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:sunioncard, keys) do |node|
+        node.sunioncard(keys, approx: approx, limit: limit)
       end
     end
 
