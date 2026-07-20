@@ -634,6 +634,27 @@ class TestSearchOffline < Minitest::Test
     assert_in_delta 2.0, result[0].score
   end
 
+  def test_search_resp3_exposes_server_warnings
+    # A timed-out search under the `return` policy carries a "warning" list on the RESP3 wire.
+    reply = {
+      "total_results" => 1,
+      "results" => [{ "id" => "doc1", "extra_attributes" => { "title" => "Hello" } }],
+      "warning" => ["Timeout limit was reached"]
+    }
+    result = RP.search(reply)
+    assert_equal ["Timeout limit was reached"], result.warnings
+  end
+
+  def test_search_warnings_default_to_empty
+    # RESP3 without a warning field, and RESP2 (whose wire never carries warnings), both
+    # expose an empty list rather than nil.
+    resp3 = RP.search({ "total_results" => 0, "results" => [] })
+    assert_equal [], resp3.warnings
+
+    resp2 = RP.search([1, "doc1", ["title", "Hello"]])
+    assert_equal [], resp2.warnings
+  end
+
   # ---- Aggregate reshaping -----------------------------------------------------------------
 
   def test_aggregate_resp2_rows

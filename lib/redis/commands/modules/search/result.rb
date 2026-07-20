@@ -74,13 +74,18 @@ class Redis
         # @return [Integer] the total number of matching documents (may exceed +documents.size+
         #   because of paging)
         # @return [Array<Document>] the documents on this page
-        attr_reader :total, :documents
+        # @return [Array<String>] any warnings returned by the server (e.g. a query timeout under
+        #   the +return+ policy); only the RESP3 wire carries warnings on FT.SEARCH, so this is
+        #   always empty on RESP2 connections
+        attr_reader :total, :documents, :warnings
 
         # @param total [Integer] the total number of matching documents
         # @param documents [Array<Document>] the documents on this page
-        def initialize(total, documents)
+        # @param warnings [Array<String>] any warnings returned by the server
+        def initialize(total, documents, warnings: [])
           @total = total
           @documents = documents
+          @warnings = warnings
         end
 
         # Iterate over the documents on this page.
@@ -290,7 +295,7 @@ class Redis
                                     payload: row["payload"])
           end
 
-          SearchResult.new(reply["total_results"], documents)
+          SearchResult.new(reply["total_results"], documents, warnings: reply["warning"] || [])
         end
 
         # FT.AGGREGATE / FT.CURSOR READ -> AggregateResult

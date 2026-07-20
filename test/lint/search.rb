@@ -720,6 +720,109 @@ module Lint
       assert_equal 2, result.total
     end
 
+    # ---- Server-side query timeout policies (search-on-timeout) ------------------------------
+
+    SEARCH_TIMEOUT_DIM = 8192
+    SEARCH_TIMEOUT_DOCS = 1500
+
+    # Build a large FLAT vector index and bulk-load enough documents that a full KNN scan with
+    # TIMEOUT 1 (1 ms) reliably exceeds the limit on the server.
+    def create_search_timeout_index
+      schema = Schema.build do
+        text_field :description
+        vector_field :embedding, :flat, type: :float32, dim: SEARCH_TIMEOUT_DIM,
+                                        distance_metric: :l2
+      end
+      # The prefix: keyword appends ":" on the wire, so documents live at "search-timeout-item:<i>".
+      r.create_index(@index_name, schema, prefix: "search-timeout-item")
+      wait_for_index(@index_name)
+    end
+
+    def add_data_for_search_timeout
+      vectors = [0.1, 0.2, 0.3, 0.4, 0.5].map { |v| ([v] * SEARCH_TIMEOUT_DIM).pack("f*") }
+      SEARCH_TIMEOUT_DOCS.times.each_slice(250) do |batch|
+        r.pipelined do |pipe|
+          batch.each do |i|
+            pipe.hset("search-timeout-item:#{i}",
+                      "description" => "red shoes",
+                      "embedding" => vectors[i % vectors.size])
+          end
+        end
+      end
+      wait_for_index(@index_name, 30.0)
+    end
+
+    def search_timeout_query(**options)
+      query_vector = ([0.25] * SEARCH_TIMEOUT_DIM).pack("f*")
+      r.ft_search(@index_name, "*=>[KNN #{SEARCH_TIMEOUT_DOCS} @embedding $vec]",
+                  params: { vec: query_vector }, dialect: 2, timeout: 1, **options)
+    end
+
+    def test_ft_search_query_with_timeout
+      create_search_timeout_index
+      add_data_for_search_timeout
+
+      result = search_timeout_query
+
+      # A timed-out search under the default `return` policy still yields a well-formed
+      # (partial) result.
+      assert_kind_of Integer, result.total
+      assert_operator result.total, :>=, 0
+
+      if PROTOCOL == 3
+        # Only the RESP3 wire carries the server timeout warning.
+        assert(result.warnings.any? { |warning| warning.include?("Timeout limit was reached") },
+               "expected a timeout warning, got: #{result.warnings.inspect}")
+      else
+        # The RESP2 wire does not carry the warning field on FT.SEARCH.
+        assert_equal [], result.warnings
+      end
+    end
+
+    def test_ft_search_query_with_timeout_fail_policy
+      target_version("8.9") do
+        create_search_timeout_index
+        add_data_for_search_timeout
+
+        original = nil
+        begin
+          original = r.config(:get, "search-on-timeout")["search-on-timeout"]
+          r.config(:set, "search-on-timeout", "fail")
+
+          # With the `fail` policy the server aborts the timed-out search instead of
+          # returning partial results.
+          assert_raises(Redis::CommandError) { search_timeout_query }
+        ensure
+          r.config(:set, "search-on-timeout", original) if original
+        end
+      end
+    end
+
+    def test_ft_search_query_with_timeout_return_strict_policy
+      target_version("8.9") do
+        create_search_timeout_index
+        add_data_for_search_timeout
+
+        original = nil
+        begin
+          original = r.config(:get, "search-on-timeout")["search-on-timeout"]
+          r.config(:set, "search-on-timeout", "return-strict")
+
+          # `return-strict` still returns a well-formed (partial) reply for a plain
+          # timed-out search, carrying the same timeout warning as `return`.
+          result = search_timeout_query
+
+          assert_kind_of Integer, result.total
+          if PROTOCOL == 3
+            assert(result.warnings.any? { |warning| warning.include?("Timeout limit was reached") },
+                   "expected a timeout warning, got: #{result.warnings.inspect}")
+          end
+        ensure
+          r.config(:set, "search-on-timeout", original) if original
+        end
+      end
+    end
+
     # ---- Suggestions / dictionaries / synonyms / aliases -------------------------------------
 
     def test_ft_sugadd_and_sugget
