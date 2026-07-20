@@ -1,13 +1,29 @@
 ---
-description: Adds support for a new Redis command from a given specification. Check examples/command-specification-template.md.
-argument-hint: [path-to-specification]
+description: >-
+  Adds support for a new Redis command to the gem from a specification. Triggers on requests
+  like "add support for the TS.BGET command" or via /add-new-command <COMMAND|path>. Resolves the
+  spec from command_specs/, falling back to official redis.io docs. See .claude/skills/add-new-command/examples/command-specification-template.md.
+argument-hint: "[command-name | path-to-spec]"
+allowed-tools: Bash, Read, Write, Edit, WebFetch, Glob, Grep, AskUserQuestion
 ---
 
-# Execute: Add new Redis command support
+# Add new Redis command support
 
-## Plan to Execute
+`$ARGUMENTS` is either a Redis command **name** (e.g. `TS.BGET`, `JSON.GET`) or a **path** to a
+specification file. Before doing anything else, resolve it to a filled specification using Step 0.
 
-Read specification file: `$ARGUMENTS`
+## Step 0 — Resolve the specification
+
+Run `bash .claude/skills/add-new-command/scripts/resolve_spec.sh "$ARGUMENTS"` from the repo root. Branch on its `RESOLUTION:` line.
+The only way into Step 1 is a `RESOLUTION: ready` from the resolver — never enter it on your own judgment that a spec looks filled.
+
+- **`ready`** — filled spec is in the output. Go to Step 1.
+- **`incomplete`** — spec exists but still has the `$COMMAND_NAME` placeholder. Ask the user to fill in the template, show the `RERUN_HINT` to resume, then STOP.
+- **`missing`** — WebFetch `REDIS_IO_URL`.
+  - Found → write a spec to `TARGET_SPEC_FILE` using `.claude/skills/add-new-command/examples/command-specification-template.md` structure, then use the **AskUserQuestion** tool to present a "Proceed / Stop" choice. On Proceed → re-run the resolver on `TARGET_SPEC_FILE` and branch on its `RESOLUTION:` again — only `ready` may enter Step 1; `incomplete` means the written spec is still a stub, so follow the `incomplete` branch. On Stop → end (the saved spec can be edited and re-run later).
+  - Not found → ask the user to either give a spec path, or have you copy `.claude/skills/add-new-command/examples/command-specification-template.md` verbatim to `TARGET_SPEC_FILE` (keep the `$COMMAND_NAME` marker so the resolver flags it `incomplete` until filled) for them to fill; then show the `RERUN_HINT` and STOP.
+- **`path_not_found`** — the argument looks like a file path but no file exists at `SPEC_FILE`. Tell the user, ask for a corrected path (or a command name to resolve instead), then STOP. Do not guess a command name from the path.
+- **`no_argument`** — ask for a command name or spec path, then STOP.
 
 ## Execution Instructions
 
@@ -69,6 +85,10 @@ Before completing:
 ## Output Report
 
 Provide summary:
+
+### Specification Source
+- How the spec was resolved (local file / built from redis.io / user-provided path)
+- Path to the spec file used
 
 ### Completed Tasks
 - List of all tasks completed
