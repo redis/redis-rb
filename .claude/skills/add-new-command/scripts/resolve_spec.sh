@@ -50,6 +50,19 @@ if [ -f "$arg" ]; then
   exit 0
 fi
 
+# 1b. Path-shaped argument (contains a slash or a .md suffix) that doesn't exist.
+# Don't fall through to command-name handling — that would fabricate a bogus
+# COMMAND / REDIS_IO_URL / TARGET_SPEC_FILE from the path string.
+case "$arg" in
+  */* | *.md)
+    echo "RESOLUTION: path_not_found"
+    echo "SPEC_FILE: $arg"
+    echo "The argument looks like a spec file path, but no such file exists."
+    echo "RERUN_HINT: /add-new-command ${arg}"
+    exit 0
+    ;;
+esac
+
 # 2. Treat as a command name. Uppercase + keep dots for the filename; lowercase for the URL.
 name_upper="$(printf '%s' "$arg" | tr '[:lower:]' '[:upper:]')"
 name_lower="$(printf '%s' "$arg" | tr '[:upper:]' '[:lower:]')"

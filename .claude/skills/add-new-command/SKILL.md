@@ -15,13 +15,14 @@ specification file. Before doing anything else, resolve it to a filled specifica
 ## Step 0 — Resolve the specification
 
 Run `bash .claude/skills/add-new-command/scripts/resolve_spec.sh "$ARGUMENTS"` from the repo root. Branch on its `RESOLUTION:` line.
-Do not start Step 1 until you hold a filled spec.
+The only way into Step 1 is a `RESOLUTION: ready` from the resolver — never enter it on your own judgment that a spec looks filled.
 
 - **`ready`** — filled spec is in the output. Go to Step 1.
 - **`incomplete`** — spec exists but still has the `$COMMAND_NAME` placeholder. Ask the user to fill in the template, show the `RERUN_HINT` to resume, then STOP.
 - **`missing`** — WebFetch `REDIS_IO_URL`.
-  - Found → write a spec to `TARGET_SPEC_FILE` using `.claude/skills/add-new-command/examples/command-specification-template.md` structure, then use the **AskUserQuestion** tool to present a "Proceed / Stop" choice. On Proceed → go to Step 1; on Stop → end (the saved spec can be edited and re-run later).
+  - Found → write a spec to `TARGET_SPEC_FILE` using `.claude/skills/add-new-command/examples/command-specification-template.md` structure, then use the **AskUserQuestion** tool to present a "Proceed / Stop" choice. On Proceed → re-run the resolver on `TARGET_SPEC_FILE` and branch on its `RESOLUTION:` again — only `ready` may enter Step 1; `incomplete` means the written spec is still a stub, so follow the `incomplete` branch. On Stop → end (the saved spec can be edited and re-run later).
   - Not found → ask the user to either give a spec path, or have you copy `.claude/skills/add-new-command/examples/command-specification-template.md` verbatim to `TARGET_SPEC_FILE` (keep the `$COMMAND_NAME` marker so the resolver flags it `incomplete` until filled) for them to fill; then show the `RERUN_HINT` and STOP.
+- **`path_not_found`** — the argument looks like a file path but no file exists at `SPEC_FILE`. Tell the user, ask for a corrected path (or a command name to resolve instead), then STOP. Do not guess a command name from the path.
 - **`no_argument`** — ask for a command name or spec path, then STOP.
 
 ## Execution Instructions
