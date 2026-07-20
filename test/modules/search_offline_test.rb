@@ -105,6 +105,38 @@ class TestSearchOffline < Minitest::Test
     end
   end
 
+  def test_vector_field_rerank
+    # Pure serialization check, no server round-trip. RERANK is a boolean key-value attribute
+    # for HNSW vector fields on disk-backed (Flex / Auto-Tiering) deployments, where it is
+    # mandatory: it toggles the exact FP32 rerank pass over the approximate candidates returned
+    # by the on-disk graph traversal. It flows through the generic attributes hash as the
+    # string "TRUE"/"FALSE" (a bare flag is rejected by the server), and the attribute-count
+    # token accounts for the extra pair.
+    field = Redis::Commands::Search::VectorField.new(
+      "v", "HNSW",
+      { "TYPE" => "FLOAT32", "DIM" => 128, "DISTANCE_METRIC" => "L2", "RERANK" => "TRUE" }
+    )
+    assert_equal "VECTOR", field.args[0]
+    assert_equal "HNSW", field.args[1]
+    assert_equal 8, field.args[2] # 4 attribute pairs -> 8 tokens
+    assert_includes field.args, "RERANK"
+    assert_includes field.args, "TRUE"
+
+    # RERANK FALSE (opting out of the rerank pass) serializes the same way.
+    field = Redis::Commands::Search::VectorField.new(
+      "v", "HNSW",
+      { "TYPE" => "FLOAT32", "DIM" => 128, "DISTANCE_METRIC" => "L2", "RERANK" => "FALSE" }
+    )
+    assert_equal 8, field.args[2]
+    assert_includes field.args, "RERANK"
+    assert_includes field.args, "FALSE"
+
+    # Unlike redis-py (whose encoder rejects native booleans), the attributes hash normalizes
+    # values with to_s.upcase, so the idiomatic Ruby spelling works too.
+    field = Redis::Commands::Search::VectorField.new("v", "HNSW", { rerank: true })
+    assert_equal ["VECTOR", "HNSW", 2, "RERANK", "TRUE"], field.args
+  end
+
   # ---- Index definition --------------------------------------------------------------------
 
   def test_index_definition_on_json
