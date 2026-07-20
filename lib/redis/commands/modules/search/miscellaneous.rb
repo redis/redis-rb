@@ -551,6 +551,15 @@ class Redis
         send_command(["FT.ALIASDEL", alias_name])
       end
 
+      # List all aliases associated with an index (Redis 8.10+).
+      #
+      # @param index_name [String] the index name
+      # @return [Array<String>] the aliases pointing to the index (empty when none)
+      # @raise [Redis::CommandError] if the index does not exist
+      def ft_aliaslist(index_name)
+        send_command(["FT.ALIASLIST", index_name])
+      end
+
       # Add terms to a custom dictionary.
       #
       # @param dict_name [String] the dictionary name
