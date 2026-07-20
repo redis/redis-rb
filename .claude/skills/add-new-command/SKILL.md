@@ -2,7 +2,7 @@
 description: >-
   Adds support for a new Redis command to the gem from a specification. Triggers on requests
   like "add support for the TS.BGET command" or via /add-new-command <COMMAND|path>. Resolves the
-  spec from command_specs/, falling back to official redis.io docs. See examples/command-specification-template.md.
+  spec from command_specs/, falling back to official redis.io docs. See .claude/skills/add-new-command/examples/command-specification-template.md.
 argument-hint: "[command-name | path-to-spec]"
 allowed-tools: Bash, Read, Write, Edit, WebFetch, Glob, Grep, AskUserQuestion
 ---
@@ -14,14 +14,14 @@ specification file. Before doing anything else, resolve it to a filled specifica
 
 ## Step 0 — Resolve the specification
 
-Run `scripts/resolve_spec.sh "$ARGUMENTS"` from the repo root. Branch on its `RESOLUTION:` line.
+Run `bash .claude/skills/add-new-command/scripts/resolve_spec.sh "$ARGUMENTS"` from the repo root. Branch on its `RESOLUTION:` line.
 Do not start Step 1 until you hold a filled spec.
 
 - **`ready`** — filled spec is in the output. Go to Step 1.
 - **`incomplete`** — spec exists but still has the `$COMMAND_NAME` placeholder. Ask the user to fill in the template, show the `RERUN_HINT` to resume, then STOP.
 - **`missing`** — WebFetch `REDIS_IO_URL`.
-  - Found → write a spec to `TARGET_SPEC_FILE` using `examples/command-specification-template.md` structure, then use the **AskUserQuestion** tool to present a "Proceed / Stop" choice. On Proceed → go to Step 1; on Stop → end (the saved spec can be edited and re-run later).
-  - Not found → ask the user to either give a spec path, or have you copy `examples/command-specification-template.md` verbatim to `TARGET_SPEC_FILE` (keep the `$COMMAND_NAME` marker so the resolver flags it `incomplete` until filled) for them to fill; then show the `RERUN_HINT` and STOP.
+  - Found → write a spec to `TARGET_SPEC_FILE` using `.claude/skills/add-new-command/examples/command-specification-template.md` structure, then use the **AskUserQuestion** tool to present a "Proceed / Stop" choice. On Proceed → go to Step 1; on Stop → end (the saved spec can be edited and re-run later).
+  - Not found → ask the user to either give a spec path, or have you copy `.claude/skills/add-new-command/examples/command-specification-template.md` verbatim to `TARGET_SPEC_FILE` (keep the `$COMMAND_NAME` marker so the resolver flags it `incomplete` until filled) for them to fill; then show the `RERUN_HINT` and STOP.
 - **`no_argument`** — ask for a command name or spec path, then STOP.
 
 ## Execution Instructions
