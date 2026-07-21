@@ -36,6 +36,10 @@ module Lint
           sleep options[:delay] if options.key?(:delay)
           to_protocol(args.last)
         end,
+        blmovem: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
+          to_protocol([args[4]])
+        end,
         blpop: lambda do |*args|
           sleep options[:delay] if options.key?(:delay)
           to_protocol([args.first, args.last])
@@ -72,6 +76,59 @@ module Lint
         mock do |r|
           assert_equal '0', r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT')
           assert_equal LOW_TIMEOUT.to_s, r.blmove('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', timeout: LOW_TIMEOUT)
+        end
+      end
+    end
+
+    def test_blmovem
+      target_version "8.9" do
+        # setup: {zap}foo = [s1, s2], {zap}bar = [s1, s2]
+        assert_equal ['s1'], r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT')
+        assert_equal ['s2'], r.lrange('{zap}foo', 0, -1)
+        assert_equal ['s1', 's2', 's1'], r.lrange('{zap}bar', 0, -1)
+
+        assert_equal ['s2'], r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'LEFT', count: 5, order: 'BULK')
+        assert_equal ['s2', 's1', 's2', 's1'], r.lrange('{zap}bar', 0, -1)
+
+        assert_equal %w[s2 s1], r.blmovem('{zap}bar', '{zap}foo', 'RIGHT', 'LEFT', exactly: 2, order: 'OBO')
+        assert_equal %w[s2 s1], r.lrange('{zap}foo', 0, -1)
+      end
+    end
+
+    def test_blmovem_timeout
+      target_version "8.9" do
+        mock do |r|
+          assert_equal ['0'], r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT')
+          assert_equal [LOW_TIMEOUT.to_s], r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', timeout: LOW_TIMEOUT)
+        end
+      end
+    end
+
+    def test_blmovem_blocks_until_timeout
+      target_version "8.9" do
+        # empty source: blocks, then nil
+        assert_nil r.blmovem('{zap}empty', '{zap}bar', 'LEFT', 'LEFT', timeout: LOW_TIMEOUT)
+
+        # EXACTLY more than available: blocks, then nil, lists unchanged
+        assert_nil r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'LEFT', timeout: LOW_TIMEOUT, exactly: 5, order: 'BULK')
+        assert_equal %w[s1 s2], r.lrange('{zap}foo', 0, -1)
+        assert_equal %w[s1 s2], r.lrange('{zap}bar', 0, -1)
+      end
+    end
+
+    def test_blmovem_argument_errors
+      target_version "8.9" do
+        assert_raises(ArgumentError) do
+          r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'MIDDLE')
+        end
+        assert_raises(ArgumentError) do
+          r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', count: 1, exactly: 1, order: 'BULK')
+        end
+        assert_raises(ArgumentError) do
+          r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', count: 1)
+        end
+        assert_raises(ArgumentError) do
+          r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', order: 'BULK')
         end
       end
     end

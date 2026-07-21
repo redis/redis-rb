@@ -562,6 +562,17 @@ class Redis
       end
     end
 
+    # Remove multiple elements from the head/tail of a list, append/prepend
+    # them to another list and return them; or block until the request can
+    # be satisfied or the timeout expires.
+    def blmovem(source, destination, where_source, where_destination, timeout: 0, count: nil, exactly: nil,
+                order: nil)
+      ensure_same_node(:blmovem, [source, destination]) do |node|
+        node.blmovem(source, destination, where_source, where_destination,
+                     timeout: timeout, count: count, exactly: exactly, order: order)
+      end
+    end
+
     # Prepend one or more values to a list.
     def lpush(key, value)
       node_for(key).lpush(key, value)
