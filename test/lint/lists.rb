@@ -29,6 +29,98 @@ module Lint
       end
     end
 
+    def test_lmovem
+      target_version "8.9" do
+        r.rpush("foo", ["s1", "s2", "s3"])
+        r.rpush("bar", ["s4", "s5"])
+
+        assert_nil r.lmovem("nonexistent", "foo", "LEFT", "LEFT")
+
+        # no count/exactly: single element, still an array reply
+        assert_equal ["s1"], r.lmovem("foo", "bar", "LEFT", "LEFT") # foo = [s2, s3], bar = [s1, s4, s5]
+        assert_equal ["s3"], r.lmovem("foo", "bar", "RIGHT", "RIGHT") # foo = [s2], bar = [s1, s4, s5, s3]
+        assert_equal ["s2"], r.lrange("foo", 0, -1)
+        assert_equal ["s1", "s4", "s5", "s3"], r.lrange("bar", 0, -1)
+      end
+    end
+
+    def test_lmovem_count_obo
+      target_version "8.9" do
+        r.rpush("foo", ["1", "2", "3", "4", "5"])
+        r.rpush("bar", ["6", "7", "8", "9", "10"])
+
+        # OBO pushes each element as popped, so the moved block order is reversed
+        assert_equal ["3", "2", "1"], r.lmovem("foo", "bar", "LEFT", "LEFT", count: 3, order: "OBO")
+        assert_equal ["3", "2", "1", "6", "7", "8", "9", "10"], r.lrange("bar", 0, -1)
+        assert_equal ["4", "5"], r.lrange("foo", 0, -1)
+
+        # COUNT moves up to count: fewer when the source holds fewer
+        assert_equal ["4", "5"], r.lmovem("foo", "bar", "LEFT", "RIGHT", count: 10, order: "OBO")
+        assert_equal ["4", "5"], r.lrange("bar", -2, -1)
+        assert_nil r.lmovem("foo", "bar", "LEFT", "LEFT", count: 2, order: "OBO")
+      end
+    end
+
+    def test_lmovem_count_bulk
+      target_version "8.9" do
+        r.rpush("foo", ["1", "2", "3", "4", "5"])
+        r.rpush("bar", ["6", "7", "8", "9", "10"])
+
+        # BULK preserves the original relative order of the moved elements
+        assert_equal ["1", "2", "3"], r.lmovem("foo", "bar", "LEFT", "LEFT", count: 3, order: "BULK")
+        assert_equal ["1", "2", "3", "6", "7", "8", "9", "10"], r.lrange("bar", 0, -1)
+        assert_equal ["4", "5"], r.lrange("foo", 0, -1)
+      end
+    end
+
+    def test_lmovem_exactly
+      target_version "8.9" do
+        r.rpush("foo", ["1", "2", "3"])
+
+        assert_equal ["1", "2"], r.lmovem("foo", "bar", "LEFT", "RIGHT", exactly: 2, order: "BULK")
+        assert_equal ["1", "2"], r.lrange("bar", 0, -1)
+
+        # EXACTLY with too few elements moves nothing; source is unchanged
+        assert_nil r.lmovem("foo", "bar", "LEFT", "RIGHT", exactly: 2, order: "BULK")
+        assert_equal ["3"], r.lrange("foo", 0, -1)
+        assert_equal ["1", "2"], r.lrange("bar", 0, -1)
+      end
+    end
+
+    def test_lmovem_argument_errors
+      target_version "8.9" do
+        error = assert_raises(ArgumentError) do
+          r.lmovem("foo", "bar", "LEFT", "MIDDLE")
+        end
+        assert_equal "where_destination must be 'LEFT' or 'RIGHT'", error.message
+
+        assert_raises(ArgumentError) do
+          r.lmovem("foo", "bar", "LEFT", "RIGHT", count: 1, exactly: 1, order: "BULK")
+        end
+
+        # count/exactly require an order, and an order requires count/exactly
+        assert_raises(ArgumentError) do
+          r.lmovem("foo", "bar", "LEFT", "RIGHT", count: 1)
+        end
+        assert_raises(ArgumentError) do
+          r.lmovem("foo", "bar", "LEFT", "RIGHT", order: "BULK")
+        end
+
+        # non-positive count is rejected by the server
+        r.rpush("foo", "s1")
+        assert_raises(Redis::CommandError) do
+          r.lmovem("foo", "bar", "LEFT", "RIGHT", count: 0, order: "BULK")
+        end
+
+        # WRONGTYPE when a key holds something else; nothing is moved
+        r.set("string", "value")
+        assert_raises(Redis::CommandError) do
+          r.lmovem("string", "bar", "LEFT", "RIGHT", count: 1, order: "BULK")
+        end
+        assert_equal ["s1"], r.lrange("foo", 0, -1)
+      end
+    end
+
     def test_lpush
       r.lpush "foo", "s1"
       r.lpush "foo", "s2"

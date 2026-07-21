@@ -545,6 +545,15 @@ class Redis
       end
     end
 
+    # Remove multiple elements from the head/tail of a list, append/prepend
+    # them to another list and return them.
+    def lmovem(source, destination, where_source, where_destination, count: nil, exactly: nil, order: nil)
+      ensure_same_node(:lmovem, [source, destination]) do |node|
+        node.lmovem(source, destination, where_source, where_destination,
+                    count: count, exactly: exactly, order: order)
+      end
+    end
+
     # Remove the first/last element in a list and append/prepend it
     # to another list and return it, or block until one is available.
     def blmove(source, destination, where_source, where_destination, timeout: 0)
