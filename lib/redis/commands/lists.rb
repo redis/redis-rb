@@ -30,6 +30,84 @@ class Redis
         send_command([:lmove, source, destination, where_source, where_destination])
       end
 
+      # Remove multiple elements from the head/tail of a list, append/prepend
+      # them to another list and return them.
+      #
+      # @example Move a single element (still an array reply)
+      #   redis.lmovem("foo", "bar", "LEFT", "LEFT")
+      #     # => ["s1"]
+      # @example Move up to 3 elements, pushed one-by-one (block order reversed)
+      #   redis.lmovem("foo", "bar", "LEFT", "LEFT", count: 3, order: "OBO")
+      #     # => ["s3", "s2", "s1"]
+      # @example Move exactly 2 elements, preserving their relative order
+      #   redis.lmovem("foo", "bar", "LEFT", "RIGHT", exactly: 2, order: "BULK")
+      #     # => ["s1", "s2"]
+      #
+      # @param [String] source source key
+      # @param [String] destination destination key
+      # @param [String, Symbol] where_source from where to remove elements from the source list
+      #     e.g. 'LEFT' - from head, 'RIGHT' - from tail
+      # @param [String, Symbol] where_destination where to push elements to the destination list
+      #     e.g. 'LEFT' - to head, 'RIGHT' - to tail
+      # @param [Integer] count move up to `count` elements, fewer when the source holds fewer
+      # @param [Integer] exactly move exactly `exactly` elements; when the source holds fewer,
+      #     nothing is moved
+      # @param [String, Symbol] order ordering at the destination, required together with
+      #     `count` or `exactly`:
+      #  - when `'OBO'` - push each element as popped, so the moved block order is reversed
+      #  - when `'BULK'` - preserve the original relative order of the moved elements
+      #
+      # @return [nil, Array<String>] the moved elements in destination order, or nil when
+      #     nothing was moved
+      def lmovem(source, destination, where_source, where_destination, count: nil, exactly: nil, order: nil)
+        where_source, where_destination = _normalize_move_wheres(where_source, where_destination)
+
+        args = [:lmovem, source, destination, where_source, where_destination]
+        args.concat(_movem_amount_args(count, exactly, order))
+
+        send_command(args)
+      end
+
+      # Remove multiple elements from the head/tail of a list, append/prepend
+      # them to another list and return them; or block until the request can
+      # be satisfied or the timeout expires.
+      #
+      # @example Move up to 3 elements as soon as any are available
+      #   redis.blmovem("foo", "bar", "LEFT", "LEFT", timeout: 1, count: 3, order: "BULK")
+      #     # => ["s1", "s2", "s3"]
+      # @example Block until the source holds at least 2 elements
+      #   redis.blmovem("foo", "bar", "LEFT", "RIGHT", timeout: 1, exactly: 2, order: "OBO")
+      #     # => nil on timeout
+      #
+      # @param [String] source source key
+      # @param [String] destination destination key
+      # @param [String, Symbol] where_source from where to remove elements from the source list
+      #     e.g. 'LEFT' - from head, 'RIGHT' - from tail
+      # @param [String, Symbol] where_destination where to push elements to the destination list
+      #     e.g. 'LEFT' - to head, 'RIGHT' - to tail
+      # @param [Float, Integer] timeout seconds to block, 0 blocks indefinitely
+      # @param [Integer] count move up to `count` elements as soon as at least one is available
+      # @param [Integer] exactly move exactly `exactly` elements, blocking until the source
+      #     holds that many
+      # @param [String, Symbol] order ordering at the destination, required together with
+      #     `count` or `exactly`:
+      #  - when `'OBO'` - push each element as popped, so the moved block order is reversed
+      #  - when `'BULK'` - preserve the original relative order of the moved elements
+      #
+      # @return [nil, Array<String>] the moved elements in destination order, or nil when the
+      #     timeout expired and nothing was moved
+      #
+      # @see #lmovem
+      def blmovem(source, destination, where_source, where_destination, timeout: 0, count: nil, exactly: nil,
+                  order: nil)
+        where_source, where_destination = _normalize_move_wheres(where_source, where_destination)
+
+        command = [:blmovem, source, destination, where_source, where_destination, timeout]
+        command.concat(_movem_amount_args(count, exactly, order))
+
+        send_blocking_command(command, timeout)
+      end
+
       # Remove the first/last element in a list and append/prepend it
       # to another list and return it, or block until one is available.
       #
@@ -318,6 +396,21 @@ class Redis
         command = [cmd].concat(args)
         command << timeout
         send_blocking_command(command, timeout, &blk)
+      end
+
+      def _movem_amount_args(count, exactly, order)
+        raise ArgumentError, "Pick either count or exactly, not both" if count && exactly
+
+        if count || exactly
+          order = order.to_s.upcase
+          raise ArgumentError, "order must be 'OBO' or 'BULK'" if order != "OBO" && order != "BULK"
+
+          [count ? "COUNT" : "EXACTLY", Integer(count || exactly), order]
+        elsif order
+          raise ArgumentError, "order requires count or exactly"
+        else
+          []
+        end
       end
 
       def _normalize_move_wheres(where_source, where_destination)

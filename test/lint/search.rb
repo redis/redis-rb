@@ -911,7 +911,7 @@ module Lint
     end
 
     def test_ft_aliaslist
-      target_version("8.10") do
+      target_version("8.9") do
         schema = Schema.build { text_field :title }
         r.create_index(@index_name, schema)
 

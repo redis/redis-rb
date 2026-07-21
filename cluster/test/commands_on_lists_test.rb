@@ -17,4 +17,28 @@ class TestClusterCommandsOnLists < Minitest::Test
   def test_rpoplpush
     assert_raises(Redis::CommandError) { super }
   end
+
+  def test_lmovem
+    target_version "8.9" do
+      assert_raises(Redis::CommandError) { super }
+    end
+  end
+
+  def test_lmovem_count_obo
+    target_version "8.9" do
+      assert_raises(Redis::CommandError) { super }
+    end
+  end
+
+  def test_lmovem_count_bulk
+    target_version "8.9" do
+      assert_raises(Redis::CommandError) { super }
+    end
+  end
+
+  def test_lmovem_exactly
+    target_version "8.9" do
+      assert_raises(Redis::CommandError) { super }
+    end
+  end
 end

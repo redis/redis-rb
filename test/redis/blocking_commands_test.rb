@@ -27,6 +27,28 @@ class TestBlockingCommands < Minitest::Test
     end
   end
 
+  def test_blmovem_disable_client_timeout
+    target_version "8.9" do
+      assert_takes_longer_than_client_timeout do |r|
+        assert_equal ['0'], r.blmovem('foo', 'bar', 'LEFT', 'RIGHT')
+      end
+    end
+  end
+
+  def test_blmovem_unblocks_when_enough_elements_arrive
+    target_version "8.9" do
+      writer = Thread.new do
+        sleep 0.1
+        Redis.new(OPTIONS).rpush('foo', %w[a b])
+      end
+
+      assert_equal %w[a b], r.blmovem('foo', 'bar', 'LEFT', 'RIGHT', timeout: 2, exactly: 2, order: 'BULK')
+      assert_equal %w[a b], r.lrange('bar', 0, -1)
+    ensure
+      writer&.join
+    end
+  end
+
   def test_blpop_disable_client_timeout
     assert_takes_longer_than_client_timeout do |r|
       assert_equal %w[foo 0], r.blpop('foo')
