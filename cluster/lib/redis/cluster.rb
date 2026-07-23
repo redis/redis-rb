@@ -139,13 +139,20 @@ class Redis
     # schema is re-fanned out and the SET retried once. Opt out with
     # `Redis::Cluster.new(himport_auto_prepare: false)`.
 
+    # As in the standalone overrides, @monitor is held across the server command AND the registry
+    # mutation so another thread's recovery path can't observe (and act on) a schema whose
+    # fieldset was just discarded on the servers. @monitor is reentrant; the nested synchronize
+    # and himport_prepare calls re-enter it safely.
+
     def himport_prepare(fieldset_name, *fields)
       fields.flatten!(1)
       raise ArgumentError, "fields must not be empty" if fields.empty?
 
-      reply = synchronize { |c| c.himport_fan_out([:himport, "PREPARE", fieldset_name].concat(fields)) }.first
-      @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
-      reply
+      @monitor.synchronize do
+        reply = synchronize { |c| c.himport_fan_out([:himport, "PREPARE", fieldset_name].concat(fields)) }.first
+        @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
+        reply
+      end
     end
 
     def himport_set(key, fieldset_name, *values)
@@ -153,7 +160,7 @@ class Redis
       raise ArgumentError, "values must not be empty" if values.empty?
 
       command = [:himport, "SET", key, fieldset_name].concat(values)
-      begin
+      @monitor.synchronize do
         synchronize { |c| c.himport_call_by_key(key, command) }
       rescue CommandError => error
         fields = @himport_fieldsets[fieldset_name.to_s]
@@ -165,15 +172,19 @@ class Redis
     end
 
     def himport_discard(fieldset_name)
-      reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARD", fieldset_name]) }.max
-      @himport_fieldsets.delete(fieldset_name.to_s)
-      reply
+      @monitor.synchronize do
+        reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARD", fieldset_name]) }.max
+        @himport_fieldsets.delete(fieldset_name.to_s)
+        reply
+      end
     end
 
     def himport_discard_all
-      reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARDALL"]) }.max
-      @himport_fieldsets.clear
-      reply
+      @monitor.synchronize do
+        reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARDALL"]) }.max
+        @himport_fieldsets.clear
+        reply
+      end
     end
 
     private

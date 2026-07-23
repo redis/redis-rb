@@ -129,6 +129,24 @@ class TestHimport < Minitest::Test
     assert_equal %w[PREPARE SET PREPARE SET], calls
   end
 
+  def test_dup_preserves_himport_auto_prepare_opt_out
+    target_version "8.9" do
+      redis = _new_client(himport_auto_prepare: false)
+      copy = redis.dup
+
+      copy.himport_prepare("fs", %w[f1])
+      copy.disconnect!
+
+      error = assert_raises(Redis::CommandError) do
+        copy.himport_set("k1", "fs", %w[v])
+      end
+      assert_match(/no such fieldset/, error.message)
+    ensure
+      redis&.close
+      copy&.close
+    end
+  end
+
   def test_himport_set_on_dup_client
     target_version "8.9" do
       r.himport_prepare("fs", %w[f1])

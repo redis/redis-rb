@@ -133,7 +133,10 @@ class Redis
   end
 
   def dup
-    self.class.new(@options)
+    # inherit_socket and himport_auto_prepare are stripped from @options before the client config
+    # is built (RedisClient::Config doesn't know them); merge the live values back so the
+    # duplicate keeps the caller's settings instead of silently reverting to defaults.
+    self.class.new(@options.merge(inherit_socket: @inherit_socket, himport_auto_prepare: @himport_auto_prepare))
   end
 
   def connection
@@ -155,34 +158,48 @@ class Redis
   # fieldset is removed from the registry and is never resurrected. Disable the recovery with
   # `Redis.new(himport_auto_prepare: false)`; the registry is still recorded for manual use.
 
+  # Each method holds @monitor across the server command AND its registry mutation: the two must
+  # be atomic with respect to other threads, otherwise a himport_set failing between another
+  # thread's DISCARD reply and its registry delete would still see the schema and re-prepare,
+  # resurrecting the fieldset the discard just removed. @monitor is reentrant, so the nested
+  # send_command/himport_prepare calls re-enter it safely.
+
   def himport_prepare(fieldset_name, *fields)
     fields.flatten!(1)
-    reply = super(fieldset_name, fields)
-    @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
-    reply
+    @monitor.synchronize do
+      reply = super(fieldset_name, fields)
+      @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
+      reply
+    end
   end
 
   def himport_set(key, fieldset_name, *values)
-    super
-  rescue CommandError => error
-    fields = @himport_fieldsets[fieldset_name.to_s]
-    raise unless @himport_auto_prepare && fields && error.message.include?("no such fieldset")
+    @monitor.synchronize do
+      super
+    rescue CommandError => error
+      fields = @himport_fieldsets[fieldset_name.to_s]
+      raise unless @himport_auto_prepare && fields && error.message.include?("no such fieldset")
 
-    himport_prepare(fieldset_name, fields)
-    # `super` (not himport_set) so a second failure propagates instead of recovering again.
-    super
+      himport_prepare(fieldset_name, fields)
+      # `super` (not himport_set) so a second failure propagates instead of recovering again.
+      super
+    end
   end
 
   def himport_discard(fieldset_name)
-    reply = super
-    @himport_fieldsets.delete(fieldset_name.to_s)
-    reply
+    @monitor.synchronize do
+      reply = super
+      @himport_fieldsets.delete(fieldset_name.to_s)
+      reply
+    end
   end
 
   def himport_discard_all
-    reply = super
-    @himport_fieldsets.clear
-    reply
+    @monitor.synchronize do
+      reply = super
+      @himport_fieldsets.clear
+      reply
+    end
   end
 
   private
