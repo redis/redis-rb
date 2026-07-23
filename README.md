@@ -280,6 +280,66 @@ incr.value
 # => 1
 ```
 
+## Bulk hash ingestion (HIMPORT)
+
+Redis 8.10 adds the `HIMPORT` command family for loading many hashes that share
+the same set of field names: register the field names once with
+`himport_prepare`, then create each hash by sending only its values. Keys
+written this way are regular hashes — every hash command works on them.
+
+```ruby
+redis.himport_prepare("users", ["name", "email", "age"])
+redis.himport_set("user:1", "users", ["alice", "alice@example.com", "25"])
+redis.himport_set("user:2", "users", ["bob", "bob@example.com", "30"])
+redis.himport_discard("users") # => 1
+```
+
+Values pair positionally with the prepared fields. Note that hash enumeration
+order (`HGETALL`, `HKEYS`) is not guaranteed to match the prepare order.
+
+### Fieldsets are connection state
+
+A prepared fieldset lives in the server-side session of the physical connection
+that prepared it: it is invisible to other connections and destroyed by a
+disconnect or `RESET`. A `himport_set` on a connection without the fieldset
+fails with `ERR no such fieldset`.
+
+Because a `Redis` instance transparently replaces a dead connection (see
+[Reconnections](#reconnections)), the client keeps the last schema prepared for
+each fieldset name and, when a `himport_set` reports the fieldset is gone,
+re-prepares it and retries the command once. Explicitly discarded fieldsets are
+never restored. To keep the fieldset lifecycle fully explicit instead, disable
+the recovery:
+
+```ruby
+redis = Redis.new(himport_auto_prepare: false)
+```
+
+For the highest ingestion throughput, send the `PREPARE` and its `SET`s as one
+pipeline — a single batch always executes on a single connection:
+
+```ruby
+redis.pipelined do |pipeline|
+  pipeline.himport_prepare("users", ["name", "email", "age"])
+  rows.each { |id, row| pipeline.himport_set("user:#{id}", "users", row) }
+end
+```
+
+If the `PREPARE` in a batch fails, every `SET` in it fails with
+`no such fieldset` — the `PREPARE` error is the root cause. Note that the
+automatic re-prepare applies to direct calls only, not to commands inside
+`pipelined`/`multi` blocks.
+
+When using the `connection_pool` gem, each checkout may hand you a different
+underlying connection: run `himport_prepare` and its `himport_set` calls within
+one checkout (`pool.with { |redis| ... }`), ideally as one pipelined block.
+
+With `Redis::Distributed`, `himport_prepare`, `himport_discard` and
+`himport_discard_all` fan out to every ring node and return an array with one
+reply per node; `himport_set` routes by key. With `Redis::Cluster`, the same
+commands fan out to every master node and return a single aggregated reply,
+matching the standalone API.
+
 ## Error Handling
 
 In general, if something goes wrong you'll get an exception. For example, if

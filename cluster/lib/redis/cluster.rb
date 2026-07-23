@@ -125,6 +125,57 @@ class Redis
       synchronize { |c| c.watch(*keys, &block) }
     end
 
+    # HIMPORT on cluster: PREPARE/DISCARD/DISCARDALL carry request_policy:all_shards, so they
+    # fan out to every primary (fieldsets are per-connection session state and HIMPORT SET is a
+    # write that can be routed to any primary). SET routes by its key's slot like any other
+    # keyed write. Fan-out replies are aggregated to keep standalone/cluster API parity (like
+    # FLUSHALL): PREPARE returns the first "OK" (all-or-raise), the discards return the max
+    # across primaries — per-node integers can legitimately diverge when a node joined after
+    # the PREPARE. Partial fan-out failures raise Redis::Cluster::CommandErrorCollection whose
+    # #errors hash tells you which nodes failed; nodes that replied OK keep their fieldsets.
+    #
+    # Fieldset loss (node failover, topology reload, MOVED/ASK onto a connection that never saw
+    # the PREPARE) is repaired like in standalone: on "no such fieldset" the last prepared
+    # schema is re-fanned out and the SET retried once. Opt out with
+    # `Redis::Cluster.new(himport_auto_prepare: false)`.
+
+    def himport_prepare(fieldset_name, *fields)
+      fields.flatten!(1)
+      raise ArgumentError, "fields must not be empty" if fields.empty?
+
+      reply = synchronize { |c| c.himport_fan_out([:himport, "PREPARE", fieldset_name].concat(fields)) }.first
+      @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
+      reply
+    end
+
+    def himport_set(key, fieldset_name, *values)
+      values.flatten!(1)
+      raise ArgumentError, "values must not be empty" if values.empty?
+
+      command = [:himport, "SET", key, fieldset_name].concat(values)
+      begin
+        synchronize { |c| c.himport_call_by_key(key, command) }
+      rescue CommandError => error
+        fields = @himport_fieldsets[fieldset_name.to_s]
+        raise unless @himport_auto_prepare && fields && error.message.include?("no such fieldset")
+
+        himport_prepare(fieldset_name, fields)
+        synchronize { |c| c.himport_call_by_key(key, command) }
+      end
+    end
+
+    def himport_discard(fieldset_name)
+      reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARD", fieldset_name]) }.max
+      @himport_fieldsets.delete(fieldset_name.to_s)
+      reply
+    end
+
+    def himport_discard_all
+      reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARDALL"]) }.max
+      @himport_fieldsets.clear
+      reply
+    end
+
     private
 
     def initialize_client(options)

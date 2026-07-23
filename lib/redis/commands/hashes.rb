@@ -338,6 +338,69 @@ class Redis
       def hpttl(key, *fields)
         send_command([:hpttl, key, 'FIELDS', fields.length, *fields])
       end
+
+      # Register an ordered list of hash field names under +fieldset_name+ for
+      # use by subsequent #himport_set calls on the same connection.
+      #
+      # Fieldsets are server-side session state scoped to the current physical
+      # connection: they vanish on disconnect or RESET and are invisible to
+      # other connections. See the README "Bulk hash ingestion (HIMPORT)"
+      # section for connection-scoping guidance. Re-preparing an existing
+      # +fieldset_name+ silently replaces it. Field order is preserved as
+      # given; it defines the positional pairing used by #himport_set.
+      #
+      # @example
+      #   redis.himport_prepare("shared", ["name", "email", "age"])
+      #     # => "OK"
+      #
+      # @param [String] fieldset_name name used by later SET and DISCARD calls
+      # @param [String, Array<String>] fields one or more field names
+      # @return [String] `"OK"`
+      def himport_prepare(fieldset_name, *fields)
+        fields.flatten!(1)
+        raise ArgumentError, "fields must not be empty" if fields.empty?
+
+        send_command([:himport, "PREPARE", fieldset_name].concat(fields))
+      end
+
+      # Create or fully replace the hash at +key+ using the field list
+      # registered under +fieldset_name+ on this connection. Values pair
+      # positionally with the fields given to #himport_prepare; the value
+      # count must equal the field count.
+      #
+      # The fieldset must exist on the executing connection, otherwise the
+      # server replies with a "no such fieldset" error.
+      #
+      # @example
+      #   redis.himport_set("shared:1", "shared", ["alice", "alice@example.com", "25"])
+      #     # => "OK"
+      #
+      # @param [String] key hash key to create or overwrite
+      # @param [String] fieldset_name fieldset previously prepared on this connection
+      # @param [String, Array<String>] values one or more values, order preserved
+      # @return [String] `"OK"`
+      def himport_set(key, fieldset_name, *values)
+        values.flatten!(1)
+        raise ArgumentError, "values must not be empty" if values.empty?
+
+        send_command([:himport, "SET", key, fieldset_name].concat(values))
+      end
+
+      # Remove +fieldset_name+ from this connection's session. Keys already
+      # written through the fieldset are not affected.
+      #
+      # @param [String] fieldset_name
+      # @return [Integer] `1` if the fieldset was removed, `0` if it did not exist
+      def himport_discard(fieldset_name)
+        send_command([:himport, "DISCARD", fieldset_name])
+      end
+
+      # Remove all fieldsets from this connection's session.
+      #
+      # @return [Integer] number of fieldsets removed
+      def himport_discard_all
+        send_command([:himport, "DISCARDALL"])
+      end
     end
   end
 end
