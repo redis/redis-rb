@@ -1,5 +1,12 @@
 # Unreleased
 
+- Add support for the `HIMPORT` command family (Redis 8.10, hinted hash templates): `himport_prepare`,
+  `himport_set`, `himport_discard`, `himport_discard_all`, available on standalone clients,
+  pipelines/transactions and `Redis::Distributed` (fan-out prepare/discard). Fieldsets are
+  server-side per-connection session state; the client remembers each prepared schema and, when a
+  `himport_set` reports the fieldset was lost (reconnect, failover, `RESET`), re-prepares it and
+  retries once. Disable with `himport_auto_prepare: false`. See the README "Bulk hash ingestion
+  (HIMPORT)" section.
 - Add support for the Redis Query Engine (RediSearch, `FT.*`): index management
   (`ft_create`/`create_index`, `ft_alter`, `ft_dropindex`, `ft_info`), querying (`ft_search` with a
   `Search::Query` builder, `ft_aggregate` with `Search::AggregateRequest`), vector and hybrid search,

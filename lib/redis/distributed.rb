@@ -1104,6 +1104,30 @@ class Redis
       node_for(key).hpttl(key, *fields)
     end
 
+    # Register a fieldset on every ring node. Fieldsets are scoped to a physical
+    # connection, so every node that may receive an `himport_set` for a key it
+    # owns needs the fieldset on its own connection.
+    def himport_prepare(fieldset_name, *fields)
+      fields.flatten!(1)
+      on_each_node(:himport_prepare, fieldset_name, fields)
+    end
+
+    # Create or fully replace a hash from a fieldset prepared on the key's node.
+    def himport_set(key, fieldset_name, *values)
+      values.flatten!(1)
+      node_for(key).himport_set(key, fieldset_name, values)
+    end
+
+    # Remove a fieldset from every ring node.
+    def himport_discard(fieldset_name)
+      on_each_node(:himport_discard, fieldset_name)
+    end
+
+    # Remove all fieldsets from every ring node.
+    def himport_discard_all
+      on_each_node(:himport_discard_all)
+    end
+
     # Add one or more geospatial items to a sorted set.
     def geoadd(key, *member, **options)
       node_for(key).geoadd(key, *member, **options)

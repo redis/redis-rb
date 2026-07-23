@@ -99,6 +99,40 @@ class Redis
         handle_errors { super(watch: watch, &block) }
       end
 
+      # Run a HIMPORT subcommand with request_policy:all_shards semantics: execute on every
+      # primary node (fieldsets are per-connection session state, so each primary's connection
+      # needs its own copy). Returns the array of per-node replies; any node failure raises
+      # Redis::Cluster::CommandErrorCollection via handle_errors.
+      #
+      # redis-cluster-client doesn't parse command tips and its primaries fan-out is private, so
+      # this reaches one private router method. TODO: drop this once command-tips routing
+      # (request_policy:all_shards) is upstreamed into redis-cluster-client.
+      def himport_fan_out(command)
+        command = @command_builder.generate(command)
+        handle_errors do
+          router.send(:send_command_to_primaries, :call_v, command, [])
+        rescue ::RedisClient::Cluster::ErrorCollection => error
+          # Router#send_command does this for its own fan-out actions (e.g. FLUSHALL); keep
+          # failover recovery on par since we bypass it.
+          if error.errors.values.any? { |e| e.is_a?(::RedisClient::ConnectionError) || e.message.start_with?('CLUSTERDOWN') }
+            router.renew_cluster_state
+          end
+          raise
+        end
+      end
+
+      # Route a keyed HIMPORT subcommand (SET) by the key's slot. The generic router can't
+      # extract the key (the COMMAND catalog stores the container command's spec, whose first
+      # key position is 0), so resolve the node from the key directly; send_command_to_node
+      # preserves the router's MOVED/ASK/CLUSTERDOWN redirection handling.
+      def himport_call_by_key(key, command, &block)
+        command = @command_builder.generate(command)
+        handle_errors do
+          node = router.find_node(router.find_node_key_by_key(key.to_s, primary: true))
+          router.send_command_to_node(node, :call_v, command, [], &block)
+        end
+      end
+
       def watch(*keys, &block)
         unless block_given?
           raise(
