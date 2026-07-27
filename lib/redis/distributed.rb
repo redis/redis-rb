@@ -22,6 +22,10 @@ class Redis
       @ring = options[:ring] || HashRing.new
       @node_configs = node_configs.map(&:dup)
       @default_options = options.dup
+      # Schemas registered via himport_prepare, replayed to nodes that join the ring later (see
+      # #add_node) so ring membership changes don't leave nodes without the fieldsets that
+      # key-routed himport_set calls expect. Initialized before the add_node loop below.
+      @himport_fieldsets = {}
       node_configs.each { |node_config| add_node(node_config) }
       @subscribed_node = nil
       @watch_key = nil
@@ -43,7 +47,12 @@ class Redis
       options = @default_options.merge(options)
       options.delete(:tag)
       options.delete(:ring)
-      @ring.add_node Redis.new(options)
+      node = Redis.new(options)
+      # Replay registered fieldsets before the node can receive key-routed himport_set calls:
+      # a node joining after a himport_prepare fan-out has neither the server-side fieldset nor
+      # a populated registry to self-recover from "no such fieldset".
+      @himport_fieldsets.each { |name, fields| node.himport_prepare(name, fields) }
+      @ring.add_node node
     end
 
     # Change the selected database for the current connection.
@@ -1102,6 +1111,36 @@ class Redis
 
     def hpttl(key, *fields)
       node_for(key).hpttl(key, *fields)
+    end
+
+    # Register a fieldset on every ring node. Fieldsets are scoped to a physical
+    # connection, so every node that may receive an `himport_set` for a key it
+    # owns needs the fieldset on its own connection.
+    def himport_prepare(fieldset_name, *fields)
+      fields.flatten!(1)
+      results = on_each_node(:himport_prepare, fieldset_name, fields)
+      @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
+      results
+    end
+
+    # Create or fully replace a hash from a fieldset prepared on the key's node.
+    def himport_set(key, fieldset_name, *values)
+      values.flatten!(1)
+      node_for(key).himport_set(key, fieldset_name, values)
+    end
+
+    # Remove a fieldset from every ring node.
+    def himport_discard(fieldset_name)
+      results = on_each_node(:himport_discard, fieldset_name)
+      @himport_fieldsets.delete(fieldset_name.to_s)
+      results
+    end
+
+    # Remove all fieldsets from every ring node.
+    def himport_discard_all
+      results = on_each_node(:himport_discard_all)
+      @himport_fieldsets.clear
+      results
     end
 
     # Add one or more geospatial items to a sorted set.

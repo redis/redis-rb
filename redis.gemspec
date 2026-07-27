@@ -44,9 +44,10 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 3.3.0'
 
-  # Pinned to a single redis-client minor: redis-rb couples tightly to redis-client internals
+  # Pinned to an exact redis-client version: redis-rb couples tightly to redis-client internals
   # (subclassing, ensure_connected/call_v overrides, config access, RESP3/HELLO behavior), and
-  # redis-client is pre-1.0 where minors may break. `~> 0.30.0` allows only patch upgrades
-  # (0.30.x) so bug/security fixes flow automatically; new minors require a deliberate redis-rb bump.
-  s.add_runtime_dependency('redis-client', '~> 0.30.0')
+  # the pre-1.0 driver family ships behavior changes in patch releases, so even a `~> x.y.0`
+  # constraint can change semantics under a stable redis release. Bump deliberately and re-run
+  # the full suite. Note hiredis-client versions in lockstep (it requires redis-client `= x.y.z`).
+  s.add_runtime_dependency('redis-client', '0.30.1')
 end

@@ -125,6 +125,39 @@ class Redis
       synchronize { |c| c.watch(*keys, &block) }
     end
 
+    # HIMPORT on cluster: redis-cluster-client (>= 0.16.6) routes the whole family natively from
+    # the server's command metadata — PREPARE/DISCARD/DISCARDALL fan out to all primaries per
+    # their request_policy:all_shards tip (fieldsets are per-connection session state, so every
+    # primary's connection needs its own copy), and SET routes by its key's slot via the
+    # per-subcommand key spec. HIMPORT defines no response_policy today, so fan-out replies
+    # arrive as one-per-primary arrays; these overrides aggregate them for standalone/cluster
+    # API parity: PREPARE returns the first "OK" (all-or-raise), the discards return the max
+    # across primaries — per-node integers can legitimately diverge when a node joined after
+    # the PREPARE. The Array guard keeps the user-facing contract ("OK" / Integer) stable if a
+    # future server release adds a response_policy: the driver then aggregates the fan-out
+    # itself and hands us a scalar, which we pass through instead of crashing on String#first.
+    # Partial fan-out failures raise Redis::Cluster::CommandErrorCollection whose #errors hash
+    # tells you which nodes failed; nodes that replied OK keep their fieldsets.
+    #
+    # The fieldset registry, monitor atomicity and loss-recovery (on "no such fieldset" the
+    # last prepared schema is re-fanned out — through these overrides — and the SET retried
+    # once) are inherited from the Redis superclass unchanged; `himport_set` needs no override.
+
+    def himport_prepare(fieldset_name, *fields)
+      reply = super
+      reply.is_a?(Array) ? reply.first : reply
+    end
+
+    def himport_discard(fieldset_name)
+      reply = super
+      reply.is_a?(Array) ? reply.max : reply
+    end
+
+    def himport_discard_all
+      reply = super
+      reply.is_a?(Array) ? reply.max : reply
+    end
+
     private
 
     def initialize_client(options)
