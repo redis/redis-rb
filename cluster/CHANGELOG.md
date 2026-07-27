@@ -3,10 +3,14 @@
 - Add first-class support for the `HIMPORT` command family (Redis 8.10): `himport_prepare`,
   `himport_discard` and `himport_discard_all` execute on all master nodes (per the commands'
   `request_policy:all_shards` tip) and return a single aggregated reply; `himport_set` routes by its
-  key's hash slot with MOVED/ASK handling preserved. Fieldset loss (node failover, topology reload,
-  redirection to a fresh connection) is repaired automatically by re-fanning out the last prepared
-  schema and retrying the SET once; disable with `himport_auto_prepare: false`. Partial fan-out
-  failures raise `Redis::Cluster::CommandErrorCollection`.
+  key's hash slot with MOVED/ASK handling preserved. Routing is performed natively by
+  redis-cluster-client, which since 0.16.6 parses command tips and per-subcommand key specs; the
+  dependency is now pinned to the exact version `0.16.7`, since the driver ships behavior changes
+  in patch releases. Fieldset loss (node failover, topology reload, redirection to a
+  fresh connection) is repaired automatically by re-fanning out the last prepared schema and
+  retrying the SET once; disable with `himport_auto_prepare: false`. Partial fan-out failures raise
+  `Redis::Cluster::CommandErrorCollection`. Inside `multi`, an `himport_set` pins the transaction to
+  its key's slot and an accompanying `himport_prepare` executes on that same pinned connection.
 - **Breaking**: the client now negotiates RESP3 (`HELLO 3`) by default; pass `protocol: 2` to keep
   RESP2. The only command whose return value changes is GEO — `GEOPOS` and `GEOSEARCH`/`GEORADIUS`
   with `WITHCOORD` now return coordinates as `Float` instead of `String`. Nodes without RESP3

@@ -1,5 +1,9 @@
 # Unreleased
 
+- Pin the `redis-client` dependency to the exact version `0.30.1` (previously `~> 0.30.0`): the
+  pre-1.0 driver family delivers behavior changes in patch releases, so a floating patch
+  constraint can change client semantics under a stable `redis` release. Driver bumps are now
+  deliberate, suite-verified events.
 - Add support for the `HIMPORT` command family (Redis 8.10, hinted hash templates): `himport_prepare`,
   `himport_set`, `himport_discard`, `himport_discard_all`, available on standalone clients,
   pipelines/transactions and `Redis::Distributed` (fan-out prepare/discard). Fieldsets are

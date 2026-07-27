@@ -79,17 +79,20 @@ class TestClusterCommandsOnHimport < Minitest::Test
     end
   end
 
-  # PREPARE + SET is still himport-only: the router cannot extract HIMPORT
-  # SET's key (container-command spec), so neither command can pin the
-  # transaction's node and EXEC fails loudly.
-  def test_himport_prepare_and_set_multi_raises_consistency_error
+  # Since redis-cluster-client 0.16.6 the driver extracts HIMPORT SET's key from the
+  # per-subcommand spec, so the SET pins the transaction to its slot's master and the
+  # PREPARE executes on that same pinned connection — single-connection semantics,
+  # like standalone. (The prepare travels inside the transaction, so no fan-out is
+  # needed; the fieldset only exists on the pinned connection afterwards.)
+  def test_himport_prepare_and_set_multi_pins_to_set_key_slot
     target_version "8.9" do
-      assert_raises(Redis::Cluster::TransactionConsistencyError) do
-        r.multi do |tx|
-          tx.himport_prepare("fs", %w[f1])
-          tx.himport_set("{tag}h", "fs", %w[v])
-        end
+      results = r.multi do |tx|
+        tx.himport_prepare("txfs", %w[f1])
+        tx.himport_set("{tag}h", "txfs", %w[v])
       end
+
+      assert_equal %w[OK OK], results
+      assert_equal({ "f1" => "v" }, r.hgetall("{tag}h"))
     end
   end
 

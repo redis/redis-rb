@@ -125,66 +125,37 @@ class Redis
       synchronize { |c| c.watch(*keys, &block) }
     end
 
-    # HIMPORT on cluster: PREPARE/DISCARD/DISCARDALL carry request_policy:all_shards, so they
-    # fan out to every primary (fieldsets are per-connection session state and HIMPORT SET is a
-    # write that can be routed to any primary). SET routes by its key's slot like any other
-    # keyed write. Fan-out replies are aggregated to keep standalone/cluster API parity (like
-    # FLUSHALL): PREPARE returns the first "OK" (all-or-raise), the discards return the max
+    # HIMPORT on cluster: redis-cluster-client (>= 0.16.6) routes the whole family natively from
+    # the server's command metadata — PREPARE/DISCARD/DISCARDALL fan out to all primaries per
+    # their request_policy:all_shards tip (fieldsets are per-connection session state, so every
+    # primary's connection needs its own copy), and SET routes by its key's slot via the
+    # per-subcommand key spec. HIMPORT defines no response_policy today, so fan-out replies
+    # arrive as one-per-primary arrays; these overrides aggregate them for standalone/cluster
+    # API parity: PREPARE returns the first "OK" (all-or-raise), the discards return the max
     # across primaries — per-node integers can legitimately diverge when a node joined after
-    # the PREPARE. Partial fan-out failures raise Redis::Cluster::CommandErrorCollection whose
-    # #errors hash tells you which nodes failed; nodes that replied OK keep their fieldsets.
+    # the PREPARE. The Array guard keeps the user-facing contract ("OK" / Integer) stable if a
+    # future server release adds a response_policy: the driver then aggregates the fan-out
+    # itself and hands us a scalar, which we pass through instead of crashing on String#first.
+    # Partial fan-out failures raise Redis::Cluster::CommandErrorCollection whose #errors hash
+    # tells you which nodes failed; nodes that replied OK keep their fieldsets.
     #
-    # Fieldset loss (node failover, topology reload, MOVED/ASK onto a connection that never saw
-    # the PREPARE) is repaired like in standalone: on "no such fieldset" the last prepared
-    # schema is re-fanned out and the SET retried once. Opt out with
-    # `Redis::Cluster.new(himport_auto_prepare: false)`.
-
-    # As in the standalone overrides, @monitor is held across the server command AND the registry
-    # mutation so another thread's recovery path can't observe (and act on) a schema whose
-    # fieldset was just discarded on the servers. @monitor is reentrant; the nested synchronize
-    # and himport_prepare calls re-enter it safely.
+    # The fieldset registry, monitor atomicity and loss-recovery (on "no such fieldset" the
+    # last prepared schema is re-fanned out — through these overrides — and the SET retried
+    # once) are inherited from the Redis superclass unchanged; `himport_set` needs no override.
 
     def himport_prepare(fieldset_name, *fields)
-      fields.flatten!(1)
-      raise ArgumentError, "fields must not be empty" if fields.empty?
-
-      @monitor.synchronize do
-        reply = synchronize { |c| c.himport_fan_out([:himport, "PREPARE", fieldset_name].concat(fields)) }.first
-        @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
-        reply
-      end
-    end
-
-    def himport_set(key, fieldset_name, *values)
-      values.flatten!(1)
-      raise ArgumentError, "values must not be empty" if values.empty?
-
-      command = [:himport, "SET", key, fieldset_name].concat(values)
-      @monitor.synchronize do
-        synchronize { |c| c.himport_call_by_key(key, command) }
-      rescue CommandError => error
-        fields = @himport_fieldsets[fieldset_name.to_s]
-        raise unless @himport_auto_prepare && fields && error.message.include?("no such fieldset")
-
-        himport_prepare(fieldset_name, fields)
-        synchronize { |c| c.himport_call_by_key(key, command) }
-      end
+      reply = super
+      reply.is_a?(Array) ? reply.first : reply
     end
 
     def himport_discard(fieldset_name)
-      @monitor.synchronize do
-        reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARD", fieldset_name]) }.max
-        @himport_fieldsets.delete(fieldset_name.to_s)
-        reply
-      end
+      reply = super
+      reply.is_a?(Array) ? reply.max : reply
     end
 
     def himport_discard_all
-      @monitor.synchronize do
-        reply = synchronize { |c| c.himport_fan_out([:himport, "DISCARDALL"]) }.max
-        @himport_fieldsets.clear
-        reply
-      end
+      reply = super
+      reply.is_a?(Array) ? reply.max : reply
     end
 
     private
