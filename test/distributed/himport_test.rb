@@ -59,14 +59,16 @@ class TestDistributedHimport < Minitest::Test
     end
   end
 
-  def test_set_fails_when_prepare_missed_a_node
+  def test_prepare_called_directly_on_a_node_does_not_cover_the_ring
     target_version "8.9" do
       r.add_node("redis://127.0.0.1:#{PORT}/14")
       r.flushdb
 
       key_a, key_b = keys_on_distinct_nodes
 
-      # prepare on one node's connection only
+      # bypassing the Distributed fan-out prepares one node's connection only:
+      # keys routed to any other node fail, and the ring-level registry knows
+      # nothing about the fieldset, so there is no recovery either
       r.nodes[0].himport_prepare("fs", %w[f1])
 
       assert_equal "OK", r.himport_set(key_a, "fs", %w[v])
@@ -101,6 +103,38 @@ class TestDistributedHimport < Minitest::Test
       r.himport_prepare("fs", %w[f1])
       assert_equal "OK", r.himport_set("{tag}k1", "fs", %w[v1])
       assert_equal "OK", r.himport_set("{tag}k2", "fs", %w[v2])
+    end
+  end
+
+  def test_add_node_receives_registered_fieldsets
+    target_version "8.9" do
+      # prepare BEFORE the second node joins the ring
+      r.himport_prepare("fs", %w[f1])
+      r.add_node("redis://127.0.0.1:#{PORT}/14")
+      r.flushdb
+
+      key_a, key_b = keys_on_distinct_nodes
+      assert_equal "OK", r.himport_set(key_a, "fs", %w[a])
+      assert_equal "OK", r.himport_set(key_b, "fs", %w[b])
+
+      # the replay also populated the new node's own registry, so it self-recovers
+      r.node_for(key_b).disconnect!
+      assert_equal "OK", r.himport_set(key_b, "fs", %w[b2])
+    end
+  end
+
+  def test_add_node_does_not_receive_discarded_fieldsets
+    target_version "8.9" do
+      r.himport_prepare("fs", %w[f1])
+      r.himport_discard("fs")
+      r.add_node("redis://127.0.0.1:#{PORT}/14")
+      r.flushdb
+
+      _, key_b = keys_on_distinct_nodes
+      error = assert_raises(Redis::CommandError) do
+        r.himport_set(key_b, "fs", %w[v])
+      end
+      assert_match(/no such fieldset/, error.message)
     end
   end
 
