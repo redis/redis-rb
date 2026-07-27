@@ -4,7 +4,9 @@
   pre-1.0 driver family delivers behavior changes in patch releases, so a floating patch
   constraint can change client semantics under a stable `redis` release. Driver bumps are now
   deliberate, suite-verified events.
-- Add support for the `HIMPORT` command family (Redis 8.10, hinted hash templates): `himport_prepare`,
+- **Experimental**: add support for the `HIMPORT` command family (Redis 8.10, hinted hash
+  templates) — the client API may change in a future minor release without a major version
+  bump: `himport_prepare`,
   `himport_set`, `himport_discard`, `himport_discard_all`, available on standalone clients,
   pipelines/transactions and `Redis::Distributed` (fan-out prepare/discard). Fieldsets are
   server-side per-connection session state; the client remembers each prepared schema and, when a

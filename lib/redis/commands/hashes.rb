@@ -349,6 +349,9 @@ class Redis
       # +fieldset_name+ silently replaces it. Field order is preserved as
       # given; it defines the positional pairing used by #himport_set.
       #
+      # @note HIMPORT support is experimental: the client API may change in a
+      #   future minor release without a major version bump.
+      #
       # @example
       #   redis.himport_prepare("shared", ["name", "email", "age"])
       #     # => "OK"
@@ -356,6 +359,7 @@ class Redis
       # @param [String] fieldset_name name used by later SET and DISCARD calls
       # @param [String, Array<String>] fields one or more field names
       # @return [String] `"OK"`
+      # @api experimental
       def himport_prepare(fieldset_name, *fields)
         fields.flatten!(1)
         raise ArgumentError, "fields must not be empty" if fields.empty?
@@ -371,6 +375,9 @@ class Redis
       # The fieldset must exist on the executing connection, otherwise the
       # server replies with a "no such fieldset" error.
       #
+      # @note HIMPORT support is experimental: the client API may change in a
+      #   future minor release without a major version bump.
+      #
       # @example
       #   redis.himport_set("shared:1", "shared", ["alice", "alice@example.com", "25"])
       #     # => "OK"
@@ -379,6 +386,7 @@ class Redis
       # @param [String] fieldset_name fieldset previously prepared on this connection
       # @param [String, Array<String>] values one or more values, order preserved
       # @return [String] `"OK"`
+      # @api experimental
       def himport_set(key, fieldset_name, *values)
         values.flatten!(1)
         raise ArgumentError, "values must not be empty" if values.empty?
@@ -389,15 +397,23 @@ class Redis
       # Remove +fieldset_name+ from this connection's session. Keys already
       # written through the fieldset are not affected.
       #
+      # @note HIMPORT support is experimental: the client API may change in a
+      #   future minor release without a major version bump.
+      #
       # @param [String] fieldset_name
       # @return [Integer] `1` if the fieldset was removed, `0` if it did not exist
+      # @api experimental
       def himport_discard(fieldset_name)
         send_command([:himport, "DISCARD", fieldset_name])
       end
 
       # Remove all fieldsets from this connection's session.
       #
+      # @note HIMPORT support is experimental: the client API may change in a
+      #   future minor release without a major version bump.
+      #
       # @return [Integer] number of fieldsets removed
+      # @api experimental
       def himport_discard_all
         send_command([:himport, "DISCARDALL"])
       end

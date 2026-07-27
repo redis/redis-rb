@@ -282,6 +282,10 @@ incr.value
 
 ## Bulk hash ingestion (HIMPORT)
 
+> **Experimental:** HIMPORT support is experimental. The client API (method
+> signatures, reply aggregation on cluster, and the automatic re-prepare
+> behavior) may change in a future minor release without a major version bump.
+
 Redis 8.10 adds the `HIMPORT` command family for loading many hashes that share
 the same set of field names: register the field names once with
 `himport_prepare`, then create each hash by sending only its values. Keys
