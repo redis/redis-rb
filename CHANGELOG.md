@@ -1,33 +1,52 @@
-# Unreleased
+# 6.0.0
 
-- Pin the `redis-client` dependency to the exact version `0.30.1` (previously `~> 0.30.0`): the
-  pre-1.0 driver family delivers behavior changes in patch releases, so a floating patch
-  constraint can change client semantics under a stable `redis` release. Driver bumps are now
-  deliberate, suite-verified events.
-- **Experimental**: add support for the `HIMPORT` command family (Redis 8.10, hinted hash
-  templates) — the client API may change in a future minor release without a major version
-  bump: `himport_prepare`,
-  `himport_set`, `himport_discard`, `himport_discard_all`, available on standalone clients,
-  pipelines/transactions and `Redis::Distributed` (fan-out prepare/discard). Fieldsets are
-  server-side per-connection session state; the client remembers each prepared schema and, when a
-  `himport_set` reports the fieldset was lost (reconnect, failover, `RESET`), re-prepares it and
-  retries once. Disable with `himport_auto_prepare: false`. See the README "Bulk hash ingestion
-  (HIMPORT)" section.
-- Add support for the Redis Query Engine (RediSearch, `FT.*`): index management
-  (`ft_create`/`create_index`, `ft_alter`, `ft_dropindex`, `ft_info`), querying (`ft_search` with a
-  `Search::Query` builder, `ft_aggregate` with `Search::AggregateRequest`), vector and hybrid search,
-  suggestions, dictionaries, synonyms, aliases, and spellcheck. Replies are reshaped into
-  `Search::SearchResult`/`Search::Document` and `Search::AggregateResult` objects (RESP2- and
-  RESP3-compatible). Available on standalone and cluster clients; not supported by
-  `Redis::Distributed` (indexes are not key-shardable).
-- **Breaking**: the client now negotiates RESP3 (`HELLO 3`) by default; pass `protocol: 2` to keep
-  RESP2. The only command whose return value changes is GEO — `GEOPOS` and `GEOSEARCH`/`GEORADIUS`
-  with `WITHCOORD` now return coordinates as `Float` instead of `String`. Servers without RESP3
-  (Redis < 6.0, or anything replying `NOPROTO`) transparently fall back to RESP2. See
-  [specs/migration-resp3.md](specs/migration-resp3.md).
-- **Breaking**: now requires Ruby 3.2 or newer.
+## Breaking changes
+
+- Use RESP3 (`HELLO 3`) by default; pass `protocol: 2` to keep RESP2. `GEOPOS` and
+  `GEOSEARCH`/`GEORADIUS` with `WITHCOORD` now return coordinates as `Float` instead of `String`.
+  See [specs/migration-resp3.md](specs/migration-resp3.md). (#1351)
+- Require Ruby 3.2+. (#1353, #1365)
+
+## New features
+
+- Add support for the Redis Query Engine (RediSearch, `FT.*`): `ft_create`, `ft_alter`,
+  `ft_dropindex`, `ft_info`, `ft_search`, `ft_aggregate`, vector and hybrid search, suggestions,
+  dictionaries, synonyms, aliases, and spellcheck. Not supported by `Redis::Distributed`.
+  (#1356, #1359, #1360, #1361)
+- Add support for the JSON module: `json_set`, `json_get`, `json_mset`, `json_mget`, `json_del`,
+  `json_forget`, `json_clear`, `json_merge`, `json_arr*`, `json_obj*`, `json_str*`,
+  `json_numincrby`, `json_toggle`, `json_type`, `json_debug_memory`. (#1346, #1347, #1348, #1349)
+- Add `lmovem` and `blmovem` (Redis 8.10). (#1363)
+- Add `sunioncard` and `sdiffcard` (Redis 8.10). (#1357)
+- `xread` and `xreadgroup` now accept `max_count:` and `max_size:` (Redis 8.10). (#1358)
+- Add `hexpire`, `hpexpire`, `httl` and `hpttl` (Redis 7.4). (#1324, #1325, #1331)
+- `hscan` and `hscan_each` now accept `novalues: true` (Redis 7.4). (#1327)
+- Add `geosearch` and `geosearchstore` (Redis 6.2); geo commands are now available on
+  `Redis::Distributed`. (#1342)
+- `geoadd` now accepts `nx:`, `xx:` and `ch:`; geo radius searches accept `count_any:`; `xadd`
+  accepts `limit:` (Redis 6.2). (#1345)
+- `Redis::Distributed` now implements `hscan`, `hscan_each` and `hstrlen`. (#1319)
+
+## Experimental
+
+- Add `himport_prepare`, `himport_set`, `himport_discard` and `himport_discard_all`
+  (Redis 8.10 `HIMPORT`). Lost fieldsets are re-prepared and retried automatically; disable with
+  `himport_auto_prepare: false`. The API may change in a future minor release. See the README
+  "Bulk hash ingestion (HIMPORT)" section. (#1364)
+
+## Bug fixes
+
+- Fix `FloatifyPairs` to not re-transform already transformed replies. (#1354)
+- `unlink` now returns `0` for an empty keyset, consistent with `del`. (#1316)
+
+## Maintenance
+
+- Pin `redis-client` to the exact version `0.30.1` (previously `>= 0.22.0`); includes the
+  reply-desynchronization fix from 0.26.4. (#1350, #1352)
 - Maintainership change: `redis-rb` is now maintained by the Redis Ltd company.
-- Pin `redis-client` to `~> 0.30.0` (patch-only). redis-rb couples tightly to redis-client internals and redis-client is pre-1.0 (minors may break), so this lets bug/security patches flow automatically while gating minor/major upgrades behind a deliberate release. Includes the reply-desynchronization fix (e.g. `mget` returning `"OK"` after a Sentinel failover/reconnect) that landed in 0.26.4.
+- Run the test suite against prebuilt `redislabs/client-libs-test` Docker images; CI now covers
+  MRI 3.2/3.3/3.4/4.0 and TruffleRuby against Redis 7.2–8.10; JRuby removed. (#1317, #1318, #1344)
+- Drop the unused `executables` config from the gemspec. (#1322)
 
 # 5.4.1
 
