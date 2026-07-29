@@ -7,12 +7,14 @@ class TestErrorReplies < Minitest::Test
 
   # Every test shouldn't disconnect from the server. Also, when error replies are
   # in play, the protocol should never get into an invalid state where there are
-  # pending replies in the connection. Calling INFO after every test ensures that
-  # the protocol is still in a valid state.
+  # pending replies in the connection. Comparing CLIENT ID before and after ensures
+  # the connection wasn't replaced and the protocol is still in a valid state.
+  # (CLIENT ID is connection-local; server-global counters like
+  # total_connections_received race with the Docker healthcheck's redis-cli pings.)
   def with_reconnection_check
-    before = r.info["total_connections_received"]
+    before = r.client(:id)
     yield(r)
-    after = r.info["total_connections_received"]
+    after = r.client(:id)
   ensure
     assert_equal before, after
   end
