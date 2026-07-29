@@ -75,9 +75,8 @@ available on [RubyDoc.info][rubydoc].
 
 redis-rb targets actively supported runtimes on both the language and the server side:
 
-- **Ruby:** the versions still under official maintenance (normal or security); a version is
-  dropped once it reaches end-of-life. See the [Ruby maintenance branches][ruby-branches] page for
-  each version's status and dates. The current minimum is **Ruby 3.3**.
+- **Ruby:** Ruby 3.2 and newer. See the [Ruby maintenance branches][ruby-branches] page for
+  each version's status and dates.
 - **Redis server:** the versions designated for support by Redis. See 
 [Supported Redis database versions][redis-versions].
 
