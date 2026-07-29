@@ -35,7 +35,7 @@ def seed
   r = new_client(2)
   r.set(SKEY, "x" * 50)
   r.del(HKEY, ZKEY, XKEY)
-  fields = ELEMS.times.to_h { |i| ["field#{i}", "value-#{i}-#{"y" * 20}"] }
+  fields = ELEMS.times.to_h { |i| ["field#{i}", "value-#{i}-#{'y' * 20}"] }
   r.hset(HKEY, fields)
   r.zadd(ZKEY, ELEMS.times.map { |i| [i * 1.5, "member-#{i}"] })
   ELEMS.times { |i| r.xadd(XKEY, { "sensor" => "s#{i}", "temp" => (20 + i).to_s }) }
@@ -48,6 +48,7 @@ def verify_shapes!
   raise "hgetall mismatch" unless c2.hgetall(HKEY) == c3.hgetall(HKEY)
   raise "zrange mismatch" unless c2.zrange(ZKEY, 0, -1, with_scores: true) == c3.zrange(ZKEY, 0, -1, with_scores: true)
   raise "xrange mismatch" unless c2.xrange(XKEY) == c3.xrange(XKEY)
+
   [c2, c3].each(&:close)
 end
 
@@ -91,7 +92,8 @@ puts
 
 [1, THREADS].each do |threads|
   puts "== #{threads} thread#{'s' if threads > 1} =="
-  puts format("  %-28s %12s %12s %8s %14s %14s", "workload", "RESP2 RPS", "RESP3 RPS", "Δ RPS", "RESP2 usCPU/op", "RESP3 usCPU/op")
+  puts format("  %-28s %12s %12s %8s %14s %14s", "workload", "RESP2 RPS", "RESP3 RPS", "Δ RPS", "RESP2 usCPU/op",
+              "RESP3 usCPU/op")
   WORKLOADS.each do |label, op|
     r2 = run_cell(2, threads, op)
     r3 = run_cell(3, threads, op)
