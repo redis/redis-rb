@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 class Redis
-  VERSION = '5.4.1'
+  VERSION = '6.0.0'
 end

@@ -97,6 +97,38 @@ Servers without RESP3 support (Redis < 6.0, or anything replying `NOPROTO`) are
 detected on connect and the client transparently falls back to RESP2, so no
 configuration is needed for older servers.
 
+### Why RESP3 is the default
+
+RESP3's richer wire types let the parser deliver replies already in their final
+Ruby shape. Under RESP2, structured replies arrive as flat arrays of bulk
+strings and the client re-shapes them in Ruby: `HGETALL` turns a flat
+`[field, value, field, value, ...]` array into a `Hash`, and sorted-set scores
+are converted from `String` to `Float` pair by pair. Under RESP3 the server
+tags these replies as native maps and doubles, so the final `Hash` and `Float`
+values come straight out of the parser and the Ruby-side re-shaping pass
+disappears entirely.
+
+How much that saves depends on where parsing happens. In our benchmarks
+([bench/resp_comparison.rb](bench/resp_comparison.rb), Ruby 3.4, 100-element
+replies), hash reads (`HGETALL`) consistently use ~10–25% less client CPU per
+call on both drivers. With the [hiredis driver](#hiredis-binding), where
+parsing runs in C, sorted-set reads with scores gain up to 16% throughput and
+~20% less CPU per call on top of that; with the pure-Ruby driver they are
+unchanged, since the parser then spends in Ruby roughly what the re-shaping
+pass used to cost. Simple string commands and stream commands are unaffected
+either way — their reply shapes are the same in both protocols. In short:
+RESP3 is never slower where it matters, and it pairs best with hiredis — that
+combination moves all reply construction out of Ruby and into C.
+
+Beyond performance, RESP3 unlocks protocol capabilities RESP2 simply doesn't
+have. The most important is out-of-band **push messages**: the server can send
+notifications on a connection without the client asking, which is the
+foundation for server-assisted client-side caching (`CLIENT TRACKING`
+invalidation events), pub/sub messages delivered over the regular command
+connection instead of a dedicated one, and other server-initiated
+notifications. Defaulting to RESP3 in 6.0 lays the groundwork for building
+these features in future releases without another protocol migration.
+
 See [the RESP3 migration guide](specs/migration-resp3.md) for full details.
 
 ## Connection Pooling and Thread safety
