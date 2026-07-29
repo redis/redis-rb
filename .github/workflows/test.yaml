@@ -36,13 +36,14 @@ jobs:
       fail-fast: false
       matrix:
         ruby_distribution: [MRI, TruffleRuby]
-        ruby_version: ["3.3", "3.4", "4.0"]
+        ruby_version: ["3.2", "3.3", "3.4", "4.0"]
         redis_version: ["7.2.14", "7.4.9", "8.2.6", "8.8.0", "8.10-rc2"]
         driver: [default, hiredis]
         exclude:
           # TruffleRuby's C extension support (Sulong) cannot build hiredis cleanly.
           - { ruby_distribution: TruffleRuby, driver: hiredis }
           # TruffleRuby tracks one Ruby compat level at a time; cover it on 3.4 only.
+          - { ruby_distribution: TruffleRuby, ruby_version: "3.2" }
           - { ruby_distribution: TruffleRuby, ruby_version: "3.3" }
           - { ruby_distribution: TruffleRuby, ruby_version: "4.0" }
     env:
