@@ -1,12 +1,3 @@
-# Unreleased
-
-- Identify `redis-rb` to the server via `CLIENT SETINFO`, so that `CLIENT LIST` / `CLIENT INFO` on
-  every cluster node report `lib-name=redis-rb` and `lib-ver=<version>`; previously no identity was
-  reported at all. Libraries built on top of `Redis::Cluster` can identify themselves by passing
-  `driver_info:`, and are reported alongside it, e.g. `lib-name=redis-rb(my-gem_v1.0.0)`. Servers older
-  than 7.2 reject `CLIENT SETINFO`; the error is ignored and the connection is kept. Identification
-  can be disabled entirely with `driver_info: false`.
-
 # 6.0.0
 
 ## Breaking changes
@@ -19,6 +10,12 @@
   `GEOSEARCH`/`GEORADIUS` with `WITHCOORD` now return coordinates as `Float` instead of `String`.
   See [the RESP3 migration guide](../specs/migration-resp3.md). (#1351)
 - Require Ruby 3.2+. (#1353, #1365)
+
+## New features
+
+- Identify the client to every node via `CLIENT SETINFO` (`lib-name=redis-rb`,
+  `lib-ver=<version>`). Extend the reported name with `driver_info:`, or disable with
+  `driver_info: false`. (#1369)
 
 ## Experimental
 
