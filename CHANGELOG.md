@@ -1,3 +1,15 @@
+# Unreleased
+
+- Identify `redis-rb` to the server via `CLIENT SETINFO`, so that `CLIENT LIST` / `CLIENT INFO`
+  report `lib-name=redis-rb` and `lib-ver=<version>`; previously no identity was reported at all.
+  Applies to standalone, sentinel and cluster clients, under both RESP3 and RESP2. Applications
+  using `redis-client` directly are unaffected. Libraries built on top of `redis-rb` can identify
+  themselves by passing `driver_info:`, and are reported alongside it, e.g.
+  `lib-name=redis-rb(my-gem_v1.0.0)`. Servers older than 7.2 reject `CLIENT SETINFO`; the error is
+  ignored and the connection is kept. Under RESP2 with no password, db 0 and no `id:`, connecting
+  previously sent no commands at all; it now issues `CLIENT SETINFO`. Peers that can't tolerate
+  unknown commands during the handshake can disable identification with `driver_info: false`.
+
 # 6.0.0
 
 ## Breaking changes

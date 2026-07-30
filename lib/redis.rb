@@ -57,6 +57,10 @@ class Redis
   #   to RESP3; set to `2` for RESP2. Servers without RESP3 support automatically fall back to RESP2.
   # @option options [String] :id ID for the client connection, assigns name to current connection by sending
   #   `CLIENT SETNAME`
+  # @option options [String, Array<String>, false] :driver_info Identity a library built on top of `redis-rb`
+  #   reports to the server via `CLIENT SETINFO`, shown as `lib-name=redis-rb(<driver_info>)` in `CLIENT LIST`.
+  #   The recommended format is `<name>_v<version>`; an Array is joined with `;`. Pass `false` to disable
+  #   client identification entirely.
   # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,
   #   or a list of sleep duration between attempts.
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
@@ -316,6 +320,7 @@ class Redis
 end
 
 require "redis/version"
+require "redis/lib_identity"
 require "redis/client"
 require "redis/pipeline"
 require "redis/subscribe"

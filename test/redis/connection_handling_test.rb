@@ -9,7 +9,11 @@ class TestConnectionHandling < Minitest::Test
 
   def test_id
     commands = {
-      client: ->(cmd, name) { @name = [cmd, name]; "+OK" },
+      # The prelude also issues CLIENT SETINFO, so only record the SETNAME call.
+      client: lambda do |subcommand, *args|
+        @name = [subcommand, *args] if subcommand.casecmp("SETNAME").zero?
+        "+OK"
+      end,
       ping: -> { "+PONG" }
     }
 
