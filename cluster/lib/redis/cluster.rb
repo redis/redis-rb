@@ -63,6 +63,10 @@ class Redis
     # @option options [String] :fixed_hostname Specify a FQDN if cluster mode enabled and
     #   client has to connect nodes via single endpoint with SSL/TLS
     # @option options [Class] :connector Class of custom connector
+    # @option options [String, Array<String>, false] :driver_info Identity a library built on top of
+    #   `redis-rb` reports to every node via `CLIENT SETINFO`, shown as `lib-name=redis-rb(<driver_info>)`
+    #   in `CLIENT LIST`. The recommended format is `<name>_v<version>`; an Array is joined with `;`.
+    #   Pass `false` to disable client identification entirely.
     #
     # @return [Redis::Cluster] a new client instance
     def initialize(*)
@@ -162,7 +166,11 @@ class Redis
 
     def initialize_client(options)
       # protocol defaults to 3 (RESP3) but a caller-provided protocol: in options overrides it.
-      cluster_config = RedisClient.cluster(protocol: 3, **options, client_implementation: ::Redis::Cluster::Client)
+      cluster_config = RedisClient.cluster(
+        protocol: 3, **options,
+        driver_info: ::Redis::LibIdentity.driver_info(options[:driver_info]),
+        client_implementation: ::Redis::Cluster::Client
+      )
       cluster_config.new_client
     end
   end

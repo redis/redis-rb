@@ -26,6 +26,9 @@
 - `geoadd` now accepts `nx:`, `xx:` and `ch:`; geo radius searches accept `count_any:`; `xadd`
   accepts `limit:` (Redis 6.2). (#1345)
 - `Redis::Distributed` now implements `hscan`, `hscan_each` and `hstrlen`. (#1319)
+- Identify the client to the server via `CLIENT SETINFO` (`lib-name=redis-rb`,
+  `lib-ver=<version>`). Extend the reported name with `driver_info:`, or disable with
+  `driver_info: false`. See the README "Client identification" section. (#1369)
 
 ## Experimental
 

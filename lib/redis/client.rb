@@ -21,11 +21,14 @@ class Redis
 
     class << self
       def config(protocol: 3, **kwargs)
-        super(protocol: protocol, **kwargs)
+        super(protocol: protocol, **kwargs,
+              driver_info: Redis::LibIdentity.driver_info(kwargs[:driver_info]))
       end
 
       def sentinel(protocol: 3, **kwargs)
-        super(protocol: protocol, **kwargs, client_implementation: ::RedisClient)
+        super(protocol: protocol, **kwargs,
+              driver_info: Redis::LibIdentity.driver_info(kwargs[:driver_info]),
+              client_implementation: ::RedisClient)
       end
 
       def translate_error!(error, mapping: ERROR_MAPPING)
