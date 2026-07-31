@@ -11,15 +11,12 @@
   See [the RESP3 migration guide](../specs/migration-resp3.md). (#1351)
 - Require Ruby 3.2+. (#1353, #1365)
 
-<<<<<<< HEAD
-=======
 ## New features
 
 - Identify the client to every node via `CLIENT SETINFO` (`lib-name=redis-rb`,
   `lib-ver=<version>`). Extend the reported name with `driver_info:`, or disable with
   `driver_info: false`. (#1369)
 
->>>>>>> 32d781b3d0564e7f339a771f9bf13e57b9623077
 ## Experimental
 
 - Add `himport_prepare`, `himport_set`, `himport_discard` and `himport_discard_all`
