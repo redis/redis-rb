@@ -64,6 +64,11 @@ class Redis
   # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,
   #   or a list of sleep duration between attempts.
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [Boolean] :himport_auto_prepare (true) Whether to automatically re-prepare a
+  #   `HIMPORT` fieldset and retry the `himport_set` once when the server reports the fieldset was
+  #   lost (reconnect, failover, `RESET`). When `false`, the error is raised to the caller; prepared
+  #   schemas are still recorded for manual recovery. See the README "Bulk hash ingestion (HIMPORT)"
+  #   section.
   # @option options [String] :name The name of the server group to connect to.
   # @option options [Array] :sentinels List of sentinels to contact
   #
