@@ -93,4 +93,34 @@ class TestClusterClientInternals < Minitest::Test
       end
     end
   end
+
+  # `CLIENT INFO` replies as one space-separated line of `key=value` pairs. Parsing it into fields
+  # keeps the assertions exact: `assert_includes info, "lib-name=redis-rb"` would also accept
+  # `lib-name=redis-rb-<version>`.
+  def client_info_fields(client)
+    client.client(:info).split(" ").to_h { |field| field.split("=", 2) }
+  end
+
+  def test_lib_name_set_via_client_setinfo
+    target_version "7.2.0" do
+      redis.ping
+      fields = client_info_fields(redis)
+
+      assert_equal "redis-rb", fields["lib-name"]
+      assert_equal Redis::VERSION, fields["lib-ver"]
+    end
+  end
+
+  def test_lib_name_includes_downstream_driver_info
+    # Pins that `driver_info:` is threaded in a way a caller cannot replace, which is a separate
+    # code path in Redis::Cluster#initialize_client from the standalone client.
+    target_version "7.2.0" do
+      client = _new_client(driver_info: "my-gem-1.0")
+      client.ping
+      fields = client_info_fields(client)
+
+      assert_equal "redis-rb(my-gem-1.0)", fields["lib-name"]
+      assert_equal Redis::VERSION, fields["lib-ver"]
+    end
+  end
 end

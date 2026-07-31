@@ -229,6 +229,176 @@ class TestInternals < Minitest::Test
     Redis.new(OPTIONS.merge(timeout: 0))
   end
 
+  # `CLIENT INFO` replies as one space-separated line of `key=value` pairs. Parsing it into fields
+  # lets the assertions be exact: `assert_includes info, "lib-name=redis-rb"` would also accept
+  # `lib-name=redis-rb-5.4.1` or `lib-name=redis-rb()`. `CLIENT SETINFO` rejects values containing
+  # spaces, so splitting on space is safe.
+  def client_info_fields(client)
+    client.client(:info).split(" ").to_h { |field| field.split("=", 2) }
+  end
+
+  # The last `CLIENT SETINFO <attribute>` value in the prelude is the one the server ends up with.
+  def prelude_setinfo(config, attribute)
+    command = config.connection_prelude.reverse.find { |c| c[1] == "SETINFO" && c[2] == attribute }
+    command && command[3]
+  end
+
+  def test_lib_name_set_via_client_setinfo
+    target_version "7.2.0" do
+      fresh_client = _new_client
+      fresh_client.ping
+      fields = client_info_fields(fresh_client)
+
+      assert_equal "redis-rb", fields["lib-name"]
+      assert_equal Redis::VERSION, fields["lib-ver"]
+    end
+  end
+
+  def test_lib_name_includes_downstream_driver_info
+    target_version "7.2.0" do
+      fresh_client = _new_client(driver_info: "my-gem-1.0")
+      fresh_client.ping
+      fields = client_info_fields(fresh_client)
+
+      assert_equal "redis-rb(my-gem-1.0)", fields["lib-name"]
+      assert_equal Redis::VERSION, fields["lib-ver"]
+    end
+  end
+
+  def test_lib_name_reported_for_every_driver_info_shape
+    # The default case, and each shape `redis-client` accepts for `driver_info`. A downstream
+    # `driver_info:` must never be able to replace redis-rb's own identity, only extend it.
+    {
+      nil => "redis-rb",
+      "" => "redis-rb",
+      [] => "redis-rb",
+      # The officially recommended suffix format, `<name>_v<version>` with `;` between suffixes.
+      "my-gem_v1.0.0" => "redis-rb(my-gem_v1.0.0)",
+      ["my-gem_v1.0.0", "other_v2.0"] => "redis-rb(my-gem_v1.0.0;other_v2.0)",
+      # Free-form values are passed through: the format above is a recommendation, not enforced.
+      "my-gem-1.0" => "redis-rb(my-gem-1.0)",
+      # `CLIENT SETINFO` rejects bytes outside `!`..`~` and redis-client swallows the error, which
+      # would leave `lib-name` empty on the server. Parentheses would corrupt the `redis-rb(...)`
+      # delimiters. Both are sanitized so redis-rb stays identifiable no matter what a downstream
+      # library passes.
+      "my gem 1.0" => "redis-rb(my_gem_1.0)",
+      "sneaky)lib(1.0" => "redis-rb(sneaky_lib_1.0)",
+      ["my gem", "v 1.0"] => "redis-rb(my_gem;v_1.0)",
+      "\t \n" => "redis-rb",
+      # Underscores the caller actually passed survive; only invalid runs are dropped at the edges.
+      "_x_" => "redis-rb(_x_)",
+      "(x)" => "redis-rb(x)",
+      # Invalid bytes must not raise, whether in a binary string or an invalid UTF-8 one; they are
+      # scrubbed like any other invalid character.
+      "bad\xFFgem_v1.0" => "redis-rb(bad_gem_v1.0)",
+      "bad\xFFgem_v1.0".dup.force_encoding(Encoding::UTF_8) => "redis-rb(bad_gem_v1.0)",
+    }.each do |driver_info, expected|
+      config = Redis::Client.config(**(driver_info.nil? ? {} : { driver_info: driver_info }))
+
+      assert_equal expected, prelude_setinfo(config, "LIB-NAME"), "for driver_info: #{driver_info.inspect}"
+      assert_match(/\A[!-~]+\z/, prelude_setinfo(config, "LIB-NAME"), "for driver_info: #{driver_info.inspect}")
+      assert_equal Redis::VERSION, prelude_setinfo(config, "LIB-VER"), "for driver_info: #{driver_info.inspect}"
+    end
+  end
+
+  def test_lib_name_rejected_by_the_server_is_tolerated
+    # Redis < 7.2 has no CLIENT SETINFO; redis-client deliberately swallows exactly that error, so
+    # the connection must survive and stay usable. Simulated by a server erroring on CLIENT.
+    commands = {
+      hello: ->(*_) { "-ERR unknown command 'HELLO'" }, # also exercises the RESP3->RESP2 fallback
+      client: ->(*_) { "-ERR Unknown subcommand or wrong number of arguments for 'SETINFO'" },
+      ping: ->(*_) { "+PONG" },
+    }
+    RedisMock.start(commands) do |port|
+      redis = Redis.new(port: port, driver_info: "my-gem_v1.0.0", reconnect_attempts: 0)
+
+      assert_equal "PONG", redis.ping
+    ensure
+      redis&.close
+    end
+  end
+
+  def test_lib_name_rejects_invalid_driver_info_types
+    # Anything that is not nil/false/String/Array is passed through for redis-client to reject,
+    # matching its documented contract.
+    assert_raises(ArgumentError) do
+      Redis::Client.config(driver_info: :symbol).connection_prelude
+    end
+  end
+
+  def test_lib_name_marker_follows_the_official_suffix_convention
+    # The marker is what redis-client interpolates into its own (transient) pair,
+    # `lib-name=redis-client(redis-rb_v<version>)` — the identity the server keeps if the override
+    # ever fails to apply. The Redis docs recommend suffixes match
+    # `(?<custom-name>[ -~]+)[ -~]v(?<custom-version>[\d\.]+)`; see
+    # https://redis.io/docs/latest/commands/client-setinfo/
+    marker = Redis::LibIdentity.driver_info
+    match = /\A(?<custom_name>[ -~]+)[ -~]v(?<custom_version>[\d.]+)\z/.match(marker)
+
+    refute_nil match, "#{marker.inspect} does not follow the <name>_v<version> suffix convention"
+    assert_equal "redis-rb", match[:custom_name]
+    assert_equal Redis::VERSION, match[:custom_version]
+  end
+
+  def test_lib_name_can_be_disabled_with_driver_info_false
+    # The opt-out for peers that can't tolerate unknown commands in the handshake: `false` gates
+    # off both redis-rb's SETINFO pair and redis-client's own, restoring the pre-identification
+    # prelude (empty under RESP2 with no auth and db 0; just the handshake under RESP3).
+    config = Redis::Client.config(protocol: 2, driver_info: false)
+
+    assert_empty config.connection_prelude
+
+    resp3 = Redis::Client.config(driver_info: false)
+
+    assert_equal [["HELLO", "3"]], resp3.connection_prelude
+  end
+
+  def test_lib_name_reported_for_sentinel_clients
+    # `RedisClient::SentinelConfig` is not a `RedisClient::Config` subclass, so it needs its own
+    # prepend. Nothing else in the suite would notice if that were dropped.
+    refute_operator RedisClient::SentinelConfig, :<, RedisClient::Config
+
+    config = Redis::Client.sentinel(name: "mymaster", sentinels: [{ host: "127.0.0.1", port: 26_379 }])
+
+    assert_equal "redis-rb", prelude_setinfo(config, "LIB-NAME")
+    assert_equal Redis::VERSION, prelude_setinfo(config, "LIB-VER")
+
+    downstream = Redis::Client.sentinel(
+      name: "mymaster", sentinels: [{ host: "127.0.0.1", port: 26_379 }], driver_info: "my-gem-1.0"
+    )
+
+    assert_equal "redis-rb(my-gem-1.0)", prelude_setinfo(downstream, "LIB-NAME")
+
+    # The connections to the sentinel processes themselves (master resolution, failover polling)
+    # are plain RedisClient::Config objects carrying the same driver_info, so they identify too.
+    config.sentinels.each do |sentinel_config|
+      assert_equal "redis-rb", prelude_setinfo(sentinel_config, "LIB-NAME")
+    end
+  end
+
+  def test_lib_name_does_not_affect_plain_redis_client_configs
+    # Loading redis-rb must not change what applications using `redis-client` directly report.
+    plain = RedisClient.config(port: PORT)
+    refute(
+      plain.connection_prelude.any? { |c| c[0] == "CLIENT" && c[1] == "SETINFO" },
+      "a plain redis-client config must not issue CLIENT SETINFO"
+    )
+
+    # Including when their own `driver_info` happens to start with redis-rb's marker: recognising
+    # the marker by prefix alone would silently replace their identity with ours.
+    {
+      "other-gem-1.0" => "redis-client(other-gem-1.0)",
+      "redis-rb-extras-1.0" => "redis-client(redis-rb-extras-1.0)",
+      "redis-rb_viewer-1.0" => "redis-client(redis-rb_viewer-1.0)",
+      "redis-rb_v#{Redis::VERSION}-fork" => "redis-client(redis-rb_v#{Redis::VERSION}-fork)",
+    }.each do |driver_info, expected|
+      config = RedisClient.config(port: PORT, driver_info: driver_info)
+
+      assert_equal expected, prelude_setinfo(config, "LIB-NAME"), "for driver_info: #{driver_info.inspect}"
+      assert_equal RedisClient::VERSION, prelude_setinfo(config, "LIB-VER"), "for driver_info: #{driver_info.inspect}"
+    end
+  end
+
   def test_time
     # Test that the difference between the time that Ruby reports and the time
     # that Redis reports is minimal (prevents the test from being racy).
@@ -344,14 +514,21 @@ class TestInternals < Minitest::Test
       end
     end
 
+    # Consume and ack the whole connection prelude before deciding whether to go silent, so that
+    # the simulated failure lands on the payload write rather than while connecting. The prelude
+    # shape depends on the protocol (RESP2 opens with SELECT, RESP3 with HELLO) and on
+    # CLIENT SETINFO, so derive its length from a config built the same way as the mock's client.
+    # redis-client accepts any non-error reply to these.
+    prelude_size = Redis::Client.config(**OPTIONS, protocol: PROTOCOL).connection_prelude.size
+
     handler = lambda do |session|
       n = @n
       @n += 1
 
-      # Consume and ack the first connection-prelude command. Under RESP2 this is SELECT; under
-      # RESP3 the prelude begins with HELLO (redis-client accepts any non-error reply to it).
-      read_command.call(session)
-      session.write("+OK\r\n")
+      prelude_size.times do
+        read_command.call(session)
+        session.write("+OK\r\n")
+      end
       unless seq.include?(n)
         session.write("+#{n}\r\n") while read_command.call(session)
       end

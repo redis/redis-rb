@@ -131,6 +131,37 @@ these features in future releases without another protocol migration.
 
 See [the RESP3 migration guide](specs/migration-resp3.md) for full details.
 
+## Client identification
+
+On connect the client identifies itself to the server with `CLIENT SETINFO`, so
+`redis-rb` and its version are visible in `CLIENT LIST` and `CLIENT INFO`:
+
+```
+lib-name=redis-rb lib-ver=<Redis::VERSION>
+```
+
+Libraries built on top of `redis-rb` can add their own identity with
+`driver_info:`, which is reported alongside it. The recommended suffix format
+is `<name>_v<version>`, following the convention used by the official client
+libraries:
+
+```ruby
+Redis.new(driver_info: "my-gem_v#{MyGem::VERSION}")
+# reported as: lib-name=redis-rb(my-gem_v1.0.0) lib-ver=<Redis::VERSION>
+```
+
+`driver_info:` also accepts an array, joined with `;` (the conventional
+delimiter for multiple suffixes). It extends the reported name rather than
+replacing it, so `redis-rb` stays identifiable either way. Runs of characters
+the server would reject (spaces, non-printable bytes) and of the parentheses
+that delimit the suffix are each replaced with a single `_`, or dropped at the
+edges of the value.
+
+Servers older than 7.2 don't support `CLIENT SETINFO`; they reject it, the error
+is ignored, and the connection is used as normal. If a proxy or server can't
+tolerate the command at all, pass `driver_info: false` to disable client
+identification entirely.
+
 ## Connection Pooling and Thread safety
 
 The client does not provide connection pooling. Each `Redis` instance
