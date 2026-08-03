@@ -64,6 +64,11 @@ class Redis
   # @option options [Integer, Array<Integer, Float>] :reconnect_attempts Number of attempts trying to connect,
   #   or a list of sleep duration between attempts.
   # @option options [Boolean] :inherit_socket (false) Whether to use socket in forked process or not
+  # @option options [Boolean] :himport_auto_prepare (true) Whether to automatically re-prepare a
+  #   `HIMPORT` fieldset and retry the `himport_set` once when the server reports the fieldset was
+  #   lost (reconnect, failover, `RESET`). When `false`, the error is raised to the caller, who is
+  #   responsible for retaining the schema and calling `himport_prepare` again. See the README
+  #   "Bulk hash ingestion (HIMPORT)" section.
   # @option options [String] :name The name of the server group to connect to.
   # @option options [Array] :sentinels List of sentinels to contact
   #
@@ -160,7 +165,9 @@ class Redis
   # session was lost. These overrides remember the last schema prepared per fieldset name and,
   # on that error, re-prepare it and retry the SET exactly once. An explicitly discarded
   # fieldset is removed from the registry and is never resurrected. Disable the recovery with
-  # `Redis.new(himport_auto_prepare: false)`; the registry is still recorded for manual use.
+  # `Redis.new(himport_auto_prepare: false)`: the loss error then propagates, and re-preparing is
+  # the caller's responsibility — the registry is internal state with no public reader, so callers
+  # must retain their schemas themselves.
 
   # Each method holds @monitor across the server command AND its registry mutation: the two must
   # be atomic with respect to other threads, otherwise a himport_set failing between another

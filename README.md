@@ -371,10 +371,10 @@ disconnect or `RESET`. A `himport_set` on a connection without the fieldset
 fails with `ERR no such fieldset`.
 
 Because a `Redis` instance transparently replaces a dead connection (see
-[Reconnections](#reconnections)), the client keeps the last schema prepared for
-each fieldset name and, when a `himport_set` reports the fieldset is gone,
-re-prepares it and retries the command once. Explicitly discarded fieldsets are
-never restored. To keep the fieldset lifecycle fully explicit instead, disable
+[Reconnections](#reconnections)), the client keeps all fieldset schemas
+and, when a `himport_set` reports the fieldset is gone, re-prepares it 
+and retries the command once. Explicitly discarded fieldsets are never 
+restored. To keep the fieldset lifecycle fully explicit instead, disable
 the recovery:
 
 ```ruby
