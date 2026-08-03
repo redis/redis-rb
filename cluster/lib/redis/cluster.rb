@@ -70,8 +70,8 @@ class Redis
     # @option options [Boolean] :himport_auto_prepare (true) Whether to automatically repair a lost
     #   `HIMPORT` fieldset (re-fan out the last prepared schema to all masters and retry the
     #   `himport_set` once) when a node reports it was lost (failover, topology reload, redirection).
-    #   When `false`, the error is raised to the caller; prepared schemas are still recorded for
-    #   manual recovery.
+    #   When `false`, the error is raised to the caller, who is responsible for retaining the schema
+    #   and calling `himport_prepare` again.
     #
     # @return [Redis::Cluster] a new client instance
     def initialize(*)
