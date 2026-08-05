@@ -510,6 +510,11 @@ module Lint
 
         assert info.key?("dense-slices")
         assert info.key?("sparse-slices")
+        # The avg-* statistics are doubles under RESP3 but bulk strings under
+        # RESP2; HashifyArrayInfo converges both on Float.
+        %w[avg-dense-size avg-dense-fill avg-sparse-size].each do |field|
+          assert_kind_of Float, info[field], "expected #{field} to be a Float"
+        end
       end
     end
 

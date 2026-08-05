@@ -327,13 +327,14 @@ class Redis
       #
       # @param [String] key
       # @param [Boolean] full include per-slice statistics
-      # @return [Hash{String => Integer}] metadata fields such as `count`,
-      #   `len`, `next-insert-index` and `slices`
+      # @return [Hash{String => Integer, Float}] metadata fields such as
+      #   `count`, `len`, `next-insert-index` and `slices`; with `full:` the
+      #   `avg-*` slice statistics are returned as `Float`
       # @raise [Redis::CommandError] when the key does not exist
       def arinfo(key, full: false)
         args = [:arinfo, key]
         args << "FULL" if full
-        send_command(args, &Hashify)
+        send_command(args, &HashifyArrayInfo)
       end
 
       private

@@ -110,6 +110,18 @@ class Redis
       end
     }
 
+    # ARINFO: the avg-* slice statistics arrive as native doubles under RESP3
+    # but as bulk strings under RESP2; floatify them after hashifying so both
+    # protocols return the same Ruby types.
+    HashifyArrayInfo = lambda { |value|
+      reply = Hashify.call(value)
+      return reply unless reply.is_a?(Hash)
+
+      reply.each do |field, field_value|
+        reply[field] = Floatify.call(field_value) if field.start_with?("avg-")
+      end
+    }
+
     HashifyInfo = lambda { |reply|
       lines = reply.split("\r\n").grep_v(/^(#|$)/)
       lines.map! { |line| line.split(':', 2) }
