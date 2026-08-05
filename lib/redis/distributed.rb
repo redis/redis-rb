@@ -1289,6 +1289,96 @@ class Redis
       on_each_node(:script, subcommand, *args)
     end
 
+    # Set one or more contiguous values starting at an index in an array.
+    def arset(key, index, *values)
+      node_for(key).arset(key, index, *values)
+    end
+
+    # Get the value at an index in an array.
+    def arget(key, index)
+      node_for(key).arget(key, index)
+    end
+
+    # Set multiple index-value pairs in an array.
+    def armset(key, *pairs)
+      node_for(key).armset(key, *pairs)
+    end
+
+    # Get values at multiple indices in an array.
+    def armget(key, *indices)
+      node_for(key).armget(key, *indices)
+    end
+
+    # Get values in a range of indices.
+    def argetrange(key, start, stop)
+      node_for(key).argetrange(key, start, stop)
+    end
+
+    # Get the length of an array (max index + 1).
+    def arlen(key)
+      node_for(key).arlen(key)
+    end
+
+    # Get the number of non-empty elements in an array.
+    def arcount(key)
+      node_for(key).arcount(key)
+    end
+
+    # Delete elements at the specified indices in an array.
+    def ardel(key, *indices)
+      node_for(key).ardel(key, *indices)
+    end
+
+    # Delete elements in one or more inclusive index ranges.
+    def ardelrange(key, *ranges)
+      node_for(key).ardelrange(key, *ranges)
+    end
+
+    # Insert one or more values at the array's insert cursor.
+    def arinsert(key, *values)
+      node_for(key).arinsert(key, *values)
+    end
+
+    # Set the insert cursor of an array to a specific index.
+    def arseek(key, index)
+      node_for(key).arseek(key, index)
+    end
+
+    # Get the next index ARINSERT would use.
+    def arnext(key)
+      node_for(key).arnext(key)
+    end
+
+    # Get the most recently inserted elements.
+    def arlastitems(key, count, rev: false)
+      node_for(key).arlastitems(key, count, rev: rev)
+    end
+
+    # Insert one or more values into an array used as a fixed-size ring buffer.
+    def arring(key, size, *values)
+      node_for(key).arring(key, size, *values)
+    end
+
+    # Iterate existing elements in an index range.
+    def arscan(key, start, stop, limit: nil)
+      node_for(key).arscan(key, start, stop, limit: limit)
+    end
+
+    # Search array elements within an index range using textual predicates.
+    def argrep(key, start, stop, **options)
+      node_for(key).argrep(key, start, stop, **options)
+    end
+
+    # Perform an aggregate operation on the elements in a range.
+    def arop(key, start, stop, operation, value: nil)
+      node_for(key).arop(key, start, stop, operation, value: value)
+    end
+
+    # Get metadata about an array.
+    def arinfo(key, full: false)
+      node_for(key).arinfo(key, full: full)
+    end
+
     # Add one or more members to a HyperLogLog structure.
     def pfadd(key, member)
       node_for(key).pfadd(key, member)
