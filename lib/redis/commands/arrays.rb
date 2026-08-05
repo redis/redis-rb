@@ -51,6 +51,9 @@ class Redis
       # @example With a flat list of pairs
       #   redis.armset("foo", 0, "a", 5, "f")
       #     # => 2
+      # @example With an array (flat, or one array per pair)
+      #   redis.armset("foo", [0, "a"], [5, "f"])
+      #     # => 2
       # @example With a Hash
       #   redis.armset("foo", { 0 => "a", 5 => "f" })
       #     # => 2
@@ -59,7 +62,11 @@ class Redis
       # @param [Array<Integer, String>, Hash{Integer => String}] pairs index-value pairs
       # @return [Integer] the number of previously empty slots that were set
       def armset(key, *pairs)
-        pairs = pairs.first.flatten if pairs.size == 1 && pairs.first.is_a?(Hash)
+        pairs = if pairs.size == 1 && pairs.first.is_a?(Hash)
+          pairs.first.flatten
+        else
+          pairs.flatten(1)
+        end
         raise ArgumentError, "wrong number of arguments" if pairs.empty? || pairs.size.odd?
 
         args = pairs.each_slice(2).flat_map { |index, value| [Integer(index), value] }
@@ -247,9 +254,11 @@ class Redis
       #     # => [[0, "apple"], [2, "cherry"]]
       #
       # @param [String] key
-      # @param [Integer] start zero-based start index (inclusive); iteration
-      #   is reversed when greater than `stop`
-      # @param [Integer] stop zero-based end index (inclusive)
+      # @param [Integer, String] start zero-based start index (inclusive), or
+      #   `"-"` for the start of the array; iteration is reversed when greater
+      #   than `stop`
+      # @param [Integer, String] stop zero-based end index (inclusive), or
+      #   `"+"` for the end of the array
       # @param [String, Array<String>] exact match by exact equality
       # @param [String, Array<String>] match match by substring
       # @param [String, Array<String>] glob match by glob-style pattern (`*`, `?`, `[...]`)
@@ -262,7 +271,7 @@ class Redis
       #   indices in traversal order, or `[index, value]` pairs with `with_values`
       def argrep(key, start, stop, exact: nil, match: nil, glob: nil, re: nil,
                  logic: nil, limit: nil, with_values: nil, nocase: nil)
-        args = [:argrep, key, Integer(start), Integer(stop)]
+        args = [:argrep, key, argrep_bound(start), argrep_bound(stop)]
         { "EXACT" => exact, "MATCH" => match, "GLOB" => glob, "RE" => re }.each do |predicate, values|
           Array(values).each { |value| args << predicate << value }
         end
@@ -325,6 +334,15 @@ class Redis
         args = [:arinfo, key]
         args << "FULL" if full
         send_command(args, &Hashify)
+      end
+
+      private
+
+      # ARGREP accepts "-" / "+" as full-range bounds — unlike the other AR*
+      # range commands, which take numeric indices only (verified on Redis
+      # 8.8). Anything else is coerced so typos still fail fast client-side.
+      def argrep_bound(index)
+        index == "-" || index == "+" ? index : Integer(index)
       end
     end
   end

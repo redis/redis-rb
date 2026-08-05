@@ -106,6 +106,16 @@ module Lint
       end
     end
 
+    def test_armset_with_arrays
+      target_version "8.8" do
+        # A single flat array and one-array-per-pair are both accepted,
+        # consistent with armget/ardel/ardelrange flattening one level.
+        assert_equal 2, r.armset("foo", [0, "s1", 5, "s6"])
+        assert_equal 2, r.armset("bar", [0, "s1"], [5, "s6"])
+        assert_equal "s6", r.arget("bar", 5)
+      end
+    end
+
     def test_armset_with_invalid_args
       target_version "8.8" do
         assert_raises(ArgumentError) { r.armset("foo") }
@@ -333,6 +343,18 @@ module Lint
       end
     end
 
+    def test_zero_limit_is_sent_and_rejected_by_the_server
+      target_version "8.8" do
+        r.arset("foo", 0, "s1")
+
+        # 0 is truthy in Ruby, so LIMIT 0 goes on the wire; the server
+        # defines it as invalid rather than "no results".
+        error = assert_raises(Redis::CommandError) { r.arscan("foo", 0, 9, limit: 0) }
+        assert_match(/LIMIT must be positive/i, error.message)
+        assert_raises(Redis::CommandError) { r.argrep("foo", 0, 9, match: "s", limit: 0) }
+      end
+    end
+
     def test_argrep_with_exact_predicate
       target_version "8.8" do
         r.arset("foo", 0, "apple", "banana", "cherry")
@@ -408,6 +430,16 @@ module Lint
         r.arset("foo", 0, "apple", "avocado")
 
         assert_equal [1, 0], r.argrep("foo", 9, 0, match: "a")
+      end
+    end
+
+    def test_argrep_with_full_range_sentinels
+      target_version "8.8" do
+        r.arset("foo", 0, "apple", "banana")
+
+        assert_equal [0, 1], r.argrep("foo", "-", "+", match: "a")
+        # Other bounds must still be numeric and fail fast client-side.
+        assert_raises(ArgumentError) { r.argrep("foo", "first", "+", match: "a") }
       end
     end
 
