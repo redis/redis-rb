@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "redis/commands/arrays"
 require "redis/commands/bitmaps"
 require "redis/commands/cluster"
 require "redis/commands/connection"
@@ -21,6 +22,7 @@ require "redis/commands/transactions"
 
 class Redis
   module Commands
+    include Arrays
     include Bitmaps
     include Cluster
     include Connection

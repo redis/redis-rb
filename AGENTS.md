@@ -38,13 +38,16 @@ To run a single test file or method, use Minitest's options via `TESTOPTS`:
 
 ```sh
 bundle exec rake test:redis TEST=test/redis/commands_on_strings_test.rb
-bundle exec rake test:cluster TEST=cluster/test/commands_on_strings_test.rb TESTOPTS="--name=/get/"
+BUNDLE_GEMFILE=cluster/Gemfile bundle exec rake test:cluster TEST=cluster/test/commands_on_strings_test.rb TESTOPTS="--name=/get/"
 ```
+
+The cluster group needs `BUNDLE_GEMFILE=cluster/Gemfile` (the root bundle doesn't include `redis-cluster-client`); CI does the same.
 
 Other useful knobs:
 
 - `REDIS_VERSION=8.X.Y make start_all` — pin the image tag (default is set at the top of `makefile`). Tags are published per Redis minor.patch (e.g. `8.0.6`, `8.2.6`, `8.4.3`, `8.6.3`, `8.8.0`); a bare `8.4` tag generally does not exist.
 - `DRIVER=hiredis bundle exec rake test` — run the suite against the `hiredis-client` C-extension driver instead of the pure-Ruby parser (see `test/helper.rb`).
+- `PROTOCOL=2 bundle exec rake test` — run the suite over RESP2 instead of the default RESP3 (`test/helper.rb:11`). Reply-reshaping changes should be verified under both protocols (and ideally both drivers).
 - `REDIS_SOCKET_PATH=...` — override the Unix socket location. The default expects `tmp/redis.sock`, which the standalone container bind-mounts from `./tmp:/sockets`; `test/helper.rb` aborts if it's missing.
 - `bundle exec rubocop` — lint. The Rubocop config is in `.rubocop.yml` (root) and `cluster/.rubocop.yml`.
 - `bin/console` — IRB session with `redis` preloaded.
@@ -69,9 +72,9 @@ The compose stack uses `network_mode: host` so sentinel and cluster nodes report
 ### Layering
 
 ```
-Redis (lib/redis.rb)                ergonomics: keyword DSL, RESP2 reshape, error translation,
-   ├ Commands (lib/redis/commands)  pub/sub second-socket, pipelined/multi wrappers
-   ├ Monitor (lock)
+Redis (lib/redis.rb)                ergonomics: keyword DSL, reply reshaping, error translation,
+   ├ Commands (lib/redis/commands)  pub/sub second-socket, pipelined/multi wrappers,
+   ├ Monitor (lock)                 RESP3→RESP2 fallback, HIMPORT fieldset registry
    └ @client : Redis::Client < RedisClient
                                     ↓
               redis-client gem (external, vendored as runtime dep)
@@ -82,14 +85,14 @@ Redis (lib/redis.rb)                ergonomics: keyword DSL, RESP2 reshape, erro
 The `Redis` class is the public surface. It delegates all network I/O to `Redis::Client`, which inherits from `RedisClient` (in the `redis-client` gem) and only adds:
 
 1. Error translation: maps `RedisClient::*` exceptions to `Redis::*` via `ERROR_MAPPING` in `lib/redis/client.rb`. Every public method on `Redis::Client` is wrapped in a rescue that calls `Client.translate_error!`.
-2. A hard pin of `protocol: 2` in `lib/redis/client.rb`. RESP3 is intentionally not supported at this layer (see "RESP2 invariant" below).
+2. A default of `protocol: 3` (RESP3) in `lib/redis/client.rb`; callers can pass `protocol: 2`. Servers without RESP3 (Redis < 6.0, or anything replying `NOPROTO`) are detected on connect and `Redis#with_protocol_fallback` (`lib/redis.rb`) transparently rebuilds `@client` for RESP2 — every `@client` access funnels through `Redis#synchronize`, which is what applies the fallback, so pipelines/multi/watch fall back too. Return values are protocol-invariant except GEO coordinates (`Float` under RESP3).
 3. Trivial config delegators (`#host`, `#port`, `#db`, …).
 
 The full command execution flow is: `Redis#some_command` (defined in `lib/redis/commands/<category>.rb`) builds an array → `Redis#send_command` grabs `@monitor` → `Redis::Client#call_v` rescues + re-raises → `RedisClient#call_v` serializes RESP and reads the reply → optional reshape lambda runs → result returned.
 
 ### Commands as a module composition
 
-Every Redis command category is a module under `lib/redis/commands/` (strings, lists, hashes, sets, sorted_sets, streams, scripting, transactions, pubsub, etc.). They are all `include`d into a parent `Redis::Commands` module (`lib/redis/commands.rb`), which is in turn mixed into:
+Every Redis command category is a module under `lib/redis/commands/` (strings, lists, hashes, sets, sorted_sets, streams, arrays, scripting, transactions, pubsub, etc.). Module-provided command families live under `lib/redis/commands/modules/` (`json.rb` for `JSON.*`, `search.rb` + `search/` for the Query Engine `FT.*`, whose replies reshape into `Search::SearchResult`/`Search::AggregateResult` objects). They are all `include`d into a parent `Redis::Commands` module (`lib/redis/commands.rb`), which is in turn mixed into:
 
 - `Redis` (`lib/redis.rb`)
 - `Redis::PipelinedConnection` (`lib/redis/pipeline.rb`) — used inside `pipelined` and `multi` blocks
@@ -99,9 +102,9 @@ This is the **single most important pattern in the codebase**. To add a new comm
 
 There is also a catch-all `method_missing` in `lib/redis/commands.rb` that forwards any unknown method as a Redis command — so unwrapped commands "just work."
 
-### Reply reshaping (RESP2 invariant)
+### Reply reshaping (protocol-aware)
 
-The top of `lib/redis/commands.rb` defines a family of lambdas — `Boolify`, `BoolifySet`, `Hashify`, `Floatify`, `FloatifyPairs`, `HashifyInfo`, `HashifyStreamEntries`, `HashifyClusterNodes`, … — that reshape flat RESP2 replies into idiomatic Ruby (Hash, Float, boolean, etc.). They are passed as blocks to `send_command`:
+The top of `lib/redis/commands.rb` defines a family of lambdas — `Boolify`, `BoolifySet`, `Hashify`, `Floatify`, `FloatifyPairs`, `HashifyInfo`, `HashifyStreamEntries`, `HashifyClusterNodes`, … — that reshape raw replies into idiomatic Ruby (Hash, Float, boolean, etc.). They are passed as blocks to `send_command`:
 
 ```ruby
 def incrbyfloat(key, increment)
@@ -109,9 +112,9 @@ def incrbyfloat(key, increment)
 end
 ```
 
-These lambdas **assume RESP2-shaped replies** — flat arrays the lambda slices into hashes, integer 0/1 it turns into booleans, etc. This is why `Redis::Client.config` hard-codes `protocol: 2`: under RESP3 the server already returns native maps/booleans/doubles and the lambdas would either double-process or break. If you're tempted to enable RESP3, the realistic path is to drop down to `RedisClient` directly rather than touch this layer.
+Since 6.0 the client negotiates RESP3 by default, so these lambdas are **protocol-aware**: they must accept both the RESP2 wire shape (flat arrays, string-encoded numbers) and the RESP3 one (native maps, doubles, pairs) and converge on the same Ruby value. The pattern is "detect the already-final shape and pass it through" — e.g. `Hashify` returns a `Hash` unchanged and `each_slice(2).to_h`'s a flat array; `FloatifyPairs` skips re-mapping when the reply is already `[[member, Float], ...]`. When adding or changing a lambda, keep both branches, and test the command under both protocols (`PROTOCOL=2` / `PROTOCOL=3`, see below).
 
-When adding a command that needs reply transformation, write or reuse one of these lambdas; do not coerce in the command method itself.
+When adding a command that needs reply transformation, write or reuse one of these lambdas; do not coerce in the command method itself. See `specs/adding-commands.md` for the full catalog and the end-to-end checklist (the `add-new-command` skill automates this flow from a spec file).
 
 ### Connection lifecycle (long-lived, lazy, fork-safe)
 
@@ -128,6 +131,14 @@ When adding a command that needs reply transformation, write or reuse one of the
 
 `pipelined` and `multi` both yield a `Redis::PipelinedConnection` (or `MultiConnection`) that re-includes `Commands` (`lib/redis/pipeline.rb`). Each command inside the block returns a `Redis::Future` that resolves when the batch flushes. `MultiFuture` (in `lib/redis/pipeline.rb`) splits the `EXEC` reply array back across individual command futures. Inside a `MULTI`, blocking commands degrade to non-blocking — that's intentional, matching Redis server semantics.
 
+### HIMPORT — server session state with client-side recovery (experimental)
+
+The `HIMPORT` command family (Redis 8.10) is the one place a command's state outlives a single call: fieldsets are **per-connection server session state**, destroyed by reconnect/failover/`RESET`. `Redis#initialize` keeps a registry of prepared schemas (`@himport_fieldsets`) and the `himport_*` overrides in `lib/redis.rb` repair a lost fieldset reactively — on the server's "no such fieldset" error, re-prepare from the registry and retry the SET exactly once. Recovery is per-fieldset and lazy (there is no reconnect hook); disable with `himport_auto_prepare: false`, in which case re-preparing is the caller's responsibility (the registry has no public reader). The overrides hold `@monitor` across command + registry mutation — don't split them. The cluster subclass adds reply aggregation on top (prepare/discard fan out to all masters).
+
+### Client identification (CLIENT SETINFO)
+
+`Redis::LibIdentity` (`lib/redis/lib_identity.rb`) reports `lib-name=redis-rb lib-ver=<version>` on every connection by **prepending onto `RedisClient::Config` / `RedisClient::SentinelConfig`** and appending a second `SETINFO` pair to the connection prelude (last-write-wins overrides redis-client's own pair; zero extra round trips). The override is gated by a `redis-rb_v<version>` marker in `driver_info`, so applications using redis-client directly are untouched. Downstream gems extend the name via `Redis.new(driver_info: "my-gem_v1.0.0")`; `driver_info: false` disables identification. This couples to redis-client's `connection_prelude` — one of the reasons the gemspec pins redis-client to an exact version; re-audit on every driver bump.
+
 ### Cluster gem differences
 
 `cluster/lib/redis/cluster.rb` defines `Redis::Cluster < ::Redis`, so it inherits the full `Commands` surface but swaps `initialize_client` to build a `RedisClient::Cluster` via the `redis-cluster-client` gem. Cluster-specific differences worth knowing:
@@ -143,7 +154,7 @@ When adding a command that needs reply transformation, write or reuse one of the
 
 It is **separately maintained** from `Commands` — `Redis::Distributed` does *not* include the `Commands` mixin; every method is explicitly defined in `distributed.rb` so it can route to the right node via `node_for(key)`. When adding a new Redis command that should be available here, add a corresponding method to `lib/redis/distributed.rb` and a test under `test/distributed/`. The `test:distributed` Rake task runs as part of the default suite, so missing or broken Distributed implementations will fail CI.
 
-It is supported (recent commits add JSON, HEXPIRE/HPTTL, HSCAN, etc.) and not deprecated. For new applications needing horizontal scaling, `Redis::Cluster` is generally the better choice because the server enforces consistency; `Redis::Distributed` is the right tool when you have N independent standalone Redises and want memcache-style key distribution.
+It is supported (recent commits add JSON, arrays (`AR*`), HEXPIRE/HPTTL, HSCAN, etc.) and not deprecated. For new applications needing horizontal scaling, `Redis::Cluster` is generally the better choice because the server enforces consistency; `Redis::Distributed` is the right tool when you have N independent standalone Redises and want memcache-style key distribution.
 
 ## Conventions
 

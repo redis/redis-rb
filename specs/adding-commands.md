@@ -248,7 +248,8 @@ Important facts:
 | A Ruby wrapper around an existing Redis verb | `lib/redis/commands/<category>.rb` | None. `redis-client` already knows how to serialize/parse it; `redis-cluster-client` already knows how to route it. |
 | A Ruby wrapper around a brand-new Redis verb (newly added in some Redis version) | Same as above | None *at runtime*, provided your Redis server is recent enough that `COMMAND` describes the new verb. For routing-fast-path optimization, `redis-cluster-client` may need a catalog update, but routing is correct either way (it falls back to MOVED-follow). |
 | A new client-side reshape of an existing verb | Same as above + a reshape lambda (§4) | None. Reshapes live entirely in redis-rb. |
-| Behavior that needs RESP3 protocol features (push messages, native maps, client tracking) | Not supported in redis-rb. Drop down to `RedisClient` directly. | n/a — see CLAUDE.md "RESP2 invariant" |
+| A command whose RESP3 reply shape differs from RESP2 (native map/double vs flat array) | Same as above — make the reshape lambda protocol-aware (accept both shapes, converge on one Ruby value) and test under `PROTOCOL=2` and `PROTOCOL=3` | None. The client negotiates RESP3 by default since 6.0 and falls back to RESP2 automatically. |
+| Behavior that needs RESP3 **push messages** (client tracking / invalidation) | Not yet supported in redis-rb. Drop down to `RedisClient` directly. | n/a |
 
 ### The error translation contract
 
@@ -504,7 +505,7 @@ When you add a new command, add tests in this order:
 
 ### Version constraints
 
-The makefile defaults to building Redis `8.4` from source (`makefile:1`: `REDIS_BRANCH ?= 8.4`), but tests still need to skip cleanly on older versions where appropriate. Two helpers in `test/helper.rb`:
+The dev stack runs prebuilt `redislabs/client-libs-test` Docker images (override the tag with `REDIS_VERSION=8.X.Y`), but tests still need to skip cleanly on older versions where appropriate — CI runs a matrix from 7.2 up. Two helpers in `test/helper.rb`:
 
 - **`target_version(version) { ... }`** (`test/helper.rb:153-159`) — runs the block only if the server is at least that version, skips otherwise. Use this when most of a test depends on a newer feature:
 
@@ -556,7 +557,10 @@ bundle exec rake test:redis TEST=test/redis/commands_on_strings_test.rb \
 DRIVER=hiredis bundle exec rake test
 
 # Target a different Redis version
-REDIS_BRANCH=7.2 make start_all && make test
+REDIS_VERSION=7.2.14 make start_all && make test
+
+# Run over RESP2 instead of the default RESP3
+PROTOCOL=2 bundle exec rake test:redis
 
 make stop_all
 ```
@@ -596,7 +600,7 @@ By convention the first element of a command array is a **Symbol** (`:incr`, `:s
 
 ### Rubocop
 
-The project uses Rubocop with `rubocop ~> 1.25.1` (intentionally pinned to an older version — see Gemfile). Run before sending a PR:
+The project uses Rubocop (`~> 1.88`, see Gemfile). Run before sending a PR:
 
 ```sh
 bundle exec rubocop
