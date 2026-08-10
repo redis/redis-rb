@@ -66,6 +66,85 @@ class Redis
         send_command([:incrbyfloat, key, Float(increment)], &Floatify)
       end
 
+      # Increment the numeric value of a key atomically, with optional bounds
+      # and expiration control. Uses 0 as the initial value if the key does
+      # not exist.
+      #
+      # Unlike `incr`/`incrby`, the reply is a two-element array of the new
+      # value and the increment that was actually applied. When the result
+      # would fall outside `lbound:`/`ubound:` (or the type limits) the
+      # operation is skipped and the reply is `[current_value, 0]`; with
+      # `saturate: true` the result is capped at the bound instead and the
+      # second element reflects the saturated delta.
+      #
+      # @example Increment by 1 (integer mode default)
+      #   redis.increx("counter")
+      #     # => [1, 1]
+      # @example Window counter rate limiter: cap at 100, TTL only on window creation
+      #   value, applied = redis.increx("ratelimit:#{user_id}", by: 1, ubound: 100, ex: 60, enx: true)
+      #   reject_request if applied == 0
+      # @example Float mode — selected by the Ruby type of `by:`
+      #   redis.increx("temp", by: 0.25)
+      #     # => [1.75, 0.25]
+      #
+      # @param [String] key
+      # @param [Integer, Float] by the increment (may be negative). The Ruby
+      #   type selects the mode: an `Integer` is sent as `BYINT` (requires an
+      #   integer-typed stored value, replies with Integers), a `Float` as
+      #   `BYFLOAT` (stored value may be integer or float, replies with
+      #   Floats) — so `by: 5` and `by: 5.0` behave differently. Other types
+      #   raise `TypeError`. Without `by:`, increments by 1 in integer mode.
+      # @param [Integer, Float] lbound lower bound for the result (coerced to
+      #   the mode selected by `by:`)
+      # @param [Integer, Float] ubound upper bound for the result
+      # @param [Boolean] saturate cap/floor an out-of-bounds result at the
+      #   bound instead of skipping the operation
+      # @param [Integer] ex expiration in seconds
+      # @param [Integer] px expiration in milliseconds
+      # @param [Integer] exat expiration as a Unix timestamp in seconds
+      # @param [Integer] pxat expiration as a Unix timestamp in milliseconds
+      # @param [Boolean] persist remove the key's expiration
+      # @param [Boolean] enx only set the expiration when the key has no TTL
+      #   (the increment is applied regardless); requires one of
+      #   `ex`/`px`/`exat`/`pxat`
+      # @return [Array(Integer, Integer), Array(Float, Float)]
+      #   `[new_value, applied_increment]` — Integers in integer mode, Floats
+      #   in float mode (under RESP2 and RESP3 alike); `applied_increment`
+      #   is 0 when the operation was skipped as out of bounds
+      def increx(key, by: nil, lbound: nil, ubound: nil, saturate: nil,
+                 ex: nil, px: nil, exat: nil, pxat: nil, persist: nil, enx: nil)
+        raise ArgumentError, "enx is incompatible with persist" if enx && persist
+        raise ArgumentError, "enx requires one of ex, px, exat or pxat" if enx && !(ex || px || exat || pxat)
+
+        # The Ruby type of `by` selects the wire mode; anything else would
+        # have to silently pick a mode, so it is rejected instead.
+        float_mode = case by
+        when nil, Integer then false
+        when Float then true
+        else raise TypeError, "by must be an Integer (BYINT) or a Float (BYFLOAT), got #{by.class}"
+        end
+
+        args = [:increx, key]
+        args << (float_mode ? "BYFLOAT" : "BYINT") << by if by
+        args << "LBOUND" << (float_mode ? Float(lbound) : Integer(lbound)) if lbound
+        args << "UBOUND" << (float_mode ? Float(ubound) : Integer(ubound)) if ubound
+        args << "SATURATE" if saturate
+        args << "EX" << Integer(ex) if ex
+        args << "PX" << Integer(px) if px
+        args << "EXAT" << Integer(exat) if exat
+        args << "PXAT" << Integer(pxat) if pxat
+        args << "PERSIST" if persist
+        args << "ENX" if enx
+
+        if float_mode
+          # RESP2 replies with bulk strings, RESP3 with native doubles;
+          # converge both on Float.
+          send_command(args) { |reply| reply.is_a?(Array) ? reply.map(&Floatify) : reply }
+        else
+          send_command(args)
+        end
+      end
+
       # Set the string value of a key.
       #
       # @param [String] key

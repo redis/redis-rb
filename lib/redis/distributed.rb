@@ -296,6 +296,12 @@ class Redis
       node_for(key).incrbyfloat(key, increment)
     end
 
+    # Increment the numeric value of a key atomically, with optional bounds
+    # and expiration control.
+    def increx(key, **options)
+      node_for(key).increx(key, **options)
+    end
+
     # Set the string value of a key.
     def set(key, value, **options)
       node_for(key).set(key, value, **options)
