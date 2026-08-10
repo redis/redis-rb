@@ -59,7 +59,9 @@ class Redis
       #     # => 2
       #
       # @param [String] key
-      # @param [Array<Integer, String>, Hash{Integer => String}] pairs index-value pairs
+      # @param [Integer, String, Array<Integer, String>, Array<Array(Integer, String)>,
+      #   Hash{Integer => String}] pairs index-value pairs — as alternating
+      #   index/value arguments, a single flat array, one array per pair, or a Hash
       # @return [Integer] the number of previously empty slots that were set
       def armset(key, *pairs)
         pairs = if pairs.size == 1 && pairs.first.is_a?(Hash)
@@ -81,9 +83,12 @@ class Redis
       # @example
       #   redis.armget("foo", 0, 1, 9)
       #     # => ["a", "b", nil]
+      # @example With an array of indices
+      #   redis.armget("foo", [0, 1, 9])
+      #     # => ["a", "b", nil]
       #
       # @param [String] key
-      # @param [Integer] indices one or more zero-based indices
+      # @param [Integer, Array<Integer>] indices one or more zero-based indices
       # @return [Array<String, nil>] the values at the requested indices
       def armget(key, *indices)
         indices = indices.flatten(1).map { |index| Integer(index) }
@@ -132,7 +137,7 @@ class Redis
       # does not modify the array.
       #
       # @param [String] key
-      # @param [Integer] indices one or more zero-based indices to delete
+      # @param [Integer, Array<Integer>] indices one or more zero-based indices to delete
       # @return [Integer] the number of elements deleted
       def ardel(key, *indices)
         indices = indices.flatten(1).map { |index| Integer(index) }
@@ -152,7 +157,8 @@ class Redis
       #     # => 6
       #
       # @param [String] key
-      # @param [Array<Integer>] ranges one or more start/stop pairs
+      # @param [Integer, Array<Integer>] ranges one or more start/stop pairs,
+      #   as flat alternating integers or one array per range
       # @return [Integer] the number of elements deleted
       def ardelrange(key, *ranges)
         ranges = ranges.flatten(1).map { |index| Integer(index) }
@@ -313,6 +319,8 @@ class Redis
       #   qualify
       def arop(key, start, stop, operation, value: nil)
         operation = operation.to_s.upcase
+        raise ArgumentError, "value is required for the MATCH operation" if operation == "MATCH" && value.nil?
+
         args = [:arop, key, Integer(start), Integer(stop), operation]
         args << value if operation == "MATCH"
 

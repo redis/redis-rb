@@ -469,6 +469,7 @@ module Lint
 
         assert_equal 2, r.arop("foo", 0, 2, :match, value: "2")
         assert_equal 3, r.arop("foo", 0, 2, :used)
+        assert_raises(ArgumentError) { r.arop("foo", 0, 2, :match) }
       end
     end
 

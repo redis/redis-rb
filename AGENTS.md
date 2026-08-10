@@ -114,6 +114,8 @@ end
 
 Since 6.0 the client negotiates RESP3 by default, so these lambdas are **protocol-aware**: they must accept both the RESP2 wire shape (flat arrays, string-encoded numbers) and the RESP3 one (native maps, doubles, pairs) and converge on the same Ruby value. The pattern is "detect the already-final shape and pass it through" — e.g. `Hashify` returns a `Hash` unchanged and `each_slice(2).to_h`'s a flat array; `FloatifyPairs` skips re-mapping when the reply is already `[[member, Float], ...]`. When adding or changing a lambda, keep both branches, and test the command under both protocols (`PROTOCOL=2` / `PROTOCOL=3`, see below).
 
+`Boolify` is the exception: it assumes an integer reply (`value != 0 unless value.nil?`) and would invert a native RESP3 boolean — `Boolify.call(false)` returns `true`. That's unreachable for commands that reply with integers under both protocols (the case for all current uses), but confirm the command's `reply_schema` says `"type": "integer"` before reaching for it.
+
 When adding a command that needs reply transformation, write or reuse one of these lambdas; do not coerce in the command method itself. See `specs/adding-commands.md` for the full catalog and the end-to-end checklist (the `add-new-command` skill automates this flow from a spec file).
 
 ### Connection lifecycle (long-lived, lazy, fork-safe)
