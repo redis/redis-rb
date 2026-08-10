@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "redis/commands/arrays"
 require "redis/commands/bitmaps"
 require "redis/commands/cluster"
 require "redis/commands/connection"
@@ -21,6 +22,7 @@ require "redis/commands/transactions"
 
 class Redis
   module Commands
+    include Arrays
     include Bitmaps
     include Cluster
     include Connection
@@ -105,6 +107,18 @@ class Redis
         value.first.last.is_a?(String) ? value.map(&FloatifyPair) : value
       else # RESP2 flat [member, score, member, score, ...]
         value.each_slice(2).map(&FloatifyPair)
+      end
+    }
+
+    # ARINFO: the avg-* slice statistics arrive as native doubles under RESP3
+    # but as bulk strings under RESP2; floatify them after hashifying so both
+    # protocols return the same Ruby types.
+    HashifyArrayInfo = lambda { |value|
+      reply = Hashify.call(value)
+      return reply unless reply.is_a?(Hash)
+
+      reply.each do |field, field_value|
+        reply[field] = Floatify.call(field_value) if field.start_with?("avg-")
       end
     }
 
