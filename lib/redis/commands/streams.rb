@@ -295,6 +295,45 @@ class Redis
         send_command(args)
       end
 
+      # Releases pending entries back to the consumer group's Pending Entries
+      # List without acknowledging them. Released entries become unowned, are
+      # placed at the head of the PEL and are immediately available for
+      # re-delivery via `xreadgroup` CLAIM, `xclaim` or `xautoclaim`,
+      # bypassing the usual idle-timeout delay.
+      #
+      # @example Let another consumer retry two entries
+      #   redis.xnack('mystream', 'mygroup', 'FAIL', '0-1', '0-2')
+      # @example Graceful shutdown with arrayed entry ids
+      #   redis.xnack('mystream', 'mygroup', :silent, %w[0-1 0-2])
+      # @example Mark a poison message as permanently failed
+      #   redis.xnack('mystream', 'mygroup', 'FATAL', '0-1')
+      #
+      # @param key   [String]         the stream key
+      # @param group [String]         the consumer group name
+      # @param mode  [String, Symbol] how the entry's delivery counter is
+      #   adjusted: `SILENT` decrements it by one (the delivery "didn't
+      #   count"), `FAIL` keeps it unchanged, `FATAL` sets it to the maximum,
+      #   marking the entry permanently failed
+      # @param ids   [Array<String>]  one or multiple entry ids
+      # @param retrycount [Integer]   set the delivery counter to an explicit
+      #   value, overriding the mode adjustment (internal, rarely needed)
+      # @param force [Boolean]        create unowned PEL entries for ids that
+      #   are not currently pending; each must exist in the stream (internal,
+      #   rarely needed)
+      #
+      # @return [Integer] the number of entries released back to the group
+      #   PEL; ids that are not pending are ignored and not counted
+      def xnack(key, group, mode, *ids, retrycount: nil, force: nil)
+        mode = mode.to_s.upcase
+        raise ArgumentError, "mode must be SILENT, FAIL or FATAL" unless %w[SILENT FAIL FATAL].include?(mode)
+
+        ids = ids.flatten
+        args = [:xnack, key, group, mode, "IDS", ids.size].concat(ids)
+        args << "RETRYCOUNT" << Integer(retrycount) if retrycount
+        args << "FORCE" if force
+        send_command(args)
+      end
+
       # Changes the ownership of a pending entry
       #
       # @example With splatted entry ids

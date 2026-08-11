@@ -199,6 +199,116 @@ module Lint
       assert_equal 1.9, r.incrbyfloat("foo", -0.1)
     end
 
+    def test_increx
+      target_version "8.8" do
+        assert_equal [1, 1], r.increx("foo")
+        assert_equal [2, 1], r.increx("foo")
+      end
+    end
+
+    def test_increx_with_integer_selects_byint
+      target_version "8.8" do
+        assert_equal [5, 5], r.increx("foo", by: 5)
+        assert_equal [-5, -10], r.increx("foo", by: -10)
+      end
+    end
+
+    def test_increx_with_float_selects_byfloat
+      target_version "8.8" do
+        r.set("foo", "1.5")
+
+        # RESP2 replies with bulk strings, RESP3 with doubles; both must
+        # converge on Floats.
+        assert_equal [1.75, 0.25], r.increx("foo", by: 0.25)
+      end
+    end
+
+    def test_increx_mode_follows_the_ruby_type_of_by
+      target_version "8.8" do
+        # by: 5 and by: 5.0 are different commands: BYINT replies with
+        # Integers, BYFLOAT with Floats.
+        assert_equal [5, 5], r.increx("foo", by: 5)
+        assert_equal [10.0, 5.0], r.increx("foo", by: 5.0)
+        assert_raises(TypeError) { r.increx("foo", by: "5") }
+      end
+    end
+
+    def test_increx_with_ubound_skips_out_of_bounds
+      target_version "8.8" do
+        r.set("foo", "99")
+
+        assert_equal [99, 0], r.increx("foo", by: 5, ubound: 100)
+        assert_equal "99", r.get("foo")
+      end
+    end
+
+    def test_increx_with_saturate_caps_at_the_bound
+      target_version "8.8" do
+        r.set("foo", "99")
+
+        assert_equal [100, 1], r.increx("foo", by: 5, ubound: 100, saturate: true)
+      end
+    end
+
+    def test_increx_with_lbound
+      target_version "8.8" do
+        r.set("foo", "1")
+
+        assert_equal [1, 0], r.increx("foo", by: -5, lbound: 0)
+        assert_equal [0, -1], r.increx("foo", by: -5, lbound: 0, saturate: true)
+      end
+    end
+
+    def test_increx_bounds_follow_the_mode
+      target_version "8.8" do
+        r.set("foo", "1.5")
+
+        # Float mode coerces bounds to floats; integer-typed bounds are accepted.
+        assert_equal [2.0, 0.5], r.increx("foo", by: 0.5, ubound: 2, saturate: true)
+
+        # Integer mode rejects Float bounds instead of silently truncating
+        # (Integer(2.9) => 2 would change whether the increment applies).
+        assert_raises(TypeError) { r.increx("foo", by: 1, ubound: 2.9) }
+        assert_raises(TypeError) { r.increx("foo", by: 1, lbound: -0.5) }
+      end
+    end
+
+    def test_increx_with_expiration
+      target_version "8.8" do
+        r.increx("foo", by: 1, ex: 100)
+
+        assert_in_range 0..100, r.ttl("foo")
+      end
+    end
+
+    def test_increx_with_enx_preserves_existing_ttl
+      target_version "8.8" do
+        r.set("foo", "10", ex: 500)
+
+        assert_equal [11, 1], r.increx("foo", by: 1, ex: 10, enx: true)
+        assert_in_range 400..500, r.ttl("foo")
+      end
+    end
+
+    def test_increx_with_persist
+      target_version "8.8" do
+        r.set("foo", "5", ex: 1000)
+        r.increx("foo", by: 1, persist: true)
+
+        assert_equal(-1, r.ttl("foo"))
+      end
+    end
+
+    def test_increx_with_invalid_option_combinations
+      target_version "8.8" do
+        assert_raises(ArgumentError) { r.increx("foo", ex: 5, persist: true, enx: true) }
+        assert_raises(ArgumentError) { r.increx("foo", enx: true) }
+        # At most one expiration option may be given.
+        assert_raises(ArgumentError) { r.increx("foo", ex: 5, px: 5_000) }
+        assert_raises(ArgumentError) { r.increx("foo", exat: 1, persist: true) }
+      end
+    end
+
     def test_decr
       r.set("foo", 3)
 

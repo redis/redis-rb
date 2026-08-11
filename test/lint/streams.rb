@@ -772,6 +772,88 @@ module Lint
       assert_equal 2, redis.xack('s1', 'g1', %w[0-2 0-3])
     end
 
+    def test_xnack_with_fail_mode
+      target_version "8.8" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal 2, redis.xnack('s1', 'g1', 'FAIL', '0-1', '0-2')
+
+        # Released entries stay pending but become unowned (empty consumer).
+        consumers = redis.xpending('s1', 'g1', '-', '+', 10).map { |d| d['consumer'] }
+        assert_equal ['', ''], consumers
+      end
+    end
+
+    def test_xnack_with_silent_and_fatal_modes_and_arrayed_ids
+      target_version "8.8" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        # Modes are accepted as symbols or strings, ids splatted or arrayed.
+        assert_equal 1, redis.xnack('s1', 'g1', :silent, %w[0-1])
+        assert_equal 1, redis.xnack('s1', 'g1', 'FATAL', '0-2')
+      end
+    end
+
+    def test_xnack_ignores_non_pending_ids
+      target_version "8.8" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+
+        # 0-1 was never delivered to a consumer, so it is not in the PEL.
+        assert_equal 0, redis.xnack('s1', 'g1', 'FAIL', '0-1')
+      end
+    end
+
+    def test_xnack_released_entries_are_immediately_claimable
+      target_version "8.8" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xnack('s1', 'g1', 'FAIL', '0-1')
+
+        # Delivery time is reset to 0, so a claim succeeds regardless of idle time.
+        claimed = redis.xclaim('s1', 'g1', 'c2', 0, '0-1')
+
+        assert_equal ['0-1'], claimed.map(&:first)
+      end
+    end
+
+    def test_xnack_with_retrycount
+      target_version "8.8" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal 1, redis.xnack('s1', 'g1', 'FAIL', '0-1', retrycount: 5)
+        assert_equal 5, redis.xpending('s1', 'g1', '-', '+', 10).first['count']
+      end
+    end
+
+    def test_xnack_with_force
+      target_version "8.8" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xack('s1', 'g1', '0-1')
+
+        # Acked entry is no longer pending; FORCE recreates an unowned PEL entry.
+        assert_equal 0, redis.xnack('s1', 'g1', 'FAIL', '0-1')
+        assert_equal 1, redis.xnack('s1', 'g1', 'FAIL', '0-1', force: true)
+      end
+    end
+
+    def test_xnack_with_invalid_mode
+      target_version "8.8" do
+        assert_raises(ArgumentError) { redis.xnack('s1', 'g1', 'BOGUS', '0-1') }
+      end
+    end
+
     def test_xack_with_invalid_arguments
       assert_raises(TypeError) { redis.xack(nil, nil, nil) }
       assert_equal 0, redis.xack('', '', '')
