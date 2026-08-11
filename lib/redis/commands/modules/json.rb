@@ -14,6 +14,10 @@ class Redis
     # JSON.NUMINCRBY — DO return differently shaped replies under RESP3 and will need
     # protocol-aware reshaping once RESP3 is supported at this layer.
     module Json
+      # Floating-point precisions accepted by JSON.SET's FPHA argument (Redis 8.8+).
+      JSON_SET_FPHA_TYPES = %w[BF16 FP16 FP32 FP64].freeze
+      private_constant :JSON_SET_FPHA_TYPES
+
       # Normalize a JSON.NUMINCRBY reply to a protocol-independent value: an array of numbers for
       # a JSONPath, a single number for a legacy path. Under RESP2 the result arrives as a
       # JSON-encoded string ("[3,4]" / "7"); under RESP3 it arrives as native numbers (an array,
@@ -76,16 +80,29 @@ class Redis
       # @param [Boolean] nx only set when the path does not already exist
       # @param [Boolean] xx only set when the path already exists
       # @param [Boolean] raw treat +value+ as an already-encoded JSON string and send it as-is
+      # @param [String, Symbol] fpha store a numeric array as a Floating-Point
+      #   Homogeneous Array of the given precision — one of +:bf16+, +:fp16+,
+      #   +:fp32+, +:fp64+ (case-insensitive; Redis 8.8+). Reduces memory by
+      #   forcing all values of the array into a fixed floating-point type.
       # @return [Boolean, String] when +nx+ or +xx+ is given, +true+ on success and +false+
       #   when the condition was not met; otherwise the raw +"OK"+ reply
-      # @raise [ArgumentError] if both +nx+ and +xx+ are given (they are mutually exclusive)
-      def json_set(key, path, value, nx: false, xx: false, raw: false)
+      # @raise [ArgumentError] if both +nx+ and +xx+ are given (they are mutually exclusive),
+      #   or if +fpha+ is not one of the supported types
+      def json_set(key, path, value, nx: false, xx: false, raw: false, fpha: nil)
         raise ArgumentError, "nx and xx are mutually exclusive" if nx && xx
+
+        if fpha
+          fpha = fpha.to_s.upcase
+          unless JSON_SET_FPHA_TYPES.include?(fpha)
+            raise ArgumentError, "fpha accepts only: #{JSON_SET_FPHA_TYPES.join(', ')}"
+          end
+        end
 
         value = ::JSON.generate(value) unless raw
         args = [:"JSON.SET", key, path, value]
         args << "NX" if nx
         args << "XX" if xx
+        args << "FPHA" << fpha if fpha
 
         if nx || xx
           send_command(args, &BoolifySet)
