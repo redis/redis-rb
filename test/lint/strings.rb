@@ -250,12 +250,26 @@ module Lint
       end
     end
 
+    def test_increx_with_lbound
+      target_version "8.8" do
+        r.set("foo", "1")
+
+        assert_equal [1, 0], r.increx("foo", by: -5, lbound: 0)
+        assert_equal [0, -1], r.increx("foo", by: -5, lbound: 0, saturate: true)
+      end
+    end
+
     def test_increx_bounds_follow_the_mode
       target_version "8.8" do
         r.set("foo", "1.5")
 
         # Float mode coerces bounds to floats; integer-typed bounds are accepted.
         assert_equal [2.0, 0.5], r.increx("foo", by: 0.5, ubound: 2, saturate: true)
+
+        # Integer mode rejects Float bounds instead of silently truncating
+        # (Integer(2.9) => 2 would change whether the increment applies).
+        assert_raises(TypeError) { r.increx("foo", by: 1, ubound: 2.9) }
+        assert_raises(TypeError) { r.increx("foo", by: 1, lbound: -0.5) }
       end
     end
 
@@ -289,6 +303,9 @@ module Lint
       target_version "8.8" do
         assert_raises(ArgumentError) { r.increx("foo", ex: 5, persist: true, enx: true) }
         assert_raises(ArgumentError) { r.increx("foo", enx: true) }
+        # At most one expiration option may be given.
+        assert_raises(ArgumentError) { r.increx("foo", ex: 5, px: 5_000) }
+        assert_raises(ArgumentError) { r.increx("foo", exat: 1, persist: true) }
       end
     end
 

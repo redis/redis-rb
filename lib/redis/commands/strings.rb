@@ -94,9 +94,12 @@ class Redis
       #   `BYFLOAT` (stored value may be integer or float, replies with
       #   Floats) — so `by: 5` and `by: 5.0` behave differently. Other types
       #   raise `TypeError`. Without `by:`, increments by 1 in integer mode.
-      # @param [Integer, Float] lbound lower bound for the result (coerced to
-      #   the mode selected by `by:`)
-      # @param [Integer, Float] ubound upper bound for the result
+      # @param [Integer, Float] lbound lower bound for the result. In float
+      #   mode any numeric is accepted; in integer mode it must be an
+      #   `Integer` (a `Float` raises `TypeError` rather than silently
+      #   truncating, since bounds decide whether the increment applies)
+      # @param [Integer, Float] ubound upper bound for the result, with the
+      #   same typing rules as `lbound`
       # @param [Boolean] saturate cap/floor an out-of-bounds result at the
       #   bound instead of skipping the operation
       # @param [Integer] ex expiration in seconds
@@ -113,6 +116,9 @@ class Redis
       #   is 0 when the operation was skipped as out of bounds
       def increx(key, by: nil, lbound: nil, ubound: nil, saturate: nil,
                  ex: nil, px: nil, exat: nil, pxat: nil, persist: nil, enx: nil)
+        if [ex, px, exat, pxat, persist].count { |option| option } > 1
+          raise ArgumentError, "ex, px, exat, pxat and persist are mutually exclusive"
+        end
         raise ArgumentError, "enx is incompatible with persist" if enx && persist
         raise ArgumentError, "enx requires one of ex, px, exat or pxat" if enx && !(ex || px || exat || pxat)
 
@@ -126,8 +132,8 @@ class Redis
 
         args = [:increx, key]
         args << (float_mode ? "BYFLOAT" : "BYINT") << by if by
-        args << "LBOUND" << (float_mode ? Float(lbound) : Integer(lbound)) if lbound
-        args << "UBOUND" << (float_mode ? Float(ubound) : Integer(ubound)) if ubound
+        args << "LBOUND" << increx_bound(:lbound, lbound, float_mode) if lbound
+        args << "UBOUND" << increx_bound(:ubound, ubound, float_mode) if ubound
         args << "SATURATE" if saturate
         args << "EX" << Integer(ex) if ex
         args << "PX" << Integer(px) if px
@@ -387,6 +393,18 @@ class Redis
       #   if the key does not exist
       def strlen(key)
         send_command([:strlen, key])
+      end
+
+      private
+
+      # INCREX bounds decide whether the increment is applied at all, so a
+      # Float bound in integer mode must raise rather than silently truncate
+      # (`Integer(2.9)` => 2) — mirroring how `by:` selects the mode strictly.
+      def increx_bound(name, value, float_mode)
+        return Float(value) if float_mode
+        raise TypeError, "#{name} must be an Integer in integer mode, got #{value.class}" unless value.is_a?(Integer)
+
+        value
       end
     end
   end
