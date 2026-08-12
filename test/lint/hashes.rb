@@ -294,5 +294,119 @@ module Lint
         assert_in_range(1..400, r.hpttl("foo", "f1")[0])
       end
     end
+
+    def test_hexpireat
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [1, -2], r.hexpireat("foo", Time.now.to_i + 400, "f1", "f2")
+        assert_in_range(1..405, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hexpireat_with_past_timestamp
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [2], r.hexpireat("foo", Time.now.to_i - 4, "f1")
+        assert_equal [-2], r.httl("foo", "f1")
+      end
+    end
+
+    def test_hexpireat_options
+      target_version "7.4.0" do
+        now = Time.now.to_i
+
+        r.hset("foo", "f1", "v2")
+        assert_equal [0], r.hexpireat("foo", now + 5_000, "f1", xx: true)
+        assert_equal [-1], r.httl("foo", "f1")
+
+        assert_equal [1], r.hexpireat("foo", now + 5_000, "f1", nx: true)
+        assert_in_range(1..5_005, r.httl("foo", "f1")[0])
+        assert_equal [0], r.hexpireat("foo", now + 5_000, "f1", nx: true)
+
+        assert_equal [1], r.hexpireat("foo", now + 5_000, "f1", xx: true)
+
+        assert_equal [0], r.hexpireat("foo", now + 50_000, "f1", lt: true)
+        assert_equal [1], r.hexpireat("foo", now + 500, "f1", lt: true)
+
+        assert_in_range(1..505, r.httl("foo", "f1")[0])
+        assert_equal [1], r.hexpireat("foo", now + 50_000, "f1", gt: true)
+        assert_in_range(500..50_005, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hpexpireat
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+
+        now_ms = (Time.now.to_f * 1000).to_i
+        assert_equal [1, -2], r.hpexpireat("foo", now_ms + 400_000, "f1", "f2")
+        assert_in_range(1..405_000, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hpexpireat_with_past_timestamp
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [2], r.hpexpireat("foo", (Time.now.to_f * 1000).to_i - 4_000, "f1")
+        assert_equal [-2], r.hpttl("foo", "f1")
+      end
+    end
+
+    def test_hpexpireat_options
+      target_version "7.4.0" do
+        now_ms = (Time.now.to_f * 1000).to_i
+
+        r.hset("foo", "f1", "v2")
+        assert_equal [0], r.hpexpireat("foo", now_ms + 5_000_000, "f1", xx: true)
+        assert_equal [-1], r.hpttl("foo", "f1")
+
+        assert_equal [1], r.hpexpireat("foo", now_ms + 5_000_000, "f1", nx: true)
+        assert_in_range(1..5_005_000, r.hpttl("foo", "f1")[0])
+        assert_equal [0], r.hpexpireat("foo", now_ms + 5_000_000, "f1", nx: true)
+
+        assert_equal [1], r.hpexpireat("foo", now_ms + 5_000_000, "f1", xx: true)
+
+        assert_equal [0], r.hpexpireat("foo", now_ms + 50_000_000, "f1", lt: true)
+        assert_equal [1], r.hpexpireat("foo", now_ms + 500_000, "f1", lt: true)
+
+        assert_in_range(1..505_000, r.hpttl("foo", "f1")[0])
+        assert_equal [1], r.hpexpireat("foo", now_ms + 50_000_000, "f1", gt: true)
+        assert_in_range(500_000..50_005_000, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hexpiretime
+      target_version "7.4.0" do
+        assert_equal [-2], r.hexpiretime("foo", "f1")
+
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [-1], r.hexpiretime("foo", "f1")
+
+        r.hexpireat("foo", Time.now.to_i + 400, "f1")
+
+        # Tolerate clock movement between the write and the assertion.
+        assert_in_range((Time.now.to_i + 370)..(Time.now.to_i + 400), r.hexpiretime("foo", "f1")[0])
+      end
+    end
+
+    def test_hpexpiretime
+      target_version "7.4.0" do
+        assert_equal [-2], r.hpexpiretime("foo", "f1")
+
+        r.hset("foo", "f1", "v2")
+
+        assert_equal [-1], r.hpexpiretime("foo", "f1")
+
+        r.hpexpireat("foo", (Time.now.to_f * 1000).to_i + 400_000, "f1")
+
+        # Tolerate clock movement between the write and the assertion.
+        now_ms = (Time.now.to_f * 1000).to_i
+        assert_in_range((now_ms + 370_000)..(now_ms + 400_000), r.hpexpiretime("foo", "f1")[0])
+      end
+    end
   end
 end

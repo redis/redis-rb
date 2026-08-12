@@ -339,6 +339,102 @@ class Redis
         send_command([:hpttl, key, 'FIELDS', fields.length, *fields])
       end
 
+      # Sets the expiration for one or more fields as an absolute Unix
+      # timestamp in seconds. A timestamp in the past deletes the field
+      # immediately.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1")
+      #   redis.hexpireat("hash", Time.now.to_i + 10, "f1", "f2") # => [1, -2]
+      #   redis.hexpireat("hash", Time.now.to_i - 10, "f1") # => [2]
+      #
+      # @param [String] key
+      # @param [Integer] unix_time_seconds absolute expiration timestamp in seconds since epoch
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the field has no expiry.
+      #   - `:xx => true`: Set expiry only when the field has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Feedback on if the fields have been updated.
+      #
+      # See https://redis.io/docs/latest/commands/hexpireat/#return-information for array reply.
+      def hexpireat(key, unix_time_seconds, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:hexpireat, key, unix_time_seconds]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+        args.concat(['FIELDS', fields.length, *fields])
+
+        send_command(args)
+      end
+
+      # Sets the expiration for one or more fields as an absolute Unix
+      # timestamp in milliseconds. A timestamp in the past deletes the field
+      # immediately.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1")
+      #   redis.hpexpireat("hash", (Time.now.to_f * 1000).to_i + 500, "f1", "f2") # => [1, -2]
+      #   redis.hpexpireat("hash", (Time.now.to_f * 1000).to_i - 500, "f1") # => [2]
+      #
+      # @param [String] key
+      # @param [Integer] unix_time_milliseconds absolute expiration timestamp in milliseconds since epoch
+      # @param [Hash] options
+      #   - `:nx => true`: Set expiry only when the field has no expiry.
+      #   - `:xx => true`: Set expiry only when the field has an existing expiry.
+      #   - `:gt => true`: Set expiry only when the new expiry is greater than current one.
+      #   - `:lt => true`: Set expiry only when the new expiry is less than current one.
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Feedback on if the fields have been updated.
+      #
+      # See https://redis.io/docs/latest/commands/hpexpireat/#return-information for array reply.
+      def hpexpireat(key, unix_time_milliseconds, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+        args = [:hpexpireat, key, unix_time_milliseconds]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "GT" if gt
+        args << "LT" if lt
+        args.concat(['FIELDS', fields.length, *fields])
+
+        send_command(args)
+      end
+
+      # Returns the expiration time of one or more fields as an absolute Unix
+      # timestamp in seconds.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1", "f2", "v2")
+      #   redis.hexpireat("hash", 1715705914, "f1")
+      #   redis.hexpiretime("hash", "f1", "f2", "f3") # => [1715705914, -1, -2]
+      #
+      # @param [String] key
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Expiration Unix timestamps of the fields in seconds.
+      #
+      # See https://redis.io/docs/latest/commands/hexpiretime/#return-information for array reply.
+      def hexpiretime(key, *fields)
+        send_command([:hexpiretime, key, 'FIELDS', fields.length, *fields])
+      end
+
+      # Returns the expiration time of one or more fields as an absolute Unix
+      # timestamp in milliseconds.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1", "f2", "v2")
+      #   redis.hpexpireat("hash", 1715705913659, "f1")
+      #   redis.hpexpiretime("hash", "f1", "f2", "f3") # => [1715705913659, -1, -2]
+      #
+      # @param [String] key
+      # @param [Array<String>] fields
+      # @return [Array<Integer>] Expiration Unix timestamps of the fields in milliseconds.
+      #
+      # See https://redis.io/docs/latest/commands/hpexpiretime/#return-information for array reply.
+      def hpexpiretime(key, *fields)
+        send_command([:hpexpiretime, key, 'FIELDS', fields.length, *fields])
+      end
+
       # Register an ordered list of hash field names under +fieldset_name+ for
       # use by subsequent #himport_set calls on the same connection.
       #

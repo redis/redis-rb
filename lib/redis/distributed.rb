@@ -1119,6 +1119,22 @@ class Redis
       node_for(key).hpttl(key, *fields)
     end
 
+    def hexpireat(key, unix_time_seconds, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).hexpireat(key, unix_time_seconds, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    def hpexpireat(key, unix_time_milliseconds, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).hpexpireat(key, unix_time_milliseconds, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    def hexpiretime(key, *fields)
+      node_for(key).hexpiretime(key, *fields)
+    end
+
+    def hpexpiretime(key, *fields)
+      node_for(key).hpexpiretime(key, *fields)
+    end
+
     # Register a fieldset on every ring node. Fieldsets are scoped to a physical
     # connection, so every node that may receive an `himport_set` for a key it
     # owns needs the fieldset on its own connection.
