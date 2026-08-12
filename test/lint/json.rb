@@ -15,6 +15,37 @@ module Lint
       assert_equal "OK", r.json_set("doc", "$", '{"a":1}', raw: true)
     end
 
+    def test_set_with_fpha_types
+      target_version "8.8" do
+        %i[bf16 fp16 fp32 fp64].each do |type|
+          r.json_del("doc")
+
+          assert_equal "OK", r.json_set("doc", "$", [1.1, 2.2, 3.3], fpha: type),
+                       "expected OK for fpha: #{type.inspect}"
+          assert_kind_of Array, r.json_get("doc", "$").first
+        end
+      end
+    end
+
+    def test_set_with_fpha_accepts_strings_case_insensitively
+      target_version "8.8" do
+        assert_equal "OK", r.json_set("doc", "$", [1.5], fpha: "FP32")
+        assert_equal "OK", r.json_set("doc2", "$", [1.5], fpha: "fp64")
+      end
+    end
+
+    def test_set_with_nx_and_fpha
+      target_version "8.8" do
+        assert_equal true, r.json_set("doc", "$", [1.5], nx: true, fpha: :fp32)
+        assert_equal false, r.json_set("doc", "$", [2.5], nx: true, fpha: :fp32)
+      end
+    end
+
+    def test_set_with_invalid_fpha
+      error = assert_raises(ArgumentError) { r.json_set("doc", "$", [1.5], fpha: :fp99) }
+      assert_equal "fpha accepts only: BF16, FP16, FP32, FP64", error.message
+    end
+
     def test_set_and_get_whole_document
       doc = { "a" => 1, "nested" => { "b" => 2 } }
 

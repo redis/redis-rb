@@ -656,6 +656,50 @@ module Lint
       assert_equal 5, r.zunionstore('{1}baz', %w[{1}foo {1}bar])
     end
 
+    # The COUNT aggregator (Redis 8.8) scores each member by the number of
+    # input sets it appears in. `aggregate:` is passed through to the server
+    # verbatim, so no client-side changes gate these.
+
+    def test_zunion_with_count_aggregate
+      target_version "8.8" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+        r.zadd '{1}bar', [[1, 'm1'], [2, 'm2']]
+
+        expected = [['m3', 1.0], ['m1', 2.0], ['m2', 2.0]]
+
+        assert_equal expected, r.zunion('{1}foo', '{1}bar', aggregate: :count, with_scores: true)
+      end
+    end
+
+    def test_zunionstore_with_count_aggregate
+      target_version "8.8" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+        r.zadd '{1}bar', [[1, 'm1'], [2, 'm2']]
+
+        assert_equal 3, r.zunionstore('{1}baz', %w[{1}foo {1}bar], aggregate: :count)
+        assert_equal [['m3', 1.0], ['m1', 2.0], ['m2', 2.0]], r.zrange('{1}baz', 0, -1, with_scores: true)
+      end
+    end
+
+    def test_zinter_with_count_aggregate
+      target_version "8.8" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+        r.zadd '{1}bar', [[1, 'm1'], [2, 'm2']]
+
+        assert_equal [['m1', 2.0], ['m2', 2.0]], r.zinter('{1}foo', '{1}bar', aggregate: :count, with_scores: true)
+      end
+    end
+
+    def test_zinterstore_with_count_aggregate
+      target_version "8.8" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+        r.zadd '{1}bar', [[1, 'm1'], [2, 'm2']]
+
+        assert_equal 2, r.zinterstore('{1}baz', %w[{1}foo {1}bar], aggregate: 'count')
+        assert_equal [['m1', 2.0], ['m2', 2.0]], r.zrange('{1}baz', 0, -1, with_scores: true)
+      end
+    end
+
     def test_zdiff
       target_version("6.2") do
         r.zadd 'foo', 1, 's1'

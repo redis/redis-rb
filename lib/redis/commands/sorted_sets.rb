@@ -725,7 +725,7 @@ class Redis
       # @param [Hash] options
       #   - `:weights => [Float, Float, ...]`: weights to associate with source
       #   sorted sets
-      #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
+      #   - `:aggregate => String`: aggregate function to use (sum, min, max; count since Redis 8.8)
       #   - `:with_scores => true`: include scores in output
       #
       # @return [Array<String>, Array<[String, Float]>]
@@ -748,7 +748,7 @@ class Redis
       # @param [Hash] options
       #   - `:weights => [Array<Float>]`: weights to associate with source
       #   sorted sets
-      #   - `:aggregate => String`: aggregate function to use (sum, min, max)
+      #   - `:aggregate => String`: aggregate function to use (sum, min, max; count since Redis 8.8)
       # @return [Integer] number of elements in the resulting sorted set
       def zinterstore(*args)
         _zsets_operation_store(:zinterstore, *args)
@@ -768,7 +768,7 @@ class Redis
       # @param [Hash] options
       #   - `:weights => [Array<Float>]`: weights to associate with source
       #   sorted sets
-      #   - `:aggregate => String`: aggregate function to use (sum, min, max)
+      #   - `:aggregate => String`: aggregate function to use (sum, min, max; count since Redis 8.8)
       #   - `:with_scores => true`: include scores in output
       #
       # @return [Array<String>, Array<[String, Float]>]
@@ -790,7 +790,7 @@ class Redis
       # @param [Hash] options
       #   - `:weights => [Float, Float, ...]`: weights to associate with source
       #   sorted sets
-      #   - `:aggregate => String`: aggregate function to use (sum, min, max, ...)
+      #   - `:aggregate => String`: aggregate function to use (sum, min, max; count since Redis 8.8)
       # @return [Integer] number of elements in the resulting sorted set
       def zunionstore(*args)
         _zsets_operation_store(:zunionstore, *args)
