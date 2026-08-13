@@ -70,10 +70,26 @@ class ClusterOrchestrator
 
   # Reverses #failover by promoting the original master back. Takes ~1-2s versus the
   # ~6s full rebuild, letting the ensure-time rebuild skip its teardown entirely.
+  #
+  # Role-aware rather than assuming the pair is still switched: a manual TAKEOVER
+  # bumps the config epoch unilaterally, and the ensuing collision resolution can
+  # go the old master's way, silently reverting the promotion mid-test. In that
+  # case there is nothing to fail back — and the rebuild's consistency check
+  # remains the safety net for any state this leaves behind.
   def failback
     master, slave = take_replication_pairs(@clients)
+    return if master.role.first == 'master'
+
     wait_replication_delay(@clients, @timeout)
-    master.cluster(:failover, :takeover)
+    begin
+      master.cluster(:failover, :takeover)
+    rescue Redis::CommandError => err
+      # "ERR You should send CLUSTER FAILOVER to a replica" — the node became a
+      # master between the role check and the command; already failed back.
+      return if err.message.include?('to a replica')
+
+      raise
+    end
     wait_failover(to_node_key(slave), to_node_key(master), @clients)
     wait_replication_delay(@clients, @timeout)
     wait_cluster_recovering(@clients)
