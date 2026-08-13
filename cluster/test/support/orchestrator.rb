@@ -103,8 +103,10 @@ class ClusterOrchestrator
   def flush_all_data(clients)
     clients.each do |c|
       c.flushall(async: true)
-    rescue Redis::CommandError
+    rescue Redis::CommandError, Redis::ReadOnlyError
       # READONLY You can't write against a read only slave.
+      # (READONLY maps to Redis::ReadOnlyError, a connection error, since the
+      # redis-client migration — not to Redis::CommandError.)
       nil
     end
   end

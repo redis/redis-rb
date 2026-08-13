@@ -16,6 +16,13 @@
 - Add support for the JSON module: `json_set`, `json_get`, `json_mset`, `json_mget`, `json_del`,
   `json_forget`, `json_clear`, `json_merge`, `json_arr*`, `json_obj*`, `json_str*`,
   `json_numincrby`, `json_toggle`, `json_type`, `json_debug_memory`. (#1346, #1347, #1348, #1349)
+- Add keyspace notification support: channel builders and a binary-safe parser for the classic
+  `__keyspace@*`/`__keyevent@*` channels and the Redis 8.8 subkey notification families
+  (`Redis::KeyspaceNotifications`), plus a manager (`Redis#keyspace_notifications`) that owns a
+  dedicated connection, dispatches typed `Notification` objects to handlers, and automatically
+  re-subscribes after connection loss (`on_reconnect` signals the lossy gap). Enabling
+  `notify-keyspace-events` on the server remains the operator's responsibility. Not supported by
+  `Redis::Distributed`. See specs/keyspace-notifications/keyspace-notifications.md.
 - Add `lmovem` and `blmovem` (Redis 8.10). (#1363)
 - Add `sunioncard` and `sdiffcard` (Redis 8.10). (#1357)
 - `xread` and `xreadgroup` now accept `max_count:` and `max_size:` (Redis 8.10). (#1358)
