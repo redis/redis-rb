@@ -18,7 +18,15 @@ class ClusterOrchestrator
     system('make', '--no-print-directory', 'start_cluster', out: File::NULL, err: File::NULL)
   end
 
+  # Full teardown-and-rebuild takes ~6s of genuine gossip/replication convergence,
+  # so skip it when the cluster already matches the expected layout — helpers restore
+  # state cheaply after their scenario (failback, reverse resharding) precisely so
+  # this fast path applies; any deviation still falls through to the full rebuild.
+  # The short bounded wait tolerates sub-second gossip lag from that restore without
+  # letting an actually-broken cluster delay the real rebuild by more than ~2s.
   def rebuild
+    return if wait_cluster_consistent(max_attempts: 20)
+
     flush_all_data(@clients)
     reset_cluster(@clients)
     assign_slots(@clients)
@@ -30,6 +38,7 @@ class ClusterOrchestrator
     wait_cluster_building(@clients)
     wait_replication(@clients)
     wait_cluster_recovering(@clients)
+    wait_consistent_slots_view(@clients)
   end
 
   def down
@@ -55,6 +64,17 @@ class ClusterOrchestrator
     wait_replication_delay(@clients, @timeout)
     slave.cluster(:failover, :takeover)
     wait_failover(to_node_key(master), to_node_key(slave), @clients)
+    wait_replication_delay(@clients, @timeout)
+    wait_cluster_recovering(@clients)
+  end
+
+  # Reverses #failover by promoting the original master back. Takes ~1-2s versus the
+  # ~6s full rebuild, letting the ensure-time rebuild skip its teardown entirely.
+  def failback
+    master, slave = take_replication_pairs(@clients)
+    wait_replication_delay(@clients, @timeout)
+    master.cluster(:failover, :takeover)
+    wait_failover(to_node_key(slave), to_node_key(master), @clients)
     wait_replication_delay(@clients, @timeout)
     wait_cluster_recovering(@clients)
   end
@@ -91,7 +111,15 @@ class ClusterOrchestrator
 
   def finish_resharding(slot, dest_node_key)
     node_map = hashify_node_map(@clients.first)
-    @clients.first.cluster(:setslot, slot, 'NODE', node_map.fetch(dest_node_key))
+    node_id = node_map.fetch(dest_node_key)
+    # Tell every master directly instead of relying on gossip from a single node:
+    # views converge immediately, and a client positioned on a node that happens to
+    # be a replica no longer breaks the flow with "SETSLOT only with masters".
+    take_masters(@clients).each do |client|
+      client.cluster(:setslot, slot, 'NODE', node_id)
+    rescue Redis::CommandError
+      nil # a node that believes it is a replica rejects SETSLOT; gossip covers it
+    end
   end
 
   def close
@@ -102,11 +130,11 @@ class ClusterOrchestrator
 
   def flush_all_data(clients)
     clients.each do |c|
-      c.flushall(async: true)
-    rescue Redis::CommandError, Redis::ReadOnlyError
-      # READONLY You can't write against a read only slave.
-      # (READONLY maps to Redis::ReadOnlyError, a connection error, since the
-      # redis-client migration — not to Redis::CommandError.)
+      # Never FLUSHALL a replica: it answers READONLY, which redis-client treats as a
+      # connection error and walks the whole reconnect_attempts sleep schedule for —
+      # 3s per replica of pure wasted wall clock.
+      c.flushall(async: true) if c.role.first == 'master'
+    rescue Redis::CommandError, Redis::BaseConnectionError
       nil
     end
   end
@@ -232,6 +260,82 @@ class ClusterOrchestrator
         false
       else
         true
+      end
+    end
+  end
+
+  def wait_cluster_consistent(max_attempts:)
+    max_attempts.times do
+      return true if cluster_consistent?
+
+      sleep 0.1
+    end
+    false
+  end
+
+  # Whether every node already sees the exact expected layout: cluster_state ok,
+  # the canonical slot ranges owned by the canonical masters, and all three
+  # replicas attached. Used by #rebuild to skip the expensive teardown.
+  def cluster_consistent?
+    expected = expected_slots_view(@clients)
+    @clients.all? do |client|
+      hashify_cluster_info(client)['cluster_state'] == 'ok' &&
+        slots_view(client) == expected &&
+        hashify_cluster_node_flags(client).values.count('slave') == 3
+    end
+  rescue Redis::BaseError
+    false
+  end
+
+  # The layout #assign_slots + #replicate produce, as [[start, end, "host:port"], ...].
+  def expected_slots_view(clients)
+    masters = take_masters(clients)
+    slot_slice = SLOT_SIZE / masters.size
+    mod = SLOT_SIZE % masters.size
+    slot_sizes = Array.new(masters.size, slot_slice)
+    mod.downto(1) { |i| slot_sizes[i] += 1 }
+
+    ranges = []
+    slot_idx = 0
+    masters.zip(slot_sizes).each do |client, size|
+      ranges << [slot_idx, slot_idx + size - 1, to_node_key(client)]
+      slot_idx += size
+    end
+    ranges.sort
+  end
+
+  # The raw CLUSTER SLOTS reply as [[start, end, "host:port"], ...]: each range is
+  # [start, end, master, *replicas] with master = [ip, port, node_id, ...].
+  def slots_view(client)
+    client.cluster(:slots).map { |range| [range[0], range[1], "#{range[2][0]}:#{range[2][1]}"] }.sort
+  end
+
+  # Requires EVERY node to serve the expected master set in its CLUSTER SLOTS reply
+  # before the rebuild is considered done. The other waits are per-node liveness
+  # checks and give up silently; without this gate a rebuild can return while some
+  # node still advertises a stale (pre-failover) view, and any client bootstrapping
+  # from that node — including a later `rake test:cluster` invocation against the
+  # same containers — routes writes to a demoted node and fails with READONLY.
+  # Unlike the other waits, this raises on timeout: a loud failure in the test that
+  # disturbed the topology beats silently poisoning whatever runs next.
+  def wait_consistent_slots_view(clients, max_attempts: 300)
+    expected = take_masters(clients).map { |c| to_node_key(c) }.sort
+
+    clients.each do |client|
+      max_attempts.times do |attempt|
+        begin
+          actual = slots_view(client).map { |_, _, node_key| node_key }.uniq.sort
+          break if actual == expected
+        rescue Redis::CommandError, Redis::BaseConnectionError
+          # CLUSTERDOWN or a node still restarting; keep waiting.
+        end
+
+        if attempt == max_attempts - 1
+          raise "Cluster rebuild did not converge: #{to_node_key(client)} still reports " \
+                "a master set different from #{expected.inspect}"
+        end
+
+        sleep 0.1
       end
     end
   end

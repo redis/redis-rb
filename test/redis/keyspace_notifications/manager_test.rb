@@ -274,6 +274,71 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal "set", assert_pop(notifications).event
   end
 
+  def test_restarting_a_dead_listener_replays_every_registered_pattern
+    queue = Queue.new
+    manager = new_manager(error_handler: ->(_error) {}, reconnect_attempts: [])
+    manager.subscribe(CHANNELS.keyspace("old", db: DB), handler: ->(notification) { queue << notification })
+
+    r.client(:kill, "TYPE", "pubsub") # reconnect schedule empty: the listener dies
+    wait_until { !manager.subscribed? }
+
+    # Subscribing something new restarts the listener; the earlier registration
+    # must be replayed too, not silently dropped.
+    manager.subscribe(CHANNELS.keyspace("new", db: DB), handler: ->(notification) { queue << notification })
+
+    r.set("old", "v")
+    r.set("new", "v")
+
+    assert_equal %w[new old], Array.new(2) { assert_pop(queue).key }.sort
+  end
+
+  def test_unsubscribe_from_within_handler_is_immediate
+    queue = Queue.new
+    elapsed = nil
+    manager = new_manager
+    channel = CHANNELS.keyspace("oneshot", db: DB)
+    manager.subscribe(channel, handler: lambda { |notification|
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      manager.unsubscribe(channel) # one-shot subscription: must not stall delivery
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+      queue << notification
+    })
+    manager.subscribe(CHANNELS.keyspace("other", db: DB), handler: ->(notification) { queue << notification })
+
+    r.set("oneshot", "v")
+
+    assert_equal "oneshot", assert_pop(queue).key
+    assert_operator elapsed, :<, 1, "self-unsubscribe stalled the listener thread"
+
+    # The ack is processed right after the handler returns; the unsubscribed pattern
+    # disappears from both the server and the confirmed set, the other keeps flowing.
+    wait_until { r.pubsub(:numpat) == 1 }
+    wait_until { manager.patterns == [CHANNELS.keyspace("other", db: DB)] }
+    r.set("oneshot", "v2")
+    r.set("other", "v")
+
+    assert_equal "other", assert_pop(queue).key
+    assert_predicate queue, :empty?
+  end
+
+  def test_subscribe_from_within_handler_takes_effect
+    queue = Queue.new
+    manager = new_manager
+    late = CHANNELS.keyspace("late", db: DB)
+    manager.subscribe(CHANNELS.keyspace("first", db: DB), handler: lambda { |notification|
+      manager.subscribe(late, handler: ->(n) { queue << n }) unless manager.patterns.include?(late)
+      queue << notification
+    })
+
+    r.set("first", "v")
+
+    assert_equal "first", assert_pop(queue).key
+    wait_until { r.pubsub(:numpat) == 2 } # the in-handler subscription reached the server
+    r.set("late", "v")
+
+    assert_equal "late", assert_pop(queue).key
+  end
+
   def test_empty_reconnect_schedule_disables_reconnection
     queue = Queue.new
     errors = Queue.new

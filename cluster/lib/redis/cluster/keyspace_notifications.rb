@@ -50,9 +50,18 @@ class Redis
         @queue = SizedQueue.new(queue_size)
         @lock = Monitor.new
         @refresh_lock = Mutex.new
+        @refresh_needed = false
         @closed = false
         @dispatcher = spawn_dispatcher
-        refresh
+        begin
+          refresh
+        rescue StandardError
+          # A failed construction must not leak the dispatcher thread or any
+          # listeners a partial refresh already created — the caller gets an
+          # exception, not an object it could close.
+          close
+          raise
+        end
       end
 
       # Subscribe to notification channel patterns on every primary (build them with
@@ -70,12 +79,17 @@ class Redis
 
         handler ||= block
         patterns = patterns.map { |pattern| pattern.to_s.b }
-        @lock.synchronize do
+        listeners = @lock.synchronize do
           raise SubscriptionError, "keyspace notifications manager is closed" if @closed
 
           patterns.each { |pattern| @registry[pattern] = handler }
-          each_listener_best_effort { |listener| listener.subscribe(patterns, handler) }
+          @listeners.to_a
         end
+        # Fan out WITHOUT holding the lock: each per-node subscribe blocks on that
+        # node's acknowledgment (seconds against a sick node) and must not stall
+        # dispatch, refresh or close. A refresh racing this call reconciles from the
+        # already-updated registry, and re-subscribing is idempotent (re-acked).
+        each_listener_best_effort(listeners) { |listener| listener.subscribe(patterns, handler) }
         nil
       end
 
@@ -93,10 +107,13 @@ class Redis
       # @return [void]
       def unsubscribe(*patterns)
         patterns = patterns.map { |pattern| pattern.to_s.b }
-        @lock.synchronize do
+        listeners = @lock.synchronize do
           patterns.empty? ? @registry.clear : patterns.each { |pattern| @registry.delete(pattern) }
-          each_listener_best_effort { |listener| listener.unsubscribe(patterns) }
+          @listeners.to_a
         end
+        # Tracking was removed first (see above); the ack-blocking fan-out happens
+        # outside the lock for the same reasons as in #subscribe.
+        each_listener_best_effort(listeners) { |listener| listener.unsubscribe(patterns) }
         nil
       end
 
@@ -222,14 +239,19 @@ class Redis
       #
       # @return [void]
       def close
-        listeners = @lock.synchronize do
-          return if @closed
+        # Serialized with refresh via @refresh_lock: otherwise a refresh past its
+        # own closed-check could recreate subscribed listeners on a manager that
+        # close just tore down, leaking their threads and connections.
+        @refresh_lock.synchronize do
+          listeners = @lock.synchronize do
+            return if @closed
 
-          @closed = true
-          @listeners.values.tap { @listeners.clear }
+            @closed = true
+            @listeners.values.tap { @listeners.clear }
+          end
+          listeners.each(&:close)
+          @queue.close
         end
-        listeners.each(&:close)
-        @queue.close
         @dispatcher.join(Redis::KeyspaceNotifications::Manager::DEFAULT_CLOSE_TIMEOUT) unless
           @dispatcher.equal?(Thread.current)
         nil
@@ -248,6 +270,7 @@ class Redis
       CLUSTER_ONLY_OPTIONS = %i[
         nodes replica replica_affinity fixed_hostname connector concurrency
         connect_with_original_config max_startup_sample slow_command_timeout
+        command_routings
       ].freeze
       private_constant :CLUSTER_ONLY_OPTIONS
 
@@ -260,20 +283,24 @@ class Redis
         options.delete(:role)
         # A single-endpoint TLS setup (fixed_hostname) must dial the FQDN, not the announced IP.
         host = @base_options[:fixed_hostname] if @base_options[:fixed_hostname]
-        auth_from_nodes.merge(options).merge(host: host, port: Integer(port), db: 0)
+        connection_options_from_nodes.merge(options).merge(host: host, port: Integer(port), db: 0)
       end
 
-      # Top-level :username/:password are the supported way to authenticate; as a
-      # convenience, credentials embedded in the first configured node URL are reused
-      # for the sidecar connections when no top-level ones are given.
-      def auth_from_nodes
+      # Top-level :username/:password/:ssl are the supported way to configure the
+      # connection; as a convenience, credentials and the TLS scheme embedded in the
+      # first configured node (a `rediss://` URL, or Hash keys) are reused for the
+      # sidecar connections when no top-level equivalents are given — the node list
+      # is often the only place they exist.
+      def connection_options_from_nodes
         node = Array(@base_options[:nodes]).first
         case node
         when String
           uri = URI.parse(node)
-          { username: uri.user, password: uri.password }.compact
+          derived = { username: uri.user, password: uri.password }.compact
+          derived[:ssl] = true if uri.scheme == "rediss"
+          derived
         when Hash
-          node.slice(:username, :password)
+          node.slice(:username, :password, :ssl)
         else
           {}
         end
@@ -281,8 +308,8 @@ class Redis
         {}
       end
 
-      def each_listener_best_effort
-        @listeners.each do |node_key, listener|
+      def each_listener_best_effort(listeners)
+        listeners.each do |node_key, listener|
           yield listener
         rescue StandardError => error
           report_error(error, node_key)
@@ -297,29 +324,41 @@ class Redis
       end
 
       def request_refresh(node_key)
-        @queue.push([:node_failed, node_key, nil], true)
-      rescue ThreadError, ClosedQueueError
-        nil # queue full (a refresh request is effectively pending) or manager closed
+        # The flag is the durable signal — the dispatcher re-checks it after every
+        # drained item — and the queue push is only a wake-up. A full queue can
+        # safely drop the wake-up: full means items are pending, and each one's
+        # processing is followed by a flag check.
+        @lock.synchronize { @refresh_needed = true }
+        begin
+          @queue.push([:node_failed, node_key, nil], true)
+        rescue ThreadError, ClosedQueueError
+          nil # queue full (flag stays set) or manager closed
+        end
       end
 
       def spawn_dispatcher
         thread = Thread.new do
           while (item = @queue.pop)
             kind, handler, notification = item
-            case kind
-            when :notification
-              dispatch(handler, notification)
-            when :node_failed
-              begin
-                refresh
-              rescue StandardError => error
-                report_error(error, nil)
-              end
-            end
+            dispatch(handler, notification) if kind == :notification
+            run_pending_refresh
           end
         end
         thread.name = "redis-cluster-keyspace-notifications"
         thread
+      end
+
+      def run_pending_refresh
+        needed = @lock.synchronize do
+          was = @refresh_needed
+          @refresh_needed = false
+          was
+        end
+        return unless needed
+
+        refresh
+      rescue StandardError => error
+        report_error(error, nil)
       end
 
       def dispatch(handler, notification)

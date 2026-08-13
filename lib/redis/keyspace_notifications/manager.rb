@@ -63,6 +63,9 @@ class Redis
       # confirms every pattern, so no notification is missed after it returns. When
       # it raises instead, no trace is left: the registration is rolled back and any
       # pattern the server did confirm in the meantime is reverted.
+      # When called from inside a handler it cannot wait for the confirmation (only
+      # the listener thread itself reads acknowledgments) and returns immediately
+      # after issuing the command instead.
       #
       # @param patterns [Array<String>] channel names or psubscribe patterns
       # @param handler [#call, nil] receives each {Notification}; falls back to the
@@ -96,9 +99,18 @@ class Redis
               # re-issues unconfirmed patterns once it is.
             end
           else
-            start_listener(patterns)
+            # A dead listener (exhausted reconnect schedule) still has every prior
+            # registration in @handlers: restart with the COMPLETE registry, not just
+            # the new patterns, or earlier subscriptions would silently stop receiving.
+            start_listener(@handlers.keys)
           end
         end
+
+        # Called from inside a handler, this runs on the listener thread — the only
+        # thread that can read the acknowledgments — so waiting would stall delivery
+        # until timeout. The command is on the wire; the acks are processed as soon
+        # as the handler returns.
+        return if listener_thread?
 
         begin
           wait_for_confirmation(patterns)
@@ -113,6 +125,10 @@ class Redis
       # local state still matches the server (the patterns remain subscribed) and the
       # call can simply be retried. In-flight notifications received before the
       # server's acknowledgment are still dispatched to their handler.
+      # When called from inside a handler (the one-shot subscription pattern) it
+      # cannot wait for the confirmation (only the listener thread itself reads
+      # acknowledgments) and commits the removal immediately after issuing the
+      # command; no further notifications reach the handler either way.
       # Unsubscribing the last pattern stops the listener thread — a later
       # {#subscribe} restarts it.
       #
@@ -136,6 +152,16 @@ class Redis
               # this removal is reverted by the listener's registry check on its ack.
             end
           end
+        end
+
+        if listener_thread?
+          # Called from inside a handler (the one-shot subscription pattern): this
+          # thread is the only one that can read the acknowledgment, so waiting would
+          # stall delivery until timeout. The command is on the wire — commit the
+          # removal now. In-flight messages are dropped by dispatch's registry check,
+          # and a replay race is reverted by the ack-time registry check.
+          @lock.synchronize { targets.each { |pattern| @handlers.delete(pattern) } }
+          return
         end
 
         wait_for_removal(targets)
@@ -269,6 +295,10 @@ class Redis
 
       def listening?
         @thread&.alive? || false
+      end
+
+      def listener_thread?
+        Thread.current.equal?(@thread)
       end
 
       def start_listener(patterns)
