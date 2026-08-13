@@ -1088,8 +1088,15 @@ class Redis
       node_for(key).hgetall(key)
     end
 
-    def hexpire(key, ttl, *fields)
-      node_for(key).hexpire(key, ttl, *fields)
+    # Set the time to live in seconds for one or more hash fields.
+    #
+    # @param [String] key
+    # @param [Integer] ttl
+    # @param [Array<String>] fields
+    # @option options [Boolean] :nx, :xx, :gt, :lt at most one expiry condition
+    # @return [Array<Integer>] per-field feedback, see Redis::Commands::Hashes#hexpire
+    def hexpire(key, ttl, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).hexpire(key, ttl, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
     end
 
     def httl(key, *fields)
@@ -1119,20 +1126,57 @@ class Redis
       node_for(key).hpttl(key, *fields)
     end
 
+    # Set the expiration for one or more hash fields as an absolute Unix timestamp
+    # in seconds.
+    #
+    # @param [String] key
+    # @param [Integer] unix_time_seconds absolute expiration timestamp in seconds since epoch
+    # @param [Array<String>] fields
+    # @option options [Boolean] :nx, :xx, :gt, :lt at most one expiry condition
+    # @return [Array<Integer>] per-field feedback, see Redis::Commands::Hashes#hexpireat
     def hexpireat(key, unix_time_seconds, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
       node_for(key).hexpireat(key, unix_time_seconds, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
     end
 
+    # Set the expiration for one or more hash fields as an absolute Unix timestamp
+    # in milliseconds.
+    #
+    # @param [String] key
+    # @param [Integer] unix_time_milliseconds absolute expiration timestamp in milliseconds since epoch
+    # @param [Array<String>] fields
+    # @option options [Boolean] :nx, :xx, :gt, :lt at most one expiry condition
+    # @return [Array<Integer>] per-field feedback, see Redis::Commands::Hashes#hpexpireat
     def hpexpireat(key, unix_time_milliseconds, *fields, nx: nil, xx: nil, gt: nil, lt: nil)
       node_for(key).hpexpireat(key, unix_time_milliseconds, *fields, nx: nx, xx: xx, gt: gt, lt: lt)
     end
 
+    # Get the expiration of one or more hash fields as an absolute Unix timestamp
+    # in seconds.
+    #
+    # @param [String] key
+    # @param [Array<String>] fields
+    # @return [Array<Integer>] per-field timestamps in seconds, see Redis::Commands::Hashes#hexpiretime
     def hexpiretime(key, *fields)
       node_for(key).hexpiretime(key, *fields)
     end
 
+    # Get the expiration of one or more hash fields as an absolute Unix timestamp
+    # in milliseconds.
+    #
+    # @param [String] key
+    # @param [Array<String>] fields
+    # @return [Array<Integer>] per-field timestamps in milliseconds, see Redis::Commands::Hashes#hpexpiretime
     def hpexpiretime(key, *fields)
       node_for(key).hpexpiretime(key, *fields)
+    end
+
+    # Remove the expiration from one or more hash fields, making them persistent.
+    #
+    # @param [String] key
+    # @param [Array<String>] fields
+    # @return [Array<Integer>] per-field feedback, see Redis::Commands::Hashes#hpersist
+    def hpersist(key, *fields)
+      node_for(key).hpersist(key, *fields)
     end
 
     # Register a fieldset on every ring node. Fieldsets are scoped to a physical

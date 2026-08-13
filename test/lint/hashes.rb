@@ -408,5 +408,80 @@ module Lint
         assert_in_range((now_ms + 370_000)..(now_ms + 400_000), r.hpexpiretime("foo", "f1")[0])
       end
     end
+
+    def test_hpersist
+      target_version "7.4.0" do
+        assert_equal [-2], r.hpersist("foo", "f1")
+
+        r.hset("foo", "f1", "v1", "f2", "v2")
+
+        assert_equal [-1], r.hpersist("foo", "f1")
+
+        r.hexpire("foo", 100, "f1")
+
+        assert_equal [1, -1, -2], r.hpersist("foo", "f1", "f2", "f3")
+        assert_equal [-1], r.httl("foo", "f1")
+      end
+    end
+
+    def test_hexpire_options
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v1")
+
+        assert_equal [0], r.hexpire("foo", 100, "f1", xx: true)
+        assert_equal [1], r.hexpire("foo", 100, "f1", nx: true)
+        assert_equal [0], r.hexpire("foo", 100, "f1", nx: true)
+        assert_equal [1], r.hexpire("foo", 100, "f1", xx: true)
+
+        assert_equal [0], r.hexpire("foo", 1_000, "f1", lt: true)
+        assert_equal [1], r.hexpire("foo", 50, "f1", lt: true)
+        assert_equal [1], r.hexpire("foo", 1_000, "f1", gt: true)
+        assert_in_range(50..1_000, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hash_field_expiration_condition_is_exclusive
+      # Client-side validation: the HEXPIRE command family accepts a single
+      # condition token, so combinations fail fast without a server round trip.
+      [
+        -> { r.hexpire("foo", 100, "f1", nx: true, xx: true) },
+        -> { r.hpexpire("foo", 100_000, "f1", gt: true, lt: true) },
+        -> { r.hexpireat("foo", Time.now.to_i + 100, "f1", nx: true, gt: true) },
+        -> { r.hpexpireat("foo", (Time.now.to_f * 1000).to_i + 100_000, "f1", xx: true, lt: true) }
+      ].each do |call|
+        assert_raises(ArgumentError) { call.call }
+      end
+    end
+
+    def test_hash_field_expiration_accepts_array_form_fields
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v1", "f2", "v2")
+
+        # Array-form fields (like hdel) must serialize with the right FIELDS count.
+        assert_equal [1, 1], r.hexpire("foo", 100, %w[f1 f2])
+        assert_equal [1, 1], r.hpexpire("foo", 100_000, %w[f1 f2])
+        assert_equal [1, 1], r.hexpireat("foo", Time.now.to_i + 100, %w[f1 f2])
+        assert_equal [1, 1], r.hpexpireat("foo", (Time.now.to_f * 1000).to_i + 100_000, %w[f1 f2])
+        assert_equal 2, r.httl("foo", %w[f1 f2]).size
+        assert_equal 2, r.hpttl("foo", %w[f1 f2]).size
+        assert_equal 2, r.hexpiretime("foo", %w[f1 f2]).size
+        assert_equal 2, r.hpexpiretime("foo", %w[f1 f2]).size
+        assert_equal [1, 1], r.hpersist("foo", %w[f1 f2])
+      end
+    end
+
+    def test_hash_field_expiration_coerces_time_values
+      target_version "7.4.0" do
+        r.hset("foo", "f1", "v1")
+
+        # Integer-convertible inputs are coerced at the client boundary, like
+        # expire/expireat; non-convertible inputs raise in Ruby, not on the server.
+        assert_equal [1], r.hexpire("foo", "100", "f1")
+        assert_equal [1], r.hexpireat("foo", (Time.now.to_i + 100).to_s, "f1")
+        assert_equal [1], r.hexpireat("foo", Time.now + 100, "f1")
+        assert_equal [1], r.hpexpireat("foo", ((Time.now.to_f * 1000).to_i + 100_000).to_s, "f1")
+        assert_raises(ArgumentError) { r.hexpireat("foo", "tomorrow", "f1") }
+      end
+    end
   end
 end
