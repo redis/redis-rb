@@ -290,13 +290,16 @@ class ClusterOrchestrator
   end
 
   # Whether every node already sees the exact expected layout: cluster_state ok,
-  # the canonical slot ranges owned by the canonical masters, and all three
-  # replicas attached. Used by #rebuild to skip the expensive teardown.
+  # the canonical slot ranges owned by the canonical masters — in BOTH the
+  # CLUSTER SLOTS and the CLUSTER SHARDS views — and all three replicas attached.
+  # Used by #rebuild to skip the expensive teardown.
   def cluster_consistent?
     expected = expected_slots_view(@clients)
+    expected_masters = expected.map { |_, _, node_key| node_key }.uniq.sort
     @clients.all? do |client|
       hashify_cluster_info(client)['cluster_state'] == 'ok' &&
         slots_view(client) == expected &&
+        shards_masters_view(client) == expected_masters &&
         hashify_cluster_node_flags(client).values.count('slave') == 3
     end
   rescue Redis::BaseError
@@ -326,6 +329,22 @@ class ClusterOrchestrator
     client.cluster(:slots).map { |range| [range[0], range[1], "#{range[2][0]}:#{range[2][1]}"] }.sort
   end
 
+  # The master set a node advertises via CLUSTER SHARDS — the command
+  # redis-cluster-client actually bootstraps its topology from. It is generated
+  # separately from CLUSTER SLOTS and can lag it on a freshly rebuilt replica, so
+  # SLOTS-only verification lets a client pick up a stale master set and route
+  # writes to a demoted node (READONLY). Handles both the RESP2 (flat arrays)
+  # and RESP3 (maps) reply shapes.
+  def shards_masters_view(client)
+    client.cluster(:shards).flat_map do |shard|
+      shard = shard.each_slice(2).to_h if shard.is_a?(Array)
+      shard.fetch('nodes').filter_map do |node|
+        node = node.each_slice(2).to_h if node.is_a?(Array)
+        "#{node['ip']}:#{node['port']}" if node['role'] == 'master'
+      end
+    end.uniq.sort
+  end
+
   # Requires EVERY node to serve the expected master set in its CLUSTER SLOTS reply
   # before the rebuild is considered done. The other waits are per-node liveness
   # checks and give up silently; without this gate a rebuild can return while some
@@ -340,8 +359,10 @@ class ClusterOrchestrator
     clients.each do |client|
       max_attempts.times do |attempt|
         begin
-          actual = slots_view(client).map { |_, _, node_key| node_key }.uniq.sort
-          break if actual == expected
+          # Both views must agree: clients bootstrap from CLUSTER SHARDS, which can
+          # lag CLUSTER SLOTS on a freshly rebuilt replica.
+          slots_ok = slots_view(client).map { |_, _, node_key| node_key }.uniq.sort == expected
+          break if slots_ok && shards_masters_view(client) == expected
         rescue Redis::CommandError, Redis::BaseConnectionError
           # CLUSTERDOWN or a node still restarting; keep waiting.
         end

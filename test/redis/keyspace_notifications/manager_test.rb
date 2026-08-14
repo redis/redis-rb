@@ -386,12 +386,17 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       # Concurrent subscribe/unsubscribe of one pattern has no defined winner; the
       # contract is convergence — the server-side subscription must agree with the
       # local registration (the ack-time invariants repair wire-order races), and
-      # delivery must agree with both.
+      # delivery must agree with both. Settled means ALL THREE layers agree —
+      # registry (intent), confirmed (acked) and the server — otherwise a re-issue
+      # can still be in flight while confirmed and NUMPAT momentarily read empty.
+      registered = nil
       wait_until(timeout: 3) do
-        registered = manager.patterns
-        (registered.empty? || registered == [channel]) && r.pubsub(:numpat) == registered.size
+        registry = manager.instance_variable_get(:@handlers).keys
+        confirmed = manager.patterns
+        registered = registry == [channel]
+        (registry.empty? || registered) && registry.sort == confirmed.sort &&
+          r.pubsub(:numpat) == registry.size
       end
-      registered = manager.patterns.include?(channel)
       r.set("race", "v")
       if registered
         assert_equal "race", assert_pop(queue).key
