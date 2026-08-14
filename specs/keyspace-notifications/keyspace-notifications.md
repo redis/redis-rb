@@ -161,6 +161,12 @@ Semantics worth knowing:
 - Handlers run on the listener thread: keep them fast, never call blocking commands on the
   manager's connection from them. Handler exceptions and parse errors go to the error handler
   (default: `warn`) and never kill the listener.
+- **Concurrent churn on one pattern converges, but is not loss-free:** when subscribe and
+  unsubscribe race on the same pattern, local state, server state and delivery always converge
+  to a coherent outcome (ack-time invariants repair wire-order races) — but an event published
+  during the convergence window can be lost, exactly like during a reconnect gap. Pub/sub is
+  fire-and-forget; the guarantee is that the stream recovers, not that no event falls into
+  the gap.
 - **Auto-resubscribe:** on connection loss the manager reconnects and replays every registered
   pattern, then fires `on_reconnect`. The `reconnect_attempts:` option uses the same semantics as
   the `Redis.new` option of the same name — an Integer (that many immediate retries) or an Array

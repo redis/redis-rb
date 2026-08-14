@@ -98,9 +98,13 @@ class Redis
         # dispatch, refresh or close. A refresh racing this call reconciles from the
         # already-updated registry, and re-subscribing is idempotent (re-acked).
         each_listener_best_effort(listeners) { |listener| listener.subscribe(patterns) }
-        # A concurrent unsubscribe's fan-out may have undone ours after the fact;
-        # if any pattern is no longer registered, the refresher reconciles the nodes.
-        request_refresh(nil) if @lock.synchronize { patterns.any? { |pattern| !@registry.key?(pattern) } }
+        # Reconcile via the refresher when the fan-out could not have done the job:
+        # no listeners exist at all (a previously failed refresh left none, and with
+        # no connections there is no error signal to trigger recovery), or a
+        # concurrent unsubscribe's fan-out may have undone ours after the fact.
+        if listeners.empty? || @lock.synchronize { patterns.any? { |pattern| !@registry.key?(pattern) } }
+          request_refresh(nil)
+        end
         nil
       end
 
@@ -324,8 +328,11 @@ class Redis
             @refresh_cond.broadcast # wake the refresher (idle or in backoff) so it exits
             @listeners.values.tap { @listeners.clear }
           end
-          listeners.each(&:close)
+          # Queue first: node readers blocked pushing into a full queue are stuck in
+          # Ruby, not Redis I/O — closing their connections cannot unblock them, but
+          # ClosedQueueError from the closed queue does (their enqueue rescues it).
           @queue.close
+          listeners.each(&:close)
         end
         join_timeout = Redis::KeyspaceNotifications::Manager::DEFAULT_CLOSE_TIMEOUT
         # Same guard for both: close may be invoked from a handler (dispatcher) or
@@ -340,10 +347,22 @@ class Redis
       private
 
       def current_primaries
-        @cluster.cluster("slots")
-                .map { |range| range["master"] }
-                .uniq { |master| [master["ip"], master["port"]] }
-                .to_h { |master| ["#{master['ip']}:#{master['port']}", [master["ip"], master["port"]]] }
+        masters = @cluster.cluster("slots")
+                          .map { |range| range["master"] }
+                          .uniq { |master| [master["ip"], master["port"]] }
+        # A server configured to conceal node endpoints answers with nil/empty
+        # addresses, telling clients to reuse their existing connection info — which
+        # per-node sidecar connections cannot do. Unless fixed_hostname supplies the
+        # dial target, fail loudly (keeping current listeners) instead of silently
+        # subscribing to ":<port>".
+        if !@base_options[:fixed_hostname] && masters.any? { |m| m["ip"].nil? || m["ip"].empty? }
+          raise KeyspaceNotificationsRefreshError.new(
+            {}, "CLUSTER SLOTS conceals node endpoints; per-node notification " \
+                "sidecars need reachable addresses (or the fixed_hostname option)"
+          )
+        end
+
+        masters.to_h { |master| ["#{master['ip']}:#{master['port']}", [master["ip"], master["port"]]] }
       end
 
       CLUSTER_ONLY_OPTIONS = %i[

@@ -26,7 +26,10 @@ class Redis
       # Registry values: a fresh object per (re-)subscription, so a concurrent
       # unsubscribe can tell "the registration I captured" apart from "the same
       # pattern re-registered meanwhile" and never removes or fights the latter.
-      Registration = Struct.new(:handler)
+      # +failed+ is set when the owning subscribe call rolled back, so a later
+      # rollback restoring "the previous registration" never resurrects one whose
+      # caller already received an error.
+      Registration = Struct.new(:handler, :failed)
       private_constant :Registration
       # One sleep duration (in seconds) per consecutive reconnect attempt; the manager
       # gives up when the schedule is exhausted. The budget resets after every healthy
@@ -192,14 +195,28 @@ class Redis
             # removal now. In-flight messages are dropped by dispatch's registry check,
             # and a replay race is reverted by the ack-time registry check.
             @lock.synchronize do
-              targets.each { |pattern| @handlers.delete(pattern) if @handlers[pattern].equal?(owned[pattern]) }
+              targets.each do |pattern|
+                next unless @handlers[pattern].equal?(owned[pattern])
+
+                @handlers.delete(pattern)
+                # An in-handler registration removed before its ack: purge its
+                # validation entry too, or it would be retained forever.
+                @unvalidated.delete(pattern) if @unvalidated[pattern].equal?(owned[pattern])
+              end
             end
             return
           end
 
           wait_for_removal(targets, owned)
           @lock.synchronize do
-            targets.each { |pattern| @handlers.delete(pattern) if @handlers[pattern].equal?(owned[pattern]) }
+            targets.each do |pattern|
+              next unless @handlers[pattern].equal?(owned[pattern])
+
+              @handlers.delete(pattern)
+              # An in-handler registration removed before its ack: purge its
+              # validation entry too, or it would be retained forever.
+              @unvalidated.delete(pattern) if @unvalidated[pattern].equal?(owned[pattern])
+            end
             # A reconnect replay may have re-subscribed a target between the ack and
             # this removal; sweep anything still acknowledged that no registration owns.
             sweep = targets.select { |pattern| @confirmed.key?(pattern) && !@handlers.key?(pattern) }
@@ -452,8 +469,10 @@ class Redis
               # session must not be re-raised by a later wait on a clean exit.
               @listener_error = nil
               # The server accepted this pattern: an in-handler registration is
-              # validated and no longer subject to command-error rollback.
-              @unvalidated.delete(key) if @unvalidated[key].equal?(@handlers[key])
+              # validated and no longer subject to command-error rollback. An
+              # unvalidated entry whose registration is already gone (subscribed and
+              # unsubscribed within one handler) is purged too, not retained forever.
+              @unvalidated.delete(key) if !@handlers.key?(key) || @unvalidated[key].equal?(@handlers[key])
               next false unless @handlers.key?(key)
 
               @confirmed[key] = true
@@ -630,10 +649,14 @@ class Redis
         revert = []
         @lock.synchronize do
           previous.each do |pattern, entry|
+            # This call failed, so its registration is dead wherever it ends up —
+            # marking it prevents a concurrent failed subscribe's rollback from
+            # restoring it as "the previous registration".
+            installed[pattern].failed = true
             # Re-registered by a concurrent subscribe meanwhile: theirs, not ours.
             next unless @handlers[pattern].equal?(installed[pattern])
 
-            if entry
+            if entry && !entry[:entry].failed
               @handlers[pattern] = entry[:entry]
             else
               @handlers.delete(pattern)

@@ -321,6 +321,25 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_predicate queue, :empty?
   end
 
+  def test_transient_in_handler_subscription_leaves_no_residue
+    queue = Queue.new
+    manager = new_manager
+    transient = CHANNELS.keyspace("transient", db: DB)
+    manager.subscribe(CHANNELS.keyspace("trigger", db: DB), handler: lambda { |notification|
+      # Subscribe and unsubscribe within one handler: neither ack has been read yet,
+      # so the unvalidated bookkeeping must be purged by the removal, not kept forever.
+      manager.subscribe(transient, handler: ->(_n) {})
+      manager.unsubscribe(transient)
+      queue << notification
+    })
+
+    r.set("trigger", "v")
+
+    assert_equal "trigger", assert_pop(queue).key
+    wait_until { manager.instance_variable_get(:@unvalidated).empty? }
+    refute_includes manager.instance_variable_get(:@handlers).keys, transient
+  end
+
   def test_subscribe_from_within_handler_takes_effect
     queue = Queue.new
     manager = new_manager
@@ -397,10 +416,26 @@ class TestKeyspaceNotificationsManager < Minitest::Test
         (registry.empty? || registered) && registry.sort == confirmed.sort &&
           r.pubsub(:numpat) == registry.size
       end
-      r.set("race", "v")
       if registered
-        assert_equal "race", assert_pop(queue).key
+        # The settled subscription must deliver — but a single probe can be lost:
+        # an unsubscribe aimed at a replaced registration may still be in flight
+        # server-side (invisible to every layer until it lands), and an event
+        # published into that gap is gone forever (fire-and-forget) before the
+        # ack invariant re-subscribes. That loss window is inherent to pub/sub —
+        # the guarantee is that the STREAM recovers, so probe with retries.
+        delivered = nil
+        3.times do
+          r.set("race", "v")
+          delivered = queue.pop(timeout: 1)
+          break if delivered
+        end
+
+        flunk "no delivery despite a settled registration" unless delivered
+        assert_equal "race", delivered.key
       else
+        # An empty settled state stays silent: nothing re-subscribes an
+        # unregistered pattern, and dispatch drops events for one regardless.
+        r.set("race", "v")
         sleep 0.05
 
         assert_predicate queue, :empty?
@@ -485,11 +520,18 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_operator elapsed, :<, 3, "a server rejection must raise promptly, not wait out the ack timeout"
 
     # The rejected registration was rolled back, so the reconnect replay is clean
-    # and the surviving pattern recovers.
-    wait_until(timeout: 5) { r.pubsub(:numpat) == 1 }
-    r.set("allowed", "v")
+    # and the surviving pattern recovers. The rejection killed the session, and
+    # events published into the reconnect gap are lost (fire-and-forget) — NUMPAT
+    # can even briefly count the dying session — so probe with retries.
+    delivered = nil
+    5.times do
+      r.set("allowed", "v")
+      delivered = queue.pop(timeout: 1)
+      break if delivered
+    end
 
-    assert_equal "allowed", assert_pop(queue).key
+    flunk "the allowed pattern did not recover after the rejection" unless delivered
+    assert_equal "allowed", delivered.key
     assert_equal [CHANNELS.keyspace("allowed", db: DB)], manager.patterns
   ensure
     r.acl("DELUSER", "kn_limited")

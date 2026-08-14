@@ -228,6 +228,46 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     assert_equal 'noop:key', queue.pop(timeout: 3)
   end
 
+  def test_close_returns_promptly_under_full_queue_backpressure
+    started_handling = Queue.new
+    manager = new_manager(queue_size: 1)
+    manager.subscribe_keyevent('set') do |_notification|
+      started_handling << true
+      sleep 5 # stall the dispatcher: the queue fills and node readers block in push
+    end
+
+    KEY_COUNT.times { |i| redis.set("backpressure:key#{i}", 'v') }
+    started_handling.pop(timeout: 3)
+
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    manager.close
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+    assert_predicate manager, :closed?
+    # Closing the queue first unblocks readers stuck in push; without it, close
+    # waits out bounded joins per listener against threads stuck in Ruby, not I/O.
+    assert_operator elapsed, :<, 5, 'close blocked behind readers stuck on the full queue'
+  end
+
+  def test_subscribe_recovers_listeners_after_a_fully_failed_refresh
+    queue = Queue.new
+    manager = new_manager
+    # Simulate the aftermath of a refresh that failed for every primary: no
+    # listeners, no connections, therefore no error signal to drive recovery.
+    manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@listeners).each_value(&:close)
+      manager.instance_variable_get(:@listeners).clear
+    end
+
+    manager.subscribe_keyevent('set') { |notification| queue << notification.key }
+
+    # The subscribe itself had nobody to fan out to; the refresher must rebuild.
+    wait_until { manager.node_keys.size == 3 }
+    redis.set('recovered:key', 'v')
+
+    assert_equal 'recovered:key', queue.pop(timeout: 3)
+  end
+
   def test_refresh_with_empty_slots_reply_keeps_listeners_and_raises
     queue = Queue.new
     manager = new_manager
@@ -295,6 +335,16 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     node.close
   rescue StandardError
     nil
+  end
+
+  def wait_until(timeout: 5)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+    loop do
+      return if yield
+
+      flunk "condition not met within #{timeout}s" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      sleep 0.05
+    end
   end
 
   def collect(queue, count, timeout: 3, flunk_on_timeout: true)
