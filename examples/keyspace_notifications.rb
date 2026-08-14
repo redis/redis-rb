@@ -21,7 +21,9 @@ redis = Redis.new
 # Server-side switch (usually done by your ops team in redis.conf instead):
 # K = keyspace channels, E = keyevent channels, A = all data types,
 # S/T/I/V = Redis 8.8 subkey channel families (need the type flag too, covered by A).
-redis.config(:set, "notify-keyspace-events", "KEASTIV")
+# Older servers reject the unknown subkey flag letters, so gate on the version.
+subkeys_supported = Gem::Version.new(redis.info["redis_version"]) >= Gem::Version.new("8.8")
+redis.config(:set, "notify-keyspace-events", subkeys_supported ? "KEASTIV" : "KEA")
 
 # --- Layer 1: builders + parser with the plain pub/sub DSL --------------------
 # pattern = Redis::KeyspaceNotifications::Channels.keyspace("user:*", db: 0)
@@ -43,11 +45,11 @@ manager.subscribe_keyevent("expired") do |n|
   puts "[keyevent]  expired    key=#{n.key}"
 end
 
-begin
+if subkeys_supported
   manager.subscribe_subkeyspace("session:*") do |n|
     puts "[subkeys]   #{n.event.ljust(10)} key=#{n.key} subkeys=#{n.subkeys.inspect}"
   end
-rescue Redis::SubscriptionError
+else
   puts "(subkey notifications need Redis 8.8+ — skipping that subscription)"
 end
 

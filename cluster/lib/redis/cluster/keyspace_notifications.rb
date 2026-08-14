@@ -92,6 +92,9 @@ class Redis
         # dispatch, refresh or close. A refresh racing this call reconciles from the
         # already-updated registry, and re-subscribing is idempotent (re-acked).
         each_listener_best_effort(listeners) { |listener| listener.subscribe(patterns) }
+        # A concurrent unsubscribe's fan-out may have undone ours after the fact;
+        # if any pattern is no longer registered, the refresher reconciles the nodes.
+        request_refresh(nil) if @lock.synchronize { patterns.any? { |pattern| !@registry.key?(pattern) } }
         nil
       end
 
@@ -109,13 +112,18 @@ class Redis
       # @return [void]
       def unsubscribe(*patterns)
         patterns = patterns.map { |pattern| pattern.to_s.b }
+        targets = nil
         listeners = @lock.synchronize do
+          targets = patterns.empty? ? @registry.keys : patterns
           patterns.empty? ? @registry.clear : patterns.each { |pattern| @registry.delete(pattern) }
           @listeners.to_a
         end
         # Tracking was removed first (see above); the ack-blocking fan-out happens
         # outside the lock for the same reasons as in #subscribe.
         each_listener_best_effort(listeners) { |listener| listener.unsubscribe(patterns) }
+        # A concurrent subscribe may have re-registered one of these patterns and had
+        # its node subscriptions undone by our fan-out; the refresher reconciles.
+        request_refresh(nil) if @lock.synchronize { targets.any? { |pattern| @registry.key?(pattern) } }
         nil
       end
 
@@ -339,23 +347,18 @@ class Redis
         case node
         when String
           uri = URI.parse(node)
-          # Mirror redis-client's URL semantics: components are percent-decoded
-          # (passing them as explicit options bypasses its URL decoder), a user-only
-          # URL (redis://secret@host) carries a password rather than a username, and
-          # an empty user (redis://:secret@host) means password-only authentication.
-          user = uri.user
-          user = nil if user && user.empty?
-          derived = {}
-          if user && uri.password
-            derived[:username] = URI.decode_www_form_component(user)
-            derived[:password] = URI.decode_www_form_component(uri.password)
-          elsif user
-            derived[:password] = URI.decode_www_form_component(user)
-          elsif uri.password
-            derived[:password] = URI.decode_www_form_component(uri.password)
-          end
-          derived[:ssl] = true if uri.scheme == "rediss"
-          derived
+          # An exact mirror of redis-cluster-client's parse_node_url (cluster_config.rb):
+          # the sidecars must authenticate with byte-identical credentials to the
+          # cluster client's own node connections, whatever that parser's quirks —
+          # including form-style decoding (`+` becomes a space there too). Diverging
+          # toward stricter URI semantics here would make sidecars fail against
+          # clusters that connect fine today; such a change belongs upstream, where
+          # both sides would inherit it together.
+          {
+            username: uri.user ? URI.decode_www_form_component(uri.user) : nil,
+            password: uri.password ? URI.decode_www_form_component(uri.password) : nil,
+            ssl: uri.scheme == "rediss"
+          }.reject { |_, value| value.nil? || value == "" || value == false }
         when Hash
           node.slice(:username, :password, :ssl)
         else

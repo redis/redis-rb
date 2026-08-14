@@ -363,6 +363,64 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal "swap:second", assert_pop(queue).key
   end
 
+  def test_concurrent_unsubscribe_and_resubscribe_stay_consistent
+    channel = CHANNELS.keyspace("race", db: DB)
+    manager = new_manager
+
+    10.times do
+      queue = Queue.new
+      manager.subscribe(channel, handler: ->(_notification) {})
+
+      unsubscriber = Thread.new do
+        manager.unsubscribe(channel)
+      rescue Redis::SubscriptionError
+        nil
+      end
+      resubscribed = begin
+        manager.subscribe(channel, handler: ->(notification) { queue << notification })
+        true
+      rescue Redis::SubscriptionError
+        false
+      end
+      unsubscriber.join
+
+      # Whatever the interleaving, local registration and delivery must agree:
+      # a surviving re-registration receives events, an absent one receives none.
+      r.set("race", "v")
+      if resubscribed && manager.patterns.include?(channel)
+        assert_equal "race", assert_pop(queue).key
+      else
+        sleep 0.05
+
+        assert_predicate queue, :empty?
+      end
+      manager.unsubscribe(channel)
+    end
+  end
+
+  def test_subscribe_during_reconnect_backoff_triggers_immediate_reconnect
+    errors = Queue.new
+    # One long delay: without the immediate-reconnect wake-up, a subscribe issued
+    # during this backoff could only wait out its confirmation timeout and fail,
+    # even though the server is perfectly reachable again.
+    manager = new_manager(error_handler: ->(error) { errors << error }, reconnect_attempts: [30])
+    old_queue = Queue.new
+    manager.subscribe(CHANNELS.keyspace("old", db: DB), handler: ->(notification) { old_queue << notification })
+
+    r.client(:kill, "TYPE", "pubsub")
+    assert_pop(errors) # the listener is heading into its 30s backoff
+
+    new_queue = Queue.new
+    manager.subscribe(CHANNELS.keyspace("new", db: DB), handler: ->(notification) { new_queue << notification })
+
+    # The subscribe returned confirmed: both the replayed and the new pattern are live.
+    r.set("old", "v")
+    r.set("new", "v")
+
+    assert_equal "old", assert_pop(old_queue).key
+    assert_equal "new", assert_pop(new_queue).key
+  end
+
   def test_close_interrupts_a_reconnect_backoff
     errors = Queue.new
     # A single long delay: without an interruptible backoff, close would leave the
