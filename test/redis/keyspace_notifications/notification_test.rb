@@ -55,4 +55,21 @@ class TestKeyspaceNotificationsNotification < Minitest::Test
   def test_subkeys_frozen
     assert_predicate build(subkeys: %w[a]).subkeys, :frozen?
   end
+
+  def test_deeply_frozen
+    notification = build(subkeys: [+"field"], pattern: +"__keyspace@0__:*")
+
+    assert_predicate notification, :frozen?
+    %i[event key channel payload pattern].each do |reader|
+      assert_predicate notification.public_send(reader), :frozen?, "#{reader} should be frozen"
+    end
+    notification.subkeys.each { |subkey| assert_predicate subkey, :frozen? }
+  end
+
+  def test_freezing_does_not_mutate_caller_arguments
+    key = +"mutable-key"
+    build(key: key)
+
+    refute_predicate key, :frozen?
+  end
 end

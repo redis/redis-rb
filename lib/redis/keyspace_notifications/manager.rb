@@ -271,6 +271,9 @@ class Redis
           return if @closed
 
           @closing = true
+          # Wake a listener parked in a reconnect backoff — closing the socket can't
+          # interrupt a plain sleep, and a 30s delay would outlive the bounded joins.
+          @cond.broadcast
           @thread
         end
 
@@ -299,6 +302,22 @@ class Redis
 
       def listener_thread?
         Thread.current.equal?(@thread)
+      end
+
+      # Waits up to +delay+ seconds between reconnect attempts, waking immediately
+      # when close begins (spurious wakeups from ack broadcasts just resume waiting).
+      # Returns false when the manager is closing.
+      def interruptible_backoff(delay)
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + delay
+        @lock.synchronize do
+          until @closing
+            remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            return true if remaining <= 0
+
+            @cond.wait(remaining)
+          end
+        end
+        false
       end
 
       def start_listener(patterns)
@@ -337,8 +356,8 @@ class Redis
           delay = @reconnect_attempts[attempts]
           attempts += 1
           break if delay.nil? # the reconnect schedule is exhausted
+          break unless interruptible_backoff(delay) # close woke us mid-delay
 
-          sleep(delay)
           patterns = @lock.synchronize { @handlers.keys }
           break if patterns.empty? || @closing
 

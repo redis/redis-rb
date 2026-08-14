@@ -35,12 +35,15 @@ class Redis
       def initialize(family:, db:, event:, key:, channel:, payload:, subkeys: [], pattern: nil)
         @family = family
         @db = db
-        @event = event
-        @key = key
-        @subkeys = subkeys.freeze
-        @channel = channel
-        @payload = payload
-        @pattern = pattern
+        @event = frozen_copy(event)
+        @key = frozen_copy(key)
+        @subkeys = subkeys.map { |subkey| frozen_copy(subkey) }.freeze
+        @channel = frozen_copy(channel)
+        @payload = frozen_copy(payload)
+        @pattern = frozen_copy(pattern)
+        # Deep-frozen: the value object implements #hash / #eql?, so no field may be
+        # mutable after construction (a mutated Hash key becomes unreachable).
+        freeze
       end
 
       # Convenience accessor for single-subkey families (subkeyspaceitem).
@@ -80,6 +83,12 @@ class Redis
       # @return [Integer] a hash derived from all fields
       def hash
         to_h.hash
+      end
+
+      private
+
+      def frozen_copy(value)
+        value.nil? || value.frozen? ? value : value.dup.freeze
       end
     end
   end

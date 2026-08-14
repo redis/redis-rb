@@ -49,14 +49,16 @@ class Redis
         @listeners = {} # "host:port" => NodeListener
         @queue = SizedQueue.new(queue_size)
         @lock = Monitor.new
+        @refresh_cond = @lock.new_cond
         @refresh_lock = Mutex.new
         @refresh_needed = false
         @closed = false
         @dispatcher = spawn_dispatcher
+        @refresher = spawn_refresher
         begin
           refresh
         rescue StandardError
-          # A failed construction must not leak the dispatcher thread or any
+          # A failed construction must not leak the background threads or any
           # listeners a partial refresh already created — the caller gets an
           # exception, not an object it could close.
           close
@@ -187,26 +189,37 @@ class Redis
 
           primaries = current_primaries
           failures = {}
-          @lock.synchronize do
+
+          # Prune vanished/demoted/unhealthy listeners under the lock; the
+          # ack-blocking catch-ups below run WITHOUT it so dispatch and the API stay
+          # responsive (close cannot interleave — it is excluded by @refresh_lock).
+          stale = @lock.synchronize do
             expect_subscribed = !@registry.empty?
-            (@listeners.keys - primaries.keys).each { |node_key| @listeners.delete(node_key)&.close }
-
-            primaries.each do |node_key, (host, port)|
+            gone = (@listeners.keys - primaries.keys).map { |node_key| @listeners.delete(node_key) }
+            primaries.each_key do |node_key|
               listener = @listeners[node_key]
-              unless listener&.healthy?(expect_subscribed)
-                @listeners.delete(node_key)&.close
-                listener = nil
-              end
+              gone << @listeners.delete(node_key) if listener && !listener.healthy?(expect_subscribed)
+            end
+            gone
+          end
+          stale.compact.each(&:close)
 
-              begin
-                listener ||= @listeners[node_key] = NodeListener.new(
+          primaries.each do |node_key, (host, port)|
+            listener = @lock.synchronize { @listeners[node_key] }
+            begin
+              unless listener
+                listener = NodeListener.new(
                   node_key, sidecar_options(host, port), @queue, on_error: method(:handle_node_error)
                 )
-                listener.catch_up(@registry)
-              rescue StandardError => error
-                failures[node_key] = error
-                @listeners.delete(node_key)&.close
+                # Committed before catch-up so a racing subscribe fans out to this
+                # node too — between that and the registry snapshot below, a pattern
+                # registered mid-refresh is covered either way (both are idempotent).
+                @lock.synchronize { @listeners[node_key] = listener }
               end
+              listener.catch_up(@lock.synchronize { @registry.dup })
+            rescue StandardError => error
+              failures[node_key] = error
+              @lock.synchronize { @listeners.delete(node_key) }&.close
             end
           end
           raise KeyspaceNotificationsRefreshError, failures unless failures.empty?
@@ -247,13 +260,15 @@ class Redis
             return if @closed
 
             @closed = true
+            @refresh_cond.broadcast # wake the refresher (idle or in backoff) so it exits
             @listeners.values.tap { @listeners.clear }
           end
           listeners.each(&:close)
           @queue.close
         end
-        @dispatcher.join(Redis::KeyspaceNotifications::Manager::DEFAULT_CLOSE_TIMEOUT) unless
-          @dispatcher.equal?(Thread.current)
+        join_timeout = Redis::KeyspaceNotifications::Manager::DEFAULT_CLOSE_TIMEOUT
+        @refresher.join(join_timeout)
+        @dispatcher.join(join_timeout) unless @dispatcher.equal?(Thread.current)
         nil
       end
       alias stop close
@@ -296,7 +311,16 @@ class Redis
         case node
         when String
           uri = URI.parse(node)
-          derived = { username: uri.user, password: uri.password }.compact
+          # Mirror redis-client's URL semantics: components are percent-decoded
+          # (passing them as explicit options bypasses its URL decoder), and a
+          # user-only URL (redis://secret@host) carries a password, not a username.
+          derived = {}
+          if uri.user && uri.password
+            derived[:username] = URI.decode_www_form_component(uri.user)
+            derived[:password] = URI.decode_www_form_component(uri.password)
+          elsif uri.user
+            derived[:password] = URI.decode_www_form_component(uri.user)
+          end
           derived[:ssl] = true if uri.scheme == "rediss"
           derived
         when Hash
@@ -323,42 +347,63 @@ class Redis
         request_refresh(node_key)
       end
 
-      def request_refresh(node_key)
-        # The flag is the durable signal — the dispatcher re-checks it after every
-        # drained item — and the queue push is only a wake-up. A full queue can
-        # safely drop the wake-up: full means items are pending, and each one's
-        # processing is followed by a flag check.
-        @lock.synchronize { @refresh_needed = true }
-        begin
-          @queue.push([:node_failed, node_key, nil], true)
-        rescue ThreadError, ClosedQueueError
-          nil # queue full (flag stays set) or manager closed
+      def request_refresh(_node_key)
+        @lock.synchronize do
+          @refresh_needed = true
+          @refresh_cond.broadcast
         end
       end
 
       def spawn_dispatcher
         thread = Thread.new do
           while (item = @queue.pop)
-            kind, handler, notification = item
-            dispatch(handler, notification) if kind == :notification
-            run_pending_refresh
+            handler, notification = item
+            # Buffered items surviving a close are dropped, not dispatched: callers
+            # may have torn down handler dependencies the moment close returned.
+            dispatch(handler, notification) unless @closed
           end
         end
         thread.name = "redis-cluster-keyspace-notifications"
         thread
       end
 
-      def run_pending_refresh
-        needed = @lock.synchronize do
-          was = @refresh_needed
-          @refresh_needed = false
-          was
-        end
-        return unless needed
+      # Reactive refreshes run on their own thread, NOT on the dispatcher: during a
+      # refresh the dispatcher keeps draining the queue, so node reader threads
+      # blocked on a full queue get unblocked and can process the subscription acks
+      # the refresh is waiting for — running both roles on one thread deadlocks
+      # under backpressure until the ack timeouts fire. The thread also owns the
+      # failure-retry state: a failed reactive refresh reschedules itself with
+      # exponential backoff, because the signal was already consumed and a
+      # partially-rebuilt node may have no listener thread left to emit a new one.
+      def spawn_refresher
+        thread = Thread.new do
+          retry_delay = nil
+          loop do
+            @lock.synchronize do
+              @refresh_cond.wait_until { @refresh_needed || @closed }
+              break if @closed
 
-        refresh
-      rescue StandardError => error
-        report_error(error, nil)
+              @refresh_needed = false
+            end
+            break if @closed
+
+            begin
+              refresh
+              retry_delay = nil
+            rescue StandardError => error
+              report_error(error, nil)
+              retry_delay = [(retry_delay || 0.25) * 2, 30.0].min
+              @lock.synchronize do
+                @refresh_needed = true
+                # Doubles as an interruptible backoff sleep: an incoming
+                # request_refresh or close broadcast cuts it short.
+                @refresh_cond.wait(retry_delay) unless @closed
+              end
+            end
+          end
+        end
+        thread.name = "redis-cluster-keyspace-notifications-refresher"
+        thread
       end
 
       def dispatch(handler, notification)

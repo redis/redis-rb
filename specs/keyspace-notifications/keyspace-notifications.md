@@ -224,12 +224,15 @@ How it works:
 - All node listeners funnel into one bounded queue drained by a **single dispatcher thread**:
   handlers need not be thread-safe; per-node ordering is preserved, cross-node ordering is
   unspecified. A slow handler back-pressures the node readers (tune with `queue_size:`).
-- **Reactive refresh:** any node connection error triggers a reconciliation — re-enumerate
-  primaries, drop vanished/demoted nodes, connect and catch up new ones on every registered
-  pattern. There is no proactive polling; after a scale-out call `refresh` yourself (a brand-new
-  primary emits no error signal). Manual `refresh` raises
-  `Redis::Cluster::KeyspaceNotificationsRefreshError` (with a per-node `#errors` hash) if any
-  primary still can't be subscribed.
+- **Reactive refresh:** any node connection error signals a dedicated refresher thread, which
+  reconciles — re-enumerate primaries, drop vanished/demoted nodes, connect and catch up new
+  ones on every registered pattern. It runs off the dispatcher so dispatch keeps draining the
+  queue during a refresh (node readers blocked on a full queue must be able to process the
+  subscription acks the refresh waits for), and a failed reactive refresh reschedules itself
+  with exponential backoff (0.25s doubling to 30s) until it succeeds. There is no proactive
+  polling; after a scale-out call `refresh` yourself (a brand-new primary emits no error
+  signal). Manual `refresh` raises `Redis::Cluster::KeyspaceNotificationsRefreshError` (with a
+  per-node `#errors` hash) if any primary still can't be subscribed.
 - Slot migration emits **no** unsubscribe signal, but because every primary is subscribed, keys
   moving between existing primaries keep flowing transparently.
 - `unsubscribe` removes registry tracking first — the opposite of the standalone manager's

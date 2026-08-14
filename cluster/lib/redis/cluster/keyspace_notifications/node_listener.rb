@@ -78,7 +78,7 @@ class Redis
         # back-pressures this node's socket reads.
         def enqueueing(handler)
           lambda do |notification|
-            @queue.push([:notification, handler, notification])
+            @queue.push([handler, notification])
           rescue ClosedQueueError
             nil # the cluster manager closed concurrently; drop the notification
           end

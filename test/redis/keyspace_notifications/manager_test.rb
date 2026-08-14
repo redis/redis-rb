@@ -339,6 +339,24 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal "late", assert_pop(queue).key
   end
 
+  def test_close_interrupts_a_reconnect_backoff
+    errors = Queue.new
+    # A single long delay: without an interruptible backoff, close would leave the
+    # listener thread sleeping for the full 30s after its bounded joins expire.
+    manager = new_manager(error_handler: ->(error) { errors << error }, reconnect_attempts: [30])
+    manager.subscribe_keyspace("k", db: DB)
+
+    r.client(:kill, "TYPE", "pubsub")
+    assert_pop(errors) # the listener is now in (or entering) its backoff sleep
+
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    manager.close
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+    assert_predicate manager, :closed?
+    assert_operator elapsed, :<, 3, "close waited out the reconnect backoff"
+  end
+
   def test_empty_reconnect_schedule_disables_reconnection
     queue = Queue.new
     errors = Queue.new
