@@ -65,4 +65,11 @@ class TestKeyspaceNotificationsChannels < Minitest::Test
 
     assert_equal "mykey", key
   end
+
+  def test_glob_escape
+    assert_equal "invoice:\\*", CHANNELS.glob_escape("invoice:*")
+    assert_equal "a\\?b\\[c\\]d\\\\e", CHANNELS.glob_escape("a?b[c]d\\e")
+    assert_equal "plain", CHANNELS.glob_escape("plain")
+    assert_equal Encoding::BINARY, CHANNELS.glob_escape("x").encoding
+  end
 end

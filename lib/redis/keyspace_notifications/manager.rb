@@ -205,11 +205,14 @@ class Redis
       end
 
       # Watch events on one exact key + subkey pair (Redis 8.8+, flag `I`).
+      # The key is treated literally — glob metacharacters in it are escaped, since
+      # every manager subscription is a psubscribe pattern — while the subkey keeps
+      # its documented glob behavior.
       # @param key [String] key name (must not contain "\n")
       # @param subkey [String] subkey (e.g. hash field) or glob pattern
       # @param db [Integer, String] database index or "*"
       def subscribe_subkeyspaceitem(key, subkey = "*", db: 0, &handler)
-        subscribe(Channels.subkeyspaceitem(key, subkey, db: db), handler: handler)
+        subscribe(Channels.subkeyspaceitem(Channels.glob_escape(key), subkey, db: db), handler: handler)
       end
 
       # Watch subkeys affected by +event+ on keys matching +key+ (Redis 8.8+, flag `V`).
@@ -334,7 +337,17 @@ class Redis
           @session_confirmed = false
           begin
             listen(patterns, reconnecting)
-            break # clean termination: every pattern unsubscribed, or close
+            # Clean termination: every pattern unsubscribed, or close. One exception —
+            # a handler that unsubscribed the final pattern and registered a
+            # replacement before returning: the loop exits on the punsubscribe ack
+            # (count 0) without ever reading the replacement's ack, so a non-empty
+            # registry here means "start a fresh session", not "done".
+            patterns = @lock.synchronize { @handlers.keys }
+            break if patterns.empty? || @closing
+
+            reconnecting = false
+            attempts = 0
+            next
           rescue StandardError => error
             break if @closing
 

@@ -174,6 +174,24 @@ class TestKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_subkeyspaceitem_treats_glob_keys_literally
+    target_version("8.8") do
+      apply_flags "KEASTIV"
+      queue = Queue.new
+      manager = new_manager
+      manager.subscribe_subkeyspaceitem("e2e:h*sh", "name", db: 15) { |notification| queue << notification }
+
+      r.hset("e2e:hXsh", "name", "decoy") # would match (and arrive first) if "*" acted as a glob
+      r.hset("e2e:h*sh", "name", "alice")
+
+      notification = assert_pop(queue)
+      assert_equal "e2e:h*sh", notification.key
+      assert_equal "name", notification.subkey
+      sleep 0.1
+      assert_predicate queue, :empty?
+    end
+  end
+
   def test_subkey_flags_require_the_type_flag
     target_version("8.8") do
       apply_flags "STIV" # no `h`/`A` type flag: hash subkey events must NOT fire

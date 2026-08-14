@@ -339,6 +339,30 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal "late", assert_pop(queue).key
   end
 
+  def test_replacing_the_last_subscription_from_within_a_handler
+    queue = Queue.new
+    manager = new_manager
+    first = CHANNELS.keyspace("swap:first", db: DB)
+    second = CHANNELS.keyspace("swap:second", db: DB)
+    manager.subscribe(first, handler: lambda { |notification|
+      # Unsubscribe everything, then register a replacement before returning: the
+      # session ends on the punsubscribe ack, but the listener must restart for
+      # the replacement instead of treating it as a clean shutdown.
+      manager.unsubscribe
+      manager.subscribe(second, handler: ->(n) { queue << n })
+      queue << notification
+    })
+
+    r.set("swap:first", "v")
+
+    assert_equal "swap:first", assert_pop(queue).key
+    wait_until { manager.patterns == [second] }
+
+    r.set("swap:second", "v")
+
+    assert_equal "swap:second", assert_pop(queue).key
+  end
+
   def test_close_interrupts_a_reconnect_backoff
     errors = Queue.new
     # A single long delay: without an interruptible backoff, close would leave the

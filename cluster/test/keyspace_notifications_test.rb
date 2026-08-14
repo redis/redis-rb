@@ -207,6 +207,27 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_refresh_with_empty_slots_reply_keeps_listeners_and_raises
+    queue = Queue.new
+    manager = new_manager
+    manager.subscribe_keyevent('set') { |notification| queue << notification.key }
+    listeners_before = manager.node_keys.sort
+
+    # A degraded/mid-reset node can answer CLUSTER SLOTS with an empty reply; the
+    # manager must refuse to reconcile against it rather than tear everything down.
+    redis.stubs(:cluster).with('slots').returns([])
+    begin
+      assert_raises(Redis::Cluster::KeyspaceNotificationsRefreshError) { manager.refresh }
+    ensure
+      redis.unstub(:cluster)
+    end
+
+    assert_equal listeners_before, manager.node_keys.sort
+    redis.set('survivor:key', 'v')
+
+    assert_equal 'survivor:key', queue.pop(timeout: 3)
+  end
+
   def test_subkey_notifications_on_cluster
     omit_version('8.8.0')
 

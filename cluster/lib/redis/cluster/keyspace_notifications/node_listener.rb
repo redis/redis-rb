@@ -18,6 +18,16 @@ class Redis
         def initialize(node_key, redis_options, queue, on_error:)
           @node_key = node_key
           @queue = queue
+          # One shared wrapper for every pattern: it only enqueues the notification;
+          # the user handler is resolved from the cluster registry AT DISPATCH TIME,
+          # so buffered events honor unsubscribes and handler replacements that
+          # completed while they were queued. Runs on this node's listener thread and
+          # blocks when the queue is full, back-pressuring this node's socket reads.
+          @enqueue = lambda do |notification|
+            @queue.push(notification)
+          rescue ClosedQueueError
+            nil # the cluster manager closed concurrently; drop the notification
+          end
           @redis = ::Redis.new(redis_options)
           @manager = ::Redis::KeyspaceNotifications::Manager.new(
             redis: @redis,
@@ -25,25 +35,24 @@ class Redis
           )
         end
 
-        # Reconcile this node with the registry: subscribe every registered pattern
+        # Reconcile this node with the registered patterns: subscribe every one
         # (idempotent — already-subscribed patterns are simply re-acked) and remove
         # any pattern the node is still subscribed to that is no longer registered
         # (e.g. a per-node unsubscribe failure that tracking-first removal left
         # behind). This is the per-node convergence step run by every refresh.
         #
-        # @param registry [Hash{String => #call, nil}] pattern => user handler
+        # @param patterns [Array<String>] the registered patterns
         # @return [NodeListener] self
-        def catch_up(registry)
-          registry.each { |pattern, handler| subscribe([pattern], handler) }
-          extra = @manager.patterns - registry.keys
+        def catch_up(patterns)
+          subscribe(patterns) unless patterns.empty?
+          extra = @manager.patterns - patterns
           @manager.unsubscribe(*extra) unless extra.empty?
           self
         end
 
         # @param patterns [Array<String>]
-        # @param handler [#call, nil] the user handler (resolved to the default at dispatch time when nil)
-        def subscribe(patterns, handler)
-          @manager.subscribe(*patterns, handler: enqueueing(handler))
+        def subscribe(patterns)
+          @manager.subscribe(*patterns, handler: @enqueue)
         end
 
         # @param patterns [Array<String>] empty for "everything"
@@ -69,19 +78,6 @@ class Redis
           @manager.close
         rescue StandardError
           nil
-        end
-
-        private
-
-        # Wraps a user handler into a proc that pushes into the shared dispatch queue.
-        # Runs on this node's listener thread; blocks when the queue is full, which
-        # back-pressures this node's socket reads.
-        def enqueueing(handler)
-          lambda do |notification|
-            @queue.push([handler, notification])
-          rescue ClosedQueueError
-            nil # the cluster manager closed concurrently; drop the notification
-          end
         end
       end
     end

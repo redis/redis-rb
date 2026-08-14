@@ -91,7 +91,7 @@ class Redis
         # node's acknowledgment (seconds against a sick node) and must not stall
         # dispatch, refresh or close. A refresh racing this call reconciles from the
         # already-updated registry, and re-subscribing is idempotent (re-acked).
-        each_listener_best_effort(listeners) { |listener| listener.subscribe(patterns, handler) }
+        each_listener_best_effort(listeners) { |listener| listener.subscribe(patterns) }
         nil
       end
 
@@ -146,10 +146,14 @@ class Redis
       end
 
       # Watch events on one exact key + subkey pair (Redis 8.8+, flag `I`).
+      # The key is treated literally — glob metacharacters in it are escaped, since
+      # every manager subscription is a psubscribe pattern — while the subkey keeps
+      # its documented glob behavior.
       # @param key [String] key name (must not contain "\n")
       # @param subkey [String] subkey (e.g. hash field) or glob pattern
       def subscribe_subkeyspaceitem(key, subkey = "*", &handler)
-        subscribe(::Redis::KeyspaceNotifications::Channels.subkeyspaceitem(key, subkey), handler: handler)
+        channels = ::Redis::KeyspaceNotifications::Channels
+        subscribe(channels.subkeyspaceitem(channels.glob_escape(key), subkey), handler: handler)
       end
 
       # Watch subkeys affected by +event+ on keys matching +key+ (Redis 8.8+, flag `V`).
@@ -188,6 +192,17 @@ class Redis
           return if @closed
 
           primaries = current_primaries
+          if primaries.empty?
+            # A cluster that answers CLUSTER SLOTS with no slot owners (mid-reset, or
+            # a degraded node's view) is not a topology to reconcile against: tearing
+            # every listener down would leave nothing to emit the connection errors
+            # that drive reactive recovery. Keep the current listeners and raise —
+            # the refresher's backoff loop (or the caller) retries.
+            raise KeyspaceNotificationsRefreshError.new(
+              {}, "CLUSTER SLOTS reported no primaries; keeping existing listeners"
+            )
+          end
+
           failures = {}
 
           # Prune vanished/demoted/unhealthy listeners under the lock; the
@@ -216,7 +231,20 @@ class Redis
                 # registered mid-refresh is covered either way (both are idempotent).
                 @lock.synchronize { @listeners[node_key] = listener }
               end
-              listener.catch_up(@lock.synchronize { @registry.dup })
+              # Converge on the LIVE registry: a subscribe/unsubscribe completing
+              # between the snapshot and the catch-up would otherwise be undone by
+              # the stale snapshot (e.g. re-subscribing a just-unsubscribed pattern)
+              # with no later signal to correct it. Loop until a pass ran against an
+              # unchanged registry; churn during a refresh is rare, so the bound is
+              # a livelock guard, not an expected path.
+              snapshot = @lock.synchronize { @registry.keys }
+              5.times do
+                listener.catch_up(snapshot)
+                current = @lock.synchronize { @registry.keys }
+                break if current == snapshot
+
+                snapshot = current
+              end
             rescue StandardError => error
               failures[node_key] = error
               @lock.synchronize { @listeners.delete(node_key) }&.close
@@ -312,14 +340,19 @@ class Redis
         when String
           uri = URI.parse(node)
           # Mirror redis-client's URL semantics: components are percent-decoded
-          # (passing them as explicit options bypasses its URL decoder), and a
-          # user-only URL (redis://secret@host) carries a password, not a username.
+          # (passing them as explicit options bypasses its URL decoder), a user-only
+          # URL (redis://secret@host) carries a password rather than a username, and
+          # an empty user (redis://:secret@host) means password-only authentication.
+          user = uri.user
+          user = nil if user && user.empty?
           derived = {}
-          if uri.user && uri.password
-            derived[:username] = URI.decode_www_form_component(uri.user)
+          if user && uri.password
+            derived[:username] = URI.decode_www_form_component(user)
             derived[:password] = URI.decode_www_form_component(uri.password)
-          elsif uri.user
-            derived[:password] = URI.decode_www_form_component(uri.user)
+          elsif user
+            derived[:password] = URI.decode_www_form_component(user)
+          elsif uri.password
+            derived[:password] = URI.decode_www_form_component(uri.password)
           end
           derived[:ssl] = true if uri.scheme == "rediss"
           derived
@@ -356,11 +389,10 @@ class Redis
 
       def spawn_dispatcher
         thread = Thread.new do
-          while (item = @queue.pop)
-            handler, notification = item
+          while (notification = @queue.pop)
             # Buffered items surviving a close are dropped, not dispatched: callers
             # may have torn down handler dependencies the moment close returned.
-            dispatch(handler, notification) unless @closed
+            dispatch(notification) unless @closed
           end
         end
         thread.name = "redis-cluster-keyspace-notifications"
@@ -406,8 +438,15 @@ class Redis
         thread
       end
 
-      def dispatch(handler, notification)
-        handler ||= @lock.synchronize { @default_handler }
+      # The handler is resolved from the live registry at dispatch time (queue items
+      # carry only the notification): buffered events honor unsubscribes and handler
+      # replacements that completed while they were queued, and events for patterns
+      # no longer registered are dropped rather than leaked to a stale handler.
+      def dispatch(notification)
+        key = notification.pattern&.b
+        handler = @lock.synchronize do
+          @registry.key?(key) ? (@registry[key] || @default_handler) : nil
+        end
         handler&.call(notification)
       rescue StandardError => error
         report_error(error, nil)

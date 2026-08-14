@@ -91,6 +91,15 @@ class Redis
         channel << "|" << key.b
       end
 
+      # Escapes Redis glob metacharacters (`*`, `?`, `[`, `]`, `\`) so a literal
+      # key can be embedded in a psubscribe pattern without matching other keys.
+      #
+      # @param value [String]
+      # @return [String] the escaped value (BINARY encoded)
+      def glob_escape(value)
+        value.b.gsub(/[*?\[\]\\]/) { |char| "\\#{char}" }
+      end
+
       # @api private
       def build(family, db, suffix)
         validate_db!(db)

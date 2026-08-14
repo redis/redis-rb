@@ -53,7 +53,8 @@ class Redis
       # @param error_message [String]
       def initialize(errors, error_message = 'Some primaries could not be subscribed for keyspace notifications')
         @errors = errors
-        super("#{error_message}: #{errors.keys.join(', ')}")
+        error_message = "#{error_message}: #{errors.keys.join(', ')}" unless errors.empty?
+        super(error_message)
       end
     end
 
