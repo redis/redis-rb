@@ -134,7 +134,7 @@ class Redis
         end
 
         begin
-          wait_for_confirmation(patterns)
+          wait_for_confirmation(patterns, installed)
         rescue StandardError
           rollback_registration(previous, installed)
           raise
@@ -407,7 +407,11 @@ class Redis
             # replacement before returning: the loop exits on the punsubscribe ack
             # (count 0) without ever reading the replacement's ack, so a non-empty
             # registry here means "start a fresh session", not "done".
-            patterns = @lock.synchronize { @handlers.keys }
+            # Patterns still marked in @removing are NOT replacements: an unsubscribing
+            # thread deletes its registry entries only after this very ack woke it, so
+            # its target legitimately lingers in the registry at this instant —
+            # replaying it would resubscribe what was just removed.
+            patterns = @lock.synchronize { @handlers.keys - @removing.keys }
             break if patterns.empty? || @closing
 
             reconnecting = false
@@ -459,11 +463,16 @@ class Redis
       end
 
       def listen(patterns, reconnected)
-        announce_reconnect = reconnected
+        # The reconnect hook is documented to run AFTER the manager re-subscribed:
+        # fire it once every replayed pattern is either confirmed or no longer
+        # registered (unregistered acks are reverted and must not count as "live").
+        announce_pending = reconnected ? patterns.dup : nil
         @redis.psubscribe(*patterns) do |on|
           on.psubscribe do |pattern, _count|
             key = pattern.b
-            registered = @lock.synchronize do
+            registered = false
+            announce = false
+            @lock.synchronize do
               @session_confirmed = true
               # The listener demonstrably recovered: a stale error from a previous
               # session must not be re-raised by a later wait on a clean exit.
@@ -473,20 +482,24 @@ class Redis
               # unvalidated entry whose registration is already gone (subscribed and
               # unsubscribed within one handler) is purged too, not retained forever.
               @unvalidated.delete(key) if !@handlers.key?(key) || @unvalidated[key].equal?(@handlers[key])
-              next false unless @handlers.key?(key)
-
-              @confirmed[key] = true
-              @cond.broadcast
-              true
+              if @handlers.key?(key)
+                @confirmed[key] = true
+                @cond.broadcast
+                registered = true
+              end
+              if announce_pending
+                announce_pending.reject! { |p| @confirmed.key?(p) || !@handlers.key?(p) }
+                if announce_pending.empty?
+                  announce_pending = nil
+                  announce = true
+                end
+              end
             end
             # The server confirmed a pattern nobody is registered for anymore (an
             # unsubscribe or a rolled-back subscribe raced this ack): revert it so
             # server state converges back to the registry.
             revert_subscription(pattern) unless registered
-            if announce_reconnect
-              announce_reconnect = false
-              fire_reconnect
-            end
+            fire_reconnect if announce
           end
           on.punsubscribe do |pattern, _count|
             key = pattern.b
@@ -532,11 +545,17 @@ class Redis
         report_error(error)
       end
 
-      def wait_for_confirmation(patterns)
+      # Waits for every pattern that is still THIS call's to confirm. A pattern whose
+      # registration was removed or replaced by a concurrent operation stops being
+      # waited for — it resolves to that operation's outcome, and timing out on it
+      # would make the rollback tear down the batch's innocent siblings (the cluster
+      # catch-up batches a node's whole registry, so one racing unsubscribe would
+      # otherwise fail the entire node refresh).
+      def wait_for_confirmation(patterns, installed)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
         @lock.synchronize do
-          until patterns.all? { |pattern| @confirmed.key?(pattern) }
+          until patterns.all? { |pattern| @confirmed.key?(pattern) || !@handlers[pattern].equal?(installed[pattern]) }
             # A CommandError means the server REJECTED a command on this session
             # (e.g. an ACL-forbidden pattern): retrying cannot fix it, so raise it
             # promptly — the caller's rollback then removes the poisoned registration
@@ -563,7 +582,7 @@ class Redis
             raise SubscriptionError, "timed out waiting for subscription confirmation" if remaining <= 0
 
             @cond.wait([remaining, 0.05].min)
-            reissue_unconfirmed(patterns)
+            reissue_unconfirmed(patterns, installed)
           end
         end
         nil
@@ -574,8 +593,10 @@ class Redis
       # established (thread starting up, or between reconnect attempts). Subscribing
       # to an already-subscribed pattern is harmless — the server just re-acks it.
       # Patterns removed from the registry in the meantime are skipped.
-      def reissue_unconfirmed(patterns)
-        unconfirmed = patterns.select { |pattern| @handlers.key?(pattern) && !@confirmed.key?(pattern) }
+      def reissue_unconfirmed(patterns, installed)
+        unconfirmed = patterns.select do |pattern|
+          @handlers[pattern].equal?(installed[pattern]) && !@confirmed.key?(pattern)
+        end
         psubscribe_quietly(unconfirmed)
       end
 
@@ -590,7 +611,15 @@ class Redis
         @lock.synchronize do
           until patterns.none? { |pattern| @confirmed.key?(pattern) && @handlers[pattern].equal?(owned[pattern]) }
             remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-            raise SubscriptionError, "timed out waiting for unsubscription confirmation" if remaining <= 0
+            if remaining <= 0
+              # Clear the removal marks ATOMICALLY with the timeout decision: after
+              # this raise the registration stays (caller retries), so a late ack
+              # must see no mark and re-establish it — releasing the lock between
+              # the raise and a separate mark-clearing would let that ack slip
+              # through with stale ownership and leave the pattern deaf.
+              patterns.each { |pattern| @removing.delete(pattern) if @removing[pattern].equal?(owned[pattern]) }
+              raise SubscriptionError, "timed out waiting for unsubscription confirmation"
+            end
 
             @cond.wait([remaining, 0.05].min)
             pending = patterns.select do |pattern|

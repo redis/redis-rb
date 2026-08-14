@@ -395,10 +395,13 @@ class Redis
         when String
           options_from_node_url(node)
         when Hash
-          # The documented hash form may carry a standalone-style :url whose TLS and
-          # credentials exist nowhere else; explicit keys override what the URL says.
+          # The documented hash form accepts the same options as a single-server
+          # connection (ssl_params, credentials, a standalone-style :url whose TLS
+          # and credentials may exist nowhere else, ...): pass everything through
+          # except the seed's addressing — sidecars dial the discovered primaries.
+          # Explicit keys override what the :url says.
           url_options = node[:url] ? options_from_node_url(node[:url]) : {}
-          url_options.merge(node.slice(:username, :password, :ssl))
+          url_options.merge(node.except(:host, :port, :url))
         else
           {}
         end
