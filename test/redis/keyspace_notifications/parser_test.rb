@@ -166,6 +166,13 @@ class TestKeyspaceNotificationsParser < Minitest::Test
     assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspace@0__:h", "hset|1:a1:b") }
   end
 
+  def test_raises_on_absent_subkey_list
+    # The grammar requires at least one entry; an empty subkey is "0:", never nothing.
+    assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspace@0__:h", "hset|") }
+    assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyevent@0__:hdel", "6:myhash|") }
+    assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspaceevent@0__:hset|key", "") }
+  end
+
   def test_raises_on_missing_newline_in_subkeyspaceitem
     assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspaceitem@0__:myhash", "hset") }
   end

@@ -87,6 +87,12 @@ class Redis
           patterns.each { |pattern| @registry[pattern] = handler }
           @listeners.to_a
         end
+        # Called from inside a handler, this runs on the dispatcher thread: the
+        # ack-blocking fan-out below could deadlock against node readers stuck on a
+        # full queue (they can't read acks until the dispatcher drains). Defer the
+        # fan-out to the refresher, which reconciles from the updated registry.
+        return request_refresh(nil) if dispatcher_thread?
+
         # Fan out WITHOUT holding the lock: each per-node subscribe blocks on that
         # node's acknowledgment (seconds against a sick node) and must not stall
         # dispatch, refresh or close. A refresh racing this call reconciles from the
@@ -118,9 +124,15 @@ class Redis
           patterns.empty? ? @registry.clear : patterns.each { |pattern| @registry.delete(pattern) }
           @listeners.to_a
         end
+        # In-handler calls defer the ack-blocking fan-out to the refresher, exactly
+        # like #subscribe (the dispatcher must keep draining for acks to flow).
+        return request_refresh(nil) if dispatcher_thread?
+
         # Tracking was removed first (see above); the ack-blocking fan-out happens
-        # outside the lock for the same reasons as in #subscribe.
-        each_listener_best_effort(listeners) { |listener| listener.unsubscribe(patterns) }
+        # outside the lock for the same reasons as in #subscribe. Always the captured
+        # targets — an empty pattern list would mean "everything" at the node level
+        # and also drop patterns a concurrent subscribe added after our capture.
+        each_listener_best_effort(listeners) { |listener| listener.unsubscribe(targets) }
         # A concurrent subscribe may have re-registered one of these patterns and had
         # its node subscriptions undone by our fan-out; the refresher reconciles.
         request_refresh(nil) if @lock.synchronize { targets.any? { |pattern| @registry.key?(pattern) } }
@@ -246,13 +258,22 @@ class Redis
               # unchanged registry; churn during a refresh is rare, so the bound is
               # a livelock guard, not an expected path.
               snapshot = @lock.synchronize { @registry.keys }
+              converged = false
               5.times do
                 listener.catch_up(snapshot)
                 current = @lock.synchronize { @registry.keys }
-                break if current == snapshot
+                if current == snapshot
+                  converged = true
+                  break
+                end
 
                 snapshot = current
               end
+              # Bound exhausted with the registry still churning: never accept a
+              # possibly-stale node silently — the concurrent operations that kept
+              # changing the registry saw it already updated and requested no refresh
+              # themselves, so schedule the next reconciliation here.
+              request_refresh(nil) unless converged
             rescue StandardError => error
               failures[node_key] = error
               @lock.synchronize { @listeners.delete(node_key) }&.close
@@ -303,7 +324,10 @@ class Redis
           @queue.close
         end
         join_timeout = Redis::KeyspaceNotifications::Manager::DEFAULT_CLOSE_TIMEOUT
-        @refresher.join(join_timeout)
+        # Same guard for both: close may be invoked from a handler (dispatcher) or
+        # from an error handler fired by a failed reactive refresh (refresher), and
+        # a self-join raises ThreadError.
+        @refresher.join(join_timeout) unless @refresher.equal?(Thread.current)
         @dispatcher.join(join_timeout) unless @dispatcher.equal?(Thread.current)
         nil
       end
@@ -388,6 +412,11 @@ class Redis
           @refresh_needed = true
           @refresh_cond.broadcast
         end
+        nil
+      end
+
+      def dispatcher_thread?
+        Thread.current.equal?(@dispatcher)
       end
 
       def spawn_dispatcher

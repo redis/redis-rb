@@ -60,6 +60,8 @@ class Redis
         @thread = nil
         @listener_error = nil
         @reconnect_now = false
+        @removing = {} # pattern => the Registration an in-flight unsubscribe targets
+        @unvalidated = {} # pattern => Registration installed from a handler, unconfirmed yet
         @closing = false
         @closed = false
       end
@@ -121,8 +123,14 @@ class Redis
         # Called from inside a handler, this runs on the listener thread — the only
         # thread that can read the acknowledgments — so waiting would stall delivery
         # until timeout. The command is on the wire; the acks are processed as soon
-        # as the handler returns.
-        return if listener_thread?
+        # as the handler returns. Because nobody waits, a server rejection (e.g. an
+        # ACL-forbidden pattern) can't roll back here either — the registrations are
+        # marked unvalidated so a session-killing command error removes them instead
+        # of poisoning every reconnect replay with the rejected pattern.
+        if listener_thread?
+          @lock.synchronize { patterns.each { |pattern| @unvalidated[pattern] = installed[pattern] } }
+          return
+        end
 
         begin
           wait_for_confirmation(patterns)
@@ -157,12 +165,21 @@ class Redis
 
           # Capture the exact registrations this call is removing: a concurrent
           # subscribe replacing one of them mid-flight must neither be deleted from
-          # the registry nor have its server-side subscription fought below.
-          targets.each { |pattern| owned[pattern] = @handlers[pattern] }
+          # the registry nor have its server-side subscription fought below. The
+          # @removing marks tell the punsubscribe-ack invariant which registration
+          # each ack is aimed at, so it can re-establish a replacement our command
+          # killed on the wire (subscribe write ordered before our unsubscribe write).
+          targets.each do |pattern|
+            owned[pattern] = @handlers[pattern]
+            @removing[pattern] = owned[pattern]
+          end
 
           if listening?
             begin
-              @redis.punsubscribe(*patterns)
+              # Always the captured targets, never a blanket PUNSUBSCRIBE: with no
+              # arguments the server would also drop patterns a concurrent subscribe
+              # added after our capture.
+              @redis.punsubscribe(*targets)
             rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
               # The listener session is down, so nothing is subscribed server-side
               # anymore and removal is already consistent; wait_for_removal falls
@@ -172,25 +189,34 @@ class Redis
           end
         end
 
-        if listener_thread?
-          # Called from inside a handler (the one-shot subscription pattern): this
-          # thread is the only one that can read the acknowledgment, so waiting would
-          # stall delivery until timeout. The command is on the wire — commit the
-          # removal now. In-flight messages are dropped by dispatch's registry check,
-          # and a replay race is reverted by the ack-time registry check.
+        begin
+          if listener_thread?
+            # Called from inside a handler (the one-shot subscription pattern): this
+            # thread is the only one that can read the acknowledgment, so waiting would
+            # stall delivery until timeout. The command is on the wire — commit the
+            # removal now. In-flight messages are dropped by dispatch's registry check,
+            # and a replay race is reverted by the ack-time registry check.
+            @lock.synchronize do
+              targets.each { |pattern| @handlers.delete(pattern) if @handlers[pattern].equal?(owned[pattern]) }
+            end
+            return
+          end
+
+          wait_for_removal(targets, owned)
           @lock.synchronize do
             targets.each { |pattern| @handlers.delete(pattern) if @handlers[pattern].equal?(owned[pattern]) }
+            # A reconnect replay may have re-subscribed a target between the ack and
+            # this removal; sweep anything still acknowledged that no registration owns.
+            sweep = targets.select { |pattern| @confirmed.key?(pattern) && !@handlers.key?(pattern) }
+            punsubscribe_quietly(sweep)
           end
-          return
-        end
-
-        wait_for_removal(targets, owned)
-        @lock.synchronize do
-          targets.each { |pattern| @handlers.delete(pattern) if @handlers[pattern].equal?(owned[pattern]) }
-          # A reconnect replay may have re-subscribed a target between the ack and
-          # this removal; sweep anything still acknowledged that no registration owns.
-          sweep = targets.select { |pattern| @confirmed.key?(pattern) && !@handlers.key?(pattern) }
-          punsubscribe_quietly(sweep)
+        ensure
+          # Late acks (after a timeout raise, or after this call finished) are then
+          # judged purely by the live registry: a still-registered pattern gets
+          # re-established by the ack invariant instead of matching a stale mark.
+          @lock.synchronize do
+            targets.each { |pattern| @removing.delete(pattern) if @removing[pattern].equal?(owned[pattern]) }
+          end
         end
         nil
       end
@@ -381,6 +407,16 @@ class Redis
             # The subscription loop bypasses Redis::Client's rescue wrappers, so
             # redis-client errors surface untranslated here.
             error = translate_error(error)
+            if error.is_a?(CommandError)
+              # The server rejected a command on this session — most likely a pattern
+              # subscribed from inside a handler (nobody could wait for its ack, so
+              # nobody could roll it back). Drop the unvalidated registrations rather
+              # than replaying the rejected pattern on every reconnect forever.
+              @lock.synchronize do
+                @unvalidated.each { |pattern, entry| @handlers.delete(pattern) if @handlers[pattern].equal?(entry) }
+                @unvalidated.clear
+              end
+            end
             @lock.synchronize { @listener_error = error }
             report_error(error)
           ensure
@@ -420,6 +456,9 @@ class Redis
               # The listener demonstrably recovered: a stale error from a previous
               # session must not be re-raised by a later wait on a clean exit.
               @listener_error = nil
+              # The server accepted this pattern: an in-handler registration is
+              # validated and no longer subject to command-error rollback.
+              @unvalidated.delete(key) if @unvalidated[key].equal?(@handlers[key])
               next false unless @handlers.key?(key)
 
               @confirmed[key] = true
@@ -436,10 +475,19 @@ class Redis
             end
           end
           on.punsubscribe do |pattern, _count|
-            @lock.synchronize do
-              @confirmed.delete(pattern.b)
+            key = pattern.b
+            still_wanted = @lock.synchronize do
+              @confirmed.delete(key)
               @cond.broadcast
+              entry = @handlers[key]
+              # Wanted again unless this ack answers the unsubscribe that targets the
+              # live registration (the normal flow, where deletion follows the ack).
+              !entry.nil? && !entry.equal?(@removing[key])
             end
+            # A registered pattern lost its server-side subscription to an unsubscribe
+            # aimed at an older, since-replaced registration (the two block-less writes
+            # crossed on the wire): re-establish it.
+            psubscribe_quietly([pattern]) if still_wanted
           end
           on.pmessage do |pattern, channel, payload|
             dispatch(pattern, channel, payload)
@@ -539,6 +587,14 @@ class Redis
         return if patterns.empty? || !@redis.subscribed?
 
         @redis.punsubscribe(*patterns)
+      rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
+        nil
+      end
+
+      def psubscribe_quietly(patterns)
+        return if patterns.empty? || !@redis.subscribed?
+
+        @redis.psubscribe(*patterns)
       rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
         nil
       end

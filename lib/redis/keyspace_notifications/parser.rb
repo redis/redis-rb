@@ -134,11 +134,13 @@ class Redis
 
       # @api private
       # Reads "<len>:<subkey>[,<len>:<subkey>...]" from +pos+ to the end of +buf+.
-      # Returns an ordered Array preserving duplicates.
+      # Returns an ordered Array preserving duplicates. The grammar requires at
+      # least one entry — an empty subkey is "0:", never an absent list — so a
+      # payload ending right at +pos+ is malformed, not an empty list.
       def parse_subkey_list(buf, pos, channel)
         subkeys = []
         size = buf.bytesize
-        return subkeys if pos >= size
+        raise error("missing subkey list at byte #{pos}", channel, buf) if pos >= size
 
         loop do
           value, pos = read_length_prefixed(buf, pos, channel)

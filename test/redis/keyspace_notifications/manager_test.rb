@@ -369,25 +369,31 @@ class TestKeyspaceNotificationsManager < Minitest::Test
 
     10.times do
       queue = Queue.new
-      manager.subscribe(channel, handler: ->(_notification) {})
+      manager.subscribe(channel, handler: ->(notification) { queue << notification })
 
       unsubscriber = Thread.new do
         manager.unsubscribe(channel)
       rescue Redis::SubscriptionError
         nil
       end
-      resubscribed = begin
+      begin
         manager.subscribe(channel, handler: ->(notification) { queue << notification })
-        true
       rescue Redis::SubscriptionError
-        false
+        nil # rolled back: the concurrent unsubscribe won
       end
       unsubscriber.join
 
-      # Whatever the interleaving, local registration and delivery must agree:
-      # a surviving re-registration receives events, an absent one receives none.
+      # Concurrent subscribe/unsubscribe of one pattern has no defined winner; the
+      # contract is convergence — the server-side subscription must agree with the
+      # local registration (the ack-time invariants repair wire-order races), and
+      # delivery must agree with both.
+      wait_until(timeout: 3) do
+        registered = manager.patterns
+        (registered.empty? || registered == [channel]) && r.pubsub(:numpat) == registered.size
+      end
+      registered = manager.patterns.include?(channel)
       r.set("race", "v")
-      if resubscribed && manager.patterns.include?(channel)
+      if registered
         assert_equal "race", assert_pop(queue).key
       else
         sleep 0.05
