@@ -343,7 +343,7 @@ class Redis
       end
 
       CLUSTER_ONLY_OPTIONS = %i[
-        nodes replica replica_affinity fixed_hostname connector concurrency
+        nodes replica replica_affinity fixed_hostname concurrency
         connect_with_original_config max_startup_sample slow_command_timeout
         command_routings
       ].freeze

@@ -126,10 +126,12 @@ class Redis
         raise error("invalid length #{len_str.inspect} at byte #{pos}", channel, buf) unless /\A\d+\z/.match?(len_str)
 
         len = len_str.to_i
-        value = buf.byteslice(colon + 1, len)
-        raise error("truncated value at byte #{colon + 1}", channel, buf) if value.nil? || value.bytesize < len
+        # Bounds-check before byteslice: a length exceeding the remaining bytes is
+        # malformed input (and an absurdly large one would otherwise surface as
+        # RangeError from byteslice instead of the documented ParseError).
+        raise error("truncated value at byte #{colon + 1}", channel, buf) if len > buf.bytesize - (colon + 1)
 
-        [value, colon + 1 + len]
+        [buf.byteslice(colon + 1, len), colon + 1 + len]
       end
 
       # @api private

@@ -427,6 +427,41 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal "new", assert_pop(new_queue).key
   end
 
+  def test_blockless_writes_tolerate_a_torn_down_pubsub_connection
+    manager = new_manager
+    manager.subscribe(CHANNELS.keyspace("a", db: DB))
+    internal = manager.instance_variable_get(:@redis)
+
+    # The exact shape redis-client's PubSub produces when a concurrent session
+    # teardown discarded the raw connection: `nil.write(...)`.
+    torn_down = begin
+      nil.write("x")
+    rescue NoMethodError => error
+      error
+    end
+    internal.stubs(:punsubscribe).raises(torn_down)
+
+    refute manager.send(:write_to_session, :punsubscribe, ["a"]),
+           "the torn-down-connection race must read as 'session gone', not raise"
+
+    # Unrelated NoMethodErrors are real bugs and must escape: a non-nil receiver,
+    # and a manually built error with no receiver information at all.
+    other_receiver = begin
+      Object.new.write("x")
+    rescue NoMethodError => error
+      error
+    end
+    internal.stubs(:punsubscribe).raises(other_receiver)
+
+    assert_raises(NoMethodError) { manager.send(:write_to_session, :punsubscribe, ["a"]) }
+
+    internal.stubs(:punsubscribe).raises(NoMethodError.new("undefined method 'write'"))
+
+    assert_raises(NoMethodError) { manager.send(:write_to_session, :punsubscribe, ["a"]) }
+  ensure
+    internal&.unstub(:punsubscribe)
+  end
+
   def test_close_interrupts_a_reconnect_backoff
     errors = Queue.new
     # A single long delay: without an interruptible backoff, close would leave the

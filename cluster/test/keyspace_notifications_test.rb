@@ -159,14 +159,24 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     src_key = "#{src['master']['ip']}:#{src['master']['port']}"
     dest_key = "#{dest['master']['ip']}:#{dest['master']['port']}"
 
-    redis_cluster_resharding(slot, src: src_key, dest: dest_key) do
-      redis.set(key, 'v')
+    # The new owner emits the event while it holds the slot (the helper migrates
+    # the slot back afterwards); all-primaries fan-out means we are already
+    # subscribed there.
+    new_owner_check = lambda do
+      redis.set(key, 'v2')
+
       assert_equal key, queue.pop(timeout: 5)
     end
 
-    # After the migration the new owner emits the event; all-primaries fan-out
-    # means we are already subscribed there.
-    redis.set(key, 'v2')
+    redis_cluster_resharding(slot, src: src_key, dest: dest_key, after_finish: new_owner_check) do
+      redis.set(key, 'v')
+
+      assert_equal key, queue.pop(timeout: 5)
+    end
+
+    # And delivery still works once the slot returned to its canonical owner.
+    redis.set(key, 'v3')
+
     assert_equal key, queue.pop(timeout: 5)
   end
 

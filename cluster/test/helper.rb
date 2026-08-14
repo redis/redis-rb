@@ -196,11 +196,15 @@ module Helper
     # @param slot [Integer]
     # @param src [String] <ip>:<port>
     # @param dest [String] <ip>:<port>
-    def redis_cluster_resharding(slot, src:, dest:)
+    # @param after_finish [#call, nil] runs after the forward migration completed,
+    #   while +dest+ still owns the slot — assertions about the new owner belong
+    #   here, because the slot is migrated back before this method returns
+    def redis_cluster_resharding(slot, src:, dest:, after_finish: nil)
       trib = ClusterOrchestrator.new(_default_nodes, timeout: TIMEOUT)
       trib.start_resharding(slot, src, dest)
       yield
       trib.finish_resharding(slot, dest)
+      after_finish&.call
       # Migrate the slot back to its canonical owner so the ensure's rebuild finds
       # a consistent cluster and skips its ~6s teardown. On exception the rebuild
       # below restores the full layout.

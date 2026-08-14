@@ -101,9 +101,7 @@ class Redis
             @handlers[pattern] = installed[pattern] = Registration.new(handler)
           end
           if listening?
-            begin
-              @redis.psubscribe(*patterns)
-            rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
+            unless write_to_session(:psubscribe, patterns)
               # The listener session is down (likely parked in a reconnect backoff
               # that can far outlast our confirmation wait): wake it to attempt the
               # reconnect NOW. If the server is back, the replay covers this pattern
@@ -175,17 +173,14 @@ class Redis
           end
 
           if listening?
-            begin
-              # Always the captured targets, never a blanket PUNSUBSCRIBE: with no
-              # arguments the server would also drop patterns a concurrent subscribe
-              # added after our capture.
-              @redis.punsubscribe(*targets)
-            rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
-              # The listener session is down, so nothing is subscribed server-side
-              # anymore and removal is already consistent; wait_for_removal falls
-              # through once the session's confirmations are cleared. A replay racing
-              # this removal is reverted by the listener's registry check on its ack.
-            end
+            # Always the captured targets, never a blanket PUNSUBSCRIBE: with no
+            # arguments the server would also drop patterns a concurrent subscribe
+            # added after our capture. A false return means the session is down —
+            # nothing is subscribed server-side anymore and removal is already
+            # consistent; wait_for_removal falls through once the session's
+            # confirmations are cleared, and a replay racing this removal is
+            # reverted by the listener's registry check on its ack.
+            write_to_session(:punsubscribe, targets)
           end
         end
 
@@ -552,11 +547,7 @@ class Redis
       # Patterns removed from the registry in the meantime are skipped.
       def reissue_unconfirmed(patterns)
         unconfirmed = patterns.select { |pattern| @handlers.key?(pattern) && !@confirmed.key?(pattern) }
-        return if unconfirmed.empty? || !@redis.subscribed?
-
-        @redis.psubscribe(*unconfirmed)
-      rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
-        nil
+        psubscribe_quietly(unconfirmed)
       end
 
       # Blocks until the server no longer acknowledges any still-owned target as
@@ -586,17 +577,39 @@ class Redis
       def punsubscribe_quietly(patterns)
         return if patterns.empty? || !@redis.subscribed?
 
-        @redis.punsubscribe(*patterns)
-      rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
-        nil
+        write_to_session(:punsubscribe, patterns)
       end
 
       def psubscribe_quietly(patterns)
         return if patterns.empty? || !@redis.subscribed?
 
-        @redis.psubscribe(*patterns)
+        write_to_session(:psubscribe, patterns)
+      end
+
+      # Every block-less write onto the subscription socket races its teardown:
+      # between any subscribed? check and the write, the session can close under us.
+      # That surfaces as SubscriptionError (no session), a connection error (socket
+      # died), or — when redis-client's PubSub has already discarded its raw
+      # connection — a NoMethodError on nil. All three mean the same thing here:
+      # the session is gone, and the registry replay plus the ack-time invariants
+      # own convergence. Returns false in that case, true when the write went out.
+      def write_to_session(verb, patterns)
+        @redis.public_send(verb, *patterns)
+        true
       rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
-        nil
+        false
+      rescue NoMethodError => error
+        # NoMethodError#receiver raises ArgumentError when the error carries no
+        # receiver information (e.g. manually constructed) — treat that as "not
+        # the torn-down-connection shape" and re-raise.
+        receiver_nil = begin
+          error.receiver.nil?
+        rescue ArgumentError
+          false
+        end
+        raise unless error.name == :write && receiver_nil
+
+        false
       end
 
       # A raised subscribe must leave no trace: restore each pattern's previous
@@ -620,19 +633,13 @@ class Redis
         end
         return if revert.empty?
 
-        begin
-          @redis.punsubscribe(*revert)
-        rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
-          nil
-        end
+        write_to_session(:punsubscribe, revert)
       end
 
       # Best-effort punsubscribe of a single server-confirmed but unregistered
       # pattern (called from the listener thread's ack handling).
       def revert_subscription(pattern)
-        @redis.punsubscribe(pattern)
-      rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
-        nil
+        write_to_session(:punsubscribe, [pattern])
       end
 
       def fire_reconnect

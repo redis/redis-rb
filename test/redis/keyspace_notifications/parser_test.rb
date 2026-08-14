@@ -151,6 +151,13 @@ class TestKeyspaceNotificationsParser < Minitest::Test
     assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspace@0__:h", "hset|9:short") }
   end
 
+  def test_raises_on_oversized_length_prefix
+    # Larger than a native long: must be ParseError, not byteslice's RangeError.
+    assert_raises(PARSE_ERROR) do
+      PARSER.parse("__subkeyspace@0__:h", "hset|999999999999999999999999999999999:x")
+    end
+  end
+
   def test_raises_on_non_digit_length
     assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspace@0__:h", "hset|x:abc") }
     assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspace@0__:h", "hset|:abc") }

@@ -76,7 +76,6 @@ class Redis
     # @option options [Symbol] :replica_affinity scale reading strategy, currently supported: `:random`, `:latency`
     # @option options [String] :fixed_hostname Specify a FQDN if cluster mode enabled and
     #   client has to connect nodes via single endpoint with SSL/TLS
-    # @option options [Class] :connector Class of custom connector
     # @option options [String, Array<String>, false] :driver_info Identity a library built on top of
     #   `redis-rb` reports to every node via `CLIENT SETINFO`, shown as `lib-name=redis-rb(<driver_info>)`
     #   in `CLIENT LIST`. The recommended format is `<name>_v<version>`; an Array is joined with `;`.
