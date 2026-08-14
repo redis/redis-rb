@@ -518,6 +518,16 @@ class Redis
         restarted = false
         @lock.synchronize do
           until patterns.all? { |pattern| @confirmed.key?(pattern) }
+            # A CommandError means the server REJECTED a command on this session
+            # (e.g. an ACL-forbidden pattern): retrying cannot fix it, so raise it
+            # promptly — the caller's rollback then removes the poisoned registration
+            # instead of the replay churning until the generic timeout. The session
+            # rejection is indivisible, so every concurrent waiter gets it; their
+            # rolled-back subscriptions are safe to retry.
+            if (rejection = @listener_error).is_a?(CommandError)
+              raise rejection
+            end
+
             unless listening?
               raise @listener_error if @listener_error
               if @closing || @closed || restarted || @handlers.empty?

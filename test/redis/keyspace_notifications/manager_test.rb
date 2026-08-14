@@ -467,6 +467,34 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     internal&.unstub(:punsubscribe)
   end
 
+  def test_server_rejected_subscribe_raises_promptly_and_spares_other_patterns
+    r.acl("SETUSER", "kn_limited", "on", ">knpass", "+@all", "resetchannels", "&__keyspace@#{DB}__:allowed")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    errors = Queue.new
+    manager = Redis::KeyspaceNotifications::Manager.new(redis: restricted, error_handler: ->(error) { errors << error })
+    @managers << manager
+    queue = Queue.new
+    manager.subscribe(CHANNELS.keyspace("allowed", db: DB), handler: ->(notification) { queue << notification })
+
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    error = assert_raises(Redis::CommandError) { manager.subscribe(CHANNELS.keyspace("forbidden", db: DB)) }
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+    assert_match(/NOPERM|permission/i, error.message)
+    assert_operator elapsed, :<, 3, "a server rejection must raise promptly, not wait out the ack timeout"
+
+    # The rejected registration was rolled back, so the reconnect replay is clean
+    # and the surviving pattern recovers.
+    wait_until(timeout: 5) { r.pubsub(:numpat) == 1 }
+    r.set("allowed", "v")
+
+    assert_equal "allowed", assert_pop(queue).key
+    assert_equal [CHANNELS.keyspace("allowed", db: DB)], manager.patterns
+  ensure
+    r.acl("DELUSER", "kn_limited")
+  end
+
   def test_close_interrupts_a_reconnect_backoff
     errors = Queue.new
     # A single long delay: without an interruptible backoff, close would leave the

@@ -124,6 +124,10 @@ class Redis
           patterns.empty? ? @registry.clear : patterns.each { |pattern| @registry.delete(pattern) }
           @listeners.to_a
         end
+        # Nothing was registered: fanning out an empty list would mean "everything"
+        # at the node level and wipe patterns a concurrent subscribe just installed.
+        return if targets.empty?
+
         # In-handler calls defer the ack-blocking fan-out to the refresher, exactly
         # like #subscribe (the dispatcher must keep draining for acks to flow).
         return request_refresh(nil) if dispatcher_thread?
@@ -370,26 +374,33 @@ class Redis
         node = Array(@base_options[:nodes]).first
         case node
         when String
-          uri = URI.parse(node)
-          # An exact mirror of redis-cluster-client's parse_node_url (cluster_config.rb):
-          # the sidecars must authenticate with byte-identical credentials to the
-          # cluster client's own node connections, whatever that parser's quirks —
-          # including form-style decoding (`+` becomes a space there too). Diverging
-          # toward stricter URI semantics here would make sidecars fail against
-          # clusters that connect fine today; such a change belongs upstream, where
-          # both sides would inherit it together.
-          {
-            username: uri.user ? URI.decode_www_form_component(uri.user) : nil,
-            password: uri.password ? URI.decode_www_form_component(uri.password) : nil,
-            ssl: uri.scheme == "rediss"
-          }.reject { |_, value| value.nil? || value == "" || value == false }
+          options_from_node_url(node)
         when Hash
-          node.slice(:username, :password, :ssl)
+          # The documented hash form may carry a standalone-style :url whose TLS and
+          # credentials exist nowhere else; explicit keys override what the URL says.
+          url_options = node[:url] ? options_from_node_url(node[:url]) : {}
+          url_options.merge(node.slice(:username, :password, :ssl))
         else
           {}
         end
       rescue URI::InvalidURIError
         {}
+      end
+
+      # An exact mirror of redis-cluster-client's parse_node_url (cluster_config.rb):
+      # the sidecars must authenticate with byte-identical credentials to the
+      # cluster client's own node connections, whatever that parser's quirks —
+      # including form-style decoding (`+` becomes a space there too). Diverging
+      # toward stricter URI semantics here would make sidecars fail against
+      # clusters that connect fine today; such a change belongs upstream, where
+      # both sides would inherit it together.
+      def options_from_node_url(url)
+        uri = URI.parse(url)
+        {
+          username: uri.user ? URI.decode_www_form_component(uri.user) : nil,
+          password: uri.password ? URI.decode_www_form_component(uri.password) : nil,
+          ssl: uri.scheme == "rediss"
+        }.reject { |_, value| value.nil? || value == "" || value == false }
       end
 
       def each_listener_best_effort(listeners)
@@ -402,9 +413,17 @@ class Redis
       end
 
       # Called from node listener threads on every background error of a node.
+      # Only connection/session loss warrants topology reconciliation: parse errors
+      # and handler failures leave the node listener healthy, and refreshing on them
+      # would hammer CLUSTER SLOTS and re-subscribe every primary for e.g. a stream
+      # of malformed publications on a watched channel.
       def handle_node_error(node_key, error)
         report_error(error, node_key)
-        request_refresh(node_key)
+        request_refresh(node_key) if connection_failure?(error)
+      end
+
+      def connection_failure?(error)
+        error.is_a?(::Redis::BaseConnectionError) || error.is_a?(::RedisClient::ConnectionError)
       end
 
       def request_refresh(_node_key)

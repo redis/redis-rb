@@ -55,8 +55,11 @@ class Redis
           @manager.subscribe(*patterns, handler: @enqueue)
         end
 
-        # @param patterns [Array<String>] empty for "everything"
+        # @param patterns [Array<String>] never empty — an empty list would mean
+        #   "everything" to the core manager and race concurrent subscriptions
         def unsubscribe(patterns)
+          return if patterns.empty?
+
           @manager.unsubscribe(*patterns)
         end
 

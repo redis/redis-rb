@@ -301,9 +301,22 @@ class ClusterOrchestrator
         slots_view(client) == expected &&
         shards_masters_view(client) == expected_masters &&
         hashify_cluster_node_flags(client).values.count('slave') == 3
-    end
+    end && replication_pairs_healthy?
   rescue Redis::BaseError
     false
+  end
+
+  # A node can carry the `slave` flag in everyone's CLUSTER NODES view while its
+  # replication link is down or points at the wrong primary — later failover tests
+  # then lack the healthy pairs they assume. Verify each canonical replica is
+  # actually attached to its canonical master with the link up.
+  def replication_pairs_healthy?
+    take_slaves(@clients).zip(take_masters(@clients)).all? do |replica, master|
+      info = replica.info('replication')
+      info['role'] == 'slave' &&
+        info['master_link_status'] == 'up' &&
+        "#{info['master_host']}:#{info['master_port']}" == to_node_key(master)
+    end
   end
 
   # The layout #assign_slots + #replicate produce, as [[start, end, "host:port"], ...].

@@ -217,6 +217,17 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_unsubscribe_with_empty_registry_is_a_noop
+    queue = Queue.new
+    manager = new_manager
+    manager.unsubscribe # nothing registered: must not fan out "unsubscribe everything"
+
+    manager.subscribe_keyevent('set') { |notification| queue << notification.key }
+    redis.set('noop:key', 'v')
+
+    assert_equal 'noop:key', queue.pop(timeout: 3)
+  end
+
   def test_refresh_with_empty_slots_reply_keeps_listeners_and_raises
     queue = Queue.new
     manager = new_manager
