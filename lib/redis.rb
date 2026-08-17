@@ -317,11 +317,15 @@ class Redis
         @subscription_client = nil
       end
     else
-      unless @subscription_client
+      # Capture before use: the subscribed thread's teardown nils the ivar
+      # concurrently, and reading it twice would turn that race into a
+      # NoMethodError on nil instead of the SubscriptionError callers handle.
+      client = @subscription_client
+      unless client
         raise SubscriptionError, "This client is not subscribed"
       end
 
-      @subscription_client.call_v([method].concat(channels))
+      client.call_v([method].concat(channels))
     end
   end
 end

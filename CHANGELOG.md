@@ -46,6 +46,9 @@
 
 ## Bug fixes
 
+- Fix a race where calling `unsubscribe`/`punsubscribe` from another thread while the
+  subscribed client was concurrently tearing down raised `NoMethodError` instead of
+  `Redis::SubscriptionError`. (#1375)
 - Fix `FloatifyPairs` to not re-transform already transformed replies. (#1354)
 - `unlink` now returns `0` for an empty keyset, consistent with `del`. (#1316)
 
