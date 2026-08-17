@@ -409,12 +409,21 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       # registry (intent), confirmed (acked) and the server — otherwise a re-issue
       # can still be in flight while confirmed and NUMPAT momentarily read empty.
       registered = nil
-      wait_until(timeout: 3) do
+      settle_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 3
+      loop do
         registry = manager.instance_variable_get(:@handlers).keys
         confirmed = manager.patterns
         registered = registry == [channel]
-        (registry.empty? || registered) && registry.sort == confirmed.sort &&
-          r.pubsub(:numpat) == registry.size
+        break if (registry.empty? || registered) && registry.sort == confirmed.sort &&
+                 r.pubsub(:numpat) == registry.size
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) > settle_deadline
+          thread = manager.instance_variable_get(:@thread)
+          flunk "never settled: registry=#{registry.inspect} confirmed=#{confirmed.inspect} " \
+                "numpat=#{r.pubsub(:numpat)} removing=#{manager.instance_variable_get(:@removing).keys.inspect} " \
+                "listener=#{thread&.status.inspect} top=#{thread&.backtrace&.first.inspect}"
+        end
+        sleep 0.01
       end
       if registered
         # The settled subscription must deliver — but a single probe can be lost:
@@ -535,6 +544,21 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal [CHANNELS.keyspace("allowed", db: DB)], manager.patterns
   ensure
     r.acl("DELUSER", "kn_limited")
+  end
+
+  def test_completed_unsubscribe_marks_its_registration_dead
+    manager = new_manager
+    channel = CHANNELS.keyspace("dead", db: DB)
+    manager.subscribe(channel, handler: ->(_notification) {})
+    entry = manager.instance_variable_get(:@handlers)[channel]
+
+    manager.unsubscribe(channel)
+
+    # rollback_registration consults this flag when restoring "the previous
+    # registration": one disposed of by a completed unsubscribe (deleted, or
+    # released because it was replaced) must never be resurrected by a failed
+    # concurrent subscribe's rollback.
+    assert entry.failed, "a completed unsubscribe must mark its captured registration dead"
   end
 
   def test_close_interrupts_a_reconnect_backoff

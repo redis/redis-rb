@@ -26,9 +26,11 @@ class Redis
       # Registry values: a fresh object per (re-)subscription, so a concurrent
       # unsubscribe can tell "the registration I captured" apart from "the same
       # pattern re-registered meanwhile" and never removes or fights the latter.
-      # +failed+ is set when the owning subscribe call rolled back, so a later
-      # rollback restoring "the previous registration" never resurrects one whose
-      # caller already received an error.
+      # +failed+ marks a registration as dead for good — set when its own subscribe
+      # rolled back, or when an unsubscribe targeting it completed — so a concurrent
+      # failed subscribe's rollback never resurrects it as "the previous
+      # registration". (A timed-out unsubscribe does NOT mark: there the
+      # registration legitimately lives on and the caller retries.)
       Registration = Struct.new(:handler, :failed)
       private_constant :Registration
       # One sleep duration (in seconds) per consecutive reconnect attempt; the manager
@@ -129,7 +131,14 @@ class Redis
         # marked unvalidated so a session-killing command error removes them instead
         # of poisoning every reconnect replay with the rejected pattern.
         if listener_thread?
-          @lock.synchronize { patterns.each { |pattern| @unvalidated[pattern] = installed[pattern] } }
+          @lock.synchronize do
+            patterns.each do |pattern|
+              # Only mark a registration that is still the live one: a concurrent
+              # replacement between the install and this lock makes ours stale, and
+              # a stale marker matches no future ack and would be retained forever.
+              @unvalidated[pattern] = installed[pattern] if @handlers[pattern].equal?(installed[pattern])
+            end
+          end
           return
         end
 
@@ -196,6 +205,10 @@ class Redis
             # and a replay race is reverted by the ack-time registry check.
             @lock.synchronize do
               targets.each do |pattern|
+                # This call succeeded: the registrations it targeted are dead for good
+                # — either deleted below or already replaced. A failed subscribe's
+                # rollback must never resurrect one as "the previous registration".
+                owned[pattern].failed = true
                 next unless @handlers[pattern].equal?(owned[pattern])
 
                 @handlers.delete(pattern)
@@ -210,6 +223,10 @@ class Redis
           wait_for_removal(targets, owned)
           @lock.synchronize do
             targets.each do |pattern|
+              # This call succeeded: the registrations it targeted are dead for good
+              # — either deleted below or already replaced. A failed subscribe's
+              # rollback must never resurrect one as "the previous registration".
+              owned[pattern].failed = true
               next unless @handlers[pattern].equal?(owned[pattern])
 
               @handlers.delete(pattern)
@@ -477,11 +494,11 @@ class Redis
               # The listener demonstrably recovered: a stale error from a previous
               # session must not be re-raised by a later wait on a clean exit.
               @listener_error = nil
-              # The server accepted this pattern: an in-handler registration is
-              # validated and no longer subject to command-error rollback. An
-              # unvalidated entry whose registration is already gone (subscribed and
-              # unsubscribed within one handler) is purged too, not retained forever.
-              @unvalidated.delete(key) if !@handlers.key?(key) || @unvalidated[key].equal?(@handlers[key])
+              # Any ack for this pattern retires its validation marker: a marker
+              # matching the live registration is now validated; one that doesn't
+              # match is stale (its registration was replaced or removed) and would
+              # otherwise be retained forever.
+              @unvalidated.delete(key)
               if @handlers.key?(key)
                 @confirmed[key] = true
                 @cond.broadcast

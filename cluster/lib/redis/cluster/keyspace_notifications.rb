@@ -105,6 +105,11 @@ class Redis
         if listeners.empty? || @lock.synchronize { patterns.any? { |pattern| !@registry.key?(pattern) } }
           request_refresh(nil)
         end
+        # A close racing this call tore the listeners down after our snapshot and
+        # muted the refresher: returning success would leave the caller believing
+        # a subscription exists on a closed manager.
+        raise SubscriptionError, "keyspace notifications manager is closed" if @closed
+
         nil
       end
 
@@ -214,8 +219,16 @@ class Redis
       #
       # @return [void]
       # @raise [Redis::Cluster::KeyspaceNotificationsRefreshError] when one or more
-      #   primaries could not be subscribed (see its #errors for the per-node causes)
+      #   primaries could not be subscribed (see its #errors for the per-node causes).
+      #   Called from inside a notification handler, the reconciliation is instead
+      #   deferred to the background refresher and nothing is raised
       def refresh
+        # Called from inside a notification handler, this runs on the dispatcher
+        # thread: the ack-blocking catch-ups below could deadlock against node
+        # readers stuck on a full queue (their acks flow only while the dispatcher
+        # drains). Defer to the refresher thread, like #subscribe and #unsubscribe.
+        return request_refresh(nil) if dispatcher_thread?
+
         @refresh_lock.synchronize do
           return if @closed
 
