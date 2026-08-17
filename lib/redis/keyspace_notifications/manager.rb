@@ -420,15 +420,20 @@ class Redis
           begin
             listen(patterns, reconnecting)
             # Clean termination: every pattern unsubscribed, or close. One exception —
-            # a handler that unsubscribed the final pattern and registered a
-            # replacement before returning: the loop exits on the punsubscribe ack
-            # (count 0) without ever reading the replacement's ack, so a non-empty
-            # registry here means "start a fresh session", not "done".
-            # Patterns still marked in @removing are NOT replacements: an unsubscribing
-            # thread deletes its registry entries only after this very ack woke it, so
-            # its target legitimately lingers in the registry at this instant —
-            # replaying it would resubscribe what was just removed.
-            patterns = @lock.synchronize { @handlers.keys - @removing.keys }
+            # a subscription that replaced (or arrived alongside) the final
+            # unsubscribe: the loop exits on the punsubscribe ack (count 0) without
+            # ever reading the replacement's ack, so a registration here that is NOT
+            # the removal's own target means "start a fresh session", not "done".
+            # The ownership check must compare REGISTRATIONS, not patterns: an
+            # unsubscribing thread deletes its entry only after this very ack woke
+            # it, so its target legitimately lingers (skip it — replaying would
+            # resubscribe what was just removed), while a replacement under the same
+            # pattern is a different registration that must be replayed — its waiter
+            # may already have returned on the replaced entry's confirmation, leaving
+            # this recheck as the only actor that can revive it.
+            patterns = @lock.synchronize do
+              @handlers.reject { |pattern, entry| entry.equal?(@removing[pattern]) }.keys
+            end
             break if patterns.empty? || @closing
 
             reconnecting = false
