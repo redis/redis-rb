@@ -19,7 +19,7 @@
   dispatches parsed notifications from a single dispatcher thread, and reconciles reactively on
   node connection errors (`#refresh` is also public for post-scale-out reconciliation). Requires
   `notify-keyspace-events` to be enabled on every node, replicas included. See
-  specs/keyspace-notifications/keyspace-notifications.md.
+  specs/keyspace-notifications/user-guide.md.
 - Identify the client to every node via `CLIENT SETINFO` (`lib-name=redis-rb`,
   `lib-ver=<version>`). Extend the reported name with `driver_info:`, or disable with
   `driver_info: false`. (#1369)

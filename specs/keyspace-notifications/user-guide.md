@@ -10,6 +10,10 @@ binary-safe and length-prefixed), delivery is **fire-and-forget**, and in **clus
 are node-local — a naive `subscribe` receives only a fraction of them. redis-rb ships tested
 builders, a binary-safe parser, and managers so you don't have to reimplement any of that.
 
+This document is the user-facing contract. The internal architecture — threading and consistency
+models, edge-case handling, and the trade-offs behind each decision — is described in
+[internal_design.md](internal_design.md).
+
 ---
 
 ## 1. What the server provides

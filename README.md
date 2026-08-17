@@ -485,7 +485,7 @@ primaries). Remember to enable `notify-keyspace-events` on **every node,
 replicas included** — a promoted replica keeps its own config.
 
 Never `PUBLISH` to notification channels yourself; the server owns them.
-See [specs/keyspace-notifications/keyspace-notifications.md](specs/keyspace-notifications/keyspace-notifications.md)
+See [specs/keyspace-notifications/user-guide.md](specs/keyspace-notifications/user-guide.md)
 for wire formats, threading/lifecycle semantics and the full API, and
 `examples/keyspace_notifications.rb` for a runnable demo. `Redis::Distributed`
 is not supported.

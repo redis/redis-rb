@@ -22,7 +22,7 @@
   dedicated connection, dispatches typed `Notification` objects to handlers, and automatically
   re-subscribes after connection loss (`on_reconnect` signals the lossy gap). Enabling
   `notify-keyspace-events` on the server remains the operator's responsibility. Not supported by
-  `Redis::Distributed`. See specs/keyspace-notifications/keyspace-notifications.md.
+  `Redis::Distributed`. See specs/keyspace-notifications/user-guide.md.
 - Add `lmovem` and `blmovem` (Redis 8.10). (#1363)
 - Add `sunioncard` and `sdiffcard` (Redis 8.10). (#1357)
 - `xread` and `xreadgroup` now accept `max_count:` and `max_size:` (Redis 8.10). (#1358)

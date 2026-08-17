@@ -11,7 +11,7 @@ class Redis
   # Notifications must be enabled on the server via the `notify-keyspace-events`
   # configuration (a server-side, per-node setting — this library deliberately does not
   # set it for you). Notification channels are emitted by the server; do not PUBLISH to
-  # them manually. See specs/keyspace-notifications/keyspace-notifications.md.
+  # them manually. See specs/keyspace-notifications/user-guide.md.
   module KeyspaceNotifications
     # Raised when a message on a notification channel cannot be decoded.
     class ParseError < BaseError
