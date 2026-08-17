@@ -20,6 +20,9 @@
 - Add `sunioncard` and `sdiffcard` (Redis 8.10). (#1357)
 - `xread` and `xreadgroup` now accept `max_count:` and `max_size:` (Redis 8.10). (#1358)
 - Add `hexpire`, `hpexpire`, `httl` and `hpttl` (Redis 7.4). (#1324, #1325, #1331)
+- Add `hexpireat`, `hpexpireat`, `hexpiretime`, `hpexpiretime` and `hpersist`; `hexpire` and
+  `hpexpire` now accept the `nx:`/`xx:`/`gt:`/`lt:` condition options (Redis 7.4). All are
+  available on `Redis::Distributed`. (#1374)
 - `hscan` and `hscan_each` now accept `novalues: true` (Redis 7.4). (#1327)
 - Add `geosearch` and `geosearchstore` (Redis 6.2); geo commands are now available on
   `Redis::Distributed`. (#1342)
