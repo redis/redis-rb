@@ -67,7 +67,10 @@ class Redis
         @listener_error_epoch = 0
         @reconnect_now = false
         @removing = {} # pattern => the Registration an in-flight unsubscribe targets
-        @unvalidated = {} # pattern => Registration installed from a handler, unconfirmed yet
+        # pattern => { entry: Registration, batch: Object } for registrations
+        # installed from a handler and not yet server-acked; batch identifies the
+        # subscribe call, so a session rejection drops only the oldest (culprit) batch.
+        @unvalidated = {}
         @closing = false
         @closed = false
       end
@@ -137,7 +140,12 @@ class Redis
               # Only mark a registration that is still the live one: a concurrent
               # replacement between the install and this lock makes ours stale, and
               # a stale marker matches no future ack and would be retained forever.
-              @unvalidated[pattern] = installed[pattern] if @handlers[pattern].equal?(installed[pattern])
+              # The `installed` hash doubles as the batch token: acks arrive in
+              # command order, so a session-killing rejection is attributable to
+              # the OLDEST outstanding batch — later ones survive for the replay.
+              if @handlers[pattern].equal?(installed[pattern])
+                @unvalidated[pattern] = { entry: installed[pattern], batch: installed }
+              end
             end
           end
           return
@@ -215,7 +223,7 @@ class Redis
                 @handlers.delete(pattern)
                 # An in-handler registration removed before its ack: purge its
                 # validation entry too, or it would be retained forever.
-                @unvalidated.delete(pattern) if @unvalidated[pattern].equal?(owned[pattern])
+                @unvalidated.delete(pattern) if @unvalidated[pattern]&.fetch(:entry).equal?(owned[pattern])
               end
             end
             return
@@ -233,7 +241,7 @@ class Redis
               @handlers.delete(pattern)
               # An in-handler registration removed before its ack: purge its
               # validation entry too, or it would be retained forever.
-              @unvalidated.delete(pattern) if @unvalidated[pattern].equal?(owned[pattern])
+              @unvalidated.delete(pattern) if @unvalidated[pattern]&.fetch(:entry).equal?(owned[pattern])
             end
             # A reconnect replay may have re-subscribed a target between the ack and
             # this removal; sweep anything still acknowledged that no registration owns.
@@ -328,6 +336,17 @@ class Redis
       # @return [Array<String>] the patterns currently confirmed by the server
       def patterns
         @lock.synchronize { @confirmed.keys }
+      end
+
+      # The registered intent, regardless of server confirmation — the set a
+      # reconnect replay will re-subscribe. Differs from {#patterns} while the
+      # connection is down or acknowledgments are in flight; reconciliation
+      # (e.g. the cluster manager's per-node catch-up) must compare against this,
+      # or an obsolete registration invisible to {#patterns} survives replays.
+      #
+      # @return [Array<String>] the registered patterns
+      def registered_patterns
+        @lock.synchronize { @handlers.keys }
       end
 
       # @return [Boolean] whether the listener is running with at least one confirmed pattern
@@ -449,11 +468,21 @@ class Redis
             if error.is_a?(CommandError)
               # The server rejected a command on this session — most likely a pattern
               # subscribed from inside a handler (nobody could wait for its ack, so
-              # nobody could roll it back). Drop the unvalidated registrations rather
-              # than replaying the rejected pattern on every reconnect forever.
+              # nobody could roll it back). Replies arrive in command order, so every
+              # earlier command's acks already validated (and removed) their markers:
+              # the OLDEST remaining batch is the rejected command. Drop only it —
+              # later batches may be perfectly valid and get replayed; a later poison
+              # is identified the same way one session later.
               @lock.synchronize do
-                @unvalidated.each { |pattern, entry| @handlers.delete(pattern) if @handlers[pattern].equal?(entry) }
-                @unvalidated.clear
+                oldest_batch = @unvalidated.values.first&.fetch(:batch)
+                if oldest_batch
+                  @unvalidated.each do |pattern, record|
+                    next unless record[:batch].equal?(oldest_batch)
+
+                    @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
+                  end
+                  @unvalidated.delete_if { |_, record| record[:batch].equal?(oldest_batch) }
+                end
               end
             end
             @lock.synchronize do

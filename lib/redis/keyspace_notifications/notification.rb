@@ -34,7 +34,7 @@ class Redis
       # @param pattern [String, nil] matched psubscribe pattern
       def initialize(family:, db:, event:, key:, channel:, payload:, subkeys: [], pattern: nil)
         @family = family
-        @db = db
+        @db = frozen_copy(db) # Integers pass through; the "*" String form gets copied
         @event = frozen_copy(event)
         @key = frozen_copy(key)
         @subkeys = subkeys.map { |subkey| frozen_copy(subkey) }.freeze

@@ -412,9 +412,11 @@ class Redis
           # connection (ssl_params, credentials, a standalone-style :url whose TLS
           # and credentials may exist nowhere else, ...): pass everything through
           # except the seed's addressing — sidecars dial the discovered primaries.
+          # :path is seed addressing too: standalone configs prefer a Unix socket
+          # over host/port, so keeping it would point every sidecar at the seed.
           # Explicit keys override what the :url says.
           url_options = node[:url] ? options_from_node_url(node[:url]) : {}
-          url_options.merge(node.except(:host, :port, :url))
+          url_options.merge(node.except(:host, :port, :url, :path))
         else
           {}
         end

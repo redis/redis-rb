@@ -295,11 +295,10 @@ class ClusterOrchestrator
   # Used by #rebuild to skip the expensive teardown.
   def cluster_consistent?
     expected = expected_slots_view(@clients)
-    expected_masters = expected.map { |_, _, node_key| node_key }.uniq.sort
     @clients.all? do |client|
       hashify_cluster_info(client)['cluster_state'] == 'ok' &&
         slots_view(client) == expected &&
-        shards_masters_view(client) == expected_masters &&
+        shards_view(client) == expected &&
         hashify_cluster_node_flags(client).values.count('slave') == 3
     end && replication_pairs_healthy?
   rescue Redis::BaseError
@@ -342,20 +341,24 @@ class ClusterOrchestrator
     client.cluster(:slots).map { |range| [range[0], range[1], "#{range[2][0]}:#{range[2][1]}"] }.sort
   end
 
-  # The master set a node advertises via CLUSTER SHARDS — the command
-  # redis-cluster-client actually bootstraps its topology from. It is generated
-  # separately from CLUSTER SLOTS and can lag it on a freshly rebuilt replica, so
-  # SLOTS-only verification lets a client pick up a stale master set and route
-  # writes to a demoted node (READONLY). Handles both the RESP2 (flat arrays)
-  # and RESP3 (maps) reply shapes.
-  def shards_masters_view(client)
+  # The slot-range-to-master mapping a node advertises via CLUSTER SHARDS — the
+  # command redis-cluster-client actually bootstraps its topology from. It is
+  # generated separately from CLUSTER SLOTS and can lag it (a freshly rebuilt
+  # replica's role view, or a reverse-resharded slot's ownership), so SLOTS-only
+  # verification — or comparing only the master SET — lets a client pick up a
+  # stale mapping and misroute. Returns [[start, end, "ip:port"], ...] like
+  # #slots_view for exact comparison. Handles both the RESP2 (flat arrays) and
+  # RESP3 (maps) reply shapes.
+  def shards_view(client)
     client.cluster(:shards).flat_map do |shard|
       shard = shard.each_slice(2).to_h if shard.is_a?(Array)
-      shard.fetch('nodes').filter_map do |node|
-        node = node.each_slice(2).to_h if node.is_a?(Array)
-        "#{node['ip']}:#{node['port']}" if node['role'] == 'master'
-      end
-    end.uniq.sort
+      master = shard.fetch('nodes').map { |node| node.is_a?(Array) ? node.each_slice(2).to_h : node }
+                                   .find { |node| node['role'] == 'master' }
+      next [] unless master
+
+      node_key = "#{master['ip']}:#{master['port']}"
+      shard.fetch('slots').each_slice(2).map { |start, stop| [start, stop, node_key] }
+    end.sort
   end
 
   # Requires EVERY node to serve the expected master set in its CLUSTER SLOTS reply
@@ -367,22 +370,22 @@ class ClusterOrchestrator
   # Unlike the other waits, this raises on timeout: a loud failure in the test that
   # disturbed the topology beats silently poisoning whatever runs next.
   def wait_consistent_slots_view(clients, max_attempts: 300)
-    expected = take_masters(clients).map { |c| to_node_key(c) }.sort
+    expected = expected_slots_view(clients)
 
     clients.each do |client|
       max_attempts.times do |attempt|
         begin
-          # Both views must agree: clients bootstrap from CLUSTER SHARDS, which can
-          # lag CLUSTER SLOTS on a freshly rebuilt replica.
-          slots_ok = slots_view(client).map { |_, _, node_key| node_key }.uniq.sort == expected
-          break if slots_ok && shards_masters_view(client) == expected
+          # Both views must agree RANGE-EXACTLY: clients bootstrap from CLUSTER
+          # SHARDS, which can lag CLUSTER SLOTS on a freshly rebuilt replica — and
+          # comparing only master sets would miss stale slot ownership.
+          break if slots_view(client) == expected && shards_view(client) == expected
         rescue Redis::CommandError, Redis::BaseConnectionError
           # CLUSTERDOWN or a node still restarting; keep waiting.
         end
 
         if attempt == max_attempts - 1
           raise "Cluster rebuild did not converge: #{to_node_key(client)} still reports " \
-                "a master set different from #{expected.inspect}"
+                "a slot mapping different from #{expected.inspect}"
         end
 
         sleep 0.1

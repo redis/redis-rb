@@ -57,10 +57,10 @@ class TestKeyspaceNotificationsNotification < Minitest::Test
   end
 
   def test_deeply_frozen
-    notification = build(subkeys: [+"field"], pattern: +"__keyspace@0__:*")
+    notification = build(subkeys: [+"field"], pattern: +"__keyspace@0__:*", db: +"*")
 
     assert_predicate notification, :frozen?
-    %i[event key channel payload pattern].each do |reader|
+    %i[db event key channel payload pattern].each do |reader|
       assert_predicate notification.public_send(reader), :frozen?, "#{reader} should be frozen"
     end
     notification.subkeys.each { |subkey| assert_predicate subkey, :frozen? }

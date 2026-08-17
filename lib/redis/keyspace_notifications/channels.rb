@@ -97,7 +97,10 @@ class Redis
       # @param value [String]
       # @return [String] the escaped value (BINARY encoded)
       def glob_escape(value)
-        value.b.gsub(/[*?\[\]\\]/) { |char| "\\#{char}" }
+        # The replacement must be built in BINARY: interpolating a high byte into a
+        # UTF-8 literal raises Encoding::CompatibilityError, and keys are arbitrary
+        # bytes by contract.
+        value.b.gsub(/[*?\[\]\\]/) { |char| "\\".b << char }
       end
 
       # @api private

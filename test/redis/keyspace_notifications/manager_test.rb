@@ -604,6 +604,10 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     sleep 0.2 # would be enough for a first reconnect attempt if one were scheduled
 
     refute_predicate manager, :subscribed?
+    # Intent and confirmations diverge while down: the registration survives
+    # (a reconnect replay would restore it) even though nothing is confirmed.
+    assert_empty manager.patterns
+    assert_equal [Redis::KeyspaceNotifications::Channels.keyspace("k", db: DB)], manager.registered_patterns
     r.set("k", "v")
     sleep 0.1
 

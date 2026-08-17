@@ -45,7 +45,11 @@ class Redis
         # @return [NodeListener] self
         def catch_up(patterns)
           subscribe(patterns) unless patterns.empty?
-          extra = @manager.patterns - patterns
+          # Compare against the core manager's registered INTENT, not its confirmed
+          # set: a failed unsubscribe followed by a connection drop leaves the
+          # obsolete pattern registered-but-unconfirmed, and the reconnect replay
+          # would resurrect it on this node if reconciliation couldn't see it.
+          extra = @manager.registered_patterns - patterns
           @manager.unsubscribe(*extra) unless extra.empty?
           self
         end
