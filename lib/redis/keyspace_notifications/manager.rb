@@ -64,6 +64,7 @@ class Redis
         @cond = @lock.new_cond
         @thread = nil
         @listener_error = nil
+        @listener_error_epoch = 0
         @reconnect_now = false
         @removing = {} # pattern => the Registration an in-flight unsubscribe targets
         @unvalidated = {} # pattern => Registration installed from a handler, unconfirmed yet
@@ -455,7 +456,13 @@ class Redis
                 @unvalidated.clear
               end
             end
-            @lock.synchronize { @listener_error = error }
+            @lock.synchronize do
+              @listener_error = error
+              # Waits compare against this epoch to tell a FRESH error (arrived after
+              # the wait began — the waiter's command was on the killed session) from
+              # a STALE one left over from before they even started.
+              @listener_error_epoch += 1
+            end
             report_error(error)
           ensure
             # The session is over either way and its server-side subscriptions died
@@ -577,19 +584,24 @@ class Redis
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
         @lock.synchronize do
+          # Only errors NEWER than this wait implicate its command: a stale
+          # CommandError persists until the reconnect replay confirms, and raising
+          # it to a valid subscribe issued during that window would falsely reject
+          # a pattern the killed session never saw.
+          entry_epoch = @listener_error_epoch
           until patterns.all? { |pattern| @confirmed.key?(pattern) || !@handlers[pattern].equal?(installed[pattern]) }
-            # A CommandError means the server REJECTED a command on this session
-            # (e.g. an ACL-forbidden pattern): retrying cannot fix it, so raise it
-            # promptly — the caller's rollback then removes the poisoned registration
-            # instead of the replay churning until the generic timeout. The session
-            # rejection is indivisible, so every concurrent waiter gets it; their
-            # rolled-back subscriptions are safe to retry.
-            if (rejection = @listener_error).is_a?(CommandError)
+            # A fresh CommandError means the server REJECTED a command on this
+            # session (e.g. an ACL-forbidden pattern): retrying cannot fix it, so
+            # raise it promptly — the caller's rollback then removes the poisoned
+            # registration instead of the replay churning until the generic timeout.
+            # The session rejection is indivisible, so every waiter that shared the
+            # session gets it; their rolled-back subscriptions are safe to retry.
+            if (rejection = @listener_error).is_a?(CommandError) && @listener_error_epoch > entry_epoch
               raise rejection
             end
 
             unless listening?
-              raise @listener_error if @listener_error
+              raise @listener_error if @listener_error && @listener_error_epoch > entry_epoch
               if @closing || @closed || restarted || @handlers.empty?
                 raise SubscriptionError, "keyspace notifications listener died before confirming"
               end

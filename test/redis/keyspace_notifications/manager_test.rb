@@ -512,7 +512,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
   end
 
   def test_server_rejected_subscribe_raises_promptly_and_spares_other_patterns
-    r.acl("SETUSER", "kn_limited", "on", ">knpass", "+@all", "resetchannels", "&__keyspace@#{DB}__:allowed")
+    r.acl("SETUSER", "kn_limited", "on", ">knpass", "+@all", "resetchannels",
+          "&__keyspace@#{DB}__:allowed", "&__keyspace@#{DB}__:allowed2")
     restricted = Redis.new(OPTIONS.merge(username: "kn_limited", password: "knpass",
                                          driver: ENV["DRIVER"], protocol: PROTOCOL))
     errors = Queue.new
@@ -528,6 +529,15 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_match(/NOPERM|permission/i, error.message)
     assert_operator elapsed, :<, 3, "a server rejection must raise promptly, not wait out the ack timeout"
 
+    # A VALID subscribe issued during the reconnect window (the stale CommandError
+    # is still stored until the replay confirms) must not inherit the rejection:
+    # only errors newer than the wait implicate its command.
+    queue2 = Queue.new
+    manager.subscribe(CHANNELS.keyspace("allowed2", db: DB), handler: ->(notification) { queue2 << notification })
+    r.set("allowed2", "v")
+
+    assert_equal "allowed2", assert_pop(queue2).key
+
     # The rejected registration was rolled back, so the reconnect replay is clean
     # and the surviving pattern recovers. The rejection killed the session, and
     # events published into the reconnect gap are lost (fire-and-forget) — NUMPAT
@@ -541,7 +551,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
 
     flunk "the allowed pattern did not recover after the rejection" unless delivered
     assert_equal "allowed", delivered.key
-    assert_equal [CHANNELS.keyspace("allowed", db: DB)], manager.patterns
+    assert_equal [CHANNELS.keyspace("allowed", db: DB), CHANNELS.keyspace("allowed2", db: DB)],
+                 manager.patterns.sort
   ensure
     r.acl("DELUSER", "kn_limited")
   end
