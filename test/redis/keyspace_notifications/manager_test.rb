@@ -725,6 +725,82 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     end
   end
 
+  def test_error_handler_observes_the_dead_session_as_unsubscribed
+    manager = nil
+    states = Queue.new
+    manager = new_manager(error_handler: lambda { |error|
+      states << { error: error, subscribed: manager.subscribed?, patterns: manager.patterns }
+    })
+    manager.subscribe_keyspace("k", db: DB) { |_notification| }
+
+    r.client(:kill, "TYPE", "pubsub")
+
+    state = states.pop(timeout: 3)
+    refute_nil state, "the connection loss never reached the error handler"
+    assert_kind_of Redis::BaseConnectionError, state[:error]
+    # The session's server-side subscriptions died with it: confirmations must be
+    # cleared BEFORE the error reaches user code, or the callback (and anything it
+    # consults, like the cluster wrapper's health checks) sees the dead session
+    # as live.
+    refute state[:subscribed], "error handler saw the dead session as subscribed"
+    assert_empty state[:patterns]
+  end
+
+  def test_in_handler_rejection_after_acked_blocking_subscribe_converges_in_one_session
+    trigger = CHANNELS.keyspace("trigger", db: DB)
+    valid = CHANNELS.keyspace("valid", db: DB)
+    r.acl("SETUSER", "kn_limited4", "on", ">knpass", "+@all", "resetchannels",
+          "&#{trigger}", "&#{valid}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited4", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    rejections = Queue.new
+    manager = Redis::KeyspaceNotifications::Manager.new(
+      redis: restricted,
+      error_handler: ->(error) { rejections << error if error.is_a?(Redis::CommandError) }
+    )
+    @managers << manager
+    gate = Queue.new
+    release = Queue.new
+    manager.subscribe(trigger, handler: lambda { |_notification|
+      gate << true
+      release.pop
+      # Wire order: the blocking subscribe below is acked FIRST, then this
+      # rejected command errors. A fully-acknowledged blocking batch must retire
+      # from rejection attribution at ack time — even while its caller has not
+      # resumed — or the rejection is not attributed to this batch and the poison
+      # survives into (and bounces) a second session.
+      manager.subscribe(CHANNELS.keyspace("forbidden", db: DB), handler: ->(_n) {})
+    })
+    r.set("trigger", "v")
+    gate.pop
+
+    waiter = Thread.new do
+      manager.subscribe(valid, handler: ->(_n) {})
+      :ok
+    rescue Redis::CommandError => error
+      error # the session-rejection-is-indivisible doctrine: a raise here is legal
+    end
+    sleep 0.2 # the valid command reaches the wire (and is acked) ahead of the poison
+    release << true
+
+    waiter.join(5)
+    # Exactly ONE rejection converges the poison out of the registry; a second one
+    # means the acked wait masked the attribution and the poison was replayed.
+    assert_kind_of Redis::CommandError, rejections.pop(timeout: 3)
+    wait_until(timeout: 5) do
+      !manager.registered_patterns.include?(CHANNELS.keyspace("forbidden", db: DB)) && manager.subscribed?
+    end
+    sleep 0.5 # a second rejection would need a session bounce; give it room to appear
+
+    assert_predicate rejections, :empty?, "the poison survived into a second session"
+  ensure
+    begin
+      r.acl("DELUSER", "kn_limited4")
+    rescue StandardError
+      nil
+    end
+  end
+
   def test_empty_reconnect_schedule_disables_reconnection
     queue = Queue.new
     errors = Queue.new

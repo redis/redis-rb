@@ -531,11 +531,18 @@ class Redis
               # the wait began — the waiter's command was on the killed session) from
               # a STALE one left over from before they even started.
               @listener_error_epoch += 1
+              # The session's server-side subscriptions died with it: clear the
+              # confirmations BEFORE the error reaches user code, so `patterns` /
+              # `subscribed?` (and the cluster wrapper's health checks, which a
+              # reactive refresh may consult during the callback) never report the
+              # dead session as live.
+              @confirmed.clear
+              @cond.broadcast
             end
             report_error(error)
           ensure
-            # The session is over either way and its server-side subscriptions died
-            # with it: report only what the server currently acknowledges.
+            # Clean exits pass through here too; for error exits this repeats the
+            # clear above as a no-op.
             @lock.synchronize do
               @confirmed.clear
               @cond.broadcast
@@ -582,6 +589,15 @@ class Redis
               @unvalidated.delete(key)
               if @handlers.key?(key)
                 @confirmed[key] = true
+                # Retire blocking batches whose every pattern is now resolved:
+                # replies arrive in command order, so a fully-acknowledged batch
+                # can no longer be the rejected command. Waiting for its caller to
+                # resume and remove it would leave a stale "possible culprit" that
+                # makes rejection attribution skip a genuinely-poisoned in-handler
+                # batch issued after it, costing an extra session bounce.
+                @inflight_waits.delete_if do |_seq, batch|
+                  batch.all? { |pattern, entry| @confirmed.key?(pattern) || !@handlers[pattern].equal?(entry) }
+                end
                 @cond.broadcast
                 registered = true
               end

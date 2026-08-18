@@ -160,7 +160,7 @@ re-subscribing an already-subscribed pattern is harmless (the server just re-ack
 | `@confirmed` | **Server truth**: patterns the *current session* has acked | listener only |
 | `@removing` | pattern → the exact `Registration` an in-flight unsubscribe targets | unsubscribing callers |
 | `@unvalidated` | pattern → `{entry:, batch:, seq:}` for in-handler subscribes not yet acked (`seq` = issue order; map position lies once a later call re-marks a pattern) | listener thread |
-| `@inflight_waits` | issue seq → a blocking subscribe's batch, until its wait exits — tells rejection attribution when the oldest unresolved command is a blocking one (whose own waiter rolls it back) | subscribing callers |
+| `@inflight_waits` | issue seq → a blocking subscribe's batch, until its wait exits *or its last pattern is acked* (a fully-acknowledged batch can no longer be the rejected command, and lingering until the caller resumes would mask attribution of a younger poisoned batch) — tells rejection attribution when the oldest unresolved command is a blocking one (whose own waiter rolls it back) | subscribing callers, listener (ack retirement) |
 | `@listener_error` + `@listener_error_epoch` | last session-killing error, with a counter for temporal attribution | listener |
 | `@reconnect_now`, `@closing`, `@closed` | control signals for the backoff wait and lifecycle | callers |
 
@@ -280,7 +280,13 @@ loop:
   the default ladder is `[0.5, 1, 2, 4, 8, 16, 30, 30, 30, 30]` (~2 minutes). The
   budget **resets after every healthy session** (one confirmed ack), so only a
   persistent outage exhausts it — a flaky network that reconnects successfully each
-  time never runs out. An empty array disables reconnection. An exhausted schedule
+  time never runs out. A *poisoned replay* cannot game this reset: the replay is one
+  `PSUBSCRIBE` command and the server's ACL check rejects the whole command upfront
+  (verified live — no per-pattern acks precede the error), so a rejected replay
+  confirms nothing and consumes the schedule. A session that fully confirmed its
+  replay and was later killed by a rejected mid-session command genuinely served —
+  resetting the budget for a working connection is correct; the schedule guards
+  against connection failures, not command rejections. An empty array disables reconnection. An exhausted schedule
   leaves a dead listener with intact intent: the next `subscribe` restarts it **with
   the complete registry**, not just the new patterns — restarting with only the new
   ones would silently kill earlier subscriptions.
@@ -372,6 +378,8 @@ machinery. That is inherent to constraint 2, not a choice.
 | Re-subscribe of a confirmed pattern racing a server rejection | Install invalidates the stale confirmation: the wait demands a fresh ack, so the rejection raises instead of the call reporting success on the replaced registration's confirmation |
 | Overlapping in-handler batches on one pattern | Batch age by sequence number, not map position — the rejection is attributed to the oldest *issued* batch even when a later call re-marked a shared pattern |
 | Blocking subscribe rejected while an in-handler subscribe is in flight | Blocking batches are sequenced in the same wire-order series (`@inflight_waits`): when the oldest unresolved command is a blocking one, the in-handler drop is skipped — the blocking waiter observes the error (epoch) and rolls its own batch back |
+| Blocking batch acked but its caller not yet resumed when a rejection arrives | Fully-acknowledged batches retire from `@inflight_waits` at ack time (on the listener thread) — command-order proves an acked batch is not the rejected command, so it must not mask attribution of a younger poisoned in-handler batch |
+| Error handler inspects `patterns`/`subscribed?` during the callback | Confirmations are cleared (and waiters broadcast) *before* the error reaches user code — the callback never observes the dead session as live, and a reactive refresh triggered from it sees truthful listener health |
 | Command written into a session that dies before acking | Waiters re-issue unconfirmed patterns on every wakeup (idempotent) |
 | Handler raises / message unparseable / error handler itself raises | Reported to the error handler (or `warn`); the listener never dies from traffic; a broken error handler is swallowed |
 
