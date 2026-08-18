@@ -76,6 +76,10 @@ class Redis
       # @param handler [#call, nil] receives each {Redis::KeyspaceNotifications::Notification};
       #   falls back to the {#on_notification} default handler when nil
       # @return [void]
+      # @raise [Redis::CommandError] when the server rejects a pattern (e.g. an
+      #   ACL-forbidden channel): the rejected pattern is evicted from the registry
+      #   — it could never succeed and would poison every future refresh — while
+      #   the call's other patterns stay registered
       def subscribe(*patterns, handler: nil, &block)
         raise ArgumentError, "no patterns given" if patterns.empty?
 
@@ -90,14 +94,40 @@ class Redis
         # Called from inside a handler, this runs on the dispatcher thread: the
         # ack-blocking fan-out below could deadlock against node readers stuck on a
         # full queue (they can't read acks until the dispatcher drains). Defer the
-        # fan-out to the refresher, which reconciles from the updated registry.
+        # fan-out to the refresher, which reconciles from the updated registry
+        # (whose catch-up also identifies and evicts server-rejected patterns).
         return request_refresh(nil) if dispatcher_thread?
 
         # Fan out WITHOUT holding the lock: each per-node subscribe blocks on that
         # node's acknowledgment (seconds against a sick node) and must not stall
         # dispatch, refresh or close. A refresh racing this call reconciles from the
         # already-updated registry, and re-subscribing is idempotent (re-acked).
-        each_listener_best_effort(listeners) { |listener| listener.subscribe(patterns) }
+        rejected = {}
+        listeners.each do |node_key, listener|
+          begin
+            listener.subscribe(patterns)
+          rescue ::Redis::CommandError => error
+            # The server REJECTED a pattern (deterministic — e.g. ACL NOPERM), which
+            # best-effort handling must not swallow: left registered, the pattern
+            # would fail every future catch-up batch on every primary. Identify and
+            # evict the culprit(s) once, then raise below — matching the standalone
+            # contract that a rejected subscribe raises and leaves no registration.
+            rejected = evict_rejected(listener, node_key, patterns) if rejected.empty?
+            # Unattributable to any single pattern (each succeeded individually):
+            # transient session trouble — fall through to the generic handling.
+            raise error if rejected.empty?
+          end
+        rescue StandardError => error
+          report_error(error, node_key)
+          request_refresh(node_key)
+        end
+        unless rejected.empty?
+          # Nodes that accepted an evicted pattern (before the rejection, or under a
+          # diverging per-node ACL) converge via the refresher's catch-up: the
+          # pattern is no longer registered, so it is unsubscribed as an extra.
+          request_refresh(nil)
+          raise rejected.values.first
+        end
         # Reconcile via the refresher when the fan-out could not have done the job:
         # no listeners exist at all (a previously failed refresh left none, and with
         # no connections there is no error signal to trigger recovery), or a
@@ -281,7 +311,18 @@ class Redis
               snapshot = @lock.synchronize { @registry.keys }
               converged = false
               5.times do
-                listener.catch_up(snapshot)
+                begin
+                  listener.catch_up(snapshot)
+                rescue ::Redis::CommandError
+                  # A server rejection is deterministic, NOT a node failure: the
+                  # connection is healthy, and the generic handling below would
+                  # delete every listener (all primaries reject the same pattern)
+                  # and loop the refresher forever over the poisoned registry.
+                  # Identify and evict the rejected pattern(s); the next pass
+                  # converges on the cleaned registry. An unattributable batch
+                  # failure re-raises into the per-node failure handling.
+                  raise if evict_rejected(listener, node_key, snapshot).empty?
+                end
                 current = @lock.synchronize { @registry.keys }
                 if current == snapshot
                   converged = true
@@ -360,9 +401,11 @@ class Redis
       private
 
       def current_primaries
+        # Dedupe by node id (a master owning several slot ranges appears once per
+        # range), falling back to the address pair when the server predates ids.
         masters = @cluster.cluster("slots")
                           .map { |range| range["master"] }
-                          .uniq { |master| [master["ip"], master["port"]] }
+                          .uniq { |master| master["node_id"] || [master["ip"], master["port"]] }
         # A server configured to conceal node endpoints answers with nil/empty
         # addresses, telling clients to reuse their existing connection info — which
         # per-node sidecar connections cannot do. Unless fixed_hostname supplies the
@@ -375,7 +418,18 @@ class Redis
           )
         end
 
-        masters.to_h { |master| ["#{master['ip']}:#{master['port']}", [master["ip"], master["port"]]] }
+        primaries = masters.to_h { |master| ["#{master['ip']}:#{master['port']}", [master["ip"], master["port"]]] }
+        # Distinct primaries collapsing onto one dial target (concealed endpoints
+        # sharing a port under fixed_hostname): a single sidecar cannot listen to
+        # them all — fail loudly instead of silently dropping the rest.
+        if primaries.size < masters.size
+          raise KeyspaceNotificationsRefreshError.new(
+            {}, "CLUSTER SLOTS reports #{masters.size} primaries but only " \
+                "#{primaries.size} distinguishable endpoints; per-node notification " \
+                "sidecars need a unique address per primary"
+          )
+        end
+        primaries
       end
 
       CLUSTER_ONLY_OPTIONS = %i[
@@ -447,6 +501,30 @@ class Redis
           report_error(error, node_key)
           request_refresh(node_key)
         end
+      end
+
+      # A CommandError from a batch subscribe means the server rejected one of the
+      # patterns. The rejection is deterministic (retrying cannot fix it), so the
+      # pattern must not stay registered: every future catch-up batch containing it
+      # would fail on every primary. Identify the culprit(s) by subscribing one
+      # pattern at a time — the valid ones simply end up subscribed — then evict
+      # them from the registry and report each. Returns the rejected patterns
+      # mapped to their errors; empty when the failure was not attributable to any
+      # single pattern (each succeeded individually).
+      def evict_rejected(listener, node_key, patterns)
+        rejected = {}
+        patterns.each do |pattern|
+          listener.subscribe([pattern])
+        rescue ::Redis::CommandError => error
+          rejected[pattern] = error
+        end
+        return rejected if rejected.empty?
+
+        # Unconditional delete: the server rejects by pattern name, so a concurrent
+        # re-registration under a different handler is just as poisoned.
+        @lock.synchronize { rejected.each_key { |pattern| @registry.delete(pattern) } }
+        rejected.each_value { |error| report_error(error, node_key) }
+        rejected
       end
 
       # Called from node listener threads on every background error of a node.

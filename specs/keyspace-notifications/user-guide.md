@@ -250,6 +250,11 @@ How it works:
   pattern registered because one node failed would make the next refresh re-subscribe it on the
   N−1 nodes that already unsubscribed. A node whose unsubscribe failed converges on the next
   refresh, whose per-node catch-up also removes patterns that are no longer registered.
+- One exception to best-effort: when the **server rejects** a pattern (e.g. an ACL-forbidden
+  channel), `subscribe` raises the `Redis::CommandError` and the pattern is evicted from the
+  registry — it could never succeed anywhere, and left registered it would fail every future
+  refresh. The call's other patterns stay registered. Rejections of patterns subscribed from
+  inside a handler are reported to the error handler and evicted by the next refresh.
 
 ## 7. What is *not* supported
 

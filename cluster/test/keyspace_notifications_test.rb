@@ -289,6 +289,70 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     assert_equal 'survivor:key', queue.pop(timeout: 3)
   end
 
+  def test_server_rejected_pattern_is_evicted_and_raises
+    allowed = '__keyevent@0__:set'
+    with_channel_restricted_user([allowed]) do |username, password|
+      restricted = build_another_client(username: username, password: password)
+      begin
+        errors = Queue.new
+        manager = restricted.keyspace_notifications(error_handler: ->(error, _node) { errors << error })
+        @managers << manager
+        queue = Queue.new
+        manager.subscribe(allowed) { |notification| queue << notification.key }
+        listeners_before = manager.node_keys.sort
+
+        error = assert_raises(Redis::CommandError) { manager.subscribe_keyevent('expired') }
+        assert_match(/NOPERM|permission/i, error.message)
+
+        # The rejected pattern was evicted (it could never succeed) and no listener
+        # was torn down for what is not a node failure; the registry keeps only the
+        # valid pattern, so a refresh converges instead of looping over the poison.
+        assert_equal [allowed], manager.patterns
+        assert_equal listeners_before, manager.node_keys.sort
+        manager.refresh
+
+        # The rejection bounced the node sessions; delivery of the valid pattern
+        # recovers, but events published into the reconnect gap are lost
+        # (fire-and-forget) — probe with retries.
+        received = nil
+        wait_until(timeout: 5) do
+          redis.set('acl:probe', 'v')
+          received = queue.pop(timeout: 0.5)
+          !received.nil?
+        end
+
+        assert_equal 'acl:probe', received
+      ensure
+        manager&.close
+        restricted.close
+      end
+    end
+  end
+
+  def test_concealed_same_port_primaries_are_rejected_under_fixed_hostname
+    client = build_another_client(fixed_hostname: DEFAULT_HOST)
+    # Two DISTINCT primaries (different node ids) concealing their IPs while
+    # sharing a port: fixed_hostname supplies a dial target, but it cannot
+    # distinguish them — one sidecar would silently miss the other's events.
+    concealed = [
+      { 'start_slot' => 0, 'end_slot' => 8191, 'replicas' => [],
+        'master' => { 'ip' => '', 'port' => 6379, 'node_id' => 'node-a' } },
+      { 'start_slot' => 8192, 'end_slot' => 16_383, 'replicas' => [],
+        'master' => { 'ip' => '', 'port' => 6379, 'node_id' => 'node-b' } }
+    ]
+    client.stubs(:cluster).with('slots').returns(concealed)
+    begin
+      error = assert_raises(Redis::Cluster::KeyspaceNotificationsRefreshError) do
+        client.keyspace_notifications(error_handler: ->(_error, _node) {})
+      end
+
+      assert_match(/distinguishable endpoints/, error.message)
+    ensure
+      client.unstub(:cluster)
+      client.close
+    end
+  end
+
   def test_subkey_notifications_on_cluster
     omit_version('8.8.0')
 
@@ -335,6 +399,28 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     node.close
   rescue StandardError
     nil
+  end
+
+  # A user with full command access but restricted pub/sub channels, created on
+  # EVERY node (ACL is not propagated across the cluster): the manager's sidecars
+  # authenticate with the cluster client's credentials on whichever primary they
+  # dial, so the restriction must hold everywhere.
+  def with_channel_restricted_user(allowed_channels)
+    admins = DEFAULT_PORTS.map { |port| Redis.new(host: DEFAULT_HOST, port: port, timeout: TIMEOUT) }
+    admins.each do |admin|
+      admin.acl('SETUSER', 'kn_limited', 'on', '>knpass', '+@all',
+                'resetchannels', *allowed_channels.map { |channel| "&#{channel}" })
+    end
+    yield('kn_limited', 'knpass')
+  ensure
+    admins&.each do |admin|
+      begin
+        admin.acl('DELUSER', 'kn_limited')
+      rescue StandardError
+        nil
+      end
+      admin.close
+    end
   end
 
   def wait_until(timeout: 5)

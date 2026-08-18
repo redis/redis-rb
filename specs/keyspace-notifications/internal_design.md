@@ -447,6 +447,23 @@ refresher is asked to reconcile. Finally, a close racing the call is detected af
 fan-out and raised — returning success on a closed manager would leave the caller
 believing a subscription exists.
 
+**The one failure exempt from best-effort: server rejections.** A `CommandError`
+(e.g. ACL `NOPERM` on the channel) is deterministic — the pattern can never subscribe,
+on this node or any other — so treating it as a per-node hiccup would leave a poison in
+the registry: every future catch-up batch containing it would fail on **every**
+primary, the refresh would delete those healthy listeners as "failed nodes", and the
+refresher would loop forever, silencing valid patterns too. Instead, a rejected batch
+is re-tried **one pattern at a time** (the batch error doesn't name the culprit;
+per-pattern subscribes identify it, while incidentally subscribing the valid ones), the
+rejected patterns are **evicted from the registry** (unconditionally — the server
+rejects by name, so a concurrently re-registered handler is just as poisoned), each
+rejection is reported to the error handler, and a blocking `subscribe` whose patterns
+were evicted **raises** — restoring the standalone contract exactly where best-effort
+is the wrong model. Nodes that accepted the pattern before the rejection converge via
+the refresher (no longer registered → unsubscribed as an extra). Rejections of patterns
+subscribed from inside a handler have no caller to raise to; they surface through the
+error handler when the deferred refresh's catch-up hits them.
+
 ### 5.4 Dispatch pipeline and parallel processing
 
 **N readers → one bounded queue → one dispatcher.** Design properties:
@@ -517,7 +534,10 @@ the ack timeouts fire. Hence:
      reactive recovery — keep the listeners, raise, let the backoff retry.
      **Concealed endpoints** (servers announcing empty IPs, expecting clients to reuse
      existing connection info — which fresh sidecars cannot) fail loudly unless
-     `fixed_hostname` supplies the dial target.
+     `fixed_hostname` supplies the dial target — and even then, primaries are deduped
+     by **node id**, and distinct primaries collapsing onto one dial target (concealed
+     IPs sharing a port) fail loudly too: one sidecar cannot listen to two nodes, and
+     silently covering 1/N is the exact bug this manager exists to prevent.
   2. Under `@lock`: prune listeners for vanished/demoted nodes and any listener that
      fails `healthy?` (closed core manager, or expected-subscribed-but-isn't — covers
      exhausted reconnect budgets). Close the pruned ones outside the lock.
@@ -530,7 +550,12 @@ the ack timeouts fire. Hence:
      registry still churning, schedule another refresh rather than silently accepting a
      possibly-stale node — the concurrent operations that kept changing the registry
      saw it already updated and requested no refresh themselves.
-  4. Per-node failures collect into `KeyspaceNotificationsRefreshError#errors`
+  4. A `CommandError` from a catch-up is routed through the same per-pattern
+     identification and registry eviction as a rejected `subscribe` (§5.3) — it is a
+     server rejection, not a node failure, and the connection is healthy; only an
+     unattributable batch failure (every pattern succeeds individually) falls through
+     to the per-node failure handling.
+  5. Per-node failures collect into `KeyspaceNotificationsRefreshError#errors`
      (`"host:port" => exception`); the failed node's listener is removed so the next
      refresh rebuilds it from scratch.
 - **No proactive polling.** Scale-out (a brand-new primary) produces no error signal —
@@ -592,6 +617,8 @@ configuration* the cluster client uses:
 | Node's reconnect budget exhausted | `healthy?(expect_subscribed)` fails → pruned and rebuilt by the next refresh. |
 | `CLUSTER SLOTS` returns no primaries (mid-reset) | Keep existing listeners (they carry the recovery signal), raise; refresher backoff retries. |
 | Server conceals node endpoints | Loud failure unless `fixed_hostname` provides the dial target — never silently subscribe to `":<port>"`. |
+| Concealed primaries sharing a port under `fixed_hostname` | Deduped by node id; distinct primaries collapsing onto one dial target → loud refresh failure instead of one listener silently covering 1/N. |
+| Server-rejected pattern (e.g. ACL `NOPERM`) | Identified per-pattern, evicted from the registry, reported; a blocking `subscribe` raises; listeners survive — a rejection is not a node failure (§5.3). |
 | Subscribe when zero listeners exist (a previous refresh failed completely) | Post-fan-out check requests a refresh — with no connections there is no error signal, so this is the only recovery trigger. |
 | Subscribe/unsubscribe/refresh from inside a handler | Deferred to the refresher (deadlock analysis, §5.5). |
 | Registry churn during a node's catch-up | Convergence loop (re-run until a pass saw an unchanged registry); if the bound exhausts, schedule another refresh — never accept a stale node silently. |
@@ -609,7 +636,7 @@ configuration* the cluster client uses:
 | Property | Standalone | Cluster |
 |---|---|---|
 | `subscribe` returned ⇒ server(s) delivering | Yes (acked) | Best-effort per node; failures reported, converged by refresh |
-| `subscribe` raised ⇒ no trace | Yes (rollback + revert) | n/a (registry-first; see §5.3) |
+| `subscribe` raised ⇒ no trace | Yes (rollback + revert) | Server rejections raise and evict the pattern; other per-node failures are best-effort (§5.3) |
 | `unsubscribe` returned ⇒ no further delivery | Yes | Yes for the dispatcher (dispatch-time registry lookup drops buffered/late events); node-level convergence via refresh |
 | Events during a reconnect/topology gap | **Lost** (transport property). Observable via `on_reconnect` | **Lost**. Observable via error handler; per-node gaps only |
 | Ordering | Single connection: server order | Per-node preserved; cross-node unspecified |
