@@ -237,7 +237,10 @@ class Redis
 
       # Replaces the error handler. Receives (error, node_key); must not raise.
       def on_error(&block)
-        @error_handler = block
+        # Synchronized like every other piece of shared state: an unsynchronized
+        # write has no happens-before edge with the background threads' reads, so
+        # a non-GVL runtime could keep invoking the replaced handler indefinitely.
+        @lock.synchronize { @error_handler = block }
         nil
       end
 
@@ -632,7 +635,7 @@ class Redis
       end
 
       def report_error(error, node_key)
-        handler = @error_handler
+        handler = @lock.synchronize { @error_handler }
         if handler
           handler.call(error, node_key)
         else

@@ -351,7 +351,10 @@ class Redis
       # connection errors; must not raise.
       # @yieldparam error [StandardError]
       def on_error(&block)
-        @error_handler = block
+        # Synchronized like every other piece of shared state: an unsynchronized
+        # write has no happens-before edge with the background threads' reads, so
+        # a non-GVL runtime could keep invoking the replaced handler indefinitely.
+        @lock.synchronize { @error_handler = block }
         nil
       end
 
@@ -359,7 +362,7 @@ class Redis
       # connection and re-subscribed. Notifications emitted during the gap are lost;
       # use this to reconcile (e.g. invalidate caches).
       def on_reconnect(&block)
-        @reconnect_handler = block
+        @lock.synchronize { @reconnect_handler = block }
         nil
       end
 
@@ -824,13 +827,16 @@ class Redis
       end
 
       def fire_reconnect
-        @reconnect_handler&.call
+        # Read under @lock (paired with on_reconnect's synchronized write), called
+        # outside it — user code must never run while the manager lock is held.
+        handler = @lock.synchronize { @reconnect_handler }
+        handler&.call
       rescue StandardError => error
         report_error(error)
       end
 
       def report_error(error)
-        handler = @error_handler
+        handler = @lock.synchronize { @error_handler }
         if handler
           handler.call(error)
         else
