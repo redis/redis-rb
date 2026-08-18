@@ -160,6 +160,7 @@ re-subscribing an already-subscribed pattern is harmless (the server just re-ack
 | `@confirmed` | **Server truth**: patterns the *current session* has acked | listener only |
 | `@removing` | pattern → the exact `Registration` an in-flight unsubscribe targets | unsubscribing callers |
 | `@unvalidated` | pattern → `{entry:, batch:, seq:}` for in-handler subscribes not yet acked (`seq` = issue order; map position lies once a later call re-marks a pattern) | listener thread |
+| `@inflight_waits` | issue seq → a blocking subscribe's batch, until its wait exits — tells rejection attribution when the oldest unresolved command is a blocking one (whose own waiter rolls it back) | subscribing callers |
 | `@listener_error` + `@listener_error_epoch` | last session-killing error, with a counter for temporal attribution | listener |
 | `@reconnect_now`, `@closing`, `@closed` | control signals for the backoff wait and lifecycle | callers |
 
@@ -370,6 +371,7 @@ machinery. That is inherent to constraint 2, not a choice.
 | In-handler subscribe unsubscribed before its ack | Unvalidated marker purged (identity-checked) at removal |
 | Re-subscribe of a confirmed pattern racing a server rejection | Install invalidates the stale confirmation: the wait demands a fresh ack, so the rejection raises instead of the call reporting success on the replaced registration's confirmation |
 | Overlapping in-handler batches on one pattern | Batch age by sequence number, not map position — the rejection is attributed to the oldest *issued* batch even when a later call re-marked a shared pattern |
+| Blocking subscribe rejected while an in-handler subscribe is in flight | Blocking batches are sequenced in the same wire-order series (`@inflight_waits`): when the oldest unresolved command is a blocking one, the in-handler drop is skipped — the blocking waiter observes the error (epoch) and rolls its own batch back |
 | Command written into a session that dies before acking | Waiters re-issue unconfirmed patterns on every wakeup (idempotent) |
 | Handler raises / message unparseable / error handler itself raises | Reported to the error handler (or `warn`); the listener never dies from traffic; a broken error handler is swallowed |
 
@@ -573,7 +575,15 @@ the ack timeouts fire. Hence:
      **deferred until the refresh lock is released**: the error handler is user code
      that may call `close` or `refresh`, which acquire the same non-reentrant lock —
      invoked while held, that raises `ThreadError`, is swallowed by the report guard,
-     and a requested close would be silently dropped.
+     and a requested close would be silently dropped. Node-level reports (the core
+     managers reporting their own errors from reader threads) are deliberately *not*
+     routed through a deferral pipeline: they never hold the refresh lock, so the
+     failure mode there is different — a blocking error handler parks its reader,
+     which stalls (bounded by the ack timeouts, then converges) rather than drops an
+     in-flight refresh. Making every report asynchronous to also absorb that would
+     cost a dedicated reporter thread and at-close delivery semantics for a bounded
+     corner case; the documented contract instead requires error handlers to be fast
+     and non-blocking, reacting asynchronously (`Thread.new { manager.close }`).
   5. Per-node failures collect into `KeyspaceNotificationsRefreshError#errors`
      (`"host:port" => exception`); the failed node's listener is removed so the next
      refresh rebuilds it from scratch.

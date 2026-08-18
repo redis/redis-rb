@@ -668,6 +668,63 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     end
   end
 
+  def test_rejected_blocking_subscribe_is_not_blamed_on_in_handler_batches
+    trigger = CHANNELS.keyspace("trigger", db: DB)
+    inhandler = CHANNELS.keyspace("inhandler", db: DB)
+    r.acl("SETUSER", "kn_limited3", "on", ">knpass", "+@all", "resetchannels",
+          "&#{trigger}", "&#{inhandler}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited3", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    manager = Redis::KeyspaceNotifications::Manager.new(redis: restricted, error_handler: ->(_error) {})
+    @managers << manager
+    gate = Queue.new
+    release = Queue.new
+    received = Queue.new
+    manager.subscribe(trigger, handler: lambda { |_notification|
+      gate << true
+      release.pop
+      # Wire position 2: a VALID in-handler subscribe, issued after the caller's
+      # rejected command already sits first on the wire. The session-killing
+      # rejection belongs to the caller's command — which has its own waiter to
+      # roll it back — so attribution must not blame (and delete) this batch.
+      manager.subscribe(inhandler, handler: ->(notification) { received << notification })
+    })
+    r.set("trigger", "v")
+    gate.pop # the listener is parked: nothing is read until release
+
+    rejector = Thread.new do
+      # Wire position 1: written immediately (writes don't need the listener),
+      # rejected once the listener resumes reading.
+      manager.subscribe(CHANNELS.keyspace("forbidden", db: DB))
+    rescue StandardError => error
+      error
+    end
+    sleep 0.2 # let the rejected command reach the wire before the handler's
+    release << true
+
+    assert_kind_of Redis::CommandError, rejector.value
+    # The in-handler registration survives attribution, is replayed after the
+    # rejection's session bounce, and delivers; the rejected pattern is rolled
+    # back by its own waiter.
+    wait_until(timeout: 5) do
+      manager.registered_patterns.sort == [inhandler, trigger].sort && manager.subscribed?
+    end
+    notification = nil
+    wait_until(timeout: 5) do
+      r.set("inhandler", "v")
+      notification = received.pop(timeout: 0.5)
+      !notification.nil?
+    end
+
+    assert_equal "inhandler", notification.key
+  ensure
+    begin
+      r.acl("DELUSER", "kn_limited3")
+    rescue StandardError
+      nil
+    end
+  end
+
   def test_empty_reconnect_schedule_disables_reconnection
     queue = Queue.new
     errors = Queue.new

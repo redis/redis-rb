@@ -255,6 +255,11 @@ How it works:
   registry — it could never succeed anywhere, and left registered it would fail every future
   refresh. The call's other patterns stay registered. Rejections of patterns subscribed from
   inside a handler are reported to the error handler and evicted by the next refresh.
+- The **error handler can be invoked from node reader threads** (as well as the dispatcher and
+  refresher): keep it fast and non-blocking, like a notification handler. In particular, don't
+  call `close` or `refresh` from it synchronously — while a refresh is reconciling, those block
+  until it finishes, and the parked reader delays its own node's recovery. React asynchronously
+  instead (e.g. `Thread.new { manager.close }`, or set a flag your own supervision acts on).
 
 ## 7. What is *not* supported
 

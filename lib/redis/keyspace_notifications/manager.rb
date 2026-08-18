@@ -75,7 +75,13 @@ class Redis
         # order lies about command order when a later call replaces an earlier
         # call's pattern.
         @unvalidated = {}
-        @unvalidated_seq = 0
+        # Numbers every issued subscribe batch — in-handler AND blocking — in wire
+        # order (assigned under @lock at write time). Rejection attribution must
+        # span both kinds: a blocking command has its own waiter to roll it back,
+        # but only this sequence tells the listener that the rejected command was
+        # the blocking one and not the oldest in-handler batch.
+        @issue_seq = 0
+        @inflight_waits = {} # issue seq => the blocking subscribe's batch, until its wait exits
         @closing = false
         @closed = false
       end
@@ -101,6 +107,7 @@ class Redis
         patterns = patterns.map { |pattern| pattern.to_s.b }
         previous = {}
         installed = {}
+        issue_seq = nil
         @lock.synchronize do
           raise SubscriptionError, "keyspace notifications manager is closed" if @closed || @closing
 
@@ -121,6 +128,11 @@ class Redis
             # already-subscribed pattern is re-acked promptly, restoring the entry.
             @confirmed.delete(pattern)
           end
+          # Sequenced HERE — the same locked section as the write — so batch age
+          # reflects true wire order for both call kinds (a marker sequenced in a
+          # later section could be overtaken by a concurrent caller's write).
+          issue_seq = (@issue_seq += 1)
+          @inflight_waits[issue_seq] = installed unless listener_thread?
           if listening?
             unless write_to_session(:psubscribe, patterns)
               # The listener session is down (likely parked in a reconnect backoff
@@ -148,10 +160,7 @@ class Redis
         # of poisoning every reconnect replay with the rejected pattern.
         if listener_thread?
           @lock.synchronize do
-            # In-handler subscribes are serial (one listener thread), so this
-            # sequence numbers batches in the exact order their commands were
-            # written — the order the server rejects them in.
-            seq = (@unvalidated_seq += 1)
+            seq = issue_seq
             patterns.each do |pattern|
               # Only mark a registration that is still the live one: a concurrent
               # replacement between the install and this lock makes ours stale, and
@@ -172,6 +181,11 @@ class Redis
         rescue StandardError
           rollback_registration(previous, installed)
           raise
+        ensure
+          # Resolved either way: confirmed batches were already consumed off the
+          # reply stream, and failed ones are this rescue's rollback to undo —
+          # attribution must stop considering them.
+          @lock.synchronize { @inflight_waits.delete(issue_seq) }
         end
       end
 
@@ -490,11 +504,18 @@ class Redis
               # later batches may be perfectly valid and get replayed; a later poison
               # is identified the same way one session later.
               @lock.synchronize do
-                # min_by seq, NOT values.first: a re-marked pattern keeps its
+                # min_by seq, NOT map order: a re-marked pattern keeps its
                 # original Hash position, which would misattribute the rejection
                 # to the newer batch and kill a valid replacement.
-                oldest_batch = @unvalidated.values.min_by { |record| record[:seq] }&.fetch(:batch)
-                if oldest_batch
+                oldest_marker = @unvalidated.values.min_by { |record| record[:seq] }
+                # A blocking subscribe older than every in-handler batch is still
+                # unresolved: the rejected command is (or may be) THAT one, and its
+                # own waiter observes this error via the epoch and rolls it back.
+                # Dropping the oldest in-handler batch instead would kill a valid
+                # registration the rejection never touched.
+                oldest_wait = @inflight_waits.keys.min
+                if oldest_marker && (oldest_wait.nil? || oldest_marker[:seq] < oldest_wait)
+                  oldest_batch = oldest_marker[:batch]
                   @unvalidated.each do |pattern, record|
                     next unless record[:batch].equal?(oldest_batch)
 
