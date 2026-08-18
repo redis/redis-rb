@@ -590,6 +590,84 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_operator elapsed, :<, 3, "close waited out the reconnect backoff"
   end
 
+  def test_replacing_a_confirmed_pattern_waits_for_a_fresh_acknowledgment
+    gate = Queue.new
+    release = Queue.new
+    manager = new_manager(error_handler: ->(_error) {})
+    manager.subscribe(CHANNELS.keyspace("fresh", db: DB), handler: lambda { |_notification|
+      gate << true
+      release.pop
+    })
+    r.set("fresh", "v1")
+    gate.pop # the listener thread is now parked inside the handler: no acks can be read
+
+    replaced = Queue.new
+    replacer = Thread.new do
+      manager.subscribe(CHANNELS.keyspace("fresh", db: DB), handler: ->(n) { replaced << n })
+      :done
+    end
+    sleep 0.2
+    # The replaced registration's stale confirmation must not satisfy the
+    # replacement's wait: its own ack can only be read once the listener resumes.
+    # Returning early would report success for a command the server could still
+    # reject, with no waiter left to roll the registration back.
+    assert_predicate replacer, :alive?, "replacement subscribe returned before its acknowledgment could be read"
+
+    release << true
+    assert_equal :done, replacer.value
+    r.set("fresh", "v2")
+
+    assert_equal "fresh", assert_pop(replaced).key
+  ensure
+    release&.push(true)
+  end
+
+  def test_in_handler_rejection_is_attributed_by_issue_order_not_map_position
+    shared = CHANNELS.keyspace("shared", db: DB)
+    r.acl("SETUSER", "kn_limited2", "on", ">knpass", "+@all", "resetchannels",
+          "&#{CHANNELS.keyspace('trigger', db: DB)}", "&#{shared}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited2", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    manager = Redis::KeyspaceNotifications::Manager.new(redis: restricted, error_handler: ->(_error) {})
+    @managers << manager
+    replaced = Queue.new
+    fired = Queue.new
+    manager.subscribe(CHANNELS.keyspace("trigger", db: DB), handler: lambda { |_notification|
+      next unless fired.empty?
+
+      fired << true
+      # Batch 1: a valid pattern sharing the call with a forbidden one. Batch 2:
+      # replaces the valid pattern before the handler returns. Re-marking the
+      # pattern keeps its ORIGINAL map position, so position-based age would
+      # blame batch 2 for batch 1's rejection — killing the valid replacement
+      # and keeping the poison.
+      manager.subscribe(shared, CHANNELS.keyspace("forbidden", db: DB), handler: ->(_n) {})
+      manager.subscribe(shared, handler: ->(notification) { replaced << notification })
+    })
+    r.set("trigger", "v")
+    assert fired.pop(timeout: 3)
+
+    # The rejection bounces the session; the replacement must survive the batch
+    # drop and be replayed, while the forbidden pattern is dropped for good.
+    wait_until(timeout: 5) do
+      manager.registered_patterns.sort == [CHANNELS.keyspace("trigger", db: DB), shared].sort
+    end
+    received = nil
+    wait_until(timeout: 5) do
+      r.set("shared", "v")
+      received = replaced.pop(timeout: 0.5)
+      !received.nil?
+    end
+
+    assert_equal "shared", received.key
+  ensure
+    begin
+      r.acl("DELUSER", "kn_limited2")
+    rescue StandardError
+      nil
+    end
+  end
+
   def test_empty_reconnect_schedule_disables_reconnection
     queue = Queue.new
     errors = Queue.new

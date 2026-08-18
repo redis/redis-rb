@@ -67,10 +67,15 @@ class Redis
         @listener_error_epoch = 0
         @reconnect_now = false
         @removing = {} # pattern => the Registration an in-flight unsubscribe targets
-        # pattern => { entry: Registration, batch: Object } for registrations
-        # installed from a handler and not yet server-acked; batch identifies the
-        # subscribe call, so a session rejection drops only the oldest (culprit) batch.
+        # pattern => { entry: Registration, batch: Object, seq: Integer } for
+        # registrations installed from a handler and not yet server-acked; batch
+        # identifies the subscribe call and seq its issue order, so a session
+        # rejection drops only the oldest (culprit) batch. Age must be an explicit
+        # sequence: re-marking a pattern keeps its ORIGINAL Hash position, so map
+        # order lies about command order when a later call replaces an earlier
+        # call's pattern.
         @unvalidated = {}
+        @unvalidated_seq = 0
         @closing = false
         @closed = false
       end
@@ -108,6 +113,13 @@ class Redis
               previous[pattern] = @handlers.key?(pattern) ? { entry: @handlers[pattern] } : nil
             end
             @handlers[pattern] = installed[pattern] = Registration.new(handler)
+            # A (re-)subscribe demands a FRESH acknowledgment: a confirmation earned
+            # by a replaced registration must not satisfy this call's wait — the
+            # server may reject the new command (e.g. permissions revoked since),
+            # and returning on the stale entry would report success while leaving a
+            # poisoned registration no wait can ever roll back. Re-subscribing an
+            # already-subscribed pattern is re-acked promptly, restoring the entry.
+            @confirmed.delete(pattern)
           end
           if listening?
             unless write_to_session(:psubscribe, patterns)
@@ -136,6 +148,10 @@ class Redis
         # of poisoning every reconnect replay with the rejected pattern.
         if listener_thread?
           @lock.synchronize do
+            # In-handler subscribes are serial (one listener thread), so this
+            # sequence numbers batches in the exact order their commands were
+            # written — the order the server rejects them in.
+            seq = (@unvalidated_seq += 1)
             patterns.each do |pattern|
               # Only mark a registration that is still the live one: a concurrent
               # replacement between the install and this lock makes ours stale, and
@@ -144,7 +160,7 @@ class Redis
               # command order, so a session-killing rejection is attributable to
               # the OLDEST outstanding batch — later ones survive for the replay.
               if @handlers[pattern].equal?(installed[pattern])
-                @unvalidated[pattern] = { entry: installed[pattern], batch: installed }
+                @unvalidated[pattern] = { entry: installed[pattern], batch: installed, seq: seq }
               end
             end
           end
@@ -474,7 +490,10 @@ class Redis
               # later batches may be perfectly valid and get replayed; a later poison
               # is identified the same way one session later.
               @lock.synchronize do
-                oldest_batch = @unvalidated.values.first&.fetch(:batch)
+                # min_by seq, NOT values.first: a re-marked pattern keeps its
+                # original Hash position, which would misattribute the rejection
+                # to the newer batch and kill a valid replacement.
+                oldest_batch = @unvalidated.values.min_by { |record| record[:seq] }&.fetch(:batch)
                 if oldest_batch
                   @unvalidated.each do |pattern, record|
                     next unless record[:batch].equal?(oldest_batch)

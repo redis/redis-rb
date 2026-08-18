@@ -45,6 +45,12 @@ class Redis
           when :subkeyspaceevent then parse_subkeyspaceevent(rest, payload, channel)
           end
 
+        # Redis never emits an empty event name; one here means garbage was
+        # published on a notification channel, which must surface as the
+        # documented ParseError, not as a Notification violating the contract.
+        # (Empty KEYS are legal — "" is a valid Redis key — as are empty subkeys.)
+        raise error("empty event name", channel, payload) if event.empty?
+
         Notification.new(
           family: family,
           db: db,

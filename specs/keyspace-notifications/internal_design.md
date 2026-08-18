@@ -100,6 +100,10 @@ subkey by delimiter:
   `subkeyspaceitem` keys never contain `\n` — see above).
 - Non-notification channels return `nil` (not an error): the parser is also a public
   utility, usable inside a plain `psubscribe` block against mixed traffic.
+- An **empty event name** is malformed (Redis never emits one — it means garbage was
+  published on a notification channel) and raises `ParseError` rather than producing a
+  contract-violating `Notification`. Empty *keys* stay parseable — `""` is a valid
+  Redis key — as are empty subkeys.
 - `ParseError` carries the raw channel and payload, so an error handler can log or
   quarantine the exact bytes.
 
@@ -155,7 +159,7 @@ re-subscribing an already-subscribed pattern is harmless (the server just re-ack
 | `@handlers` | **Intent**: pattern → `Registration` (the registry; what a replay restores) | callers, listener (rollbacks) |
 | `@confirmed` | **Server truth**: patterns the *current session* has acked | listener only |
 | `@removing` | pattern → the exact `Registration` an in-flight unsubscribe targets | unsubscribing callers |
-| `@unvalidated` | pattern → `{entry:, batch:}` for in-handler subscribes not yet acked | listener thread |
+| `@unvalidated` | pattern → `{entry:, batch:, seq:}` for in-handler subscribes not yet acked (`seq` = issue order; map position lies once a later call re-marks a pattern) | listener thread |
 | `@listener_error` + `@listener_error_epoch` | last session-killing error, with a counter for temporal attribution | listener |
 | `@reconnect_now`, `@closing`, `@closed` | control signals for the backoff wait and lifecycle | callers |
 
@@ -197,6 +201,12 @@ still fully subscribed and the call can simply be retried.**
 1. The handler is registered **before** the command is written — matching messages can
    arrive ahead of our processing of the ack, and dispatch must find the handler.
    The pre-write registration is exactly what the rollback must be able to undo.
+   Installing also **invalidates any existing confirmation** for the pattern: a
+   (re-)subscribe demands a *fresh* acknowledgment, because a confirmation earned by
+   the replaced registration would otherwise satisfy this call's wait — reporting
+   success for a command the server may still reject (e.g. permissions revoked since),
+   with no waiter left to roll the poisoned registration back. Re-subscribing an
+   already-subscribed pattern is re-acked promptly, restoring the entry.
 2. `wait_for_confirmation` waits until every pattern is either confirmed or **no longer
    this call's** (its registration was replaced/removed by a concurrent operation — then
    it resolves to *that* operation's outcome; timing out on it would tear down the
@@ -304,7 +314,10 @@ loop:
     nobody waited and nobody can roll it back. Subscriber-mode replies arrive **in
     command order**, so by the time the listener reads the error, every earlier
     command's acks have already validated and removed their `@unvalidated` markers —
-    the **oldest remaining batch is the rejected command**. Only that batch is dropped;
+    the **oldest remaining batch is the rejected command**. Batch age is an explicit
+    sequence number, *not* map order: re-marking a pattern keeps its original Hash
+    position, so position-based age would blame a newer batch for an older one's
+    rejection when calls overlap on a pattern. Only the oldest batch is dropped;
     later batches may be perfectly valid and get replayed (a later poison is identified
     the same way one session later — bounded, convergent, never drops a valid
     registration).
@@ -355,6 +368,8 @@ machinery. That is inherent to constraint 2, not a choice.
 | ACL-rejected pattern subscribed in-handler | Oldest-batch attribution drops exactly the poisoned batch |
 | Listener dead (schedule exhausted), then a new subscribe | Restart with the **complete** registry |
 | In-handler subscribe unsubscribed before its ack | Unvalidated marker purged (identity-checked) at removal |
+| Re-subscribe of a confirmed pattern racing a server rejection | Install invalidates the stale confirmation: the wait demands a fresh ack, so the rejection raises instead of the call reporting success on the replaced registration's confirmation |
+| Overlapping in-handler batches on one pattern | Batch age by sequence number, not map position — the rejection is attributed to the oldest *issued* batch even when a later call re-marked a shared pattern |
 | Command written into a session that dies before acking | Waiters re-issue unconfirmed patterns on every wakeup (idempotent) |
 | Handler raises / message unparseable / error handler itself raises | Reported to the error handler (or `warn`); the listener never dies from traffic; a broken error handler is swallowed |
 
@@ -554,7 +569,11 @@ the ack timeouts fire. Hence:
      identification and registry eviction as a rejected `subscribe` (§5.3) — it is a
      server rejection, not a node failure, and the connection is healthy; only an
      unattributable batch failure (every pattern succeeds individually) falls through
-     to the per-node failure handling.
+     to the per-node failure handling. Rejection reports discovered this way are
+     **deferred until the refresh lock is released**: the error handler is user code
+     that may call `close` or `refresh`, which acquire the same non-reentrant lock —
+     invoked while held, that raises `ThreadError`, is swallowed by the report guard,
+     and a requested close would be silently dropped.
   5. Per-node failures collect into `KeyspaceNotificationsRefreshError#errors`
      (`"host:port" => exception`); the failed node's listener is removed so the next
      refresh rebuilds it from scratch.
@@ -618,7 +637,7 @@ configuration* the cluster client uses:
 | `CLUSTER SLOTS` returns no primaries (mid-reset) | Keep existing listeners (they carry the recovery signal), raise; refresher backoff retries. |
 | Server conceals node endpoints | Loud failure unless `fixed_hostname` provides the dial target — never silently subscribe to `":<port>"`. |
 | Concealed primaries sharing a port under `fixed_hostname` | Deduped by node id; distinct primaries collapsing onto one dial target → loud refresh failure instead of one listener silently covering 1/N. |
-| Server-rejected pattern (e.g. ACL `NOPERM`) | Identified per-pattern, evicted from the registry, reported; a blocking `subscribe` raises; listeners survive — a rejection is not a node failure (§5.3). |
+| Server-rejected pattern (e.g. ACL `NOPERM`) | Identified per-pattern, evicted from the registry, reported; a blocking `subscribe` raises. A rejection is not a node failure: refresh converges over the cleaned registry (listeners whose sessions the rejection bounced are transiently rebuilt, never destroyed in a loop) (§5.3). |
 | Subscribe when zero listeners exist (a previous refresh failed completely) | Post-fan-out check requests a refresh — with no connections there is no error signal, so this is the only recovery trigger. |
 | Subscribe/unsubscribe/refresh from inside a handler | Deferred to the refresher (deadlock analysis, §5.5). |
 | Registry churn during a node's catch-up | Convergence loop (re-run until a pass saw an unchanged registry); if the bound exhausts, schedule another refresh — never accept a stale node silently. |

@@ -304,12 +304,18 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         error = assert_raises(Redis::CommandError) { manager.subscribe_keyevent('expired') }
         assert_match(/NOPERM|permission/i, error.message)
 
-        # The rejected pattern was evicted (it could never succeed) and no listener
-        # was torn down for what is not a node failure; the registry keeps only the
-        # valid pattern, so a refresh converges instead of looping over the poison.
+        # The rejected pattern was evicted (it could never succeed), leaving only
+        # the valid pattern registered. The rejection bounced every node's
+        # subscriber session, so the concurrent reactive refresh may transiently
+        # prune and rebuild listeners whose core managers are mid-reconnect —
+        # node_keys is only stable again after a refresh converges. A refresh over
+        # the cleaned registry must succeed (the poison would have failed it on
+        # every primary and destroyed the listeners in a loop) and restore the
+        # full listener set.
         assert_equal [allowed], manager.patterns
-        assert_equal listeners_before, manager.node_keys.sort
         manager.refresh
+
+        assert_equal listeners_before, manager.node_keys.sort
 
         # The rejection bounced the node sessions; delivery of the valid pattern
         # recovers, but events published into the reconnect gap are lost
@@ -324,6 +330,46 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         assert_equal 'acl:probe', received
       ensure
         manager&.close
+        restricted.close
+      end
+    end
+  end
+
+  def test_close_from_rejection_error_handler_during_refresh
+    allowed = '__keyevent@0__:set'
+    with_channel_restricted_user([allowed]) do |username, password|
+      restricted = build_another_client(username: username, password: password)
+      begin
+        manager = nil
+        forbidden = '__keyevent@0__:expired'
+        closed_from_handler = Queue.new
+        error_handler = lambda do |error, _node_key|
+          next unless error.is_a?(Redis::CommandError)
+          # The node readers report the same rejection while the pattern is still
+          # registered (and while the refresher may hold the refresh lock — close
+          # from those would just wait the refresh out). The refresher's own
+          # deferred report follows the eviction: close on that one — it is the
+          # report the refresh lock must have been RELEASED for, or this close
+          # raises ThreadError, is swallowed, and the manager keeps running.
+          next if manager.nil? || manager.patterns.include?(forbidden)
+
+          manager.close
+          closed_from_handler << true
+        end
+        manager = restricted.keyspace_notifications(error_handler: error_handler)
+        @managers << manager
+        subscribed_once = Queue.new
+        manager.subscribe(allowed) do |_notification|
+          # An in-handler subscribe of a forbidden pattern: deferred to the
+          # refresher, whose catch-up hits the rejection and evicts it.
+          manager.subscribe(forbidden) { |_n| } if subscribed_once.empty?
+          subscribed_once << true
+        end
+        redis.set('reject:trigger', 'v')
+
+        assert closed_from_handler.pop(timeout: 8), 'the post-eviction rejection report never reached the error handler'
+        wait_until { manager.closed? }
+      ensure
         restricted.close
       end
     end

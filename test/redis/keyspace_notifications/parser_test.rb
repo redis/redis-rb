@@ -184,6 +184,19 @@ class TestKeyspaceNotificationsParser < Minitest::Test
     assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspaceitem@0__:myhash", "hset") }
   end
 
+  def test_raises_on_empty_event_names
+    # Redis never emits an empty event: these shapes are manual garbage on a
+    # notification channel and must take the ParseError path, not produce a
+    # contract-violating Notification. Empty keys stay legal ("" is a valid key).
+    assert_raises(Redis::KeyspaceNotifications::ParseError) { PARSER.parse("__keyspace@0__:key", "") }
+    assert_raises(Redis::KeyspaceNotifications::ParseError) { PARSER.parse("__keyevent@0__:", "key") }
+    assert_raises(Redis::KeyspaceNotifications::ParseError) { PARSER.parse("__subkeyspace@0__:key", "|4:name") }
+    assert_raises(Redis::KeyspaceNotifications::ParseError) { PARSER.parse("__subkeyevent@0__:", "3:key|4:name") }
+    assert_raises(Redis::KeyspaceNotifications::ParseError) { PARSER.parse("__subkeyspaceitem@0__:key\nsub", "") }
+    assert_raises(Redis::KeyspaceNotifications::ParseError) { PARSER.parse("__subkeyspaceevent@0__:|key", "4:name") }
+    assert_equal "", PARSER.parse("__keyevent@0__:set", "").key # empty key stays parseable
+  end
+
   def test_parse_error_carries_channel_and_payload
     error = assert_raises(PARSE_ERROR) { PARSER.parse("__subkeyspace@0__:h", "hset|9:short") }
 

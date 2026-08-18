@@ -259,6 +259,12 @@ class Redis
         # drains). Defer to the refresher thread, like #subscribe and #unsubscribe.
         return request_refresh(nil) if dispatcher_thread?
 
+        # Rejection reports collected under the refresh lock are delivered only
+        # after it is released (see the ensure): the error handler is user code
+        # that may call #close or #refresh, which acquire this same non-reentrant
+        # lock — invoked while held, that raises ThreadError, report_error's guard
+        # swallows it, and a requested close would be silently dropped.
+        deferred_reports = []
         @refresh_lock.synchronize do
           return if @closed
 
@@ -321,7 +327,7 @@ class Redis
                   # Identify and evict the rejected pattern(s); the next pass
                   # converges on the cleaned registry. An unattributable batch
                   # failure re-raises into the per-node failure handling.
-                  raise if evict_rejected(listener, node_key, snapshot).empty?
+                  raise if evict_rejected(listener, node_key, snapshot, reports: deferred_reports).empty?
                 end
                 current = @lock.synchronize { @registry.keys }
                 if current == snapshot
@@ -344,6 +350,8 @@ class Redis
           raise KeyspaceNotificationsRefreshError, failures unless failures.empty?
         end
         nil
+      ensure
+        deferred_reports&.each { |error, node_key| report_error(error, node_key) }
       end
 
       # @return [Array<String>] "host:port" of every primary currently listened to
@@ -511,7 +519,10 @@ class Redis
       # them from the registry and report each. Returns the rejected patterns
       # mapped to their errors; empty when the failure was not attributable to any
       # single pattern (each succeeded individually).
-      def evict_rejected(listener, node_key, patterns)
+      # When +reports+ is given (the refresh path, which holds the non-reentrant
+      # refresh lock), rejections are collected there instead of reported inline —
+      # the error handler must never run under that lock (see #refresh).
+      def evict_rejected(listener, node_key, patterns, reports: nil)
         rejected = {}
         patterns.each do |pattern|
           listener.subscribe([pattern])
@@ -523,7 +534,9 @@ class Redis
         # Unconditional delete: the server rejects by pattern name, so a concurrent
         # re-registration under a different handler is just as poisoned.
         @lock.synchronize { rejected.each_key { |pattern| @registry.delete(pattern) } }
-        rejected.each_value { |error| report_error(error, node_key) }
+        rejected.each_value do |error|
+          reports ? reports << [error, node_key] : report_error(error, node_key)
+        end
         rejected
       end
 
