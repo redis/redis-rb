@@ -345,14 +345,22 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         closed_from_handler = Queue.new
         error_handler = lambda do |error, _node_key|
           next unless error.is_a?(Redis::CommandError)
-          # The node readers report the same rejection while the pattern is still
-          # registered (and while the refresher may hold the refresh lock — close
-          # from those would just wait the refresh out). The refresher's own
-          # deferred report follows the eviction: close on that one — it is the
-          # report the refresh lock must have been RELEASED for, or this close
-          # raises ThreadError, is swallowed, and the manager keeps running.
+          # The node readers report the same rejection too (mostly while the
+          # pattern is still registered, but a delayed one can slip past the
+          # registry filter). Only the refresher's own deferred report is under
+          # test: it must arrive with the refresh lock RELEASED — under the lock
+          # (the pre-fix behavior) close raises ThreadError, is swallowed, and the
+          # manager keeps running. Probe the lock non-blockingly: a reader-thread
+          # report racing the in-flight refresh legitimately sees it held and must
+          # not close from there (that would park the reader the refresh needs and
+          # stall the test on ack timeouts — the documented reason error handlers
+          # should not call close synchronously).
           next if manager.nil? || manager.patterns.include?(forbidden)
 
+          refresh_lock = manager.instance_variable_get(:@refresh_lock)
+          next unless refresh_lock.try_lock
+
+          refresh_lock.unlock
           manager.close
           closed_from_handler << true
         end
@@ -367,7 +375,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         end
         redis.set('reject:trigger', 'v')
 
-        assert closed_from_handler.pop(timeout: 8), 'the post-eviction rejection report never reached the error handler'
+        assert closed_from_handler.pop(timeout: 15),
+               'the post-eviction rejection report never reached the error handler'
         wait_until { manager.closed? }
       ensure
         restricted.close
