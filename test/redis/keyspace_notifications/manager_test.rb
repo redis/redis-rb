@@ -825,6 +825,50 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_predicate queue, :empty?
   end
 
+  def test_an_earlier_commands_ack_does_not_satisfy_a_later_resubscribes_wait
+    gate = Queue.new
+    release = Queue.new
+    manager = new_manager(error_handler: ->(_error) {})
+    # A parking channel: its handler blocks the listener thread on demand, so the
+    # acknowledgments piling up behind each publication are read only when we say so.
+    manager.subscribe(CHANNELS.keyspace("park", db: DB), handler: lambda { |_notification|
+      gate << true
+      release.pop
+    })
+    target = CHANNELS.keyspace("generation", db: DB)
+    manager.subscribe(target, handler: ->(_n) {})
+
+    r.set("park", "v1")
+    gate.pop # the listener is parked: nothing on the wire is read anymore
+
+    first = Thread.new { manager.subscribe(target, handler: ->(_n) {}) }
+    sleep 0.2 # the first re-subscribe's command (and the server's ack) is on the wire
+    r.set("park", "v2") # a second parking message, ordered AFTER the first command's ack
+    sleep 0.1
+    replaced = Queue.new
+    second = Thread.new { manager.subscribe(target, handler: ->(n) { replaced << n }) }
+    sleep 0.2 # the second re-subscribe's command is on the wire, behind the parking message
+
+    release << true # the listener consumes the first command's ack, then parks on "v2"
+    gate.pop
+    sleep 0.2
+    # The consumed ack answered the FIRST command. The second call's own, later command
+    # is still unanswered — its wait must not be satisfied by the earlier acknowledgment
+    # (the server could still reject it, with no waiter left to roll the poison back).
+    assert_predicate second, :alive?, "second re-subscribe returned on the first command's acknowledgment"
+
+    release << true # the listener reads on: the second command's ack resolves the wait
+    second.join(3)
+    refute_predicate second, :alive?, "second re-subscribe never confirmed"
+    first.join(3)
+
+    r.set("generation", "v")
+    assert_equal "generation", assert_pop(replaced).key
+  ensure
+    release&.push(true)
+    release&.push(true)
+  end
+
   private
 
   def new_manager(**options)

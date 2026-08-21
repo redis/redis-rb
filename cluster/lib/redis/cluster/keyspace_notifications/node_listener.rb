@@ -15,7 +15,9 @@ class Redis
         # @param redis_options [Hash] options for the sidecar ::Redis connection
         # @param queue [SizedQueue] the cluster manager's dispatch queue
         # @param on_error [#call] receives (node_key, error) for every background error
-        def initialize(node_key, redis_options, queue, on_error:)
+        # @param on_reconnect [#call] receives (node_key) after the core manager
+        #   re-established a lost connection and replayed its subscriptions
+        def initialize(node_key, redis_options, queue, on_error:, on_reconnect:)
           @node_key = node_key
           @queue = queue
           # One shared wrapper for every pattern: it only enqueues the notification;
@@ -33,6 +35,10 @@ class Redis
             redis: @redis,
             error_handler: ->(error) { on_error.call(node_key, error) }
           )
+          # The core manager announces its own successful reconnect replays; the
+          # rebuild path (a refresh replacing a torn-down listener with a fresh
+          # one) is announced by the refresh itself.
+          @manager.on_reconnect { on_reconnect.call(node_key) }
         end
 
         # Reconcile this node with the registered patterns: subscribe every one

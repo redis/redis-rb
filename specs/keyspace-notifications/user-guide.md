@@ -260,6 +260,12 @@ How it works:
   call `close` or `refresh` from it synchronously — while a refresh is reconciling, those block
   until it finishes, and the parked reader delays its own node's recovery. React asynchronously
   instead (e.g. `Thread.new { manager.close }`, or set a flag your own supervision acts on).
+- `on_reconnect { |node_key| ... }` is the per-node reconciliation hook, mirroring the standalone
+  manager's: it fires after a node's subscriptions were re-established — whether its listener
+  replayed a lost connection on its own or a refresh rebuilt it — and events the node emitted
+  during the gap are lost. It may fire more than once for a single gap (the listener's own
+  reconnect can race the refresh that would rebuild it), runs on a background thread, and the
+  same keep-it-fast/don't-close-synchronously advice as for the error handler applies.
 
 ## 7. What is *not* supported
 

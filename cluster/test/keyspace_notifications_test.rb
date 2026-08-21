@@ -384,6 +384,90 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_subscribe_reports_every_nodes_error_after_a_rejection
+    errors = Queue.new
+    manager = new_manager(error_handler: ->(error, node_key) { errors << [error, node_key] })
+    listeners = manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@listeners).dup
+    end
+    rejection = Redis::CommandError.new('NOPERM this user has no permissions to access one of the channels')
+    listeners.each_value { |listener| listener.stubs(:subscribe).raises(rejection) }
+    pattern = '__keyevent@0__:expired'
+    # Attribution runs (and reports the rejection) on the FIRST rejecting node
+    # only; stub it so the fan-out's own reporting is the sole source of errors.
+    manager.stubs(:evict_rejected).returns(pattern => rejection)
+
+    assert_raises(Redis::CommandError) { manager.subscribe(pattern) { |_n| } }
+
+    # Every OTHER node also failed the batch: each failure must be reported with
+    # its node_key, not silently dropped once the first rejection was attributed.
+    expected = listeners.keys[1..]
+    reported = Array.new(expected.size) { errors.pop(timeout: 1) }
+    refute_includes reported, nil, 'expected one report per additional failed node'
+    assert_equal expected.sort, reported.map(&:last).sort
+    reported.each { |report| assert_kind_of Redis::CommandError, report.first }
+  end
+
+  def test_close_aborts_an_inflight_refresh_promptly
+    manager = new_manager
+    manager.subscribe_keyevent('set') { |_n| }
+    entered = Queue.new
+    manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@listeners).each_value do |listener|
+        listener.define_singleton_method(:catch_up) do |_patterns|
+          entered << true
+          sleep 1.5
+          self
+        end
+      end
+    end
+
+    refresher = Thread.new do
+      manager.refresh
+    rescue StandardError
+      nil
+    end
+    refute_nil entered.pop(timeout: 3), 'the refresh never reached its first catch-up'
+
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    manager.close
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+    assert_predicate manager, :closed?
+    # close raises @closed before waiting on the refresh lock, and the in-flight
+    # refresh aborts at the next node boundary: without that it would sit out
+    # every remaining per-node catch-up with close blocked behind the lock.
+    assert_operator elapsed, :<, 3, 'close waited out the whole in-flight refresh'
+    refresher.join(5)
+  end
+
+  def test_on_reconnect_announces_a_recovered_node
+    reconnects = Queue.new
+    manager = new_manager(error_handler: ->(_error, _node_key) {}) # the kill below is expected noise
+    manager.on_reconnect { |node_key| reconnects << node_key }
+    manager.subscribe_keyevent('set') { |_n| }
+
+    # Kill the pub/sub connection on one primary: whichever path re-establishes
+    # its subscriptions — the listener's own reconnect replay, or the reactive
+    # refresh rebuilding it — must announce the gap's end with the node_key.
+    victim = manager.node_keys.first
+    host, port = victim.split(':')
+    node = Redis.new(host: host, port: Integer(port), timeout: TIMEOUT)
+    begin
+      node.client(:kill, 'TYPE', 'pubsub')
+    ensure
+      node.close
+    end
+
+    announced = nil
+    10.times do
+      announced = reconnects.pop(timeout: 2)
+      break if announced == victim
+    end
+
+    assert_equal victim, announced, 'expected the recovered node to be announced to on_reconnect'
+  end
+
   def test_concealed_same_port_primaries_are_rejected_under_fixed_hostname
     client = build_another_client(fixed_hostname: DEFAULT_HOST)
     # Two DISTINCT primaries (different node ids) concealing their IPs while

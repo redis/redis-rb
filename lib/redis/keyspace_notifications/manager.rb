@@ -58,6 +58,15 @@ class Redis
         end
         @handlers = {}           # pattern (BINARY String) => handler (Proc, nil for default)
         @confirmed = {}          # pattern (BINARY String) => true, as acked by the server
+        # pattern (BINARY String) => number of psubscribe commands issued on the
+        # live session whose acknowledgment has not been consumed yet. An ack
+        # that leaves the count positive resolves NOTHING for the pattern: with
+        # several commands on the wire (two callers re-subscribing the same
+        # pattern concurrently), an earlier command's ack must neither confirm
+        # the newer registration — whose own, later command the server may still
+        # reject — nor retire its validation marker. Cleared together with
+        # @confirmed at session end: pending acks die with their session.
+        @pending_acks = Hash.new(0)
         @default_handler = nil
         @reconnect_handler = nil
         @lock = Monitor.new
@@ -134,7 +143,9 @@ class Redis
           issue_seq = (@issue_seq += 1)
           @inflight_waits[issue_seq] = installed unless listener_thread?
           if listening?
-            unless write_to_session(:psubscribe, patterns)
+            if write_to_session(:psubscribe, patterns)
+              track_pending_acks(patterns)
+            else
               # The listener session is down (likely parked in a reconnect backoff
               # that can far outlast our confirmation wait): wake it to attempt the
               # reconnect NOW. If the server is back, the replay covers this pattern
@@ -538,8 +549,9 @@ class Redis
               # confirmations BEFORE the error reaches user code, so `patterns` /
               # `subscribed?` (and the cluster wrapper's health checks, which a
               # reactive refresh may consult during the callback) never report the
-              # dead session as live.
+              # dead session as live. Pending acks die with the session too.
               @confirmed.clear
+              @pending_acks.clear
               @cond.broadcast
             end
             report_error(error)
@@ -548,6 +560,7 @@ class Redis
             # clear above as a no-op.
             @lock.synchronize do
               @confirmed.clear
+              @pending_acks.clear
               @cond.broadcast
             end
           end
@@ -566,6 +579,7 @@ class Redis
       ensure
         @lock.synchronize do
           @confirmed.clear
+          @pending_acks.clear
           @cond.broadcast
         end
       end
@@ -575,20 +589,37 @@ class Redis
         # fire it once every replayed pattern is either confirmed or no longer
         # registered (unregistered acks are reverted and must not count as "live").
         announce_pending = reconnected ? patterns.dup : nil
+        # The session-opening command is one psubscribe per pattern, acknowledged
+        # like any later one: record the expected acks before issuing it (a failed
+        # connect raises into run_listener, whose session-end clear discards them).
+        track_pending_acks(patterns)
         @redis.psubscribe(*patterns) do |on|
           on.psubscribe do |pattern, _count|
             key = pattern.b
             registered = false
+            pending = false
             announce = false
             @lock.synchronize do
               @session_confirmed = true
               # The listener demonstrably recovered: a stale error from a previous
               # session must not be re-raised by a later wait on a clean exit.
               @listener_error = nil
-              # Any ack for this pattern retires its validation marker: a marker
-              # matching the live registration is now validated; one that doesn't
-              # match is stale (its registration was replaced or removed) and would
-              # otherwise be retained forever.
+              # Consume one expected acknowledgment. While more remain, this ack
+              # answers an EARLIER command than the pattern's newest one and
+              # resolves nothing: confirming here would let a caller's wait return
+              # success for a later command the server may still reject (leaving a
+              # poisoned registration no wait can roll back), and retiring the
+              # validation marker here would hide that later command from
+              # rejection attribution.
+              remaining = @pending_acks[key] - 1
+              pending = remaining.positive?
+              pending ? @pending_acks[key] = remaining : @pending_acks.delete(key)
+              next if pending
+
+              # Any final ack for this pattern retires its validation marker: a
+              # marker matching the live registration is now validated; one that
+              # doesn't match is stale (its registration was replaced or removed)
+              # and would otherwise be retained forever.
               @unvalidated.delete(key)
               if @handlers.key?(key)
                 @confirmed[key] = true
@@ -614,8 +645,10 @@ class Redis
             end
             # The server confirmed a pattern nobody is registered for anymore (an
             # unsubscribe or a rolled-back subscribe raced this ack): revert it so
-            # server state converges back to the registry.
-            revert_subscription(pattern) unless registered
+            # server state converges back to the registry. A pending (non-final)
+            # ack resolved nothing above and must not be reverted either — the
+            # pattern's newest command is still awaiting its own ack.
+            revert_subscription(pattern) unless registered || pending
             fire_reconnect if announce
           end
           on.punsubscribe do |pattern, _count|
@@ -763,7 +796,18 @@ class Redis
       def psubscribe_quietly(patterns)
         return if patterns.empty? || !@redis.subscribed?
 
-        write_to_session(:psubscribe, patterns)
+        track_pending_acks(patterns) if write_to_session(:psubscribe, patterns)
+      end
+
+      # Records one expected acknowledgment per pattern for a psubscribe command
+      # that went out on the live session. EVERY psubscribe write must pass through
+      # here (the session-opening command, a blocking subscribe's write, and the
+      # quiet re-issues): an untracked command's ack would drain another command's
+      # count and un-gate a confirmation early.
+      def track_pending_acks(patterns)
+        @lock.synchronize do
+          patterns.each { |pattern| @pending_acks[pattern.b] += 1 }
+        end
       end
 
       # Every block-less write onto the subscription socket races its teardown:

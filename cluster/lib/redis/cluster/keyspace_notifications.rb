@@ -46,7 +46,12 @@ class Redis
         @error_handler = error_handler
         @registry = {} # pattern (BINARY String) => user handler (nil for default) — canonical truth
         @default_handler = nil
+        @reconnect_handler = nil
         @listeners = {} # "host:port" => NodeListener
+        # node_key => true for nodes whose listener was torn down while patterns
+        # were registered: a notification gap is open there until a rebuilt
+        # listener converges, at which point refresh announces the reconnect.
+        @pending_reconnects = {}
         @queue = SizedQueue.new(queue_size)
         @lock = Monitor.new
         @refresh_cond = @lock.new_cond
@@ -103,31 +108,37 @@ class Redis
         # dispatch, refresh or close. A refresh racing this call reconciles from the
         # already-updated registry, and re-subscribing is idempotent (re-acked).
         rejected = {}
+        failures = {}
         listeners.each do |node_key, listener|
-          begin
-            listener.subscribe(patterns)
-          rescue ::Redis::CommandError => error
-            # The server REJECTED a pattern (deterministic — e.g. ACL NOPERM), which
-            # best-effort handling must not swallow: left registered, the pattern
-            # would fail every future catch-up batch on every primary. Identify and
-            # evict the culprit(s) once, then raise below — matching the standalone
-            # contract that a rejected subscribe raises and leaves no registration.
-            rejected = evict_rejected(listener, node_key, patterns) if rejected.empty?
-            # Unattributable to any single pattern (each succeeded individually):
-            # transient session trouble — fall through to the generic handling.
-            raise error if rejected.empty?
+          listener.subscribe(patterns)
+        rescue ::Redis::CommandError => error
+          # The server REJECTED a pattern (deterministic — e.g. ACL NOPERM), which
+          # best-effort handling must not swallow: left registered, the pattern
+          # would fail every future catch-up batch on every primary. Identify and
+          # evict the culprit(s) once (evict_rejected reports each rejection), then
+          # raise below — matching the standalone contract that a rejected
+          # subscribe raises and leaves no registration. Every OTHER node's error —
+          # the same rejection repeated, or one unattributable to any single
+          # pattern (each succeeded individually: transient session trouble) — is
+          # collected like any node failure, never silently dropped.
+          culprits = rejected.empty? ? evict_rejected(listener, node_key, patterns) : {}
+          if culprits.empty?
+            failures[node_key] = error
+          else
+            rejected = culprits
           end
         rescue StandardError => error
-          report_error(error, node_key)
-          request_refresh(node_key)
+          failures[node_key] = error
         end
-        unless rejected.empty?
-          # Nodes that accepted an evicted pattern (before the rejection, or under a
-          # diverging per-node ACL) converge via the refresher's catch-up: the
-          # pattern is no longer registered, so it is unsubscribed as an extra.
-          request_refresh(nil)
-          raise rejected.values.first
-        end
+        # Accumulate-then-report, like #refresh: every failed node is reported
+        # individually and healed by the refresher's catch-up. That catch-up also
+        # converges nodes that accepted an evicted pattern (before the rejection,
+        # or under a diverging per-node ACL): the pattern is no longer registered,
+        # so it is unsubscribed as an extra.
+        failures.each { |node_key, error| report_error(error, node_key) }
+        request_refresh(nil) unless rejected.empty? && failures.empty?
+        raise rejected.values.first unless rejected.empty?
+
         # Reconcile via the refresher when the fan-out could not have done the job:
         # no listeners exist at all (a previously failed refresh left none, and with
         # no connections there is no error signal to trigger recovery), or a
@@ -244,6 +255,19 @@ class Redis
         nil
       end
 
+      # Called with the node_key after a node's subscriptions were re-established
+      # following a gap — its listener either reconnected and replayed on its own,
+      # or was rebuilt by a refresh. Notifications the node emitted during the gap
+      # are lost (pub/sub is fire-and-forget); use this to reconcile, e.g.
+      # invalidate caches for that node's keys. The callback may fire more than
+      # once for a single gap (a listener's own reconnect can race the refresh
+      # that would rebuild it), runs on a background thread, and should be fast
+      # and must not raise.
+      def on_reconnect(&block)
+        @lock.synchronize { @reconnect_handler = block }
+        nil
+      end
+
       # Reconcile the per-node listeners with the current set of primaries: drop
       # vanished/demoted/broken nodes, connect new primaries, and (re-)subscribe every
       # listener to every registered pattern (idempotent for already-subscribed nodes).
@@ -268,6 +292,8 @@ class Redis
         # lock — invoked while held, that raises ThreadError, report_error's guard
         # swallows it, and a requested close would be silently dropped.
         deferred_reports = []
+        # Reconnect announcements are deferred for the same reason.
+        deferred_reconnects = []
         @refresh_lock.synchronize do
           return if @closed
 
@@ -290,21 +316,32 @@ class Redis
           # responsive (close cannot interleave — it is excluded by @refresh_lock).
           stale = @lock.synchronize do
             expect_subscribed = !@registry.empty?
-            gone = (@listeners.keys - primaries.keys).map { |node_key| @listeners.delete(node_key) }
+            gone_keys = @listeners.keys - primaries.keys
             primaries.each_key do |node_key|
               listener = @listeners[node_key]
-              gone << @listeners.delete(node_key) if listener && !listener.healthy?(expect_subscribed)
+              gone_keys << node_key if listener && !listener.healthy?(expect_subscribed)
             end
-            gone
+            # Every pruned node has an open notification gap while patterns are
+            # registered (a vanished primary may return — failback): remember it,
+            # so the refresh pass that converges the node again can announce the
+            # reconnect to the user callback.
+            gone_keys.each { |node_key| @pending_reconnects[node_key] = true } if expect_subscribed
+            gone_keys.map { |node_key| @listeners.delete(node_key) }
           end
           stale.compact.each(&:close)
 
           primaries.each do |node_key, (host, port)|
+            # A close racing this refresh raises @closed first, then waits on
+            # @refresh_lock: abort at the node boundary instead of making it sit
+            # out every remaining ack-blocking catch-up (see #close).
+            break if @closed
+
             listener = @lock.synchronize { @listeners[node_key] }
             begin
               unless listener
                 listener = NodeListener.new(
-                  node_key, sidecar_options(host, port), @queue, on_error: method(:handle_node_error)
+                  node_key, sidecar_options(host, port), @queue,
+                  on_error: method(:handle_node_error), on_reconnect: method(:handle_node_reconnect)
                 )
                 # Committed before catch-up so a racing subscribe fans out to this
                 # node too — between that and the registry snapshot below, a pattern
@@ -320,6 +357,8 @@ class Redis
               snapshot = @lock.synchronize { @registry.keys }
               converged = false
               5.times do
+                break if @closed
+
                 begin
                   listener.catch_up(snapshot)
                 rescue ::Redis::CommandError
@@ -344,17 +383,33 @@ class Redis
               # possibly-stale node silently — the concurrent operations that kept
               # changing the registry saw it already updated and requested no refresh
               # themselves, so schedule the next reconciliation here.
-              request_refresh(nil) unless converged
+              request_refresh(nil) unless converged || @closed
+              # The node converged again after its listener had been torn down: its
+              # notification gap is over — announce it once the refresh lock is
+              # released (user code must never run under it, see deferred_reports).
+              # With nothing registered anymore there is no gap to speak of: the
+              # mark is dropped silently.
+              if converged && @lock.synchronize { @pending_reconnects.delete(node_key) } && !snapshot.empty?
+                deferred_reconnects << node_key
+              end
             rescue StandardError => error
               failures[node_key] = error
-              @lock.synchronize { @listeners.delete(node_key) }&.close
+              @lock.synchronize do
+                # The gap this failure opens (or keeps open) is announced by the
+                # refresh that eventually converges the node again.
+                @pending_reconnects[node_key] = true unless @registry.empty?
+                @listeners.delete(node_key)
+              end&.close
             end
           end
-          raise KeyspaceNotificationsRefreshError, failures unless failures.empty?
+          # An aborted (closing) refresh reports nothing: close is tearing the
+          # remaining listeners down right behind this lock.
+          raise KeyspaceNotificationsRefreshError, failures unless failures.empty? || @closed
         end
         nil
       ensure
         deferred_reports&.each { |error, node_key| report_error(error, node_key) }
+        deferred_reconnects&.each { |node_key| handle_node_reconnect(node_key) }
       end
 
       # @return [Array<String>] "host:port" of every primary currently listened to
@@ -382,22 +437,31 @@ class Redis
       #
       # @return [void]
       def close
-        # Serialized with refresh via @refresh_lock: otherwise a refresh past its
-        # own closed-check could recreate subscribed listeners on a manager that
+        # @closed is raised BEFORE waiting on @refresh_lock: an in-flight refresh
+        # can hold that lock across ack-blocking per-node catch-ups (tens of
+        # seconds on a big cluster), and its closed-checks abort it at the next
+        # node boundary once the flag is up — the unbounded wait below then ends
+        # promptly without ever skipping the teardown.
+        @lock.synchronize do
+          @closed = true
+          @refresh_cond.broadcast # wake the refresher (idle or in backoff) so it exits
+        end
+        # Still serialized with refresh via @refresh_lock: otherwise a refresh past
+        # its closed-checks could recreate subscribed listeners on a manager that
         # close just tore down, leaking their threads and connections.
         @refresh_lock.synchronize do
           listeners = @lock.synchronize do
-            return if @closed
-
-            @closed = true
-            @refresh_cond.broadcast # wake the refresher (idle or in backoff) so it exits
+            @pending_reconnects.clear
             @listeners.values.tap { @listeners.clear }
           end
           # Queue first: node readers blocked pushing into a full queue are stuck in
           # Ruby, not Redis I/O — closing their connections cannot unblock them, but
           # ClosedQueueError from the closed queue does (their enqueue rescues it).
           @queue.close
-          listeners.each(&:close)
+          # In parallel: each listener close joins that node's threads (bounded,
+          # but up to seconds apiece) and the listeners are independent — serial
+          # teardown would make close O(nodes). NodeListener#close never raises.
+          listeners.map { |listener| Thread.new { listener.close } }.each(&:join)
         end
         join_timeout = Redis::KeyspaceNotifications::Manager::DEFAULT_CLOSE_TIMEOUT
         # Same guard for both: close may be invoked from a handler (dispatcher) or
@@ -551,6 +615,16 @@ class Redis
       def handle_node_error(node_key, error)
         report_error(error, node_key)
         request_refresh(node_key) if connection_failure?(error)
+      end
+
+      # Called from a node listener's own thread after its core manager replayed a
+      # lost connection, and from refresh (after releasing its lock) when a node
+      # whose listener had been torn down converged again.
+      def handle_node_reconnect(node_key)
+        handler = @lock.synchronize { @reconnect_handler }
+        handler&.call(node_key)
+      rescue StandardError => error
+        report_error(error, node_key)
       end
 
       def connection_failure?(error)

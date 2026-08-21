@@ -158,6 +158,7 @@ re-subscribing an already-subscribed pattern is harmless (the server just re-ack
 |---|---|---|
 | `@handlers` | **Intent**: pattern → `Registration` (the registry; what a replay restores) | callers, listener (rollbacks) |
 | `@confirmed` | **Server truth**: patterns the *current session* has acked | listener only |
+| `@pending_acks` | pattern → count of psubscribe commands issued on the live session whose ack is unconsumed; an ack that leaves the count positive answers an *earlier* command than the pattern's newest and resolves nothing (no confirmation, no marker retirement, no revert). Cleared with `@confirmed` at session end | writers (increment at every psubscribe write), listener (decrement per ack) |
 | `@removing` | pattern → the exact `Registration` an in-flight unsubscribe targets | unsubscribing callers |
 | `@unvalidated` | pattern → `{entry:, batch:, seq:}` for in-handler subscribes not yet acked (`seq` = issue order; map position lies once a later call re-marks a pattern) | listener thread |
 | `@inflight_waits` | issue seq → a blocking subscribe's batch, until its wait exits *or its last pattern is acked* (a fully-acknowledged batch can no longer be the rejected command, and lingering until the caller resumes would mask attribution of a younger poisoned batch) — tells rejection attribution when the oldest unresolved command is a blocking one (whose own waiter rolls it back) | subscribing callers, listener (ack retirement) |
@@ -207,7 +208,13 @@ still fully subscribed and the call can simply be retried.**
    the replaced registration would otherwise satisfy this call's wait — reporting
    success for a command the server may still reject (e.g. permissions revoked since),
    with no waiter left to roll the poisoned registration back. Re-subscribing an
-   already-subscribed pattern is re-acked promptly, restoring the entry.
+   already-subscribed pattern is re-acked promptly, restoring the entry. Invalidation
+   alone is not enough when several commands for the same pattern are on the wire (two
+   callers re-subscribing concurrently): the earlier command's ack would re-confirm the
+   pattern and satisfy the later call's wait before its own command is answered. Every
+   psubscribe write therefore records one expected ack per pattern (`@pending_acks`),
+   and only the **final** ack — the one draining the count to zero — confirms, retires
+   validation markers, or triggers the unregistered-pattern revert.
 2. `wait_for_confirmation` waits until every pattern is either confirmed or **no longer
    this call's** (its registration was replaced/removed by a concurrent operation — then
    it resolves to *that* operation's outcome; timing out on it would tear down the
@@ -376,6 +383,7 @@ machinery. That is inherent to constraint 2, not a choice.
 | Listener dead (schedule exhausted), then a new subscribe | Restart with the **complete** registry |
 | In-handler subscribe unsubscribed before its ack | Unvalidated marker purged (identity-checked) at removal |
 | Re-subscribe of a confirmed pattern racing a server rejection | Install invalidates the stale confirmation: the wait demands a fresh ack, so the rejection raises instead of the call reporting success on the replaced registration's confirmation |
+| Two concurrent re-subscribes of one pattern, the later command rejected | Confirmation is gated on `@pending_acks` draining to zero: the earlier command's ack cannot satisfy the later call's wait, so the rejection raises to that caller and its registration rolls back |
 | Overlapping in-handler batches on one pattern | Batch age by sequence number, not map position — the rejection is attributed to the oldest *issued* batch even when a later call re-marked a shared pattern |
 | Blocking subscribe rejected while an in-handler subscribe is in flight | Blocking batches are sequenced in the same wire-order series (`@inflight_waits`): when the oldest unresolved command is a blocking one, the in-handler drop is skipped — the blocking waiter observes the error (epoch) and rolls its own batch back |
 | Blocking batch acked but its caller not yet resumed when a rejection arrives | Fully-acknowledged batches retire from `@inflight_waits` at ack time (on the listener thread) — command-order proves an acked batch is not the rejected command, so it must not mask attribution of a younger poisoned in-handler batch |
@@ -484,10 +492,14 @@ rejected patterns are **evicted from the registry** (unconditionally — the ser
 rejects by name, so a concurrently re-registered handler is just as poisoned), each
 rejection is reported to the error handler, and a blocking `subscribe` whose patterns
 were evicted **raises** — restoring the standalone contract exactly where best-effort
-is the wrong model. Nodes that accepted the pattern before the rejection converge via
-the refresher (no longer registered → unsubscribed as an extra). Rejections of patterns
-subscribed from inside a handler have no caller to raise to; they surface through the
-error handler when the deferred refresh's catch-up hits them.
+is the wrong model. The culprit is identified on the **first** rejecting node only;
+every other node's error during the same fan-out — the rejection repeated there, or any
+unrelated failure — is still collected and reported per node after the loop (the same
+accumulate-then-report shape as `refresh`), never silently dropped. Nodes that accepted
+the pattern before the rejection converge via the refresher (no longer registered →
+unsubscribed as an extra). Rejections of patterns subscribed from inside a handler have
+no caller to raise to; they surface through the error handler when the deferred
+refresh's catch-up hits them.
 
 ### 5.4 Dispatch pipeline and parallel processing
 
@@ -631,17 +643,22 @@ configuration* the cluster client uses:
   runs; if it raises, the constructor `close`s before re-raising — the caller gets an
   exception, never an unreferenced object with two live threads and half a fleet of
   connections.
-- **Close ordering**: serialized with refresh via `@refresh_lock` (otherwise a refresh
-  past its own closed-check could recreate subscribed listeners on a torn-down manager,
-  leaking threads). Then: mark closed and wake the refresher → **close the queue before
-  the listeners** — readers blocked pushing into a full queue are stuck in Ruby, not in
-  Redis I/O, so closing their connections cannot unblock them, but `ClosedQueueError`
-  from the closed queue does (the enqueue proc rescues it and drops) → close listeners →
-  bounded joins with self-join guards on *both* threads (close may be invoked from a
-  handler, i.e. the dispatcher, or from an error handler fired by a failed reactive
-  refresh, i.e. the refresher). Queue items surviving close are dropped, not
-  dispatched: the caller may have torn down handler dependencies the moment `close`
-  returned.
+- **Close ordering**: the closed flag is raised (and the refresher woken) **before**
+  waiting on `@refresh_lock` — an in-flight refresh holds that lock across ack-blocking
+  per-node catch-ups (tens of seconds on a big cluster) and checks the flag at every
+  node boundary, so it aborts promptly instead of making close sit out the full
+  reconciliation. Teardown itself stays serialized under `@refresh_lock` (otherwise a
+  refresh past its closed-checks could recreate subscribed listeners on a torn-down
+  manager, leaking threads). Then: **close the queue before the listeners** — readers
+  blocked pushing into a full queue are stuck in Ruby, not in Redis I/O, so closing
+  their connections cannot unblock them, but `ClosedQueueError` from the closed queue
+  does (the enqueue proc rescues it and drops) → close the listeners **in parallel**
+  (each teardown joins that node's threads; they are independent, and serial closes
+  would make close O(nodes)) → bounded joins with self-join guards on *both* threads
+  (close may be invoked from a handler, i.e. the dispatcher, or from an error handler
+  fired by a failed reactive refresh, i.e. the refresher). Queue items surviving close
+  are dropped, not dispatched: the caller may have torn down handler dependencies the
+  moment `close` returned.
 
 ### 5.8 Edge case catalog (cluster)
 
@@ -675,7 +692,7 @@ configuration* the cluster client uses:
 | `subscribe` returned ⇒ server(s) delivering | Yes (acked) | Best-effort per node; failures reported, converged by refresh |
 | `subscribe` raised ⇒ no trace | Yes (rollback + revert) | Server rejections raise and evict the pattern; other per-node failures are best-effort (§5.3) |
 | `unsubscribe` returned ⇒ no further delivery | Yes | Yes for the dispatcher (dispatch-time registry lookup drops buffered/late events); node-level convergence via refresh |
-| Events during a reconnect/topology gap | **Lost** (transport property). Observable via `on_reconnect` | **Lost**. Observable via error handler; per-node gaps only |
+| Events during a reconnect/topology gap | **Lost** (transport property). Observable via `on_reconnect` | **Lost**. Observable via `on_reconnect(node_key)` (fired when a node's own replay or a refresh rebuild re-established its subscriptions) and the error handler; per-node gaps only |
 | Ordering | Single connection: server order | Per-node preserved; cross-node unspecified |
 | Handler thread-safety required | No (single listener thread) | No (single dispatcher thread) |
 | Duplicate delivery | One per matching *pattern* (server semantics) | Same; plus a key migrating mid-event-stream can emit from two nodes across the migration boundary |

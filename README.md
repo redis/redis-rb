@@ -481,8 +481,10 @@ may briefly check pool connections out for Redis work; in forking servers
 `Redis::Cluster` reaches one node and silently misses the rest. Use
 `cluster.keyspace_notifications`, which subscribes on every primary and
 reconciles reactively on connection errors (call `#refresh` after adding
-primaries). Remember to enable `notify-keyspace-events` on **every node,
-replicas included** — a promoted replica keeps its own config.
+primaries). `on_reconnect { |node_key| ... }` fires after a node's
+subscriptions were re-established — events it emitted during the gap are lost,
+so reconcile there. Remember to enable `notify-keyspace-events` on **every
+node, replicas included** — a promoted replica keeps its own config.
 
 Never `PUBLISH` to notification channels yourself; the server owns them.
 See [specs/keyspace-notifications/user-guide.md](specs/keyspace-notifications/user-guide.md)
