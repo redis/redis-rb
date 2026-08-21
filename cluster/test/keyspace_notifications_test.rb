@@ -468,6 +468,29 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     assert_equal victim, announced, 'expected the recovered node to be announced to on_reconnect'
   end
 
+  def test_on_reconnect_announces_a_newly_attached_listener_after_refresh
+    reconnects = Queue.new
+    manager = new_manager(error_handler: ->(_error, _node_key) {})
+    manager.on_reconnect { |node_key| reconnects << node_key }
+    manager.subscribe_keyevent('set') { |_n| }
+
+    # Tear one node's listener down silently (no error signal), as if a previous
+    # refresh had failed on it: the next refresh attaches a fresh listener and
+    # must announce the node once it converged. Announcements key on ATTACHMENT,
+    # so the same path covers a promoted replica replacing a dead primary under
+    # a new node_key and a scale-out primary — gaps a mark under the vanished
+    # node's key could never announce.
+    victim = manager.node_keys.first
+    listener = manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@listeners).delete(victim)
+    end
+    listener&.close
+    manager.refresh
+
+    assert_equal victim, reconnects.pop(timeout: 2),
+                 'expected the newly attached node to be announced to on_reconnect'
+  end
+
   def test_concealed_same_port_primaries_are_rejected_under_fixed_hostname
     client = build_another_client(fixed_hostname: DEFAULT_HOST)
     # Two DISTINCT primaries (different node ids) concealing their IPs while

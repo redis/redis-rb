@@ -48,10 +48,6 @@ class Redis
         @default_handler = nil
         @reconnect_handler = nil
         @listeners = {} # "host:port" => NodeListener
-        # node_key => true for nodes whose listener was torn down while patterns
-        # were registered: a notification gap is open there until a rebuilt
-        # listener converges, at which point refresh announces the reconnect.
-        @pending_reconnects = {}
         @queue = SizedQueue.new(queue_size)
         @lock = Monitor.new
         @refresh_cond = @lock.new_cond
@@ -255,14 +251,16 @@ class Redis
         nil
       end
 
-      # Called with the node_key after a node's subscriptions were re-established
-      # following a gap — its listener either reconnected and replayed on its own,
-      # or was rebuilt by a refresh. Notifications the node emitted during the gap
-      # are lost (pub/sub is fire-and-forget); use this to reconcile, e.g.
-      # invalidate caches for that node's keys. The callback may fire more than
-      # once for a single gap (a listener's own reconnect can race the refresh
-      # that would rebuild it), runs on a background thread, and should be fast
-      # and must not raise.
+      # Called with the node_key after a node's subscriptions were (re-)established
+      # following a gap — its listener reconnected and replayed on its own, a
+      # refresh rebuilt it, or a refresh attached a primary not listened to before
+      # (a promoted replica replacing a dead primary under a new address, or a
+      # scale-out node whose keys arrived ahead of our subscription). Notifications
+      # the node emitted during the gap are lost (pub/sub is fire-and-forget); use
+      # this to reconcile, e.g. invalidate caches for that node's keys. The
+      # callback may fire more than once for a single gap (a listener's own
+      # reconnect can race the refresh that would rebuild it), runs on a
+      # background thread, and should be fast and must not raise.
       def on_reconnect(&block)
         @lock.synchronize { @reconnect_handler = block }
         nil
@@ -321,11 +319,6 @@ class Redis
               listener = @listeners[node_key]
               gone_keys << node_key if listener && !listener.healthy?(expect_subscribed)
             end
-            # Every pruned node has an open notification gap while patterns are
-            # registered (a vanished primary may return — failback): remember it,
-            # so the refresh pass that converges the node again can announce the
-            # reconnect to the user callback.
-            gone_keys.each { |node_key| @pending_reconnects[node_key] = true } if expect_subscribed
             gone_keys.map { |node_key| @listeners.delete(node_key) }
           end
           stale.compact.each(&:close)
@@ -337,8 +330,10 @@ class Redis
             break if @closed
 
             listener = @lock.synchronize { @listeners[node_key] }
+            created = false
             begin
               unless listener
+                created = true
                 listener = NodeListener.new(
                   node_key, sidecar_options(host, port), @queue,
                   on_error: method(:handle_node_error), on_reconnect: method(:handle_node_reconnect)
@@ -384,22 +379,22 @@ class Redis
               # changing the registry saw it already updated and requested no refresh
               # themselves, so schedule the next reconciliation here.
               request_refresh(nil) unless converged || @closed
-              # The node converged again after its listener had been torn down: its
-              # notification gap is over — announce it once the refresh lock is
-              # released (user code must never run under it, see deferred_reports).
-              # With nothing registered anymore there is no gap to speak of: the
-              # mark is dropped silently.
-              if converged && @lock.synchronize { @pending_reconnects.delete(node_key) } && !snapshot.empty?
-                deferred_reconnects << node_key
-              end
+              # A NEWLY ATTACHED listener converged while patterns are registered:
+              # whatever the node emitted before this catch-up is lost — announce
+              # the gap's end once the refresh lock is released (user code must
+              # never run under it, see deferred_reports). Keying on creation
+              # covers every gap shape with one rule: a rebuilt listener (its
+              # predecessor was pruned or failed, possibly refreshes ago), a
+              # promoted replica replacing a dead primary under a NEW node_key
+              # (the gap opened under the old key, but the keys now live here),
+              # and a scale-out primary (subscribed only from this catch-up on).
+              # With nothing registered there is no gap to speak of.
+              deferred_reconnects << node_key if created && converged && !snapshot.empty?
             rescue StandardError => error
               failures[node_key] = error
-              @lock.synchronize do
-                # The gap this failure opens (or keeps open) is announced by the
-                # refresh that eventually converges the node again.
-                @pending_reconnects[node_key] = true unless @registry.empty?
-                @listeners.delete(node_key)
-              end&.close
+              # The gap this failure opens (or keeps open) is announced by the
+              # refresh that eventually re-creates and converges the node.
+              @lock.synchronize { @listeners.delete(node_key) }&.close
             end
           end
           # An aborted (closing) refresh reports nothing: close is tearing the
@@ -408,8 +403,16 @@ class Redis
         end
         nil
       ensure
-        deferred_reports&.each { |error, node_key| report_error(error, node_key) }
-        deferred_reconnects&.each { |node_key| handle_node_reconnect(node_key) }
+        # Checked per item, not once: this runs after the refresh lock is released,
+        # so a concurrent close can complete its teardown at any point in the loop
+        # — and callers commonly dismantle callback dependencies the moment close
+        # returns. Like queue items surviving close, callbacks that haven't started
+        # by then are dropped, not delivered. (A callback that already began can
+        # still finish after close returns — the same bounded exposure as a
+        # mid-flight notification handler outliving close's bounded dispatcher
+        # join; full exclusion would need close to block on user code.)
+        deferred_reports&.each { |error, node_key| report_error(error, node_key) unless @closed }
+        deferred_reconnects&.each { |node_key| handle_node_reconnect(node_key) unless @closed }
       end
 
       # @return [Array<String>] "host:port" of every primary currently listened to
@@ -450,10 +453,7 @@ class Redis
         # its closed-checks could recreate subscribed listeners on a manager that
         # close just tore down, leaking their threads and connections.
         @refresh_lock.synchronize do
-          listeners = @lock.synchronize do
-            @pending_reconnects.clear
-            @listeners.values.tap { @listeners.clear }
-          end
+          listeners = @lock.synchronize { @listeners.values.tap { @listeners.clear } }
           # Queue first: node readers blocked pushing into a full queue are stuck in
           # Ruby, not Redis I/O — closing their connections cannot unblock them, but
           # ClosedQueueError from the closed queue does (their enqueue rescues it).
@@ -618,10 +618,12 @@ class Redis
       end
 
       # Called from a node listener's own thread after its core manager replayed a
-      # lost connection, and from refresh (after releasing its lock) when a node
-      # whose listener had been torn down converged again.
+      # lost connection, and from refresh (after releasing its lock) when a newly
+      # attached listener converged. Muted once close began: "node recovered" is
+      # meaningless on a closed manager, and a replay completing right as its
+      # listener is torn down must not run user code after close returned.
       def handle_node_reconnect(node_key)
-        handler = @lock.synchronize { @reconnect_handler }
+        handler = @lock.synchronize { @closed ? nil : @reconnect_handler }
         handler&.call(node_key)
       rescue StandardError => error
         report_error(error, node_key)

@@ -869,6 +869,39 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release&.push(true)
   end
 
+  def test_reissues_are_bounded_per_session_while_the_listener_is_delayed
+    gate = Queue.new
+    release = Queue.new
+    manager = new_manager(error_handler: ->(_error) {})
+    manager.subscribe(CHANNELS.keyspace("park", db: DB), handler: lambda { |_notification|
+      gate << true
+      release.pop
+    })
+    target = CHANNELS.keyspace("bounded", db: DB)
+    manager.subscribe(target, handler: ->(_n) {})
+
+    r.set("park", "v1")
+    gate.pop # the listener is parked: acknowledgments pile up unread
+
+    resubscriber = Thread.new { manager.subscribe(target, handler: ->(_n) {}) }
+    sleep 0.6 # ~12 wait wakeups; a per-wakeup re-issue would stack a pending ack each
+
+    pending = manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@pending_acks)[target.b]
+    end
+    # The command itself plus at most one same-session re-issue: each duplicate is
+    # another acknowledgment the final-ack gate must drain, so unbounded retries
+    # would keep pushing confirmation behind fresh duplicates of themselves.
+    assert_operator pending, :<=, 2, "the wait stacked #{pending} pending acknowledgments"
+
+    release << true
+    resubscriber.join(3)
+
+    refute_predicate resubscriber, :alive?, "re-subscribe never confirmed"
+  ensure
+    release&.push(true)
+  end
+
   private
 
   def new_manager(**options)

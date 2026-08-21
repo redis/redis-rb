@@ -91,6 +91,12 @@ class Redis
         # the blocking one and not the oldest in-handler batch.
         @issue_seq = 0
         @inflight_waits = {} # issue seq => the blocking subscribe's batch, until its wait exits
+        # Bumped when a listener session starts issuing its opening command. Waits
+        # re-issue an unconfirmed pattern at most ONCE per session: every duplicate
+        # adds a pending acknowledgment the final-ack gate must drain, so a
+        # time-based retry (the pre-fix every-50ms loop) under a delayed listener
+        # would keep pushing confirmation behind fresh duplicates of itself.
+        @session_seq = 0
         @closing = false
         @closed = false
       end
@@ -592,6 +598,10 @@ class Redis
         # The session-opening command is one psubscribe per pattern, acknowledged
         # like any later one: record the expected acks before issuing it (a failed
         # connect raises into run_listener, whose session-end clear discards them).
+        # The session sequence is bumped alongside: waits key their single re-issue
+        # to it, and bumping before the connect lets a wait that sampled the old
+        # session retry against this one.
+        @lock.synchronize { @session_seq += 1 }
         track_pending_acks(patterns)
         @redis.psubscribe(*patterns) do |on|
           on.psubscribe do |pattern, _count|
@@ -704,6 +714,7 @@ class Redis
       def wait_for_confirmation(patterns, installed)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
+        reissued_session = nil
         @lock.synchronize do
           # Only errors NEWER than this wait implicate its command: a stale
           # CommandError persists until the reconnect replay confirms, and raising
@@ -737,7 +748,19 @@ class Redis
             raise SubscriptionError, "timed out waiting for subscription confirmation" if remaining <= 0
 
             @cond.wait([remaining, 0.05].min)
-            reissue_unconfirmed(patterns, installed)
+            # At most ONE re-issue per listener session — not per 50ms wake. The
+            # re-issue exists to cover the session-establishment window (a pattern
+            # registered after the replay snapshot was taken has no command on the
+            # new session); on a live session whose command simply hasn't been
+            # acked yet, retrying is not only useless but harmful: every duplicate
+            # adds a pending acknowledgment the final-ack gate must drain, and a
+            # delayed listener would see confirmation recede behind an ever-growing
+            # backlog of the wait's own retries. Marked only when the write
+            # actually went out — an attempt against a still-connecting session is
+            # retried on the next wake.
+            if @session_seq != reissued_session && reissue_unconfirmed(patterns, installed)
+              reissued_session = @session_seq
+            end
           end
         end
         nil
@@ -748,6 +771,7 @@ class Redis
       # established (thread starting up, or between reconnect attempts). Subscribing
       # to an already-subscribed pattern is harmless — the server just re-acks it.
       # Patterns removed from the registry in the meantime are skipped.
+      # Returns whether the command actually went out on the session.
       def reissue_unconfirmed(patterns, installed)
         unconfirmed = patterns.select do |pattern|
           @handlers[pattern].equal?(installed[pattern]) && !@confirmed.key?(pattern)
@@ -794,9 +818,11 @@ class Redis
       end
 
       def psubscribe_quietly(patterns)
-        return if patterns.empty? || !@redis.subscribed?
+        return false if patterns.empty? || !@redis.subscribed?
 
-        track_pending_acks(patterns) if write_to_session(:psubscribe, patterns)
+        written = write_to_session(:psubscribe, patterns)
+        track_pending_acks(patterns) if written
+        written
       end
 
       # Records one expected acknowledgment per pattern for a psubscribe command

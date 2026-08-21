@@ -148,9 +148,13 @@ listener thread while it may already hold the lock. Writes to the socket happen 
 caller threads (constraint 2 allows it); every acknowledgment is observed only via the
 listener's `on.psubscribe`/`on.punsubscribe` callbacks, which update `@confirmed` and
 broadcast the condition variable. Waiting callers loop on the shared state with a
-deadline; they also re-issue their command each wakeup (`reissue_unconfirmed`) to cover
-the window where the command was written into a session that died before acking —
-re-subscribing an already-subscribed pattern is harmless (the server just re-acks).
+deadline; they also re-issue their command **at most once per listener session**
+(`reissue_unconfirmed` keyed on `@session_seq`, marked only when the write went out) to
+cover the window where the command was written into a session that died before acking —
+re-subscribing an already-subscribed pattern is harmless (the server just re-acks). Once
+per session, not per wakeup: every duplicate adds a pending acknowledgment the final-ack
+gate (`@pending_acks`) must drain, so a time-based retry under a delayed listener would
+keep pushing confirmation behind fresh duplicates of itself until the wait timed out.
 
 ### 4.2 State model
 
@@ -388,7 +392,7 @@ machinery. That is inherent to constraint 2, not a choice.
 | Blocking subscribe rejected while an in-handler subscribe is in flight | Blocking batches are sequenced in the same wire-order series (`@inflight_waits`): when the oldest unresolved command is a blocking one, the in-handler drop is skipped — the blocking waiter observes the error (epoch) and rolls its own batch back |
 | Blocking batch acked but its caller not yet resumed when a rejection arrives | Fully-acknowledged batches retire from `@inflight_waits` at ack time (on the listener thread) — command-order proves an acked batch is not the rejected command, so it must not mask attribution of a younger poisoned in-handler batch |
 | Error handler inspects `patterns`/`subscribed?` during the callback | Confirmations are cleared (and waiters broadcast) *before* the error reaches user code — the callback never observes the dead session as live, and a reactive refresh triggered from it sees truthful listener health |
-| Command written into a session that dies before acking | Waiters re-issue unconfirmed patterns on every wakeup (idempotent) |
+| Command written into a session that dies before acking | Waiters re-issue unconfirmed patterns once per listener session (idempotent; bounded so retries don't stack pending acks behind the final-ack gate) |
 | Handler raises / message unparseable / error handler itself raises | Reported to the error handler (or `warn`); the listener never dies from traffic; a broken error handler is swallowed |
 
 ## 5. Cluster manager
@@ -692,7 +696,7 @@ configuration* the cluster client uses:
 | `subscribe` returned ⇒ server(s) delivering | Yes (acked) | Best-effort per node; failures reported, converged by refresh |
 | `subscribe` raised ⇒ no trace | Yes (rollback + revert) | Server rejections raise and evict the pattern; other per-node failures are best-effort (§5.3) |
 | `unsubscribe` returned ⇒ no further delivery | Yes | Yes for the dispatcher (dispatch-time registry lookup drops buffered/late events); node-level convergence via refresh |
-| Events during a reconnect/topology gap | **Lost** (transport property). Observable via `on_reconnect` | **Lost**. Observable via `on_reconnect(node_key)` (fired when a node's own replay or a refresh rebuild re-established its subscriptions) and the error handler; per-node gaps only |
+| Events during a reconnect/topology gap | **Lost** (transport property). Observable via `on_reconnect` | **Lost**. Observable via `on_reconnect(node_key)` (fired when a node's own replay re-established its subscriptions, or when a refresh attached a listener the manager didn't have — a rebuild, a promoted replica under a new address, a scale-out primary) and the error handler; per-node gaps only |
 | Ordering | Single connection: server order | Per-node preserved; cross-node unspecified |
 | Handler thread-safety required | No (single listener thread) | No (single dispatcher thread) |
 | Duplicate delivery | One per matching *pattern* (server semantics) | Same; plus a key migrating mid-event-stream can emit from two nodes across the migration boundary |
