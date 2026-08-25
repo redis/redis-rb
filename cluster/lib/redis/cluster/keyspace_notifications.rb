@@ -117,7 +117,23 @@ class Redis
           # the same rejection repeated, or one unattributable to any single
           # pattern (each succeeded individually: transient session trouble) — is
           # collected like any node failure, never silently dropped.
-          culprits = rejected.empty? ? evict_rejected(listener, node_key, patterns) : {}
+          culprits = {}
+          if rejected.empty?
+            begin
+              culprits = evict_rejected(listener, node_key, patterns)
+            rescue StandardError => probe_error
+              # The per-pattern probes ride the very session the batch rejection
+              # just bounced, so they can fail with session/connection errors of
+              # their own. Raised from inside this rescue clause, such an error
+              # would NOT be caught by the sibling StandardError rescue below —
+              # it would abort the whole fan-out: remaining nodes skipped, no
+              # reports, no refresh, and the poison left registered. Treat it as
+              # this node's failure instead; the refresher's catch-up re-runs
+              # the attribution on a stable session and evicts the poison there.
+              failures[node_key] = probe_error
+              next
+            end
+          end
           if culprits.empty?
             failures[node_key] = error
           else

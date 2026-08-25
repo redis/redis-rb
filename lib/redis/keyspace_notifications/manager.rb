@@ -58,15 +58,19 @@ class Redis
         end
         @handlers = {}           # pattern (BINARY String) => handler (Proc, nil for default)
         @confirmed = {}          # pattern (BINARY String) => true, as acked by the server
-        # pattern (BINARY String) => number of psubscribe commands issued on the
-        # live session whose acknowledgment has not been consumed yet. An ack
-        # that leaves the count positive resolves NOTHING for the pattern: with
-        # several commands on the wire (two callers re-subscribing the same
+        # pattern (BINARY String) => queue of psubscribe commands issued on the
+        # live session whose acknowledgment has not been consumed yet, in wire
+        # order — each entry is the issuing blocking batch's seq (nil for writes
+        # with no waiting batch). Acks arrive in command order, so each shifts
+        # the OLDEST entry: the queue names exactly which command an ack answers.
+        # An ack that leaves the queue non-empty resolves nothing pattern-wide —
+        # with several commands on the wire (two callers re-subscribing the same
         # pattern concurrently), an earlier command's ack must neither confirm
-        # the newer registration — whose own, later command the server may still
-        # reject — nor retire its validation marker. Cleared together with
+        # the newer registration (whose own, later command the server may still
+        # reject) nor retire its validation marker — but it DOES credit its own
+        # batch's retirement from rejection attribution. Cleared together with
         # @confirmed at session end: pending acks die with their session.
-        @pending_acks = Hash.new(0)
+        @pending_acks = {}
         @default_handler = nil
         @reconnect_handler = nil
         @lock = Monitor.new
@@ -90,7 +94,15 @@ class Redis
         # but only this sequence tells the listener that the rejected command was
         # the blocking one and not the oldest in-handler batch.
         @issue_seq = 0
-        @inflight_waits = {} # issue seq => the blocking subscribe's batch, until its wait exits
+        # issue seq => the blocking subscribe's patterns still awaiting their own
+        # acknowledgments; the entry lives until its wait exits or every one of
+        # its command's acks was consumed off the reply stream (tracked per
+        # issued command via the @pending_acks tokens, NOT via pattern-wide
+        # confirmation: an overlapping younger command's unread ack gates the
+        # pattern's confirmation, and that must not keep an already-acknowledged
+        # batch in rejection attribution as a possible culprit, shielding the
+        # genuinely-poisoned younger batch).
+        @inflight_waits = {}
         # Bumped when a listener session starts issuing its opening command. Waits
         # re-issue an unconfirmed pattern at most ONCE per session: every duplicate
         # adds a pending acknowledgment the final-ack gate must drain, so a
@@ -147,10 +159,10 @@ class Redis
           # reflects true wire order for both call kinds (a marker sequenced in a
           # later section could be overtaken by a concurrent caller's write).
           issue_seq = (@issue_seq += 1)
-          @inflight_waits[issue_seq] = installed unless listener_thread?
+          @inflight_waits[issue_seq] = patterns.uniq unless listener_thread?
           if listening?
             if write_to_session(:psubscribe, patterns)
-              track_pending_acks(patterns)
+              track_pending_acks(patterns, issue_seq)
             else
               # The listener session is down (likely parked in a reconnect backoff
               # that can far outlast our confirmation wait): wake it to attempt the
@@ -194,7 +206,7 @@ class Redis
         end
 
         begin
-          wait_for_confirmation(patterns, installed)
+          wait_for_confirmation(patterns, installed, issue_seq)
         rescue StandardError
           rollback_registration(previous, installed)
           raise
@@ -614,16 +626,31 @@ class Redis
               # The listener demonstrably recovered: a stale error from a previous
               # session must not be re-raised by a later wait on a clean exit.
               @listener_error = nil
-              # Consume one expected acknowledgment. While more remain, this ack
-              # answers an EARLIER command than the pattern's newest one and
-              # resolves nothing: confirming here would let a caller's wait return
+              # Consume the OLDEST expected acknowledgment: replies arrive in
+              # command order, so the shifted token names exactly the command this
+              # ack answers. Its blocking batch is credited on EVERY ack, gated or
+              # not — a batch whose own acknowledgments were all consumed can no
+              # longer be the rejected command and must retire from rejection
+              # attribution immediately; retiring only on final acks would let an
+              # overlapping younger command's unread ack keep an already-
+              # acknowledged batch in @inflight_waits as a possible culprit,
+              # shielding the genuinely-poisoned younger batch for a session
+              # bounce.
+              tokens = @pending_acks[key]
+              token = tokens&.shift
+              @pending_acks.delete(key) if tokens && tokens.empty?
+              if token && (awaiting = @inflight_waits[token])
+                awaiting.delete(key)
+                @inflight_waits.delete(token) if awaiting.empty?
+              end
+              # While more acknowledgments remain, this ack answers an EARLIER
+              # command than the pattern's newest one and resolves nothing
+              # pattern-wide: confirming here would let a caller's wait return
               # success for a later command the server may still reject (leaving a
               # poisoned registration no wait can roll back), and retiring the
               # validation marker here would hide that later command from
               # rejection attribution.
-              remaining = @pending_acks[key] - 1
-              pending = remaining.positive?
-              pending ? @pending_acks[key] = remaining : @pending_acks.delete(key)
+              pending = tokens ? !tokens.empty? : false
               next if pending
 
               # Any final ack for this pattern retires its validation marker: a
@@ -633,15 +660,6 @@ class Redis
               @unvalidated.delete(key)
               if @handlers.key?(key)
                 @confirmed[key] = true
-                # Retire blocking batches whose every pattern is now resolved:
-                # replies arrive in command order, so a fully-acknowledged batch
-                # can no longer be the rejected command. Waiting for its caller to
-                # resume and remove it would leave a stale "possible culprit" that
-                # makes rejection attribution skip a genuinely-poisoned in-handler
-                # batch issued after it, costing an extra session bounce.
-                @inflight_waits.delete_if do |_seq, batch|
-                  batch.all? { |pattern, entry| @confirmed.key?(pattern) || !@handlers[pattern].equal?(entry) }
-                end
                 @cond.broadcast
                 registered = true
               end
@@ -711,7 +729,7 @@ class Redis
       # would make the rollback tear down the batch's innocent siblings (the cluster
       # catch-up batches a node's whole registry, so one racing unsubscribe would
       # otherwise fail the entire node refresh).
-      def wait_for_confirmation(patterns, installed)
+      def wait_for_confirmation(patterns, installed, issue_seq)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
         reissued_session = nil
@@ -758,7 +776,7 @@ class Redis
             # backlog of the wait's own retries. Marked only when the write
             # actually went out — an attempt against a still-connecting session is
             # retried on the next wake.
-            if @session_seq != reissued_session && reissue_unconfirmed(patterns, installed)
+            if @session_seq != reissued_session && reissue_unconfirmed(patterns, installed, issue_seq)
               reissued_session = @session_seq
             end
           end
@@ -772,11 +790,14 @@ class Redis
       # to an already-subscribed pattern is harmless — the server just re-acks it.
       # Patterns removed from the registry in the meantime are skipped.
       # Returns whether the command actually went out on the session.
-      def reissue_unconfirmed(patterns, installed)
+      # The re-issue carries its batch's seq: when the original write was lost
+      # with its session, the re-issue IS the batch's command, and its acks must
+      # credit the batch's retirement from rejection attribution.
+      def reissue_unconfirmed(patterns, installed, issue_seq)
         unconfirmed = patterns.select do |pattern|
           @handlers[pattern].equal?(installed[pattern]) && !@confirmed.key?(pattern)
         end
-        psubscribe_quietly(unconfirmed)
+        psubscribe_quietly(unconfirmed, issue_seq)
       end
 
       # Blocks until the server no longer acknowledges any still-owned target as
@@ -817,22 +838,24 @@ class Redis
         write_to_session(:punsubscribe, patterns)
       end
 
-      def psubscribe_quietly(patterns)
+      def psubscribe_quietly(patterns, batch_seq = nil)
         return false if patterns.empty? || !@redis.subscribed?
 
         written = write_to_session(:psubscribe, patterns)
-        track_pending_acks(patterns) if written
+        track_pending_acks(patterns, batch_seq) if written
         written
       end
 
       # Records one expected acknowledgment per pattern for a psubscribe command
-      # that went out on the live session. EVERY psubscribe write must pass through
-      # here (the session-opening command, a blocking subscribe's write, and the
-      # quiet re-issues): an untracked command's ack would drain another command's
-      # count and un-gate a confirmation early.
-      def track_pending_acks(patterns)
+      # that went out on the live session, remembering WHICH command it was: the
+      # issuing blocking batch's seq, or nil for writes with no waiting batch
+      # (the session-opening command, in-handler subscribes, re-establishes).
+      # EVERY psubscribe write must pass through here: an untracked command's ack
+      # would be credited to another command's token and un-gate a confirmation
+      # or retire a batch early.
+      def track_pending_acks(patterns, batch_seq = nil)
         @lock.synchronize do
-          patterns.each { |pattern| @pending_acks[pattern.b] += 1 }
+          patterns.each { |pattern| (@pending_acks[pattern.b] ||= []) << batch_seq }
         end
       end
 

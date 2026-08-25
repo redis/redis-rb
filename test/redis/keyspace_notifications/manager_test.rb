@@ -887,7 +887,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     sleep 0.6 # ~12 wait wakeups; a per-wakeup re-issue would stack a pending ack each
 
     pending = manager.instance_variable_get(:@lock).synchronize do
-      manager.instance_variable_get(:@pending_acks)[target.b]
+      (manager.instance_variable_get(:@pending_acks)[target.b] || []).size
     end
     # The command itself plus at most one same-session re-issue: each duplicate is
     # another acknowledgment the final-ack gate must drain, so unbounded retries

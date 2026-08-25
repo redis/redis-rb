@@ -408,6 +408,32 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     reported.each { |report| assert_kind_of Redis::CommandError, report.first }
   end
 
+  def test_subscribe_survives_a_probe_failure_during_rejection_attribution
+    errors = Queue.new
+    manager = new_manager(error_handler: ->(error, node_key) { errors << [error, node_key] })
+    listeners = manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@listeners).dup
+    end
+    first_key, first_listener = listeners.first
+    first_listener.stubs(:subscribe).raises(Redis::CommandError.new('NOPERM channel'))
+    # The per-pattern probes ride the session the rejection just bounced and can
+    # fail with session errors of their own. Raised inside the CommandError
+    # rescue, that used to escape the sibling StandardError rescue and abort the
+    # whole fan-out — remaining nodes skipped, nothing reported, no refresh.
+    probe_error = Redis::SubscriptionError.new('listener died before confirming')
+    manager.stubs(:evict_rejected).raises(probe_error)
+    pattern = '__keyevent@0__:expired'
+
+    manager.subscribe(pattern) { |_n| } # must not raise: attribution failed, not the call
+
+    error, node_key = errors.pop(timeout: 1)
+    assert_equal first_key, node_key, 'expected the probing node to be reported as failed'
+    assert_same probe_error, error
+    # The pattern stays registered (eviction is the refresher's to complete on a
+    # stable session) and the healthy nodes were still fanned out to.
+    assert_includes manager.patterns, pattern
+  end
+
   def test_close_aborts_an_inflight_refresh_promptly
     manager = new_manager
     manager.subscribe_keyevent('set') { |_n| }
