@@ -325,6 +325,45 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_mid_failover_view_is_rejected_and_keeps_listeners
+    manager = new_manager
+    # Mid-failover: the dying primary carries the `fail` flag but still owns its
+    # slots (its replica has not claimed them yet). Reconciling against this view
+    # would succeed with N-1 listeners and stop the reactive refresher — the
+    # promoted primary would then be silently missed until an unrelated refresh.
+    view = [
+      { 'node_id' => 'a', 'ip_port' => '127.0.0.1:7000@17000', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '8191') },
+      { 'node_id' => 'b', 'ip_port' => '127.0.0.1:7001@17001', 'flags' => %w[master fail],
+        'master_node_id' => '-', 'link_state' => 'disconnected', 'slots' => Range.new('8192', '16383') },
+      { 'node_id' => 'c', 'ip_port' => '127.0.0.1:7003@17003', 'flags' => %w[slave],
+        'master_node_id' => 'b', 'link_state' => 'connected', 'slots' => nil }
+    ]
+    redis.stubs(:cluster).with('nodes').returns(view)
+    begin
+      error = assert_raises(Redis::Cluster::KeyspaceNotificationsRefreshError) do
+        manager.send(:current_primaries)
+      end
+
+      assert_match(/failover in progress/, error.message)
+    ensure
+      redis.unstub(:cluster)
+    end
+  end
+
+  def test_cluster_nodes_reshaping_tolerates_single_slot_and_marker_fields
+    hashify = Redis::Commands::HashifyClusterNodeInfo
+    prefix = 'abc 127.0.0.1:7006@17006 master - 0 0 7 connected'
+    # A lone slot number is a valid CLUSTER NODES form (e.g. a scale-out
+    # primary's first migrated slot); it used to crash Range.new and take the
+    # whole refresh enumeration down with it.
+    assert_equal Range.new('5460', '5460'), hashify.call("#{prefix} 5460")['slots']
+    assert_equal Range.new('0', '5460'), hashify.call("#{prefix} 0-5460")['slots']
+    # A bracketed importing/migrating marker is not an owned slot.
+    assert_nil hashify.call("#{prefix} [5460-<-def]")['slots']
+    assert_nil hashify.call(prefix)['slots']
+  end
+
   def test_server_rejected_pattern_is_evicted_and_raises
     allowed = '__keyevent@0__:set'
     with_channel_restricted_user([allowed]) do |username, password|

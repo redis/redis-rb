@@ -496,12 +496,24 @@ class Redis
         # notifications until some unrelated refresh. Membership output lists
         # zero-slot primaries too, letting the listener attach before the first
         # migrated key arrives.
-        masters = @cluster.cluster("nodes").select do |node|
+        masters, dropped = @cluster.cluster("nodes").partition do |node|
           flags = node["flags"]
           # "fail?" (suspected, unconfirmed) is kept — its slots are still
           # assigned to it; confirmed-failed, addressless and handshaking nodes
           # cannot be usefully subscribed to and are dropped like a demotion.
           flags.include?("master") && (flags & %w[fail noaddr handshake]).empty?
+        end
+        # A dropped master still listed as a slot owner is a mid-failover view:
+        # its replacement has not claimed the slots yet. Reconciling against it
+        # would succeed with N-1 listeners and stop the reactive refresher's
+        # retries — the promoted primary would then be silently missed until an
+        # unrelated refresh. Raise instead (keeping the current listeners): the
+        # refresher's backoff loop retries until the promotion completes.
+        if dropped.any? { |node| node["flags"].include?("master") && node["slots"] }
+          raise KeyspaceNotificationsRefreshError.new(
+            {}, "CLUSTER NODES reports a failed primary still owning slots " \
+                "(failover in progress); keeping existing listeners"
+          )
         end
         # A view without a single slot-owning primary (mid-reset, or a degraded
         # node's view) is not a topology to reconcile against: tearing every

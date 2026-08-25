@@ -391,6 +391,63 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     r.acl("DELUSER", "kn_limited7")
   end
 
+  def test_stale_in_handler_marker_does_not_misdirect_the_next_sessions_rejection
+    trigger = CHANNELS.keyspace("trigger3", db: DB)
+    valid = CHANNELS.keyspace("valid3", db: DB)
+    poisoned = CHANNELS.keyspace("poisoned3", db: DB)
+    r.acl("SETUSER", "kn_limited8", "on", ">knpass", "+@all", "resetchannels",
+          "&#{trigger}", "&#{valid}", "&#{poisoned}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited8", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    gate = Queue.new
+    release = Queue.new
+    valid_notifications = Queue.new
+    manager = Redis::KeyspaceNotifications::Manager.new(
+      redis: restricted, error_handler: ->(_error) {},
+      reconnect_attempts: [0.05] * 20
+    )
+    @managers << manager
+    manager.subscribe(trigger, handler: lambda { |_notification|
+      # In-handler subscribe: its ack cannot be read while this handler is
+      # parked, so its validation marker is still pending when the session dies.
+      unless manager.registered_patterns.include?(valid)
+        manager.subscribe(valid, handler: ->(notification) { valid_notifications << notification })
+        gate << true
+        release.pop
+      end
+    })
+    manager.subscribe(poisoned, handler: ->(_notification) {})
+
+    r.set("trigger3", "v")
+    gate.pop # the listener is parked in the handler; the valid marker is unretired
+
+    # Revoke the OTHER pattern and kill the session while parked: the replay is
+    # rejected because of the poison, but the dead session's stale marker used to
+    # win the attribution — permanently evicting the valid pattern while the
+    # poison stayed registered. Markers must die with their session.
+    r.acl("SETUSER", "kn_limited8", "resetchannels", "&#{trigger}", "&#{valid}")
+    r.client(:kill, "TYPE", "pubsub")
+    release << true
+
+    wait_until(timeout: 10) { !manager.registered_patterns.include?(poisoned) }
+
+    assert_includes manager.registered_patterns, valid,
+                    "the stale marker's valid pattern was evicted in place of the poison"
+
+    delivered = nil
+    10.times do
+      r.set("valid3", "v")
+      delivered = valid_notifications.pop(timeout: 1)
+      break if delivered
+    end
+
+    flunk "the valid pattern did not survive the poison eviction" unless delivered
+    assert_equal "valid3", delivered.key
+    assert_equal [trigger, valid].sort, manager.registered_patterns.sort
+  ensure
+    r.acl("DELUSER", "kn_limited8")
+  end
+
   def test_unsubscribe_from_within_handler_is_immediate
     queue = Queue.new
     elapsed = nil

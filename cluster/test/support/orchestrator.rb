@@ -133,8 +133,13 @@ class ClusterOrchestrator
     # be a replica no longer breaks the flow with "SETSLOT only with masters".
     take_masters(@clients).each do |client|
       client.cluster(:setslot, slot, 'NODE', node_id)
-    rescue Redis::CommandError
-      nil # a node that believes it is a replica rejects SETSLOT; gossip covers it
+    rescue Redis::CommandError => err
+      # Only the stale-role rejection is expected (a node that still believes it
+      # is a replica; gossip covers it). Anything else — e.g. a master that has
+      # not learned the destination node id — means this node keeps the previous
+      # owner: swallowing it would return with a diverged topology and produce
+      # misleading downstream failures.
+      raise unless err.message.include?('only with masters')
     end
   end
 
@@ -291,15 +296,21 @@ class ClusterOrchestrator
 
   # Whether every node already sees the exact expected layout: cluster_state ok,
   # the canonical slot ranges owned by the canonical masters — in BOTH the
-  # CLUSTER SLOTS and the CLUSTER SHARDS views — and all three replicas attached.
-  # Used by #rebuild to skip the expensive teardown.
+  # CLUSTER SLOTS and the CLUSTER SHARDS views — the exact canonical membership
+  # (an extra zero-slot master or handshaking node is invisible to both range
+  # views, but later membership-enumerating tests would see it), and all three
+  # replicas attached. Used by #rebuild to skip the expensive teardown.
   def cluster_consistent?
     expected = expected_slots_view(@clients)
+    expected_keys = @clients.map { |client| to_node_key(client) }.sort
     @clients.all? do |client|
+      node_flags = hashify_cluster_node_flags(client)
       hashify_cluster_info(client)['cluster_state'] == 'ok' &&
         slots_view(client) == expected &&
         shards_view(client) == expected &&
-        hashify_cluster_node_flags(client).values.count('slave') == 3
+        node_flags.keys.sort == expected_keys &&
+        node_flags.values.count('master') == 3 &&
+        node_flags.values.count('slave') == 3
     end && replication_pairs_healthy?
   rescue Redis::BaseError
     false

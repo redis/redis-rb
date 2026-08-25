@@ -185,6 +185,12 @@ class Redis
 
     HashifyClusterNodeInfo = lambda { |str|
       arr = str.split(' ')
+      # The first slot field can be a range ("0-5460"), a single slot ("5460" —
+      # e.g. a scale-out primary's first migrated slot), or, on a node owning no
+      # range at all, a bracketed importing/migrating marker; only owned slots
+      # reshape into the Range.
+      slots = arr[8] unless arr[8].nil? || arr[8].start_with?('[')
+      first_slot, last_slot = slots&.split('-')
       {
         'node_id' => arr[0],
         'ip_port' => arr[1],
@@ -194,7 +200,7 @@ class Redis
         'pong_recv' => arr[5],
         'config_epoch' => arr[6],
         'link_state' => arr[7],
-        'slots' => arr[8].nil? ? nil : Range.new(*arr[8].split('-'))
+        'slots' => first_slot.nil? ? nil : Range.new(first_slot, last_slot || first_slot)
       }
     }
 

@@ -99,7 +99,10 @@ class Redis
         # rejection drops only the oldest (culprit) batch. Age must be an explicit
         # sequence: re-marking a pattern keeps its ORIGINAL Hash position, so map
         # order lies about command order when a later call replaces an earlier
-        # call's pattern.
+        # call's pattern. Cleared at session end (the markers' commands died with
+        # their session): a stale marker surviving into the next session would
+        # win that session's rejection attribution and evict its perfectly valid
+        # pattern — cross-session poison is the probing replay's to identify.
         @unvalidated = {}
         # pattern => { entry: Registration, seq: Integer } for the single-pattern
         # replay commands of a probing session (see @probe_replay) that were not
@@ -585,7 +588,8 @@ class Redis
               # earlier command's acks already validated (and removed) their markers:
               # the OLDEST remaining batch is the rejected command. Drop only it —
               # later batches may be perfectly valid and get replayed; a later poison
-              # is identified the same way one session later.
+              # is identified by a later rejection on this session, or by the
+              # probing replay one session later.
               @lock.synchronize do
                 # min_by seq, NOT map order: a re-marked pattern keeps its
                 # original Hash position, which would misattribute the rejection
@@ -656,11 +660,16 @@ class Redis
               # confirmations BEFORE the error reaches user code, so `patterns` /
               # `subscribed?` (and the cluster wrapper's health checks, which a
               # reactive refresh may consult during the callback) never report the
-              # dead session as live. Pending acks (and probes) die with the
-              # session too.
+              # dead session as live. Pending acks, probes and validation markers
+              # die with the session too (their commands did): a marker kept
+              # alive into the next session would win rejection attribution over
+              # that session's own batch replay, evicting its perfectly valid
+              # pattern while the real poison stays registered — the probing
+              # replay identifies cross-session poison instead.
               @confirmed.clear
               @pending_acks.clear
               @probe_inflight.clear
+              @unvalidated.clear
               @cond.broadcast
             end
             report_error(error)
@@ -671,6 +680,7 @@ class Redis
               @confirmed.clear
               @pending_acks.clear
               @probe_inflight.clear
+              @unvalidated.clear
               @cond.broadcast
             end
           end
@@ -698,6 +708,7 @@ class Redis
           @confirmed.clear
           @pending_acks.clear
           @probe_inflight.clear
+          @unvalidated.clear
           @cond.broadcast
         end
       end
@@ -727,7 +738,7 @@ class Redis
         # to it, and bumping before the connect lets a wait that sampled the old
         # session retry against this one.
         @lock.synchronize { @session_seq += 1 }
-        probing ? mark_probes(opening) : track_pending_acks(opening)
+        probing ? mark_probes(opening) : track_opening_acks(opening)
         @redis.psubscribe(*opening) do |on|
           on.psubscribe do |pattern, _count|
             key = pattern.b
@@ -1009,6 +1020,24 @@ class Redis
       def track_pending_acks(patterns, batch_seq = nil)
         @lock.synchronize do
           patterns.each { |pattern| (@pending_acks[pattern.b] ||= []) << batch_seq }
+        end
+      end
+
+      # Records the expected acknowledgment per opening pattern, crediting it to
+      # the oldest blocking batch awaiting that pattern: the opening command IS
+      # the session's (re-)issue of such a wait's command — the wait that started
+      # the listener, or one whose command died with the previous session. Left
+      # uncredited (nil tokens), a completed wait would linger in rejection
+      # attribution until its caller thread happens to be scheduled; an
+      # in-handler subscription rejected in that window would be blamed on the
+      # finished wait, and the poisoned registration would survive into another
+      # session's replay.
+      def track_opening_acks(patterns)
+        @lock.synchronize do
+          patterns.each do |pattern|
+            token = @inflight_waits.select { |_, awaiting| awaiting.include?(pattern) }.keys.min
+            track_pending_acks([pattern], token)
+          end
         end
       end
 
