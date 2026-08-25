@@ -18,8 +18,11 @@ class Redis
     #
     # If the connection is lost, the manager reconnects (following the
     # +reconnect_attempts+ schedule, an exponential 0.5s → 30s ladder by default) and
-    # re-subscribes every registered pattern. Notifications published while the
-    # connection was down are lost forever (pub/sub is fire-and-forget) — register an
+    # re-subscribes every registered pattern. A pattern the server rejects on that
+    # replay (e.g. its channel permissions were revoked after it was subscribed) is
+    # evicted from the registry and reported to the error handler, instead of failing
+    # every subsequent reconnect. Notifications published while the connection was
+    # down are lost forever (pub/sub is fire-and-forget) — register an
     # {#on_reconnect} callback to reconcile after a gap.
     class Manager
       DEFAULT_CLOSE_TIMEOUT = 2
@@ -98,6 +101,24 @@ class Redis
         # order lies about command order when a later call replaces an earlier
         # call's pattern.
         @unvalidated = {}
+        # pattern => { entry: Registration, seq: Integer } for the single-pattern
+        # replay commands of a probing session (see @probe_replay) that were not
+        # acknowledged yet. Cleared with @pending_acks at session end: a lost
+        # probe's command died with its session, and the next rejection re-probes.
+        @probe_inflight = {}
+        # Set when a session-killing rejection could not be attributed to any
+        # outstanding command: the server rejected the reconnect replay itself
+        # (e.g. permissions on a long-registered pattern were revoked since it
+        # was subscribed). The batch replay names no culprit, so the next session
+        # replays one pattern per command instead — the rejection then attributes
+        # to the oldest unacknowledged probe, and that pattern is evicted rather
+        # than failing every reconnect until the schedule is exhausted.
+        @probe_replay = false
+        # Set when the listener died with registrations still on the books (its
+        # reconnect schedule was exhausted): the next start_listener is a restart
+        # after a lossy gap, not a first start, and must run as a reconnect so
+        # {#on_reconnect} still announces the gap's end.
+        @resume_reconnecting = false
         # Numbers every issued subscribe batch — in-handler AND blocking — in wire
         # order (assigned under @lock at write time). Rejection attribution must
         # span both kinds: a blocking command has its own waiter to roll it back,
@@ -194,6 +215,8 @@ class Redis
             # A dead listener (exhausted reconnect schedule) still has every prior
             # registration in @handlers: restart with the COMPLETE registry, not just
             # the new patterns, or earlier subscriptions would silently stop receiving.
+            # The restart runs as a reconnect (see start_listener), so on_reconnect
+            # still announces the gap the death opened.
             start_listener(@handlers.keys)
           end
         end
@@ -510,15 +533,20 @@ class Redis
         false
       end
 
+      # Called under @lock (both call sites hold it).
       def start_listener(patterns)
         @listener_error = nil
-        @thread = Thread.new { run_listener(patterns) }
+        # A restart after a lossy death replays the surviving registrations: run
+        # it as a reconnect so on_reconnect announces the gap's end (a first
+        # start has no gap and stays silent).
+        reconnecting = @resume_reconnecting
+        @resume_reconnecting = false
+        @thread = Thread.new { run_listener(patterns, reconnecting: reconnecting) }
         @thread.name = "redis-keyspace-notifications"
       end
 
-      def run_listener(patterns)
+      def run_listener(patterns, reconnecting: false)
         attempts = 0
-        reconnecting = false
 
         loop do
           @session_confirmed = false
@@ -569,7 +597,15 @@ class Redis
                 # Dropping the oldest in-handler batch instead would kill a valid
                 # registration the rejection never touched.
                 oldest_wait = @inflight_waits.keys.min
-                if oldest_marker && (oldest_wait.nil? || oldest_marker[:seq] < oldest_wait)
+                # A probing session's single-pattern replay commands compete on
+                # the same wire-order axis (their seqs come from @issue_seq too).
+                oldest_probe = @probe_inflight.min_by { |_, record| record[:seq] }
+                candidates = {}
+                candidates[:marker] = oldest_marker[:seq] if oldest_marker
+                candidates[:wait] = oldest_wait if oldest_wait
+                candidates[:probe] = oldest_probe[1][:seq] if oldest_probe
+                case candidates.min_by { |_, seq| seq }&.first
+                when :marker
                   oldest_batch = oldest_marker[:batch]
                   @unvalidated.each do |pattern, record|
                     next unless record[:batch].equal?(oldest_batch)
@@ -584,6 +620,29 @@ class Redis
                     @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
                   end
                   @unvalidated.delete_if { |_, record| record[:batch].equal?(oldest_batch) }
+                when :probe
+                  # The rejected command is a probe carrying exactly one pattern:
+                  # the culprit is identified — evict it. The un-probed remainder
+                  # may hide more poison, so the next session probes again (a
+                  # clean probing session simply confirms everything).
+                  pattern, record = oldest_probe
+                  record[:entry].failed = true
+                  @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
+                  @probe_replay = true
+                when :wait
+                  # The rejected command is (or may be) the blocking subscribe's:
+                  # its own waiter observes this error via the epoch and rolls
+                  # the registration back — nothing to evict here.
+                else
+                  # Nothing outstanding is attributable: the rejected command was
+                  # the session's own batch replay — a long-registered pattern
+                  # the server no longer accepts (e.g. its permissions were
+                  # revoked after it was subscribed). The batch names no culprit,
+                  # and left alone it would fail every reconnect until the
+                  # schedule is exhausted and then brick every restart. Replay
+                  # the next session one pattern per command instead, so the
+                  # rejection lands on the probe that carries the poison.
+                  @probe_replay = true
                 end
               end
             end
@@ -597,9 +656,11 @@ class Redis
               # confirmations BEFORE the error reaches user code, so `patterns` /
               # `subscribed?` (and the cluster wrapper's health checks, which a
               # reactive refresh may consult during the callback) never report the
-              # dead session as live. Pending acks die with the session too.
+              # dead session as live. Pending acks (and probes) die with the
+              # session too.
               @confirmed.clear
               @pending_acks.clear
+              @probe_inflight.clear
               @cond.broadcast
             end
             report_error(error)
@@ -609,6 +670,7 @@ class Redis
             @lock.synchronize do
               @confirmed.clear
               @pending_acks.clear
+              @probe_inflight.clear
               @cond.broadcast
             end
           end
@@ -616,7 +678,14 @@ class Redis
           attempts = 0 if @session_confirmed # the previous session was healthy; fresh budget
           delay = @reconnect_attempts[attempts]
           attempts += 1
-          break if delay.nil? # the reconnect schedule is exhausted
+          if delay.nil? # the reconnect schedule is exhausted
+            # The registrations outlive this death; a later subscribe restarts
+            # the listener with them (see #subscribe), and that restart follows
+            # a lossy gap — flag it so it runs as a reconnect and on_reconnect
+            # still announces the gap's end.
+            @lock.synchronize { @resume_reconnecting = true unless @handlers.empty? }
+            break
+          end
           break unless interruptible_backoff(delay) # close woke us mid-delay
 
           patterns = @lock.synchronize { @handlers.keys }
@@ -628,6 +697,7 @@ class Redis
         @lock.synchronize do
           @confirmed.clear
           @pending_acks.clear
+          @probe_inflight.clear
           @cond.broadcast
         end
       end
@@ -637,6 +707,19 @@ class Redis
         # fire it once every replayed pattern is either confirmed or no longer
         # registered (unregistered acks are reverted and must not count as "live").
         announce_pending = reconnected ? patterns.dup : nil
+        # A probing session (the previous session's rejection named no culprit)
+        # replays one pattern per command instead of one batch: replies arrive in
+        # command order, so a rejection then attributes to exactly one pattern.
+        # The opening command carries only the first pattern; the rest are issued
+        # individually once the session demonstrably works (its first ack), each
+        # tracked in @probe_inflight for the rejection attribution.
+        probing = @lock.synchronize do
+          probe = @probe_replay
+          @probe_replay = false
+          probe
+        end
+        opening = probing ? patterns.first(1) : patterns
+        probe_queue = probing ? patterns.drop(1) : nil
         # The session-opening command is one psubscribe per pattern, acknowledged
         # like any later one: record the expected acks before issuing it (a failed
         # connect raises into run_listener, whose session-end clear discards them).
@@ -644,8 +727,8 @@ class Redis
         # to it, and bumping before the connect lets a wait that sampled the old
         # session retry against this one.
         @lock.synchronize { @session_seq += 1 }
-        track_pending_acks(patterns)
-        @redis.psubscribe(*patterns) do |on|
+        probing ? mark_probes(opening) : track_pending_acks(opening)
+        @redis.psubscribe(*opening) do |on|
           on.psubscribe do |pattern, _count|
             key = pattern.b
             registered = false
@@ -681,6 +764,10 @@ class Redis
               # rollbacks) while the real poison survives the drop.
               marker = @unvalidated[key]
               @unvalidated.delete(key) if marker && token && marker[:seq] == token
+              # A probe command retires from rejection attribution on its own
+              # ack, exactly like the batches above.
+              probe = @probe_inflight[key]
+              @probe_inflight.delete(key) if probe && token && probe[:seq] == token
               # While more acknowledgments remain, this ack answers an EARLIER
               # command than the pattern's newest one and resolves nothing
               # pattern-wide: confirming here would let a caller's wait return
@@ -711,6 +798,13 @@ class Redis
                   announce = true
                 end
               end
+            end
+            # A probing session's deferred patterns go out on the first ack —
+            # the session demonstrably works from here on.
+            if probe_queue
+              deferred = probe_queue
+              probe_queue = nil
+              issue_probes(deferred)
             end
             # The server confirmed a pattern nobody is registered for anymore (an
             # unsubscribe or a rolled-back subscribe raced this ack): revert it so
@@ -915,6 +1009,46 @@ class Redis
       def track_pending_acks(patterns, batch_seq = nil)
         @lock.synchronize do
           patterns.each { |pattern| (@pending_acks[pattern.b] ||= []) << batch_seq }
+        end
+      end
+
+      # Registers the probe bookkeeping for patterns whose single-pattern command
+      # is about to be issued (the probing session's opening command).
+      def mark_probes(patterns)
+        @lock.synchronize do
+          patterns.each do |pattern|
+            entry = @handlers[pattern]
+            next unless entry
+
+            seq = (@issue_seq += 1)
+            @probe_inflight[pattern] = { entry: entry, seq: seq }
+            track_pending_acks([pattern], seq)
+          end
+        end
+      end
+
+      # Issues one single-pattern psubscribe per remaining pattern of a probing
+      # session (on the listener thread, after the opening ack). Sequenced and
+      # written under one lock hold apiece, like every other write, so probe age
+      # reflects true wire order. A pattern unregistered meanwhile is skipped; a
+      # dead session stops the loop — the next replay owns convergence, and no
+      # probe entry is left behind for a command that never went out.
+      def issue_probes(patterns)
+        patterns.each do |pattern|
+          alive = @lock.synchronize do
+            entry = @handlers[pattern]
+            next true unless entry
+
+            seq = (@issue_seq += 1)
+            if write_to_session(:psubscribe, [pattern])
+              @probe_inflight[pattern] = { entry: entry, seq: seq }
+              track_pending_acks([pattern], seq)
+              true
+            else
+              false
+            end
+          end
+          break unless alive
         end
       end
 

@@ -292,6 +292,105 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal %w[new old], Array.new(2) { assert_pop(queue).key }.sort
   end
 
+  def test_restarting_a_dead_listener_fires_on_reconnect
+    reconnects = Queue.new
+    manager = new_manager(error_handler: ->(_error) {}, reconnect_attempts: [])
+    manager.on_reconnect { reconnects << true }
+    manager.subscribe(CHANNELS.keyspace("old", db: DB), handler: ->(_notification) {})
+
+    assert_predicate reconnects, :empty?, "a first start is not a reconnect"
+
+    r.client(:kill, "TYPE", "pubsub") # reconnect schedule empty: the listener dies
+    wait_until { !manager.subscribed? }
+
+    # Restarting the dead listener replays the old registration after a lossy
+    # gap of arbitrary length: on_reconnect must announce the gap's end exactly
+    # like a same-thread reconnect, or the application never reconciles.
+    manager.subscribe(CHANNELS.keyspace("new", db: DB), handler: ->(_notification) {})
+
+    assert_pop(reconnects, timeout: 5)
+  end
+
+  def test_replay_rejected_pattern_is_evicted_and_survivors_recover
+    allowed = CHANNELS.keyspace("allowed", db: DB)
+    poisoned = CHANNELS.keyspace("poisoned", db: DB)
+    r.acl("SETUSER", "kn_limited6", "on", ">knpass", "+@all", "resetchannels",
+          "&#{allowed}", "&#{poisoned}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited6", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    errors = Queue.new
+    notifications = Queue.new
+    manager = Redis::KeyspaceNotifications::Manager.new(
+      redis: restricted, error_handler: ->(error) { errors << error },
+      reconnect_attempts: [0.05] * 20
+    )
+    @managers << manager
+    manager.subscribe(allowed, handler: ->(notification) { notifications << notification })
+    manager.subscribe(poisoned, handler: ->(_notification) {})
+
+    # Revoke the pattern AFTER it was subscribed: the batch replay of the whole
+    # registry is then rejected wholesale, naming no culprit. Before the probing
+    # replay this looped until the reconnect schedule was exhausted and left the
+    # manager dead with the poison still registered, bricking every restart.
+    r.acl("SETUSER", "kn_limited6", "resetchannels", "&#{allowed}")
+    r.client(:kill, "TYPE", "pubsub") # in case the ACL change did not kill the session itself
+
+    wait_until(timeout: 10) { !manager.registered_patterns.include?(poisoned) }
+
+    # The surviving pattern recovers on the cleaned replay (events published
+    # into the reconnect gap are lost, so probe with retries).
+    delivered = nil
+    10.times do
+      r.set("allowed", "v")
+      delivered = notifications.pop(timeout: 1)
+      break if delivered
+    end
+
+    flunk "the allowed pattern did not recover after the poison was evicted" unless delivered
+    assert_equal "allowed", delivered.key
+    assert_equal [allowed], manager.registered_patterns
+  ensure
+    r.acl("DELUSER", "kn_limited6")
+  end
+
+  def test_replay_rejection_of_the_probing_sessions_opening_pattern_is_evicted
+    poisoned = CHANNELS.keyspace("poisoned2", db: DB)
+    allowed = CHANNELS.keyspace("allowed2", db: DB)
+    r.acl("SETUSER", "kn_limited7", "on", ">knpass", "+@all", "resetchannels",
+          "&#{poisoned}", "&#{allowed}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited7", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    notifications = Queue.new
+    manager = Redis::KeyspaceNotifications::Manager.new(
+      redis: restricted, error_handler: ->(_error) {},
+      reconnect_attempts: [0.05] * 20
+    )
+    @managers << manager
+    # The poison is FIRST in registry (and thus replay) order: the probing
+    # session's opening command itself is rejected, before any acknowledgment
+    # could arrive — the eviction must attribute it all the same.
+    manager.subscribe(poisoned, handler: ->(_notification) {})
+    manager.subscribe(allowed, handler: ->(notification) { notifications << notification })
+
+    r.acl("SETUSER", "kn_limited7", "resetchannels", "&#{allowed}")
+    r.client(:kill, "TYPE", "pubsub") # in case the ACL change did not kill the session itself
+
+    wait_until(timeout: 10) { !manager.registered_patterns.include?(poisoned) }
+
+    delivered = nil
+    10.times do
+      r.set("allowed2", "v")
+      delivered = notifications.pop(timeout: 1)
+      break if delivered
+    end
+
+    flunk "the allowed pattern did not recover after the poison was evicted" unless delivered
+    assert_equal "allowed2", delivered.key
+    assert_equal [allowed], manager.registered_patterns
+  ensure
+    r.acl("DELUSER", "kn_limited7")
+  end
+
   def test_unsubscribe_from_within_handler_is_immediate
     queue = Queue.new
     elapsed = nil

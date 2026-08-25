@@ -268,15 +268,21 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     assert_equal 'recovered:key', queue.pop(timeout: 3)
   end
 
-  def test_refresh_with_empty_slots_reply_keeps_listeners_and_raises
+  def test_refresh_with_no_slot_owning_primaries_keeps_listeners_and_raises
     queue = Queue.new
     manager = new_manager
     manager.subscribe_keyevent('set') { |notification| queue << notification.key }
     listeners_before = manager.node_keys.sort
 
-    # A degraded/mid-reset node can answer CLUSTER SLOTS with an empty reply; the
-    # manager must refuse to reconcile against it rather than tear everything down.
-    redis.stubs(:cluster).with('slots').returns([])
+    # A degraded/mid-reset node can answer CLUSTER NODES with a view containing
+    # no slot-owning primary (e.g. only itself, freshly reset); the manager must
+    # refuse to reconcile against it rather than tear everything down.
+    degraded = [
+      { 'node_id' => 'reset-node', 'ip_port' => '127.0.0.1:7000@17000',
+        'flags' => %w[myself master], 'master_node_id' => '-', 'ping_sent' => '0',
+        'pong_recv' => '0', 'config_epoch' => '0', 'link_state' => 'connected', 'slots' => nil }
+    ]
+    redis.stubs(:cluster).with('nodes').returns(degraded)
     begin
       assert_raises(Redis::Cluster::KeyspaceNotificationsRefreshError) { manager.refresh }
     ensure
@@ -287,6 +293,36 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     redis.set('survivor:key', 'v')
 
     assert_equal 'survivor:key', queue.pop(timeout: 3)
+  end
+
+  def test_primary_enumeration_includes_zero_slot_masters
+    manager = new_manager
+    # A scale-out primary owns no slots yet: CLUSTER SLOTS could never show it,
+    # and a listener attached only after resharding would silently miss every
+    # notification for the migrated keys until some unrelated refresh. The
+    # membership view must include it — and must still exclude replicas,
+    # confirmed-failed masters and handshaking nodes.
+    view = [
+      { 'node_id' => 'a', 'ip_port' => '127.0.0.1:7000@17000', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '16383') },
+      { 'node_id' => 'b', 'ip_port' => '127.0.0.1:7006@17006', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => nil },
+      { 'node_id' => 'c', 'ip_port' => '127.0.0.1:7003@17003', 'flags' => %w[slave],
+        'master_node_id' => 'a', 'link_state' => 'connected', 'slots' => nil },
+      { 'node_id' => 'd', 'ip_port' => '127.0.0.1:7009@17009', 'flags' => %w[master fail],
+        'master_node_id' => '-', 'link_state' => 'disconnected', 'slots' => nil },
+      { 'node_id' => 'e', 'ip_port' => '127.0.0.1:7012@17012', 'flags' => %w[handshake master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => nil }
+    ]
+    redis.stubs(:cluster).with('nodes').returns(view)
+    begin
+      primaries = manager.send(:current_primaries)
+
+      assert_equal ['127.0.0.1:7000', '127.0.0.1:7006'], primaries.keys.sort
+      assert_equal ['127.0.0.1', '7006'], primaries['127.0.0.1:7006']
+    ensure
+      redis.unstub(:cluster)
+    end
   end
 
   def test_server_rejected_pattern_is_evicted_and_raises
@@ -523,12 +559,12 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     # sharing a port: fixed_hostname supplies a dial target, but it cannot
     # distinguish them — one sidecar would silently miss the other's events.
     concealed = [
-      { 'start_slot' => 0, 'end_slot' => 8191, 'replicas' => [],
-        'master' => { 'ip' => '', 'port' => 6379, 'node_id' => 'node-a' } },
-      { 'start_slot' => 8192, 'end_slot' => 16_383, 'replicas' => [],
-        'master' => { 'ip' => '', 'port' => 6379, 'node_id' => 'node-b' } }
+      { 'node_id' => 'node-a', 'ip_port' => ':6379@16379', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '8191') },
+      { 'node_id' => 'node-b', 'ip_port' => ':6379@16379', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('8192', '16383') }
     ]
-    client.stubs(:cluster).with('slots').returns(concealed)
+    client.stubs(:cluster).with('nodes').returns(concealed)
     begin
       error = assert_raises(Redis::Cluster::KeyspaceNotificationsRefreshError) do
         client.keyspace_notifications(error_handler: ->(_error, _node) {})

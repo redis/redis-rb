@@ -19,11 +19,13 @@ class Redis
     # thread-safe.
     #
     # Topology changes are handled reactively: a node connection error triggers a
-    # {#refresh}, which re-enumerates the primaries via `CLUSTER SLOTS`, drops
-    # listeners for vanished/demoted nodes and subscribes new primaries to every
-    # registered pattern. There is no proactive polling — after intentionally adding
-    # primaries (scale-out) call {#refresh} yourself, because a brand-new node emits
-    # no error signal.
+    # {#refresh}, which re-enumerates the primaries via `CLUSTER NODES` (membership,
+    # not slot coverage — a scale-out primary is discovered before it owns a single
+    # slot), drops listeners for vanished/demoted nodes and subscribes new primaries
+    # to every registered pattern. There is no proactive polling — after intentionally
+    # adding primaries (scale-out) call {#refresh} yourself before resharding, because
+    # a brand-new node emits no error signal; the listener then attaches ahead of the
+    # first migrated key.
     #
     # Like all keyspace notifications, delivery is fire-and-forget: events emitted
     # while a node was unreachable are lost. In cluster mode `db` is always 0.
@@ -311,17 +313,10 @@ class Redis
         @refresh_lock.synchronize do
           return if @closed
 
+          # current_primaries raises (keeping the existing listeners) on a view
+          # that is not a topology to reconcile against — no slot-owning primary,
+          # or concealed/ambiguous endpoints.
           primaries = current_primaries
-          if primaries.empty?
-            # A cluster that answers CLUSTER SLOTS with no slot owners (mid-reset, or
-            # a degraded node's view) is not a topology to reconcile against: tearing
-            # every listener down would leave nothing to emit the connection errors
-            # that drive reactive recovery. Keep the current listeners and raise —
-            # the refresher's backoff loop (or the caller) retries.
-            raise KeyspaceNotificationsRefreshError.new(
-              {}, "CLUSTER SLOTS reported no primaries; keeping existing listeners"
-            )
-          end
 
           failures = {}
 
@@ -494,30 +489,54 @@ class Redis
       private
 
       def current_primaries
-        # Dedupe by node id (a master owning several slot ranges appears once per
-        # range), falling back to the address pair when the server predates ids.
-        masters = @cluster.cluster("slots")
-                          .map { |range| range["master"] }
-                          .uniq { |master| master["node_id"] || [master["ip"], master["port"]] }
-        # A server configured to conceal node endpoints answers with nil/empty
+        # CLUSTER NODES rather than CLUSTER SLOTS: slot-oriented output cannot
+        # show a primary that owns no slots yet, so the documented "refresh after
+        # adding primaries" would silently skip a scale-out node — and the slots
+        # later moved onto it produce no error signal to catch up on, losing its
+        # notifications until some unrelated refresh. Membership output lists
+        # zero-slot primaries too, letting the listener attach before the first
+        # migrated key arrives.
+        masters = @cluster.cluster("nodes").select do |node|
+          flags = node["flags"]
+          # "fail?" (suspected, unconfirmed) is kept — its slots are still
+          # assigned to it; confirmed-failed, addressless and handshaking nodes
+          # cannot be usefully subscribed to and are dropped like a demotion.
+          flags.include?("master") && (flags & %w[fail noaddr handshake]).empty?
+        end
+        # A view without a single slot-owning primary (mid-reset, or a degraded
+        # node's view) is not a topology to reconcile against: tearing every
+        # listener down would leave nothing to emit the connection errors that
+        # drive reactive recovery. Keep the current listeners and raise — the
+        # refresher's backoff loop (or the caller) retries.
+        if masters.none? { |node| node["slots"] }
+          raise KeyspaceNotificationsRefreshError.new(
+            {}, "CLUSTER NODES reported no slot-owning primaries; keeping existing listeners"
+          )
+        end
+
+        # The address field is "ip:port@cport" (a ",hostname" may trail the
+        # cport since Redis 7); rpartition keeps a bare IPv6 address's own
+        # colons intact.
+        addresses = masters.map { |node| node["ip_port"].split("@", 2).first.rpartition(":").values_at(0, 2) }
+        # A server configured to conceal node endpoints announces nil/empty
         # addresses, telling clients to reuse their existing connection info — which
         # per-node sidecar connections cannot do. Unless fixed_hostname supplies the
         # dial target, fail loudly (keeping current listeners) instead of silently
         # subscribing to ":<port>".
-        if !@base_options[:fixed_hostname] && masters.any? { |m| m["ip"].nil? || m["ip"].empty? }
+        if !@base_options[:fixed_hostname] && addresses.any? { |ip, _| ip.nil? || ip.empty? }
           raise KeyspaceNotificationsRefreshError.new(
-            {}, "CLUSTER SLOTS conceals node endpoints; per-node notification " \
+            {}, "CLUSTER NODES conceals node endpoints; per-node notification " \
                 "sidecars need reachable addresses (or the fixed_hostname option)"
           )
         end
 
-        primaries = masters.to_h { |master| ["#{master['ip']}:#{master['port']}", [master["ip"], master["port"]]] }
+        primaries = addresses.to_h { |ip, port| ["#{ip}:#{port}", [ip, port]] }
         # Distinct primaries collapsing onto one dial target (concealed endpoints
         # sharing a port under fixed_hostname): a single sidecar cannot listen to
         # them all — fail loudly instead of silently dropping the rest.
         if primaries.size < masters.size
           raise KeyspaceNotificationsRefreshError.new(
-            {}, "CLUSTER SLOTS reports #{masters.size} primaries but only " \
+            {}, "CLUSTER NODES reports #{masters.size} primaries but only " \
                 "#{primaries.size} distinguishable endpoints; per-node notification " \
                 "sidecars need a unique address per primary"
           )
@@ -633,7 +652,7 @@ class Redis
       # Called from node listener threads on every background error of a node.
       # Only connection/session loss warrants topology reconciliation: parse errors
       # and handler failures leave the node listener healthy, and refreshing on them
-      # would hammer CLUSTER SLOTS and re-subscribe every primary for e.g. a stream
+      # would hammer CLUSTER NODES and re-subscribe every primary for e.g. a stream
       # of malformed publications on a watched channel.
       def handle_node_error(node_key, error)
         report_error(error, node_key)
