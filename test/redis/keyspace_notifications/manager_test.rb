@@ -902,6 +902,52 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release&.push(true)
   end
 
+  def test_attributed_rejection_marks_replaced_registrations_dead_for_rollbacks
+    trigger = CHANNELS.keyspace("trigger", db: DB)
+    forbidden = CHANNELS.keyspace("forbidden", db: DB)
+    r.acl("SETUSER", "kn_limited4", "on", ">knpass", "+@all", "resetchannels", "&#{trigger}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited4", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    manager = Redis::KeyspaceNotifications::Manager.new(redis: restricted, error_handler: ->(_error) {})
+    @managers << manager
+    fired = Queue.new
+    release = Queue.new
+    manager.subscribe(trigger, handler: lambda { |_notification|
+      next unless fired.empty?
+
+      # An in-handler subscribe of a forbidden pattern, then park: the server's
+      # rejection is read only after the blocking call below replaced the entry.
+      manager.subscribe(forbidden, handler: ->(_n) {})
+      fired << true
+      release.pop
+    })
+    r.set("trigger", "v")
+    fired.pop # the rejected registration is installed; its error is unread
+
+    replacer = Thread.new do
+      manager.subscribe(forbidden, handler: ->(_n) {})
+      :subscribed
+    rescue StandardError => error
+      error
+    end
+    sleep 0.2 # the replacement is installed, remembering the rejected entry as "previous"
+    release << true # the listener reads the rejection: attribution drops the in-handler batch
+
+    # The blocking call shares the session error and rolls back. Attribution must
+    # have marked the rejected (already-replaced) entry dead, or the rollback
+    # restores it as "the previous registration" and every replay is poisoned.
+    assert_kind_of Redis::CommandError, replacer.value
+    wait_until(timeout: 5) { !manager.registered_patterns.include?(forbidden) }
+    assert_equal [trigger], manager.registered_patterns
+  ensure
+    release&.push(true)
+    begin
+      r.acl("DELUSER", "kn_limited4")
+    rescue StandardError
+      nil
+    end
+  end
+
   private
 
   def new_manager(**options)

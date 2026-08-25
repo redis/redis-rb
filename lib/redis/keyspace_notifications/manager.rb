@@ -551,6 +551,13 @@ class Redis
                   @unvalidated.each do |pattern, record|
                     next unless record[:batch].equal?(oldest_batch)
 
+                    # Dead for good WHETHER OR NOT it is still the live entry: the
+                    # server rejected this batch's command. A concurrent blocking
+                    # re-subscribe of the same pattern that replaced this entry
+                    # shares the session error and rolls back — without the mark,
+                    # its rollback would restore the rejected entry as "the
+                    # previous registration" and poison every reconnect replay.
+                    record[:entry].failed = true
                     @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
                   end
                   @unvalidated.delete_if { |_, record| record[:batch].equal?(oldest_batch) }
