@@ -43,7 +43,17 @@ class Redis
   #   0.5s → 30s ladder of 10 attempts; the budget resets after every healthy session
   # @return [KeyspaceNotifications::Manager]
   def keyspace_notifications(error_handler: nil, reconnect_attempts: KeyspaceNotifications::Manager::DEFAULT_RECONNECT_ATTEMPTS)
-    KeyspaceNotifications::Manager.new(redis: dup, error_handler: error_handler, reconnect_attempts: reconnect_attempts)
+    # The manager is the SOLE owner of reconnection timing (its schedule, its
+    # interruptible backoff): the owned connection is built with transport-level
+    # retries disabled, or every connect attempt would first run the SOURCE
+    # client's own reconnect_attempts ladder inside redis-client — a source
+    # configured with e.g. [30] would stack a 30-second transport pause under
+    # each step of the manager's schedule, and even `reconnect_attempts: []`
+    # (manager reconnection disabled) would still retry at the transport.
+    KeyspaceNotifications::Manager.new(
+      redis: dup(reconnect_attempts: 0),
+      error_handler: error_handler, reconnect_attempts: reconnect_attempts
+    )
   end
 end
 

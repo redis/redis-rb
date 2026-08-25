@@ -294,6 +294,12 @@ loop:
 - **Reconnect schedule.** `reconnect_attempts` uses the same semantics as
   `Redis.new` (an Integer count of immediate retries, or an array of sleep durations);
   the default ladder is `[0.5, 1, 2, 4, 8, 16, 30, 30, 30, 30]` (~2 minutes). The
+  manager is the schedule's **sole owner**: the connection it duplicates from the
+  source client is built with `reconnect_attempts: 0` at the transport (likewise for
+  the cluster sidecars), because a copied transport ladder would run *inside* every
+  connect attempt — a source configured with `[30]` would stack a 30s pause under
+  each manager step, and even a manager schedule of `[]` (reconnection disabled)
+  would still retry at the transport. The
   budget **resets after every healthy session** (one confirmed ack), so only a
   persistent outage exhausts it — a flaky network that reconnects successfully each
   time never runs out. A *poisoned replay* cannot game this reset: the replay is one

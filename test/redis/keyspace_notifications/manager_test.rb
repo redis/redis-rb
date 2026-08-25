@@ -902,6 +902,32 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release&.push(true)
   end
 
+  def test_owned_client_never_runs_the_source_clients_transport_retries
+    server = TCPServer.new("127.0.0.1", 0)
+    port = server.addr[1]
+    server.close # nothing listens anymore: every connect is refused immediately
+    source = Redis.new(host: "127.0.0.1", port: port, timeout: 1, reconnect_attempts: [30])
+    manager = source.keyspace_notifications(error_handler: ->(_error) {}, reconnect_attempts: [])
+    @managers << manager
+
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    error = assert_raises(Redis::BaseConnectionError, Redis::SubscriptionError) do
+      manager.subscribe_keyspace("k", db: DB)
+    end
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+    # The manager is the sole owner of reconnection timing. The owned connection
+    # is duplicated from the source client, and copying its reconnect_attempts
+    # would make this single connect attempt sit out the source's [30] transport
+    # ladder inside redis-client — the empty MANAGER schedule notwithstanding —
+    # leaving subscribe to die by ack timeout while the listener sleeps for 30s.
+    assert_kind_of Redis::BaseConnectionError, error
+    assert_operator elapsed, :<, 4, "subscribe waited out a transport-level retry ladder"
+    wait_until(timeout: 2) { !manager.instance_variable_get(:@thread).alive? }
+  ensure
+    source&.close
+  end
+
   def test_acked_in_handler_batch_is_not_blamed_for_a_later_batches_rejection
     trigger = CHANNELS.keyspace("trigger", db: DB)
     x = CHANNELS.keyspace("shared", db: DB)

@@ -541,7 +541,12 @@ class Redis
         options.delete(:role)
         # A single-endpoint TLS setup (fixed_hostname) must dial the FQDN, not the announced IP.
         host = @base_options[:fixed_hostname] if @base_options[:fixed_hostname]
-        connection_options_from_nodes.merge(options).merge(host: host, port: Integer(port), db: 0)
+        # reconnect_attempts is forced OFF at the transport: each sidecar's core
+        # manager owns its reconnection schedule (and refresh rebuilds on top),
+        # so a cluster client configured with its own retry ladder must not make
+        # every sidecar connect attempt sit that ladder out inside redis-client.
+        connection_options_from_nodes.merge(options)
+                                     .merge(host: host, port: Integer(port), db: 0, reconnect_attempts: 0)
       end
 
       # Top-level :username/:password/:ssl are the supported way to configure the

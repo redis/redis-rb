@@ -151,7 +151,9 @@ manager.close
 
 Semantics worth knowing:
 
-- The manager **owns a dedicated connection** (duplicated from your client's options) and one
+- The manager **owns a dedicated connection** (duplicated from your client's options, with
+  transport-level retries disabled — the manager's own `reconnect_attempts:` schedule is the sole
+  owner of reconnection timing, so your client's retry ladder never stacks under it) and one
   background listener thread; your client stays fully usable. `close` shuts both down.
 - Every subscription is issued as a `psubscribe` pattern (a glob-free pattern matches itself), so
   exact channels and patterns mix freely and handler routing is exact per pattern. If several of
