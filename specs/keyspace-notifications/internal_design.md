@@ -161,7 +161,7 @@ keep pushing confirmation behind fresh duplicates of itself until the wait timed
 | Field | Meaning | Written by |
 |---|---|---|
 | `@handlers` | **Intent**: pattern → `Registration` (the registry; what a replay restores) | callers, listener (rollbacks) |
-| `@confirmed` | **Server truth**: patterns the *current session* has acked | listener only |
+| `@confirmed` | **Server truth**: patterns the *current session* has acked; the value is a monotonic confirmation *generation*. Presence answers "is it subscribed?"; a re-subscribing caller's wait instead compares the generation against its install-time snapshot, so a kept-but-stale entry keeps `patterns`/`subscribed?` truthful without satisfying the replacing call | listener only |
 | `@pending_acks` | pattern → wire-ordered queue of the psubscribe commands whose ack is unconsumed (each entry: the issuing blocking batch's seq, nil for batch-less writes). Acks arrive in command order, so each shifts the oldest entry — the queue names exactly which command an ack answers. A non-final ack (queue still non-empty) answers an *earlier* command than the pattern's newest and resolves nothing pattern-wide (no confirmation, no marker retirement, no revert) but still credits its own batch's retirement. Cleared with `@confirmed` at session end | writers (push at every psubscribe write), listener (shift per ack) |
 | `@removing` | pattern → the exact `Registration` an in-flight unsubscribe targets | unsubscribing callers |
 | `@unvalidated` | pattern → `{entry:, batch:, seq:}` for in-handler subscribes not yet acked (`seq` = issue order; map position lies once a later call re-marks a pattern) | listener thread |
@@ -207,18 +207,23 @@ still fully subscribed and the call can simply be retried.**
 1. The handler is registered **before** the command is written — matching messages can
    arrive ahead of our processing of the ack, and dispatch must find the handler.
    The pre-write registration is exactly what the rollback must be able to undo.
-   Installing also **invalidates any existing confirmation** for the pattern: a
-   (re-)subscribe demands a *fresh* acknowledgment, because a confirmation earned by
-   the replaced registration would otherwise satisfy this call's wait — reporting
-   success for a command the server may still reject (e.g. permissions revoked since),
-   with no waiter left to roll the poisoned registration back. Re-subscribing an
-   already-subscribed pattern is re-acked promptly, restoring the entry. Invalidation
-   alone is not enough when several commands for the same pattern are on the wire (two
-   callers re-subscribing concurrently): the earlier command's ack would re-confirm the
-   pattern and satisfy the later call's wait before its own command is answered. Every
-   psubscribe write therefore records one expected ack per pattern (`@pending_acks`),
-   and only the **final** ack — the one draining the count to zero — confirms, retires
-   validation markers, or triggers the unregistered-pattern revert.
+   Installing also **snapshots the pattern's confirmation generation**: a
+   (re-)subscribe demands a *fresh* acknowledgment — its wait accepts only a
+   generation newer than the snapshot — because a confirmation earned by the replaced
+   registration would otherwise satisfy this call's wait, reporting success for a
+   command the server may still reject (e.g. permissions revoked since), with no
+   waiter left to roll the poisoned registration back. The stale entry itself is
+   deliberately **kept**, not deleted: the server-side subscription genuinely persists
+   across a same-session replacement, so `patterns`/`subscribed?` keep reporting it
+   and a failed call's rollback leaves no observable dent (deleting made a timed-out
+   re-subscribe under-report the still-subscribed pattern until its late ack healed
+   it). The snapshot alone is not enough when several commands for the same pattern
+   are on the wire (two callers re-subscribing concurrently): the earlier command's
+   ack would mint the fresh generation and satisfy the later call's wait before its
+   own command is answered. Every psubscribe write therefore records one expected ack
+   per pattern (`@pending_acks`), and only the **final** ack — the one draining the
+   queue — mints a generation, retires validation markers, or triggers the
+   unregistered-pattern revert.
 2. `wait_for_confirmation` waits until every pattern is either confirmed or **no longer
    this call's** (its registration was replaced/removed by a concurrent operation — then
    it resolves to *that* operation's outcome; timing out on it would tear down the
@@ -386,7 +391,8 @@ machinery. That is inherent to constraint 2, not a choice.
 | ACL-rejected pattern subscribed in-handler | Oldest-batch attribution drops exactly the poisoned batch |
 | Listener dead (schedule exhausted), then a new subscribe | Restart with the **complete** registry |
 | In-handler subscribe unsubscribed before its ack | Unvalidated marker purged (identity-checked) at removal |
-| Re-subscribe of a confirmed pattern racing a server rejection | Install invalidates the stale confirmation: the wait demands a fresh ack, so the rejection raises instead of the call reporting success on the replaced registration's confirmation |
+| Re-subscribe of a confirmed pattern racing a server rejection | Install snapshots the confirmation generation and the wait demands a NEWER one, so the rejection raises instead of the call reporting success on the replaced registration's confirmation |
+| Re-subscribe of a confirmed pattern fails (timeout) on a live session | The stale confirmation was kept, not deleted, at install: the rollback restores the previous registration and `patterns`/`subscribed?` never stopped reporting the still-subscribed, still-delivering pattern |
 | Two concurrent re-subscribes of one pattern, the later command rejected | Confirmation is gated on `@pending_acks` draining to zero: the earlier command's ack cannot satisfy the later call's wait, so the rejection raises to that caller and its registration rolls back |
 | Overlapping in-handler batches on one pattern | Batch age by sequence number, not map position — the rejection is attributed to the oldest *issued* batch even when a later call re-marked a shared pattern |
 | Blocking subscribe rejected while an in-handler subscribe is in flight | Blocking batches are sequenced in the same wire-order series (`@inflight_waits`): when the oldest unresolved command is a blocking one, the in-handler drop is skipped — the blocking waiter observes the error (epoch) and rolls its own batch back |

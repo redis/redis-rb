@@ -56,8 +56,18 @@ class Redis
         else
           reconnect_attempts.dup.freeze
         end
-        @handlers = {}           # pattern (BINARY String) => handler (Proc, nil for default)
-        @confirmed = {}          # pattern (BINARY String) => true, as acked by the server
+        @handlers = {} # pattern (BINARY String) => handler (Proc, nil for default)
+        # pattern (BINARY String) => confirmation GENERATION (monotonic), as acked
+        # by the server on the current session. Consumers of "is it subscribed?"
+        # test presence; a re-subscribing caller's wait compares the generation
+        # against its install-time snapshot instead — only an acknowledgment that
+        # arrived AFTER the install satisfies it. That keeps the entry in place
+        # across a same-session replacement (the server-side subscription
+        # genuinely persists, so `patterns`/`subscribed?` stay truthful and a
+        # failed call's rollback leaves no observable dent) while still refusing
+        # to report success on the replaced registration's stale confirmation.
+        @confirmed = {}
+        @confirm_seq = 0
         # pattern (BINARY String) => queue of psubscribe commands issued on the
         # live session whose acknowledgment has not been consumed yet, in wire
         # order — each entry is the issuing blocking batch's seq (nil for writes
@@ -134,6 +144,7 @@ class Redis
         patterns = patterns.map { |pattern| pattern.to_s.b }
         previous = {}
         installed = {}
+        stale_confirmations = {}
         issue_seq = nil
         @lock.synchronize do
           raise SubscriptionError, "keyspace notifications manager is closed" if @closed || @closing
@@ -151,9 +162,16 @@ class Redis
             # by a replaced registration must not satisfy this call's wait — the
             # server may reject the new command (e.g. permissions revoked since),
             # and returning on the stale entry would report success while leaving a
-            # poisoned registration no wait can ever roll back. Re-subscribing an
-            # already-subscribed pattern is re-acked promptly, restoring the entry.
-            @confirmed.delete(pattern)
+            # poisoned registration no wait can ever roll back. Snapshotting the
+            # current generation (the wait accepts only a NEWER one) enforces that
+            # WITHOUT deleting the entry: the server-side subscription genuinely
+            # persists across a same-session replacement, so `patterns` /
+            # `subscribed?` keep reporting it, and a failed call's rollback leaves
+            # no observable dent (deleting here made a timed-out re-subscribe
+            # under-report the still-subscribed pattern until its late ack finally
+            # healed it). Re-subscribing an already-subscribed pattern is re-acked
+            # promptly, minting the fresh generation.
+            stale_confirmations[pattern] = @confirmed[pattern]
           end
           # Sequenced HERE — the same locked section as the write — so batch age
           # reflects true wire order for both call kinds (a marker sequenced in a
@@ -206,7 +224,7 @@ class Redis
         end
 
         begin
-          wait_for_confirmation(patterns, installed, issue_seq)
+          wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations)
         rescue StandardError
           rollback_registration(previous, installed)
           raise
@@ -666,7 +684,10 @@ class Redis
               # and would otherwise be retained forever.
               @unvalidated.delete(key)
               if @handlers.key?(key)
-                @confirmed[key] = true
+                # A fresh generation per final ack: re-subscribing callers' waits
+                # compare against their install-time snapshot, so only this — an
+                # acknowledgment consumed AFTER their install — satisfies them.
+                @confirmed[key] = (@confirm_seq += 1)
                 @cond.broadcast
                 registered = true
               end
@@ -736,7 +757,7 @@ class Redis
       # would make the rollback tear down the batch's innocent siblings (the cluster
       # catch-up batches a node's whole registry, so one racing unsubscribe would
       # otherwise fail the entire node refresh).
-      def wait_for_confirmation(patterns, installed, issue_seq)
+      def wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
         reissued_session = nil
@@ -746,7 +767,7 @@ class Redis
           # it to a valid subscribe issued during that window would falsely reject
           # a pattern the killed session never saw.
           entry_epoch = @listener_error_epoch
-          until patterns.all? { |pattern| @confirmed.key?(pattern) || !@handlers[pattern].equal?(installed[pattern]) }
+          until patterns.all? { |pattern| confirmed_or_replaced?(pattern, installed, stale_confirmations) }
             # A fresh CommandError means the server REJECTED a command on this
             # session (e.g. an ACL-forbidden pattern): retrying cannot fix it, so
             # raise it promptly — the caller's rollback then removes the poisoned
@@ -783,7 +804,8 @@ class Redis
             # backlog of the wait's own retries. Marked only when the write
             # actually went out — an attempt against a still-connecting session is
             # retried on the next wake.
-            if @session_seq != reissued_session && reissue_unconfirmed(patterns, installed, issue_seq)
+            if @session_seq != reissued_session &&
+               reissue_unconfirmed(patterns, installed, issue_seq, stale_confirmations)
               reissued_session = @session_seq
             end
           end
@@ -800,11 +822,28 @@ class Redis
       # The re-issue carries its batch's seq: when the original write was lost
       # with its session, the re-issue IS the batch's command, and its acks must
       # credit the batch's retirement from rejection attribution.
-      def reissue_unconfirmed(patterns, installed, issue_seq)
+      def reissue_unconfirmed(patterns, installed, issue_seq, stale_confirmations)
         unconfirmed = patterns.select do |pattern|
-          @handlers[pattern].equal?(installed[pattern]) && !@confirmed.key?(pattern)
+          @handlers[pattern].equal?(installed[pattern]) && !fresh_confirmation?(pattern, stale_confirmations)
         end
         psubscribe_quietly(unconfirmed, issue_seq)
+      end
+
+      # A pattern stops being waited for once its confirmation generation is
+      # newer than the caller's install-time snapshot, or once its registration
+      # was replaced/removed by a concurrent operation (it then resolves to that
+      # operation's outcome). Called under @lock.
+      def confirmed_or_replaced?(pattern, installed, stale_confirmations)
+        fresh_confirmation?(pattern, stale_confirmations) || !@handlers[pattern].equal?(installed[pattern])
+      end
+
+      # Whether the pattern's confirmation was minted AFTER the caller's install
+      # (the install snapshots the generation it saw). A kept-but-stale entry —
+      # the replaced registration's — reports the pattern as subscribed to the
+      # world, but must not satisfy the replacing call's wait. Called under @lock.
+      def fresh_confirmation?(pattern, stale_confirmations)
+        confirmation = @confirmed[pattern]
+        !confirmation.nil? && confirmation != stale_confirmations[pattern]
       end
 
       # Blocks until the server no longer acknowledges any still-owned target as

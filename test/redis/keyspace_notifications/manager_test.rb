@@ -902,6 +902,49 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release&.push(true)
   end
 
+  def test_failed_resubscribe_rollback_keeps_the_live_confirmation_visible
+    gate = Queue.new
+    release = Queue.new
+    received = Queue.new
+    manager = new_manager(error_handler: ->(_error) {})
+    manager.subscribe(CHANNELS.keyspace("park", db: DB), handler: lambda { |_notification|
+      gate << true
+      release.pop
+    })
+    target = CHANNELS.keyspace("kept", db: DB)
+    manager.subscribe(target, handler: ->(notification) { received << notification })
+
+    r.set("park", "v1")
+    gate.pop # the listener is parked: the re-subscribe below cannot be acked
+
+    replacer = Thread.new do
+      manager.subscribe(target, handler: ->(_n) {})
+      :subscribed
+    rescue StandardError => error
+      error
+    end
+    sleep 0.5
+    # The server-side subscription persists across a same-session replacement and
+    # events still dispatch — `patterns` must keep saying so rather than dropping
+    # the pattern the moment a re-subscribe is merely in flight.
+    assert_includes manager.patterns, target
+
+    # The wait can only time out: its ack is stuck behind the parked handler.
+    assert_kind_of Redis::SubscriptionError, replacer.value
+    # The rollback restored the previous registration. The confirmation was never
+    # deleted, so the still-subscribed, still-delivering pattern does not vanish
+    # from `patterns` until a late ack happens to heal it (the listener is STILL
+    # parked here — pre-fix, the pattern is missing at this point).
+    assert_includes manager.patterns, target
+
+    release << true
+    r.set("kept", "v")
+
+    assert_equal "kept", assert_pop(received).key
+  ensure
+    release&.push(true)
+  end
+
   def test_attributed_rejection_marks_replaced_registrations_dead_for_rollbacks
     trigger = CHANNELS.keyspace("trigger", db: DB)
     forbidden = CHANNELS.keyspace("forbidden", db: DB)
