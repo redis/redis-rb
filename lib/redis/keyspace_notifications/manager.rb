@@ -436,7 +436,10 @@ class Redis
 
       # @return [Boolean]
       def closed?
-        @closed
+        # Synchronized like every other piece of shared state: without the
+        # happens-before edge a non-GVL runtime could report a torn-down manager
+        # as live after close returned (NodeListener#healthy? relies on this).
+        @lock.synchronize { @closed }
       end
 
       # Stop listening, terminate the background thread and close the connection.
@@ -468,7 +471,9 @@ class Redis
         end
 
         force_close_redis
-        @closed = true
+        # Written under @lock (paired with closed?'s synchronized read) so the
+        # closed state is visible to other threads the moment close returns.
+        @lock.synchronize { @closed = true }
         nil
       end
       alias stop close
@@ -668,13 +673,21 @@ class Redis
                 awaiting.delete(key)
                 @inflight_waits.delete(token) if awaiting.empty?
               end
+              # In-handler batches retire their validation markers the same way —
+              # on THEIR OWN command's ack, not the pattern's final one: an
+              # overlapping younger command's unread ack must not keep a fully
+              # acknowledged batch attributable, or a later rejection gets blamed
+              # on the acked batch (marking its valid registration dead for
+              # rollbacks) while the real poison survives the drop.
+              marker = @unvalidated[key]
+              @unvalidated.delete(key) if marker && token && marker[:seq] == token
               # While more acknowledgments remain, this ack answers an EARLIER
               # command than the pattern's newest one and resolves nothing
               # pattern-wide: confirming here would let a caller's wait return
               # success for a later command the server may still reject (leaving a
-              # poisoned registration no wait can roll back), and retiring the
-              # validation marker here would hide that later command from
-              # rejection attribution.
+              # poisoned registration no wait can roll back), and retiring another
+              # command's validation marker here would hide that later command
+              # from rejection attribution.
               pending = tokens ? !tokens.empty? : false
               next if pending
 

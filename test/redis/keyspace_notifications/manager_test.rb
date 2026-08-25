@@ -902,6 +902,60 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release&.push(true)
   end
 
+  def test_acked_in_handler_batch_is_not_blamed_for_a_later_batches_rejection
+    trigger = CHANNELS.keyspace("trigger", db: DB)
+    x = CHANNELS.keyspace("shared", db: DB)
+    y = CHANNELS.keyspace("sibling", db: DB)
+    forbidden = CHANNELS.keyspace("forbidden", db: DB)
+    r.acl("SETUSER", "kn_limited5", "on", ">knpass", "+@all", "resetchannels",
+          "&#{trigger}", "&#{x}", "&#{y}")
+    restricted = Redis.new(OPTIONS.merge(username: "kn_limited5", password: "knpass",
+                                         driver: ENV["DRIVER"], protocol: PROTOCOL))
+    manager = Redis::KeyspaceNotifications::Manager.new(redis: restricted, error_handler: ->(_error) {})
+    @managers << manager
+    fired = Queue.new
+    release = Queue.new
+    manager.subscribe(trigger, handler: lambda { |_notification|
+      next unless fired.empty?
+
+      # A fully valid in-handler batch, then the actual poison, then park: both
+      # commands' replies are read only after the blocking call below put a
+      # younger command for x on the wire.
+      manager.subscribe(x, y, handler: ->(_n) {})
+      manager.subscribe(forbidden, handler: ->(_n) {})
+      fired << true
+      release.pop
+    })
+    r.set("trigger", "v")
+    fired.pop
+
+    replacer = Thread.new do
+      manager.subscribe(x, handler: ->(_n) {})
+      :subscribed
+    rescue StandardError => error
+      error
+    end
+    sleep 0.2 # the younger x command is on the wire; the valid batch's x ack will be gated
+    release << true # the listener reads the valid batch's acks, then the rejection
+
+    # The rejection belongs to the forbidden batch. The valid batch was fully
+    # acknowledged — its x ack merely arrived while the younger command was
+    # pending — so it must have retired from attribution on its OWN ack: blaming
+    # it would mark its x registration dead, the failing replacer's rollback
+    # would then DELETE x instead of restoring it, and the poison would survive.
+    assert_kind_of Redis::CommandError, replacer.value
+    wait_until(timeout: 5) do
+      manager.registered_patterns.sort == [trigger, x, y].sort
+    end
+  ensure
+    release&.push(true)
+    begin
+      r.acl("DELUSER", "kn_limited5")
+    rescue StandardError
+      nil
+    end
+  end
+
   def test_failed_resubscribe_rollback_keeps_the_live_confirmation_visible
     gate = Queue.new
     release = Queue.new

@@ -448,7 +448,9 @@ class Redis
 
       # @return [Boolean]
       def closed?
-        @closed
+        # The write in #close happens under @lock; pairing the read gives the
+        # happens-before edge non-GVL runtimes need to observe it reliably.
+        @lock.synchronize { @closed }
       end
 
       # Close every node listener, stop the dispatcher and release all connections.
