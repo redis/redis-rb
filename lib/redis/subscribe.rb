@@ -127,28 +127,49 @@ class Redis
     # with the same monitor writers hold means reads, writes and close can
     # never overlap; a writer waits at most one slice. Blocking semantics are
     # preserved: a slice timeout just reads again, and never leaks the nil the
-    # with-timeout variants use as their loop exit.
+    # with-timeout variants use as their loop exit. The timed form reads in the
+    # same guarded slices while preserving the caller's overall deadline — its
+    # reads race cross-thread unsubscribes and close exactly like the blocking
+    # form's, and nil still means "no event within the requested timeout".
     def next_event(timeout)
-      return @client.next_event(timeout) if timeout > 0
+      if timeout > 0
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+        loop do
+          writer_priority_wait
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          return nil if remaining <= 0
 
-      loop do
-        # Writer priority, bounded: writes are brief and rare, so a queued
-        # writer gets the monitor before the next read slice starts. sleep —
-        # unlike Thread.pass, which is a hint MRI 3.2's scheduler ignores in
-        # favor of the barging re-acquirer — deterministically deschedules this
-        # thread so the writer actually runs. Bounded, so a counter defect
-        # could only ever throttle reads, never stop them.
-        50.times do
-          break if @pending_writes.zero?
-
-          sleep 0.001
+          event = guarded_read([remaining, READ_SLICE].min)
+          return event if event
         end
-        event = @write_monitor.synchronize do
-          raise SubscriptionError, "This client is closed" if @closed
-
-          @client.next_event(READ_SLICE)
+      else
+        loop do
+          writer_priority_wait
+          event = guarded_read(READ_SLICE)
+          return event if event
         end
-        return event if event
+      end
+    end
+
+    def guarded_read(slice)
+      @write_monitor.synchronize do
+        raise SubscriptionError, "This client is closed" if @closed
+
+        @client.next_event(slice)
+      end
+    end
+
+    # Writer priority, bounded: writes are brief and rare, so a queued writer
+    # gets the monitor before the next read slice starts. sleep — unlike
+    # Thread.pass, which is a hint MRI 3.2's scheduler ignores in favor of the
+    # barging re-acquirer — deterministically deschedules this thread so the
+    # writer actually runs. Bounded, so a counter defect could only ever
+    # throttle reads, never stop them.
+    def writer_priority_wait
+      50.times do
+        break if @pending_writes.zero?
+
+        sleep 0.001
       end
     end
   end

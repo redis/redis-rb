@@ -395,6 +395,14 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_raises(ArgumentError) do
       Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: ["fast"])
     end
+    # Non-finite (or negative, or non-real) delays satisfy Numeric but blow up
+    # the backoff arithmetic on the listener thread after the first connection
+    # loss — they must fail at the call site like any other bad value.
+    [[Float::NAN], [Float::INFINITY], [-1], [0.5, Float::NAN]].each do |delays|
+      assert_raises(ArgumentError, "expected #{delays.inspect} to be rejected") do
+        Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: delays)
+      end
+    end
   end
 
   def test_replay_rejected_pattern_is_evicted_and_survivors_recover

@@ -61,8 +61,13 @@ class Redis
         when Integer
           Array.new(reconnect_attempts, 0).freeze
         when Array
-          unless reconnect_attempts.all? { |delay| delay.is_a?(Numeric) }
-            raise ArgumentError, "reconnect_attempts must contain only numeric sleep durations"
+          # Finite, non-negative REALS only: NaN/Infinity (or a Complex) satisfy
+          # Numeric but blow up the backoff arithmetic on the listener thread —
+          # outside its rescue — after the first connection loss, killing the
+          # reconnect machinery instead of the caller that passed the value.
+          # (real? is checked first: Complex has no #>= to consult.)
+          unless reconnect_attempts.all? { |delay| delay.is_a?(Numeric) && delay.real? && delay.finite? && delay >= 0 }
+            raise ArgumentError, "reconnect_attempts must contain only finite, non-negative sleep durations"
           end
 
           reconnect_attempts.dup.freeze
