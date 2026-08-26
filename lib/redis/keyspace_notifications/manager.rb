@@ -971,8 +971,11 @@ class Redis
               @cond.broadcast
               entry = @handlers[key]
               # Wanted again unless this ack answers the unsubscribe that targets the
-              # live registration (the normal flow, where deletion follows the ack).
-              still_wanted = !entry.nil? && !entry.equal?(@removing[key])
+              # live registration (the normal flow, where deletion follows the ack) —
+              # or close's blanket punsubscribe: registrations legitimately outlive
+              # a close, but re-establishing them would fight the teardown with
+              # wasted writes until the connection is force-closed under them.
+              still_wanted = !@closing && !entry.nil? && !entry.equal?(@removing[key])
               # A registered pattern lost its server-side subscription to an unsubscribe
               # aimed at an older, since-replaced registration (the two block-less writes
               # crossed on the wire): re-establish it. INSIDE the lock hold, like every

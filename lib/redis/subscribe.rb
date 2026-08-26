@@ -11,15 +11,22 @@ class Redis
     def initialize(client)
       @client = client
       @write_monitor = Monitor.new
-      # Heuristic only (plain increments, no extra lock): tells the subscribed
-      # thread's read loop that a writer is waiting on the monitor, so it yields
-      # between slices instead of immediately re-acquiring (MRI mutexes barge).
+      # Exact count of writers waiting for (or holding) the monitor — mutations
+      # under their own tiny lock so a lost update cannot skew it for good. The
+      # subscribed thread's read loop consults it (bare read: worst case one
+      # stale slice) and DESCHEDULES while writers are queued: MRI mutexes
+      # barge, and on MRI 3.2 the releasing reader reliably re-wins the monitor
+      # over an already-woken writer — a mere Thread.pass hint does not hand
+      # over, and a single write could starve behind consecutive read slices
+      # for hundreds of milliseconds (measured: 13/40 writes > 100ms on 3.2,
+      # 0/40 with the sleep-based wait; 3.3+ schedulers hand over either way).
       @pending_writes = 0
+      @pending_writes_lock = Mutex.new
       @closed = false
     end
 
     def call_v(command)
-      @pending_writes += 1
+      @pending_writes_lock.synchronize { @pending_writes += 1 }
       @write_monitor.synchronize do
         # Checked under the same monitor #close holds: a write must never reach
         # a connection whose teardown is freeing (or has freed) it — with the
@@ -30,7 +37,7 @@ class Redis
         @client.call_v(command)
       end
     ensure
-      @pending_writes -= 1
+      @pending_writes_lock.synchronize { @pending_writes -= 1 }
     end
 
     def subscribe(*channels, &block)
@@ -75,13 +82,13 @@ class Redis
       # an in-flight write or read crashes the process on the hiredis driver —
       # the racing operation either completes first or observes the closed
       # client and raises.
-      @pending_writes += 1
+      @pending_writes_lock.synchronize { @pending_writes += 1 }
       @write_monitor.synchronize do
         @closed = true
         @client.close
       end
     ensure
-      @pending_writes -= 1
+      @pending_writes_lock.synchronize { @pending_writes -= 1 }
     end
 
     protected
@@ -125,17 +132,23 @@ class Redis
       return @client.next_event(timeout) if timeout > 0
 
       loop do
+        # Writer priority, bounded: writes are brief and rare, so a queued
+        # writer gets the monitor before the next read slice starts. sleep —
+        # unlike Thread.pass, which is a hint MRI 3.2's scheduler ignores in
+        # favor of the barging re-acquirer — deterministically deschedules this
+        # thread so the writer actually runs. Bounded, so a counter defect
+        # could only ever throttle reads, never stop them.
+        50.times do
+          break if @pending_writes.zero?
+
+          sleep 0.001
+        end
         event = @write_monitor.synchronize do
           raise SubscriptionError, "This client is closed" if @closed
 
           @client.next_event(READ_SLICE)
         end
         return event if event
-
-        # MRI mutexes barge: releasing and immediately re-acquiring beats a
-        # thread already waiting, so a pending writer could starve behind an
-        # idle subscription. Yield the scheduler slot when one is queued.
-        Thread.pass if @pending_writes > 0
       end
     end
   end

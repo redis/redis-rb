@@ -156,7 +156,7 @@ class Redis
         # A close racing this call tore the listeners down after our snapshot and
         # muted the refresher: returning success would leave the caller believing
         # a subscription exists on a closed manager.
-        raise SubscriptionError, "keyspace notifications manager is closed" if @closed
+        raise SubscriptionError, "keyspace notifications manager is closed" if closed?
 
         nil
       end
@@ -304,7 +304,7 @@ class Redis
         # Reconnect announcements are deferred for the same reason.
         deferred_reconnects = []
         @refresh_lock.synchronize do
-          return if @closed
+          return if closed?
 
           # current_primaries raises (keeping the existing listeners) on a view
           # that is not a topology to reconcile against — no slot-owning primary,
@@ -339,7 +339,7 @@ class Redis
             # A close racing this refresh raises @closed first, then waits on
             # @refresh_lock: abort at the node boundary instead of making it sit
             # out every remaining ack-blocking catch-up (see #close).
-            break if @closed
+            break if closed?
 
             listener = @lock.synchronize { @listeners[node_key] }
             created = false
@@ -364,7 +364,7 @@ class Redis
               snapshot = @lock.synchronize { @registry.keys }
               converged = false
               5.times do
-                break if @closed
+                break if closed?
 
                 begin
                   listener.catch_up(snapshot)
@@ -390,7 +390,7 @@ class Redis
               # possibly-stale node silently — the concurrent operations that kept
               # changing the registry saw it already updated and requested no refresh
               # themselves, so schedule the next reconciliation here.
-              request_refresh(nil) unless converged || @closed
+              request_refresh(nil) unless converged || closed?
               # A NEWLY ATTACHED listener converged while patterns are registered:
               # whatever the node emitted before this catch-up is lost — announce
               # the gap's end once the refresh lock is released (user code must
@@ -414,7 +414,7 @@ class Redis
           doomed.compact.map { |listener| Thread.new { listener.close } }.each(&:join)
           # An aborted (closing) refresh reports nothing: close is tearing the
           # remaining listeners down right behind this lock.
-          raise KeyspaceNotificationsRefreshError, failures unless failures.empty? || @closed
+          raise KeyspaceNotificationsRefreshError, failures unless failures.empty? || closed?
         end
         nil
       ensure
@@ -426,8 +426,8 @@ class Redis
         # still finish after close returns — the same bounded exposure as a
         # mid-flight notification handler outliving close's bounded dispatcher
         # join; full exclusion would need close to block on user code.)
-        deferred_reports&.each { |error, node_key| report_error(error, node_key) unless @closed }
-        deferred_reconnects&.each { |node_key| handle_node_reconnect(node_key) unless @closed }
+        deferred_reports&.each { |error, node_key| report_error(error, node_key) unless closed? }
+        deferred_reconnects&.each { |node_key| handle_node_reconnect(node_key) unless closed? }
       end
 
       # @return [Array<String>] "host:port" of every primary currently listened to
@@ -717,7 +717,7 @@ class Redis
           while (notification = @queue.pop)
             # Buffered items surviving a close are dropped, not dispatched: callers
             # may have torn down handler dependencies the moment close returned.
-            dispatch(notification) unless @closed
+            dispatch(notification) unless closed?
           end
         end
         thread.name = "redis-cluster-keyspace-notifications"
@@ -742,7 +742,7 @@ class Redis
 
               @refresh_needed = false
             end
-            break if @closed
+            break if closed?
 
             begin
               refresh
