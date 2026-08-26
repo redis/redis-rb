@@ -28,7 +28,12 @@ class Redis
     # first migrated key.
     #
     # Like all keyspace notifications, delivery is fire-and-forget: events emitted
-    # while a node was unreachable are lost. In cluster mode `db` is always 0.
+    # while a node was unreachable are lost. Duplicates are possible too: a primary
+    # demoted WITHOUT its connections dropping (e.g. a manual `CLUSTER FAILOVER`)
+    # emits no error signal, and as a replica it re-emits every replicated write —
+    # its shard's events arrive twice until a {#refresh} observes the settled
+    # topology and prunes it. Handlers should tolerate both. In cluster mode `db`
+    # is always 0.
     class KeyspaceNotifications
       DEFAULT_QUEUE_SIZE = 1024
 

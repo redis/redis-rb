@@ -205,7 +205,15 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         end
 
         received = collect(queue, KEY_COUNT, timeout: 2, flunk_on_timeout: false)
-        break if received.size == KEY_COUNT
+        # Break only on EXACT delivery — every key once, no duplicates. A manual
+        # failover demotes the old primary without dropping its connections, and
+        # as a replica it re-emits every replicated write; a refresh that sampled
+        # a node with a stale gossip view (old primary still reported as master)
+        # keeps it listened, so its shard's events arrive TWICE. Counting items
+        # alone would accept such a duplicated batch. Retrying rides out the
+        # gossip window: a later refresh sees the settled view, prunes the
+        # demoted node, and delivery converges to exactly-once.
+        break if received.sort == keys.sort
 
         sleep 0.5
       end

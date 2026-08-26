@@ -131,6 +131,14 @@ class Redis
         # pattern rides along for another bounce. Dies with its session.
         @opening_pending = {}
         @opening_seq = nil
+        # True from the moment a session's opening acks are tracked until its
+        # first acknowledgment arrives: the subscription client becomes visible
+        # to writers a beat before the opening command hits the socket, and a
+        # write slipping into that gap would precede the opening on the wire —
+        # inverting @pending_acks against reply order. write_to_session refuses
+        # writes while set (the session-not-ready answer callers handle).
+        # Set/cleared under @lock; lifted at session end whatever happened.
+        @establishing = false
         # The issue seq of the blocking subscribe a session-killing rejection was
         # attributed to (nil when it was pinned on a marker/probe/opening batch or
         # was unattributable). A waiter raises a fresh CommandError only when it
@@ -200,6 +208,7 @@ class Redis
         installed = {}
         stale_confirmations = {}
         issue_seq = nil
+        error_epoch = nil
         @lock.synchronize do
           raise SubscriptionError, "keyspace notifications manager is closed" if @closed || @closing
 
@@ -231,6 +240,14 @@ class Redis
           # reflects true wire order for both call kinds (a marker sequenced in a
           # later section could be overtaken by a concurrent caller's write).
           issue_seq = (@issue_seq += 1)
+          # The error-freshness epoch is sampled in this same hold too: sampled
+          # when the wait re-acquires the lock instead, the listener can read
+          # our command's rejection in the gap and bump the epoch first — the
+          # waiter then reads its OWN rejection as stale and converges only via
+          # the replay/probe bounces (seconds) instead of raising promptly.
+          # Precision is preserved by the @rejected_wait naming: an error minted
+          # after this sample raises here only when attribution names this seq.
+          error_epoch = @listener_error_epoch
           @inflight_waits[issue_seq] = patterns.uniq unless listener_thread?
           if listening?
             if write_to_session(:psubscribe, patterns)
@@ -280,7 +297,7 @@ class Redis
         end
 
         begin
-          wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations)
+          wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations, error_epoch)
         rescue StandardError
           rollback_registration(previous, installed)
           raise
@@ -763,6 +780,9 @@ class Redis
               @probe_inflight.clear
               @opening_pending.clear
               @unvalidated.clear
+              # A session that died before its first acknowledgment must lift the
+              # opening gate, or every future write would be refused forever.
+              @establishing = false
               @cond.broadcast
             end
             report_error(error)
@@ -775,6 +795,9 @@ class Redis
               @probe_inflight.clear
               @opening_pending.clear
               @unvalidated.clear
+              # A session that died before its first acknowledgment must lift the
+              # opening gate, or every future write would be refused forever.
+              @establishing = false
               @cond.broadcast
             end
           end
@@ -804,6 +827,7 @@ class Redis
           @probe_inflight.clear
           @opening_pending.clear
           @unvalidated.clear
+          @establishing = false
           @cond.broadcast
         end
       end
@@ -832,8 +856,20 @@ class Redis
         # The session sequence is bumped alongside: waits key their single re-issue
         # to it, and bumping before the connect lets a wait that sampled the old
         # session retry against this one.
-        @lock.synchronize { @session_seq += 1 }
-        probing ? mark_probes(opening) : track_opening_acks(opening)
+        @lock.synchronize do
+          @session_seq += 1
+          # No command may reach the new session's socket BEFORE the opening
+          # command: its acks are tracked here, ahead of the connect, and the
+          # subscription client becomes visible to writers a beat before the
+          # opening write goes out — a concurrent write slipping into that gap
+          # would land first on the wire, inverting @pending_acks against reply
+          # order and mis-crediting every later acknowledgment (and, through
+          # them, the rejection attribution). write_to_session refuses (returns
+          # false, the "session not ready" answer callers already handle) until
+          # the first acknowledgment proves the opening command went out.
+          @establishing = true
+          probing ? mark_probes(opening) : track_opening_acks(opening)
+        end
         @redis.psubscribe(*opening) do |on|
           on.psubscribe do |pattern, _count|
             key = pattern.b
@@ -842,6 +878,10 @@ class Redis
             announce = false
             @lock.synchronize do
               @session_confirmed = true
+              # The opening command is demonstrably on the wire (this ack answers
+              # it): writes may flow — everything from here on is tracked and
+              # written atomically under @lock, in wire order.
+              @establishing = false
               # The listener demonstrably recovered: a stale error from a previous
               # session must not be re-raised by a later wait on a clean exit.
               @listener_error = nil
@@ -978,7 +1018,7 @@ class Redis
       # would make the rollback tear down the batch's innocent siblings (the cluster
       # catch-up batches a node's whole registry, so one racing unsubscribe would
       # otherwise fail the entire node refresh).
-      def wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations)
+      def wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations, entry_epoch)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
         reissued_session = nil
@@ -986,8 +1026,11 @@ class Redis
           # Only errors NEWER than this wait implicate its command: a stale
           # CommandError persists until the reconnect replay confirms, and raising
           # it to a valid subscribe issued during that window would falsely reject
-          # a pattern the killed session never saw.
-          entry_epoch = @listener_error_epoch
+          # a pattern the killed session never saw. entry_epoch was sampled by
+          # the caller in the SAME lock hold that issued the command — sampling
+          # here instead let the listener process our own rejection in the gap
+          # and bump the epoch first, making the waiter read it as stale and
+          # converge via seconds of replay/probe bounces instead of raising.
           loop do
             # A fresh CommandError means the server REJECTED a command on this
             # session (e.g. an ACL-forbidden pattern): retrying cannot fix it, so
@@ -1231,6 +1274,12 @@ class Redis
       # the session is gone, and the registry replay plus the ack-time invariants
       # own convergence. Returns false in that case, true when the write went out.
       def write_to_session(verb, patterns)
+        # The session-opening command must be FIRST on the wire (see listen's
+        # tracking comment): until its acknowledgment arrives, every other
+        # write is refused exactly like a down session — the registry replay
+        # and the ack-time invariants own convergence either way.
+        return false if @establishing
+
         @redis.public_send(verb, *patterns)
         true
       rescue SubscriptionError, BaseConnectionError, RedisClient::ConnectionError
