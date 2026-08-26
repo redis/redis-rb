@@ -342,6 +342,33 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     r.acl("DELUSER", "kn_limited9")
   end
 
+  def test_restart_dead_listener_revives_surviving_registrations
+    reconnects = Queue.new
+    queue = Queue.new
+    manager = new_manager(error_handler: ->(_error) {})
+    manager.on_reconnect { reconnects << true }
+    manager.subscribe(CHANNELS.keyspace("revive", db: DB), handler: ->(notification) { queue << notification })
+
+    # The end state of the unsubscribe races: the listener exited (its
+    # clean-exit recheck saw only removal targets) while a registration
+    # survived — a timed-out unsubscribe kept it, or a replacement landed
+    # after the recheck. Nothing else would ever restart the listener.
+    thread = manager.instance_variable_get(:@thread)
+    thread.kill
+    thread.join
+
+    manager.instance_variable_get(:@lock).synchronize do
+      manager.send(:restart_dead_listener)
+    end
+
+    # The revival runs as a reconnect (the registration's server-side
+    # subscription died with the listener's session) and delivery resumes.
+    assert_pop(reconnects, timeout: 5)
+    r.set("revive", "v")
+
+    assert_equal "revive", assert_pop(queue).key
+  end
+
   def test_subscribed_client_write_after_close_raises_subscription_error
     fake = Class.new do
       def call_v(_command)

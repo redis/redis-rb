@@ -233,20 +233,41 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager = new_manager(queue_size: 1)
     manager.subscribe_keyevent('set') do |_notification|
       started_handling << true
-      sleep 5 # stall the dispatcher: the queue fills and node readers block in push
+      # Stall the dispatcher for longer than the whole close sequence: the queue
+      # fills and node readers block in push, and nothing but close's
+      # queue-close can ever free them (a shorter stall would end around when
+      # close returns, drain the queue itself, and mask a missing queue-close).
+      sleep 60
     end
 
     KEY_COUNT.times { |i| redis.set("backpressure:key#{i}", 'v') }
     started_handling.pop(timeout: 3)
+
+    # The regression signal is BEHAVIORAL, not a tight wall-clock bound: closing
+    # the queue first unblocks readers stuck in push, so every node listener
+    # thread terminates within close's bounded joins. Without it the readers
+    # stay stuck in Ruby (not I/O — force-closing their sockets can't help),
+    # close burns the same bounded joins, and the threads leak alive. Capture
+    # them before close prunes the listener registry.
+    reader_threads = manager.instance_variable_get(:@lock).synchronize do
+      manager.instance_variable_get(:@listeners).values.map do |listener|
+        listener.instance_variable_get(:@manager).instance_variable_get(:@thread)
+      end
+    end
 
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     manager.close
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
 
     assert_predicate manager, :closed?
-    # Closing the queue first unblocks readers stuck in push; without it, close
-    # waits out bounded joins per listener against threads stuck in Ruby, not I/O.
-    assert_operator elapsed, :<, 5, 'close blocked behind readers stuck on the full queue'
+    reader_threads.each do |thread|
+      refute_predicate thread, :alive?, 'a node reader stayed stuck on the full queue through close'
+    end
+    # Loose sanity bound only — close's legitimate worst case is a stack of
+    # bounded joins (parallel per-listener join + force-close join, the
+    # refresher's and the stalled dispatcher's join timeouts ≈ 8s), which a
+    # tight threshold would race on a loaded machine.
+    assert_operator elapsed, :<, 10, 'close exceeded even its bounded-join worst case'
   end
 
   def test_subscribe_recovers_listeners_after_a_fully_failed_refresh
@@ -577,9 +598,12 @@ class TestClusterKeyspaceNotifications < Minitest::Test
 
     assert_predicate manager, :closed?
     # close raises @closed before waiting on the refresh lock, and the in-flight
-    # refresh aborts at the next node boundary: without that it would sit out
-    # every remaining per-node catch-up with close blocked behind the lock.
-    assert_operator elapsed, :<, 3, 'close waited out the whole in-flight refresh'
+    # refresh aborts at the next node boundary: aborted, close waits out at most
+    # the CURRENT catch-up (~1.5s) plus teardown; without the abort it would sit
+    # out every remaining catch-up too (>= 4.5s of stubbed sleeps) with close
+    # blocked behind the lock. The threshold sits between, with headroom for a
+    # loaded machine's slower teardown joins.
+    assert_operator elapsed, :<, 4, 'close waited out the whole in-flight refresh'
     refresher.join(5)
   end
 

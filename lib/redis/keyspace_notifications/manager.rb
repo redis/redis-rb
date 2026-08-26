@@ -380,6 +380,13 @@ class Redis
             # this removal; sweep anything still acknowledged that no registration owns.
             sweep = targets.select { |pattern| @confirmed.key?(pattern) && !@handlers.key?(pattern) }
             punsubscribe_quietly(sweep)
+            # A replacement that slipped in while this removal completed keeps
+            # its registration (the deletes above are identity-guarded) — but
+            # the listener may have exited on this removal's ack believing it
+            # emptied the registry. Its own recheck usually revives it; when
+            # the replacement landed after that recheck, this is the only
+            # actor left that can.
+            restart_dead_listener
           end
         ensure
           # Late acks (after a timeout raise, or after this call finished) are then
@@ -572,7 +579,20 @@ class Redis
         false
       end
 
-      # Called under @lock (both call sites hold it).
+      # Revives a listener that exited while registrations remain — the
+      # unsubscribe races where the exiting listener's clean-exit recheck saw
+      # only removal targets, but a timeout or a concurrent replacement left a
+      # live registration behind it. The registrations lost their server-side
+      # subscriptions with the listener's session (a lossy gap), so the restart
+      # runs as a reconnect and on_reconnect announces it. Called under @lock.
+      def restart_dead_listener
+        return if listening? || @handlers.empty? || @closing || @closed
+
+        @resume_reconnecting = true
+        start_listener(@handlers.keys)
+      end
+
+      # Called under @lock (all call sites hold it).
       def start_listener(patterns)
         @listener_error = nil
         # A restart after a lossy death replays the surviving registrations: run
@@ -1081,6 +1101,12 @@ class Redis
               # the raise and a separate mark-clearing would let that ack slip
               # through with stale ownership and leave the pattern deaf.
               patterns.each { |pattern| @removing.delete(pattern) if @removing[pattern].equal?(owned[pattern]) }
+              # After the raise the registrations legitimately live on (the
+              # caller retries) — but the listener may have exited believing
+              # this removal completes it (its clean-exit recheck skips removal
+              # targets). Left dead, the surviving registrations would sit deaf
+              # until some later subscribe happens to restart it: revive it here.
+              restart_dead_listener
               raise SubscriptionError, "timed out waiting for unsubscription confirmation"
             end
 
