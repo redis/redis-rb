@@ -320,8 +320,16 @@ class Redis
             end
             gone_keys.map { |node_key| @listeners.delete(node_key) }
           end
-          stale.compact.each(&:close)
+          # In parallel, like #close: after a cluster-wide blip EVERY listener is
+          # mid-reconnect and unhealthy, and each close joins that node's threads
+          # (bounded, but up to seconds apiece) — closing serially would hold
+          # @refresh_lock for O(nodes) while #close waits on it unboundedly.
+          stale.compact.map { |listener| Thread.new { listener.close } }.each(&:join)
 
+          # Listeners whose catch-up failed are detached inside the loop but
+          # closed together (in parallel) afterwards — the same O(failed nodes)
+          # stall argument as the prune above.
+          doomed = []
           primaries.each do |node_key, (host, port)|
             # A close racing this refresh raises @closed first, then waits on
             # @refresh_lock: abort at the node boundary instead of making it sit
@@ -392,10 +400,13 @@ class Redis
             rescue StandardError => error
               failures[node_key] = error
               # The gap this failure opens (or keeps open) is announced by the
-              # refresh that eventually re-creates and converges the node.
-              @lock.synchronize { @listeners.delete(node_key) }&.close
+              # refresh that eventually re-creates and converges the node. The
+              # detached listener keeps running until the deferred close below;
+              # any errors it still reports coalesce into the pending refresh.
+              doomed << @lock.synchronize { @listeners.delete(node_key) }
             end
           end
+          doomed.compact.map { |listener| Thread.new { listener.close } }.each(&:join)
           # An aborted (closing) refresh reports nothing: close is tearing the
           # remaining listeners down right behind this lock.
           raise KeyspaceNotificationsRefreshError, failures unless failures.empty? || @closed

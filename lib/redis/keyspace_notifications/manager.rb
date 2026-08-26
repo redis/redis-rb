@@ -54,10 +54,22 @@ class Redis
       def initialize(redis:, error_handler: nil, reconnect_attempts: DEFAULT_RECONNECT_ATTEMPTS)
         @redis = redis
         @error_handler = error_handler
-        @reconnect_attempts = if reconnect_attempts.is_a?(Integer)
+        # Validated here so a bad value fails at the call site: undetected, it
+        # would only surface as a NoMethodError on the listener thread after a
+        # connection loss, killing the reconnect machinery instead of the caller.
+        @reconnect_attempts = case reconnect_attempts
+        when Integer
           Array.new(reconnect_attempts, 0).freeze
-        else
+        when Array
+          unless reconnect_attempts.all? { |delay| delay.is_a?(Numeric) }
+            raise ArgumentError, "reconnect_attempts must contain only numeric sleep durations"
+          end
+
           reconnect_attempts.dup.freeze
+        else
+          raise ArgumentError,
+                "reconnect_attempts must be an Integer or an Array of sleep durations, " \
+                "got #{reconnect_attempts.class}"
         end
         @handlers = {} # pattern (BINARY String) => handler (Proc, nil for default)
         # pattern (BINARY String) => confirmation GENERATION (monotonic), as acked
@@ -509,15 +521,21 @@ class Redis
           nil # the listener may be mid-teardown; the force-close below covers it
         end
 
-        if thread && !thread.equal?(Thread.current) && !thread.join(timeout)
+        begin
+          # Thread#join re-raises whatever unhandled exception killed the
+          # listener thread; the teardown below runs in the ensure either way,
+          # or a dead-by-bug listener would leak the connection and leave the
+          # manager stuck half-closed (@closing true, @closed false).
+          if thread && !thread.equal?(Thread.current) && !thread.join(timeout)
+            force_close_redis
+            thread.join(timeout)
+          end
+        ensure
           force_close_redis
-          thread.join(timeout)
+          # Written under @lock (paired with closed?'s synchronized read) so the
+          # closed state is visible to other threads the moment close returns.
+          @lock.synchronize { @closed = true }
         end
-
-        force_close_redis
-        # Written under @lock (paired with closed?'s synchronized read) so the
-        # closed state is visible to other threads the moment close returns.
-        @lock.synchronize { @closed = true }
         nil
       end
       alias stop close
@@ -888,18 +906,22 @@ class Redis
           end
           on.punsubscribe do |pattern, _count|
             key = pattern.b
-            still_wanted = @lock.synchronize do
+            @lock.synchronize do
               @confirmed.delete(key)
               @cond.broadcast
               entry = @handlers[key]
               # Wanted again unless this ack answers the unsubscribe that targets the
               # live registration (the normal flow, where deletion follows the ack).
-              !entry.nil? && !entry.equal?(@removing[key])
+              still_wanted = !entry.nil? && !entry.equal?(@removing[key])
+              # A registered pattern lost its server-side subscription to an unsubscribe
+              # aimed at an older, since-replaced registration (the two block-less writes
+              # crossed on the wire): re-establish it. INSIDE the lock hold, like every
+              # other psubscribe write, so the write and its ack tracking are atomic —
+              # a concurrent subscribe slotting in between would leave @pending_acks in
+              # the opposite order from the wire, retiring a blocking batch on another
+              # command's ack and misdirecting a rejection onto a valid registration.
+              psubscribe_quietly([pattern]) if still_wanted
             end
-            # A registered pattern lost its server-side subscription to an unsubscribe
-            # aimed at an older, since-replaced registration (the two block-less writes
-            # crossed on the wire): re-establish it.
-            psubscribe_quietly([pattern]) if still_wanted
           end
           on.pmessage do |pattern, channel, payload|
             dispatch(pattern, channel, payload)
@@ -1048,6 +1070,7 @@ class Redis
       # it is that subscribe's to confirm, and fighting it would just duel.
       def wait_for_removal(patterns, owned)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
+        reissued_session = nil
         @lock.synchronize do
           until patterns.none? { |pattern| @confirmed.key?(pattern) && @handlers[pattern].equal?(owned[pattern]) }
             remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -1062,18 +1085,29 @@ class Redis
             end
 
             @cond.wait([remaining, 0.05].min)
+            # At most ONE re-issue per listener session, like the subscribe
+            # path's reissue_unconfirmed: it exists only to catch a reconnect
+            # replay re-subscribing a removal target (the replay snapshots the
+            # full registry). Re-issuing every 50ms wake would stack up to ~100
+            # duplicate punsubscribes against a slow node, and each late ack
+            # then drops the pattern's confirmation and re-establishes it —
+            # flapping `subscribed?`, which is exactly what the cluster wrapper
+            # prunes whole nodes on. Marked only when the write went out.
             pending = patterns.select do |pattern|
               @confirmed.key?(pattern) && @handlers[pattern].equal?(owned[pattern])
             end
-            punsubscribe_quietly(pending)
+            if @session_seq != reissued_session && punsubscribe_quietly(pending)
+              reissued_session = @session_seq
+            end
           end
         end
         nil
       end
 
-      # Mirror of reissue_unconfirmed for the removal path.
+      # Mirror of reissue_unconfirmed for the removal path. Returns whether the
+      # command actually went out on the session.
       def punsubscribe_quietly(patterns)
-        return if patterns.empty? || !@redis.subscribed?
+        return false if patterns.empty? || !@redis.subscribed?
 
         write_to_session(:punsubscribe, patterns)
       end

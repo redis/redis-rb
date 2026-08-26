@@ -311,6 +311,65 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_pop(reconnects, timeout: 5)
   end
 
+  def test_close_racing_the_listeners_session_teardown_is_safe
+    # Regression: close writes PUNSUBSCRIBE from the closing thread while the
+    # listener thread tears down the same pub/sub connection after a
+    # session-killing rejection. Unserialized, the write lands on a freed
+    # hiredis context — a native use-after-free (CI SIGSEGV in
+    # redisBufferWrite), not a rescuable exception. The write must either
+    # complete before the teardown or observe the closed client and raise.
+    r.acl("SETUSER", "kn_limited9", "on", ">knpass", "+@all", "resetchannels",
+          "&#{CHANNELS.keyspace('closerace', db: DB)}")
+    10.times do
+      restricted = Redis.new(OPTIONS.merge(username: "kn_limited9", password: "knpass",
+                                           driver: ENV["DRIVER"], protocol: PROTOCOL))
+      manager = Redis::KeyspaceNotifications::Manager.new(
+        redis: restricted, error_handler: ->(_error) {}, reconnect_attempts: [0.01] * 3
+      )
+      @managers << manager
+      manager.subscribe(CHANNELS.keyspace("closerace", db: DB), handler: lambda { |_notification|
+        # In-handler subscribe of a forbidden pattern: nobody can await its ack,
+        # so the server's rejection kills the session on the listener thread.
+        manager.subscribe(CHANNELS.keyspace("forbidden", db: DB), handler: ->(_n) {})
+      })
+      r.set("closerace", "v") # the listener is about to bounce its session...
+      manager.close # ...and close races that teardown on the same connection
+
+      assert_predicate manager, :closed?
+      restricted.close
+    end
+  ensure
+    r.acl("DELUSER", "kn_limited9")
+  end
+
+  def test_subscribed_client_write_after_close_raises_subscription_error
+    fake = Class.new do
+      def call_v(_command)
+        raise "a write reached the closed connection"
+      end
+
+      def close; end
+    end.new
+    client = Redis::SubscribedClient.new(fake)
+    client.close
+
+    assert_raises(Redis::SubscriptionError) { client.call_v([:punsubscribe]) }
+  end
+
+  def test_invalid_reconnect_attempts_fail_at_construction
+    # Undetected, a bad value only surfaces as a NoMethodError on the listener
+    # thread after a connection loss — killing the reconnect machinery (and,
+    # pre-fix, close's teardown) instead of the caller that passed it.
+    error = assert_raises(ArgumentError) do
+      Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: 1.5)
+    end
+
+    assert_match(/reconnect_attempts/, error.message)
+    assert_raises(ArgumentError) do
+      Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: ["fast"])
+    end
+  end
+
   def test_replay_rejected_pattern_is_evicted_and_survivors_recover
     allowed = CHANNELS.keyspace("allowed", db: DB)
     poisoned = CHANNELS.keyspace("poisoned", db: DB)
