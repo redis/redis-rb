@@ -105,50 +105,38 @@ class Redis
         # node's acknowledgment (seconds against a sick node) and must not stall
         # dispatch, refresh or close. A refresh racing this call reconciles from the
         # already-updated registry, and re-subscribing is idempotent (re-acked).
+        # One pattern per call: under the core manager's rejection attribution a
+        # CommandError raised here names THIS pattern — a session bounce caused
+        # by another pattern's poison no longer surfaces to innocent waiters —
+        # so the culprit is identified directly, without a second probing pass
+        # that would race the reactive refresh's prune-and-rebuild of the very
+        # listener it probes.
         rejected = {}
         failures = {}
         listeners.each do |node_key, listener|
-          listener.subscribe(patterns)
-        rescue ::Redis::CommandError => error
-          # The server REJECTED a pattern (deterministic — e.g. ACL NOPERM), which
-          # best-effort handling must not swallow: left registered, the pattern
-          # would fail every future catch-up batch on every primary. Identify and
-          # evict the culprit(s) once (evict_rejected reports each rejection), then
-          # raise below — matching the standalone contract that a rejected
-          # subscribe raises and leaves no registration. Every OTHER node's error —
-          # the same rejection repeated, or one unattributable to any single
-          # pattern (each succeeded individually: transient session trouble) — is
-          # collected like any node failure, never silently dropped.
-          culprits = {}
-          if rejected.empty?
-            begin
-              culprits = evict_rejected(listener, node_key, patterns)
-            rescue StandardError => probe_error
-              # The per-pattern probes ride the very session the batch rejection
-              # just bounced, so they can fail with session/connection errors of
-              # their own. Raised from inside this rescue clause, such an error
-              # would NOT be caught by the sibling StandardError rescue below —
-              # it would abort the whole fan-out: remaining nodes skipped, no
-              # reports, no refresh, and the poison left registered. Treat it as
-              # this node's failure instead; the refresher's catch-up re-runs
-              # the attribution on a stable session and evicts the poison there.
-              failures[node_key] = probe_error
-              next
-            end
-          end
-          if culprits.empty?
-            failures[node_key] = error
-          else
-            rejected = culprits
+          patterns.each do |pattern|
+            listener.subscribe([pattern])
+          rescue ::Redis::CommandError => error
+            # The server REJECTED the pattern (deterministic — e.g. ACL NOPERM),
+            # which best-effort handling must not swallow: left registered, it
+            # would fail every future catch-up batch on every primary. Evicted
+            # below, then raised — matching the standalone contract that a
+            # rejected subscribe raises and leaves no registration.
+            rejected[pattern] ||= error
           end
         rescue StandardError => error
           failures[node_key] = error
         end
+        unless rejected.empty?
+          # Unconditional delete: the server rejects by pattern name, so a
+          # concurrent re-registration under a different handler is just as
+          # poisoned. The refresher's catch-up converges nodes that accepted an
+          # evicted pattern (before the rejection, or under a diverging
+          # per-node ACL): no longer registered, it is unsubscribed as an extra.
+          @lock.synchronize { rejected.each_key { |pattern| @registry.delete(pattern) } }
+        end
         # Accumulate-then-report, like #refresh: every failed node is reported
-        # individually and healed by the refresher's catch-up. That catch-up also
-        # converges nodes that accepted an evicted pattern (before the rejection,
-        # or under a diverging per-node ACL): the pattern is no longer registered,
-        # so it is unsubscribed as an extra.
+        # individually and healed by the refresher's catch-up.
         failures.each { |node_key, error| report_error(error, node_key) }
         request_refresh(nil) unless rejected.empty? && failures.empty?
         raise rejected.values.first unless rejected.empty?
@@ -662,13 +650,22 @@ class Redis
       end
 
       # Called from node listener threads on every background error of a node.
-      # Only connection/session loss warrants topology reconciliation: parse errors
-      # and handler failures leave the node listener healthy, and refreshing on them
-      # would hammer CLUSTER NODES and re-subscribe every primary for e.g. a stream
-      # of malformed publications on a watched channel.
+      # Connection/session loss warrants topology reconciliation. A server
+      # rejection (CommandError — on a node thread that is the core manager's
+      # reconnect replay being refused, e.g. a pattern whose permissions were
+      # revoked after it was subscribed; user handlers run on the dispatcher,
+      # never here) warrants REGISTRY reconciliation: the node's own manager
+      # evicts the rejected pattern from its local registry, and without a
+      # refresh the canonical registry would keep reporting a pattern no node
+      # is subscribed to, with no signal left to converge on. The refresh's
+      # catch-up re-runs the rejection attribution and evicts it from the
+      # canonical registry too. Parse errors still trigger nothing: they leave
+      # the node listener healthy, and refreshing on them would hammer CLUSTER
+      # NODES and re-subscribe every primary for e.g. a stream of malformed
+      # publications on a watched channel.
       def handle_node_error(node_key, error)
         report_error(error, node_key)
-        request_refresh(node_key) if connection_failure?(error)
+        request_refresh(node_key) if connection_failure?(error) || error.is_a?(::Redis::CommandError)
       end
 
       # Called from a node listener's own thread after its core manager replayed a

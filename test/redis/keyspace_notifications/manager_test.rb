@@ -1123,9 +1123,11 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     # The rejection belongs to the forbidden batch. The valid batch was fully
     # acknowledged — its x ack merely arrived while the younger command was
     # pending — so it must have retired from attribution on its OWN ack: blaming
-    # it would mark its x registration dead, the failing replacer's rollback
-    # would then DELETE x instead of restoring it, and the poison would survive.
-    assert_kind_of Redis::CommandError, replacer.value
+    # it would mark its x registration dead and poison the rollbacks. The
+    # replacer's own command was NOT the rejected one either, so the rejection
+    # is not raised to it — it rides out the session bounce and its registration
+    # is established by the replay.
+    assert_equal :subscribed, replacer.value
     wait_until(timeout: 5) do
       manager.registered_patterns.sort == [trigger, x, y].sort
     end

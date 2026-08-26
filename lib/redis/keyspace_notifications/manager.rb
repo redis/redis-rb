@@ -109,6 +109,24 @@ class Redis
         # acknowledged yet. Cleared with @pending_acks at session end: a lost
         # probe's command died with its session, and the next rejection re-probes.
         @probe_inflight = {}
+        # pattern => true for the session-opening batch replay's patterns whose
+        # acknowledgment was not consumed yet, with @opening_seq the batch's
+        # position on the @issue_seq axis (assigned when the replay is tracked,
+        # before any later command on the session can take a seq). Represents
+        # the opening batch in rejection attribution: without it, a rejection of
+        # the replay would be pinned on a subscription issued LATER on the
+        # session — rolling back a valid registration while the poisoned replay
+        # pattern rides along for another bounce. Dies with its session.
+        @opening_pending = {}
+        @opening_seq = nil
+        # The issue seq of the blocking subscribe a session-killing rejection was
+        # attributed to (nil when it was pinned on a marker/probe/opening batch or
+        # was unattributable). A waiter raises a fresh CommandError only when it
+        # names ITS command: raising it to every waiter sharing the session made
+        # innocent callers roll back valid registrations — and misled the cluster
+        # manager's per-pattern rejection probes into evicting healthy patterns
+        # whose probe merely rode a session another pattern's poison bounced.
+        @rejected_wait = nil
         # Set when a session-killing rejection could not be attributed to any
         # outstanding command: the server rejected the reconnect replay itself
         # (e.g. permissions on a long-registered pattern were revoked since it
@@ -581,16 +599,22 @@ class Redis
             # The subscription loop bypasses Redis::Client's rescue wrappers, so
             # redis-client errors surface untranslated here.
             error = translate_error(error)
-            if error.is_a?(CommandError)
-              # The server rejected a command on this session — most likely a pattern
-              # subscribed from inside a handler (nobody could wait for its ack, so
-              # nobody could roll it back). Replies arrive in command order, so every
-              # earlier command's acks already validated (and removed) their markers:
-              # the OLDEST remaining batch is the rejected command. Drop only it —
-              # later batches may be perfectly valid and get replayed; a later poison
-              # is identified by a later rejection on this session, or by the
-              # probing replay one session later.
-              @lock.synchronize do
+            # Attribution and error publication share ONE lock hold: an eviction
+            # and the epoch bump must be observed atomically, or a waiter waking
+            # between them would read its deleted registration as a successful
+            # replacement without ever seeing the rejection that names it.
+            @lock.synchronize do
+              if error.is_a?(CommandError)
+                # The server rejected a command on this session — most likely a
+                # pattern subscribed from inside a handler (nobody could wait for
+                # its ack, so nobody could roll it back). Replies arrive in
+                # command order, so every earlier command's acks already
+                # validated (and removed) their markers: the OLDEST remaining
+                # batch is the rejected command. Drop only it — later batches may
+                # be perfectly valid and get replayed; a later poison is
+                # identified by a later rejection on this session, or by the
+                # probing replay one session later.
+                @rejected_wait = nil
                 # min_by seq, NOT map order: a re-marked pattern keeps its
                 # original Hash position, which would misattribute the rejection
                 # to the newer batch and kill a valid replacement.
@@ -599,8 +623,20 @@ class Redis
                 # unresolved: the rejected command is (or may be) THAT one, and its
                 # own waiter observes this error via the epoch and rolls it back.
                 # Dropping the oldest in-handler batch instead would kill a valid
-                # registration the rejection never touched.
-                oldest_wait = @inflight_waits.keys.min
+                # registration the rejection never touched. Candidacy comes only
+                # from tokens of the wait's OWN commands still outstanding on
+                # THIS session (its direct write, or its once-per-session
+                # re-issue): replies answer this session's commands, so a wait
+                # whose command died with an older session must not absorb a
+                # rejection that belongs to the replay or a probe. The opening
+                # command's credit token (the queue head while the pattern's
+                # opening ack is outstanding) is the OPENING's command, not the
+                # wait's — excluded, so an opening rejection attributes to
+                # :opening (and the probing replay), never to an innocent rider.
+                live_wait_tokens = @pending_acks.flat_map do |pattern, tokens|
+                  @opening_pending[pattern] ? tokens.drop(1) : tokens
+                end
+                oldest_wait = live_wait_tokens.select { |token| token && @inflight_waits.key?(token) }.min
                 # A probing session's single-pattern replay commands compete on
                 # the same wire-order axis (their seqs come from @issue_seq too).
                 oldest_probe = @probe_inflight.min_by { |_, record| record[:seq] }
@@ -608,6 +644,12 @@ class Redis
                 candidates[:marker] = oldest_marker[:seq] if oldest_marker
                 candidates[:wait] = oldest_wait if oldest_wait
                 candidates[:probe] = oldest_probe[1][:seq] if oldest_probe
+                # The session-opening batch replay competes too: still
+                # unacknowledged, it is the oldest command on THIS session and
+                # must win over subscriptions issued after it — pinning its
+                # rejection on a later valid call would leave the poisoned
+                # replay pattern unprobed for another bounce.
+                candidates[:opening] = @opening_seq unless @opening_pending.empty?
                 case candidates.min_by { |_, seq| seq }&.first
                 when :marker
                   oldest_batch = oldest_marker[:batch]
@@ -616,10 +658,10 @@ class Redis
 
                     # Dead for good WHETHER OR NOT it is still the live entry: the
                     # server rejected this batch's command. A concurrent blocking
-                    # re-subscribe of the same pattern that replaced this entry
-                    # shares the session error and rolls back — without the mark,
-                    # its rollback would restore the rejected entry as "the
-                    # previous registration" and poison every reconnect replay.
+                    # re-subscribe of the same pattern that replaced this entry is
+                    # rejected (and rolls back) itself one replay later — without
+                    # the mark, its rollback would restore the rejected entry as
+                    # "the previous registration" and poison every reconnect replay.
                     record[:entry].failed = true
                     @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
                   end
@@ -632,11 +674,25 @@ class Redis
                   pattern, record = oldest_probe
                   record[:entry].failed = true
                   @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
+                  # A wait awaiting the evicted pattern is waiting on a
+                  # registration the server just rejected: name it so it raises
+                  # the rejection (and rolls back) instead of resolving the
+                  # eviction's registry delete as a successful replacement.
+                  @rejected_wait = @inflight_waits.find { |_, awaiting| awaiting.include?(pattern) }&.first
+                  @probe_replay = true
+                when :opening
+                  # The oldest unacknowledged command is the session's own batch
+                  # replay: it names no culprit — replay the next session one
+                  # pattern per command so the rejection lands on the probe
+                  # carrying the poison. (Waiters sharing the session observe
+                  # the indivisible error and roll back on their own.)
                   @probe_replay = true
                 when :wait
                   # The rejected command is (or may be) the blocking subscribe's:
-                  # its own waiter observes this error via the epoch and rolls
-                  # the registration back — nothing to evict here.
+                  # naming it here makes ITS waiter (and only its) observe the
+                  # error via the epoch and roll the registration back — nothing
+                  # to evict on this side.
+                  @rejected_wait = oldest_wait
                 else
                   # Nothing outstanding is attributable: the rejected command was
                   # the session's own batch replay — a long-registered pattern
@@ -649,8 +705,6 @@ class Redis
                   @probe_replay = true
                 end
               end
-            end
-            @lock.synchronize do
               @listener_error = error
               # Waits compare against this epoch to tell a FRESH error (arrived after
               # the wait began — the waiter's command was on the killed session) from
@@ -669,6 +723,7 @@ class Redis
               @confirmed.clear
               @pending_acks.clear
               @probe_inflight.clear
+              @opening_pending.clear
               @unvalidated.clear
               @cond.broadcast
             end
@@ -680,6 +735,7 @@ class Redis
               @confirmed.clear
               @pending_acks.clear
               @probe_inflight.clear
+              @opening_pending.clear
               @unvalidated.clear
               @cond.broadcast
             end
@@ -708,6 +764,7 @@ class Redis
           @confirmed.clear
           @pending_acks.clear
           @probe_inflight.clear
+          @opening_pending.clear
           @unvalidated.clear
           @cond.broadcast
         end
@@ -763,6 +820,10 @@ class Redis
               tokens = @pending_acks[key]
               token = tokens&.shift
               @pending_acks.delete(key) if tokens && tokens.empty?
+              # The opening command was written first, so a pattern's FIRST ack
+              # this session is the opening's: the pattern retires from the
+              # opening batch's rejection attribution (later shifts are no-ops).
+              @opening_pending.delete(key)
               if token && (awaiting = @inflight_waits[token])
                 awaiting.delete(key)
                 @inflight_waits.delete(token) if awaiting.empty?
@@ -885,16 +946,31 @@ class Redis
           # it to a valid subscribe issued during that window would falsely reject
           # a pattern the killed session never saw.
           entry_epoch = @listener_error_epoch
-          until patterns.all? { |pattern| confirmed_or_replaced?(pattern, installed, stale_confirmations) }
+          loop do
             # A fresh CommandError means the server REJECTED a command on this
             # session (e.g. an ACL-forbidden pattern): retrying cannot fix it, so
-            # raise it promptly — the caller's rollback then removes the poisoned
-            # registration instead of the replay churning until the generic timeout.
-            # The session rejection is indivisible, so every waiter that shared the
-            # session gets it; their rolled-back subscriptions are safe to retry.
+            # raise it promptly — but ONLY when the attribution named THIS wait's
+            # command; the caller's rollback then removes the poisoned
+            # registration instead of the replay churning until the generic
+            # timeout. A rejection pinned on another command (an in-handler
+            # batch, a probe, the opening replay) must not tear down an innocent
+            # waiter: its own command is replayed and confirms on the recovered
+            # session — raising here rolled back valid registrations, and misled
+            # the cluster manager's rejection probes (which ride these waits)
+            # into evicting healthy patterns. The epoch is consumed either way,
+            # so the same stored error is not re-examined every wake — only a
+            # NEWER rejection can implicate this wait later. Checked BEFORE the
+            # resolution break: a probe eviction resolves the pattern by
+            # deleting this call's registration in the same stroke as it names
+            # this wait, and the raise must win over "resolved by replacement"
+            # or the server's rejection would read as a successful subscribe.
             if (rejection = @listener_error).is_a?(CommandError) && @listener_error_epoch > entry_epoch
-              raise rejection
+              raise rejection if @rejected_wait == issue_seq
+
+              entry_epoch = @listener_error_epoch
             end
+
+            break if patterns.all? { |pattern| confirmed_or_replaced?(pattern, installed, stale_confirmations) }
 
             unless listening?
               raise @listener_error if @listener_error && @listener_error_epoch > entry_epoch
@@ -1034,7 +1110,13 @@ class Redis
       # session's replay.
       def track_opening_acks(patterns)
         @lock.synchronize do
+          # The opening batch competes in rejection attribution like any other
+          # command: sequenced HERE — before any later write on this session can
+          # take a seq — so "opening still unacknowledged" correctly outranks
+          # every subscription issued after the replay began.
+          @opening_seq = (@issue_seq += 1)
           patterns.each do |pattern|
+            @opening_pending[pattern] = true
             token = @inflight_waits.select { |_, awaiting| awaiting.include?(pattern) }.keys.min
             track_pending_acks([pattern], token)
           end

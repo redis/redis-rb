@@ -410,6 +410,48 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_background_replay_rejection_reconciles_the_registry
+    allowed = '__keyevent@0__:set'
+    poisoned = '__keyevent@0__:expired'
+    with_channel_restricted_user([allowed, poisoned]) do |username, password, reconfigure|
+      restricted = build_another_client(username: username, password: password)
+      begin
+        errors = Queue.new
+        manager = restricted.keyspace_notifications(error_handler: ->(error, _node) { errors << error })
+        @managers << manager
+        queue = Queue.new
+        manager.subscribe(allowed) { |notification| queue << notification.key }
+        manager.subscribe(poisoned) { |_notification| }
+
+        # Revoke the second pattern AFTER it was subscribed: the server kills the
+        # user's pub/sub sessions, every node's reconnect replay is rejected, and
+        # each node's core manager evicts the pattern from its LOCAL registry.
+        # The CommandError must schedule a refresh whose catch-up re-runs the
+        # rejection and evicts it from the canonical registry too — without it,
+        # `patterns` kept reporting a pattern no node was subscribed to, with no
+        # signal left to ever converge.
+        reconfigure.call([allowed])
+
+        wait_until(timeout: 10) { !manager.patterns.include?(poisoned) }
+
+        # The surviving pattern recovers once the reconciled topology settles
+        # (events published into the bounce are lost — probe with retries).
+        received = nil
+        wait_until(timeout: 10) do
+          redis.set('acl:background', 'v')
+          received = queue.pop(timeout: 0.5)
+          !received.nil?
+        end
+
+        assert_equal 'acl:background', received
+        assert_equal [allowed], manager.patterns
+      ensure
+        manager&.close
+        restricted.close
+      end
+    end
+  end
+
   def test_close_from_rejection_error_handler_during_refresh
     allowed = '__keyevent@0__:set'
     with_channel_restricted_user([allowed]) do |username, password|
@@ -466,47 +508,46 @@ class TestClusterKeyspaceNotifications < Minitest::Test
       manager.instance_variable_get(:@listeners).dup
     end
     rejection = Redis::CommandError.new('NOPERM this user has no permissions to access one of the channels')
-    listeners.each_value { |listener| listener.stubs(:subscribe).raises(rejection) }
+    failure = Redis::ConnectionError.new('node went away mid fan-out')
+    keys = listeners.keys
+    listeners[keys.first].stubs(:subscribe).raises(rejection)
+    keys[1..].each { |key| listeners[key].stubs(:subscribe).raises(failure) }
     pattern = '__keyevent@0__:expired'
-    # Attribution runs (and reports the rejection) on the FIRST rejecting node
-    # only; stub it so the fan-out's own reporting is the sole source of errors.
-    manager.stubs(:evict_rejected).returns(pattern => rejection)
 
     assert_raises(Redis::CommandError) { manager.subscribe(pattern) { |_n| } }
 
-    # Every OTHER node also failed the batch: each failure must be reported with
-    # its node_key, not silently dropped once the first rejection was attributed.
-    expected = listeners.keys[1..]
+    # The rejection is raised to the caller; every node that failed for a
+    # DIFFERENT reason must still be reported with its node_key, never silently
+    # dropped behind the raise.
+    expected = keys[1..]
     reported = Array.new(expected.size) { errors.pop(timeout: 1) }
     refute_includes reported, nil, 'expected one report per additional failed node'
     assert_equal expected.sort, reported.map(&:last).sort
-    reported.each { |report| assert_kind_of Redis::CommandError, report.first }
+    reported.each { |report| assert_same failure, report.first }
+    refute_includes manager.patterns, pattern
   end
 
-  def test_subscribe_survives_a_probe_failure_during_rejection_attribution
-    errors = Queue.new
-    manager = new_manager(error_handler: ->(error, node_key) { errors << [error, node_key] })
+  def test_subscribe_evicts_only_the_rejected_pattern_of_a_multi_pattern_call
+    manager = new_manager(error_handler: ->(_error, _node_key) {})
     listeners = manager.instance_variable_get(:@lock).synchronize do
       manager.instance_variable_get(:@listeners).dup
     end
-    first_key, first_listener = listeners.first
-    first_listener.stubs(:subscribe).raises(Redis::CommandError.new('NOPERM channel'))
-    # The per-pattern probes ride the session the rejection just bounced and can
-    # fail with session errors of their own. Raised inside the CommandError
-    # rescue, that used to escape the sibling StandardError rescue and abort the
-    # whole fan-out — remaining nodes skipped, nothing reported, no refresh.
-    probe_error = Redis::SubscriptionError.new('listener died before confirming')
-    manager.stubs(:evict_rejected).raises(probe_error)
-    pattern = '__keyevent@0__:expired'
+    rejection = Redis::CommandError.new('NOPERM channel')
+    allowed = '__keyevent@0__:set'
+    forbidden = '__keyevent@0__:expired'
+    # The fan-out subscribes one pattern per call, so a rejection names exactly
+    # its pattern: the call's other patterns must stay registered and fanned out.
+    listeners.each_value do |listener|
+      listener.stubs(:subscribe).returns(nil)
+      listener.stubs(:subscribe).with([allowed.b]).returns(nil)
+      listener.stubs(:subscribe).with([forbidden.b]).raises(rejection)
+    end
 
-    manager.subscribe(pattern) { |_n| } # must not raise: attribution failed, not the call
+    error = assert_raises(Redis::CommandError) { manager.subscribe(allowed, forbidden) { |_n| } }
 
-    error, node_key = errors.pop(timeout: 1)
-    assert_equal first_key, node_key, 'expected the probing node to be reported as failed'
-    assert_same probe_error, error
-    # The pattern stays registered (eviction is the refresher's to complete on a
-    # stable session) and the healthy nodes were still fanned out to.
-    assert_includes manager.patterns, pattern
+    assert_same rejection, error
+    assert_includes manager.patterns, allowed
+    refute_includes manager.patterns, forbidden
   end
 
   def test_close_aborts_an_inflight_refresh_promptly
@@ -670,11 +711,16 @@ class TestClusterKeyspaceNotifications < Minitest::Test
   # dial, so the restriction must hold everywhere.
   def with_channel_restricted_user(allowed_channels)
     admins = DEFAULT_PORTS.map { |port| Redis.new(host: DEFAULT_HOST, port: port, timeout: TIMEOUT) }
-    admins.each do |admin|
-      admin.acl('SETUSER', 'kn_limited', 'on', '>knpass', '+@all',
-                'resetchannels', *allowed_channels.map { |channel| "&#{channel}" })
+    # Reapplies the channel list on every node; narrowing it mid-test also kills
+    # the user's pub/sub sessions server-side (revoked-after-subscribe scenarios).
+    reconfigure = lambda do |channels|
+      admins.each do |admin|
+        admin.acl('SETUSER', 'kn_limited', 'on', '>knpass', '+@all',
+                  'resetchannels', *channels.map { |channel| "&#{channel}" })
+      end
     end
-    yield('kn_limited', 'knpass')
+    reconfigure.call(allowed_channels)
+    yield('kn_limited', 'knpass', reconfigure)
   ensure
     admins&.each do |admin|
       begin
