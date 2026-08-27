@@ -41,7 +41,9 @@ class Redis
       # by redis-client as UnsupportedServer) and any server replying NOPROTO to `HELLO 3`.
       def resp3_unsupported?(error)
         return true if error.is_a?(::RedisClient::UnsupportedServer)
-        return true if error.is_a?(::RedisClient::CommandError) && error.message.include?("NOPROTO")
+        if error.is_a?(::RedisClient::CommandError)
+          return error.command&.first&.casecmp?("HELLO") && error.message.match?(/\ANOPROTO(?: |$)/)
+        end
 
         # Redis::Cluster discovers its topology by connecting to each startup node. When those nodes
         # don't speak RESP3, redis-cluster-client collects the per-node failures and re-raises them
