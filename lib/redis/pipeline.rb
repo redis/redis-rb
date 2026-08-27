@@ -92,7 +92,7 @@ class Redis
     end
 
     def _set(object)
-      @object = @coerce ? @coerce.call(object) : object
+      @object = @coerce && !object.is_a?(::StandardError) ? @coerce.call(object) : object
       value
     end
 
