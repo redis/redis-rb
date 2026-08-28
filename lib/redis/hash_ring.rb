@@ -38,8 +38,9 @@ class Redis
       @replicas.times do |i|
         key = server_hash_for("#{node.id}:#{i}")
         @ring.delete(key)
-        @sorted_keys.reject! { |k| k == key }
       end
+      @sorted_keys.select! { |key| @ring.key?(key) }
+      @replicas
     end
 
     # get the node in the hash ring for this key
