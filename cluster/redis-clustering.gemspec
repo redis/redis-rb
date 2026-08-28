@@ -51,7 +51,7 @@ Gem::Specification.new do |s|
   # rely on its internals — e.g. InitialSetupError). Bug/security patches flow; minors are gated.
   # Pinned to an exact version: redis-cluster-client ships behavior changes in patch releases
   # (0.16.6 added command-tips routing and per-subcommand key extraction, which HIMPORT relies
-  # on), so a floating constraint can change routing semantics under a stable redis-clustering
-  # release. Bump deliberately and re-run the cluster suite.
-  s.add_runtime_dependency('redis-cluster-client', '0.16.7')
+  # on; 0.17.0 added the command_routings option), so a floating constraint can change routing
+  # semantics under a stable redis-clustering release. Bump deliberately and re-run the cluster suite.
+  s.add_runtime_dependency('redis-cluster-client', '0.17.0')
 end

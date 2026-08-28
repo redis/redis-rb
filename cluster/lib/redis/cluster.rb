@@ -44,6 +44,20 @@ class Redis
     class NodeMightBeDown < BaseError
     end
 
+    # Raised by Redis::Cluster::KeyspaceNotifications#refresh when one or more
+    # primaries could not be (re)subscribed.
+    class KeyspaceNotificationsRefreshError < BaseError
+      attr_reader :errors
+
+      # @param errors [Hash{String => StandardError}] "host:port" => cause
+      # @param error_message [String]
+      def initialize(errors, error_message = 'Some primaries could not be subscribed for keyspace notifications')
+        @errors = errors
+        error_message = "#{error_message}: #{errors.keys.join(', ')}" unless errors.empty?
+        super(error_message)
+      end
+    end
+
     def connection
       raise NotImplementedError, "Redis::Cluster doesn't implement #connection"
     end
@@ -62,7 +76,6 @@ class Redis
     # @option options [Symbol] :replica_affinity scale reading strategy, currently supported: `:random`, `:latency`
     # @option options [String] :fixed_hostname Specify a FQDN if cluster mode enabled and
     #   client has to connect nodes via single endpoint with SSL/TLS
-    # @option options [Class] :connector Class of custom connector
     # @option options [String, Array<String>, false] :driver_info Identity a library built on top of
     #   `redis-rb` reports to every node via `CLIENT SETINFO`, shown as `lib-name=redis-rb(<driver_info>)`
     #   in `CLIENT LIST`. The recommended format is `<name>_v<version>`; an Array is joined with `;`.
@@ -152,6 +165,20 @@ class Redis
     # last prepared schema is re-fanned out — through these overrides — and the SET retried
     # once) are inherited from the Redis superclass unchanged; `himport_set` needs no override.
 
+    # Build a cluster-aware keyspace-notification manager: it subscribes on **every
+    # primary** (notifications are node-local in cluster and never forwarded on the
+    # cluster bus — a plain subscribe/psubscribe on a notification channel would
+    # silently receive only ~1/N of the events) and dispatches parsed notifications
+    # to handlers from a single dispatcher thread. See
+    # Redis::Cluster::KeyspaceNotifications for the full semantics.
+    #
+    # @param error_handler [#call, nil] receives (error, node_key) for every background error
+    # @param queue_size [Integer] bound of the shared dispatch queue
+    # @return [Redis::Cluster::KeyspaceNotifications]
+    def keyspace_notifications(error_handler: nil, queue_size: KeyspaceNotifications::DEFAULT_QUEUE_SIZE)
+      KeyspaceNotifications.new(self, base_options: @options, error_handler: error_handler, queue_size: queue_size)
+    end
+
     def himport_prepare(fieldset_name, *fields)
       reply = super
       reply.is_a?(Array) ? reply.first : reply
@@ -182,3 +209,4 @@ class Redis
 end
 
 require "redis/cluster/client"
+require "redis/cluster/keyspace_notifications"

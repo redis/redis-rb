@@ -406,6 +406,92 @@ reply per node; `himport_set` routes by key. With `Redis::Cluster`, the same
 commands fan out to every master node and return a single aggregated reply,
 matching the standalone API.
 
+## Keyspace Notifications
+
+Redis can publish an event on pub/sub for every change to the dataset
+(`__keyspace@0__:<key>` / `__keyevent@0__:<event>` channels; Redis 8.8 adds
+subkey-level channels for hash fields). The feature must be enabled on the
+**server** via the `notify-keyspace-events` config — this gem deliberately does
+not set it for you (`CONFIG` is often restricted, and runtime changes don't
+survive restarts or reach new nodes):
+
+```
+redis-cli config set notify-keyspace-events KEA      # or KEASTIV for Redis 8.8 subkey events
+```
+
+The simplest way to consume notifications is the manager, which owns a
+dedicated connection and background thread and dispatches typed notifications
+to handlers:
+
+```ruby
+manager = redis.keyspace_notifications
+
+manager.subscribe_keyevent("expired") { |n| cache.delete(n.key) }
+manager.subscribe_keyspace("user:*")  { |n| puts "#{n.event} on #{n.key}" }
+manager.subscribe_subkeyspace("session:*") { |n| p n.subkeys } # Redis 8.8+
+manager.on_reconnect { cache.clear } # delivery is fire-and-forget; reconcile after gaps
+
+manager.close
+```
+
+Channel builders (`Redis::KeyspaceNotifications::Channels`) and a binary-safe
+parser (`Redis::KeyspaceNotifications::Parser.parse(channel, payload)`) are
+also usable directly with the plain `subscribe`/`psubscribe` API.
+
+### Subkey notifications (Redis 8.8+)
+
+Classic notifications only say *which key* changed. Redis 8.8 adds four subkey
+channel families that also carry *which elements inside the value* changed —
+hash fields today, with the model designed to extend to other types. Parsed
+notifications expose them as `subkeys`: an ordered list (duplicates preserved)
+whose meaning is determined by the event (`hset` → hash fields):
+
+```ruby
+manager.subscribe_subkeyspace("session:*") do |n|
+  # HSET session:1 token abc ttl 30  =>  event="hset", key="session:1", subkeys=["token", "ttl"]
+  n.subkeys.each { |field| invalidate(n.key, field) }
+end
+
+# Watch one exact key + field pair (server-side filtering):
+manager.subscribe_subkeyspaceitem("session:1", "token") { |n| p n.event }
+
+# Or by event, with a key pattern:
+manager.subscribe_subkeyspaceevent("hexpire", "session:*") { |n| p n.subkeys }
+```
+
+Subkey families are gated by their own `notify-keyspace-events` flags — `S`
+(subkeyspace), `T` (subkeyevent), `I` (subkeyspaceitem), `V` (subkeyspaceevent) —
+**and additionally require the data-type flag**: `STIV` alone emits nothing for
+hashes; use `STIVh`, or `KEASTIV` to combine with the classic channels. Keys and
+subkeys may contain arbitrary bytes, so the wire payloads are length-prefixed
+and the parser is binary-safe — `key`/`subkeys` are returned as BINARY-encoded
+strings.
+
+**Connection pooling:** create **one manager per process**, not per pooled
+connection — pub/sub is a broadcast, so N managers means every event is
+delivered and handled N times, not load-shared. The manager is not a pooled
+resource: it owns a private connection duplicated from the client's options, so
+`pool.with { |redis| redis.keyspace_notifications }` is safe (nothing of the
+checked-out client is retained) and the manager outlives the checkout. Handlers
+may briefly check pool connections out for Redis work; in forking servers
+(Puma, Sidekiq), create the manager in an after-fork hook, one per worker. See
+`examples/keyspace_notifications_pool.rb`.
+
+**Cluster:** notifications are node-local — a plain `subscribe` on a
+`Redis::Cluster` reaches one node and silently misses the rest. Use
+`cluster.keyspace_notifications`, which subscribes on every primary and
+reconciles reactively on connection errors (call `#refresh` after adding
+primaries). `on_reconnect { |node_key| ... }` fires after a node's
+subscriptions were re-established — events it emitted during the gap are lost,
+so reconcile there. Remember to enable `notify-keyspace-events` on **every
+node, replicas included** — a promoted replica keeps its own config.
+
+Never `PUBLISH` to notification channels yourself; the server owns them.
+See [specs/keyspace-notifications/user-guide.md](specs/keyspace-notifications/user-guide.md)
+for wire formats, threading/lifecycle semantics and the full API, and
+`examples/keyspace_notifications.rb` for a runnable demo. `Redis::Distributed`
+is not supported.
+
 ## Error Handling
 
 In general, if something goes wrong you'll get an exception. For example, if

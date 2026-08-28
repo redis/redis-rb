@@ -141,11 +141,15 @@ class Redis
     "#<Redis client v#{Redis::VERSION} for #{id}>"
   end
 
-  def dup
+  def dup(**option_overrides)
     # inherit_socket and himport_auto_prepare are stripped from @options before the client config
     # is built (RedisClient::Config doesn't know them); merge the live values back so the
     # duplicate keeps the caller's settings instead of silently reverting to defaults.
-    self.class.new(@options.merge(inherit_socket: @inherit_socket, himport_auto_prepare: @himport_auto_prepare))
+    # Explicit overrides win — keyspace_notifications relies on this to disable transport
+    # retries on the connection its manager owns.
+    self.class.new(@options.merge(inherit_socket: @inherit_socket,
+                                  himport_auto_prepare: @himport_auto_prepare,
+                                  **option_overrides))
   end
 
   def connection
@@ -317,11 +321,15 @@ class Redis
         @subscription_client = nil
       end
     else
-      unless @subscription_client
+      # Capture before use: the subscribed thread's teardown nils the ivar
+      # concurrently, and reading it twice would turn that race into a
+      # NoMethodError on nil instead of the SubscriptionError callers handle.
+      client = @subscription_client
+      unless client
         raise SubscriptionError, "This client is not subscribed"
       end
 
-      @subscription_client.call_v([method].concat(channels))
+      client.call_v([method].concat(channels))
     end
   end
 end
@@ -331,3 +339,4 @@ require "redis/lib_identity"
 require "redis/client"
 require "redis/pipeline"
 require "redis/subscribe"
+require "redis/keyspace_notifications"

@@ -18,7 +18,15 @@ class ClusterOrchestrator
     system('make', '--no-print-directory', 'start_cluster', out: File::NULL, err: File::NULL)
   end
 
+  # Full teardown-and-rebuild takes ~6s of genuine gossip/replication convergence,
+  # so skip it when the cluster already matches the expected layout — helpers restore
+  # state cheaply after their scenario (failback, reverse resharding) precisely so
+  # this fast path applies; any deviation still falls through to the full rebuild.
+  # The short bounded wait tolerates sub-second gossip lag from that restore without
+  # letting an actually-broken cluster delay the real rebuild by more than ~2s.
   def rebuild
+    return if wait_cluster_consistent(max_attempts: 20)
+
     flush_all_data(@clients)
     reset_cluster(@clients)
     assign_slots(@clients)
@@ -30,6 +38,7 @@ class ClusterOrchestrator
     wait_cluster_building(@clients)
     wait_replication(@clients)
     wait_cluster_recovering(@clients)
+    wait_consistent_slots_view(@clients)
   end
 
   def down
@@ -55,6 +64,33 @@ class ClusterOrchestrator
     wait_replication_delay(@clients, @timeout)
     slave.cluster(:failover, :takeover)
     wait_failover(to_node_key(master), to_node_key(slave), @clients)
+    wait_replication_delay(@clients, @timeout)
+    wait_cluster_recovering(@clients)
+  end
+
+  # Reverses #failover by promoting the original master back. Takes ~1-2s versus the
+  # ~6s full rebuild, letting the ensure-time rebuild skip its teardown entirely.
+  #
+  # Role-aware rather than assuming the pair is still switched: a manual TAKEOVER
+  # bumps the config epoch unilaterally, and the ensuing collision resolution can
+  # go the old master's way, silently reverting the promotion mid-test. In that
+  # case there is nothing to fail back — and the rebuild's consistency check
+  # remains the safety net for any state this leaves behind.
+  def failback
+    master, slave = take_replication_pairs(@clients)
+    return if master.role.first == 'master'
+
+    wait_replication_delay(@clients, @timeout)
+    begin
+      master.cluster(:failover, :takeover)
+    rescue Redis::CommandError => err
+      # "ERR You should send CLUSTER FAILOVER to a replica" — the node became a
+      # master between the role check and the command; already failed back.
+      return if err.message.include?('to a replica')
+
+      raise
+    end
+    wait_failover(to_node_key(slave), to_node_key(master), @clients)
     wait_replication_delay(@clients, @timeout)
     wait_cluster_recovering(@clients)
   end
@@ -91,7 +127,20 @@ class ClusterOrchestrator
 
   def finish_resharding(slot, dest_node_key)
     node_map = hashify_node_map(@clients.first)
-    @clients.first.cluster(:setslot, slot, 'NODE', node_map.fetch(dest_node_key))
+    node_id = node_map.fetch(dest_node_key)
+    # Tell every master directly instead of relying on gossip from a single node:
+    # views converge immediately, and a client positioned on a node that happens to
+    # be a replica no longer breaks the flow with "SETSLOT only with masters".
+    take_masters(@clients).each do |client|
+      client.cluster(:setslot, slot, 'NODE', node_id)
+    rescue Redis::CommandError => err
+      # Only the stale-role rejection is expected (a node that still believes it
+      # is a replica; gossip covers it). Anything else — e.g. a master that has
+      # not learned the destination node id — means this node keeps the previous
+      # owner: swallowing it would return with a diverged topology and produce
+      # misleading downstream failures.
+      raise unless err.message.include?('only with masters')
+    end
   end
 
   def close
@@ -102,9 +151,11 @@ class ClusterOrchestrator
 
   def flush_all_data(clients)
     clients.each do |c|
-      c.flushall(async: true)
-    rescue Redis::CommandError
-      # READONLY You can't write against a read only slave.
+      # Never FLUSHALL a replica: it answers READONLY, which redis-client treats as a
+      # connection error and walks the whole reconnect_attempts sleep schedule for —
+      # 3s per replica of pure wasted wall clock.
+      c.flushall(async: true) if c.role.first == 'master'
+    rescue Redis::CommandError, Redis::BaseConnectionError
       nil
     end
   end
@@ -230,6 +281,125 @@ class ClusterOrchestrator
         false
       else
         true
+      end
+    end
+  end
+
+  def wait_cluster_consistent(max_attempts:)
+    max_attempts.times do
+      return true if cluster_consistent?
+
+      sleep 0.1
+    end
+    false
+  end
+
+  # Whether every node already sees the exact expected layout: cluster_state ok,
+  # the canonical slot ranges owned by the canonical masters — in BOTH the
+  # CLUSTER SLOTS and the CLUSTER SHARDS views — the exact canonical membership
+  # (an extra zero-slot master or handshaking node is invisible to both range
+  # views, but later membership-enumerating tests would see it), and all three
+  # replicas attached. Used by #rebuild to skip the expensive teardown.
+  def cluster_consistent?
+    expected = expected_slots_view(@clients)
+    expected_keys = @clients.map { |client| to_node_key(client) }.sort
+    @clients.all? do |client|
+      node_flags = hashify_cluster_node_flags(client)
+      hashify_cluster_info(client)['cluster_state'] == 'ok' &&
+        slots_view(client) == expected &&
+        shards_view(client) == expected &&
+        node_flags.keys.sort == expected_keys &&
+        node_flags.values.count('master') == 3 &&
+        node_flags.values.count('slave') == 3
+    end && replication_pairs_healthy?
+  rescue Redis::BaseError
+    false
+  end
+
+  # A node can carry the `slave` flag in everyone's CLUSTER NODES view while its
+  # replication link is down or points at the wrong primary — later failover tests
+  # then lack the healthy pairs they assume. Verify each canonical replica is
+  # actually attached to its canonical master with the link up.
+  def replication_pairs_healthy?
+    take_slaves(@clients).zip(take_masters(@clients)).all? do |replica, master|
+      info = replica.info('replication')
+      info['role'] == 'slave' &&
+        info['master_link_status'] == 'up' &&
+        "#{info['master_host']}:#{info['master_port']}" == to_node_key(master)
+    end
+  end
+
+  # The layout #assign_slots + #replicate produce, as [[start, end, "host:port"], ...].
+  def expected_slots_view(clients)
+    masters = take_masters(clients)
+    slot_slice = SLOT_SIZE / masters.size
+    mod = SLOT_SIZE % masters.size
+    slot_sizes = Array.new(masters.size, slot_slice)
+    mod.downto(1) { |i| slot_sizes[i] += 1 }
+
+    ranges = []
+    slot_idx = 0
+    masters.zip(slot_sizes).each do |client, size|
+      ranges << [slot_idx, slot_idx + size - 1, to_node_key(client)]
+      slot_idx += size
+    end
+    ranges.sort
+  end
+
+  # The raw CLUSTER SLOTS reply as [[start, end, "host:port"], ...]: each range is
+  # [start, end, master, *replicas] with master = [ip, port, node_id, ...].
+  def slots_view(client)
+    client.cluster(:slots).map { |range| [range[0], range[1], "#{range[2][0]}:#{range[2][1]}"] }.sort
+  end
+
+  # The slot-range-to-master mapping a node advertises via CLUSTER SHARDS — the
+  # command redis-cluster-client actually bootstraps its topology from. It is
+  # generated separately from CLUSTER SLOTS and can lag it (a freshly rebuilt
+  # replica's role view, or a reverse-resharded slot's ownership), so SLOTS-only
+  # verification — or comparing only the master SET — lets a client pick up a
+  # stale mapping and misroute. Returns [[start, end, "ip:port"], ...] like
+  # #slots_view for exact comparison. Handles both the RESP2 (flat arrays) and
+  # RESP3 (maps) reply shapes.
+  def shards_view(client)
+    client.cluster(:shards).flat_map do |shard|
+      shard = shard.each_slice(2).to_h if shard.is_a?(Array)
+      master = shard.fetch('nodes').map { |node| node.is_a?(Array) ? node.each_slice(2).to_h : node }
+                                   .find { |node| node['role'] == 'master' }
+      next [] unless master
+
+      node_key = "#{master['ip']}:#{master['port']}"
+      shard.fetch('slots').each_slice(2).map { |start, stop| [start, stop, node_key] }
+    end.sort
+  end
+
+  # Requires EVERY node to serve the expected master set in its CLUSTER SLOTS reply
+  # before the rebuild is considered done. The other waits are per-node liveness
+  # checks and give up silently; without this gate a rebuild can return while some
+  # node still advertises a stale (pre-failover) view, and any client bootstrapping
+  # from that node — including a later `rake test:cluster` invocation against the
+  # same containers — routes writes to a demoted node and fails with READONLY.
+  # Unlike the other waits, this raises on timeout: a loud failure in the test that
+  # disturbed the topology beats silently poisoning whatever runs next.
+  def wait_consistent_slots_view(clients, max_attempts: 300)
+    expected = expected_slots_view(clients)
+
+    clients.each do |client|
+      max_attempts.times do |attempt|
+        begin
+          # Both views must agree RANGE-EXACTLY: clients bootstrap from CLUSTER
+          # SHARDS, which can lag CLUSTER SLOTS on a freshly rebuilt replica — and
+          # comparing only master sets would miss stale slot ownership.
+          break if slots_view(client) == expected && shards_view(client) == expected
+        rescue Redis::CommandError, Redis::BaseConnectionError
+          # CLUSTERDOWN or a node still restarting; keep waiting.
+        end
+
+        if attempt == max_attempts - 1
+          raise "Cluster rebuild did not converge: #{to_node_key(client)} still reports " \
+                "a slot mapping different from #{expected.inspect}"
+        end
+
+        sleep 0.1
       end
     end
   end

@@ -13,6 +13,13 @@
 
 ## New features
 
+- Add `Redis::Cluster#keyspace_notifications`: a cluster-aware keyspace notification manager
+  that subscribes on **every primary** (notifications are node-local in cluster and are not
+  forwarded on the cluster bus, so a plain `subscribe` silently receives ~1/N of the events),
+  dispatches parsed notifications from a single dispatcher thread, and reconciles reactively on
+  node connection errors (`#refresh` is also public for post-scale-out reconciliation). Requires
+  `notify-keyspace-events` to be enabled on every node, replicas included. See
+  specs/keyspace-notifications/user-guide.md.
 - Identify the client to every node via `CLIENT SETINFO` (`lib-name=redis-rb`,
   `lib-ver=<version>`). Extend the reported name with `driver_info:`, or disable with
   `driver_info: false`. (#1369)
@@ -26,4 +33,4 @@
 
 ## Maintenance
 
-- Pin `redis-cluster-client` to the exact version `0.16.7`.
+- Pin `redis-cluster-client` to the exact version `0.17.0`.
