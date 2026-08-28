@@ -467,17 +467,21 @@ class Redis
           )
         end
 
-        primaries = addresses.to_h { |ip, port| ["#{ip}:#{port}", [ip, port]] }
         # Distinct primaries collapsing onto one dial target: one sidecar cannot
         # listen to them all — fail loudly instead of silently dropping the rest.
-        if primaries.size < masters.size
+        # Keyed on the EFFECTIVE dial target, not the announced address:
+        # fixed_hostname replaces the host at connect time, so primaries
+        # differing only by IP collapse onto one "hostname:port".
+        fixed_hostname = @base_options[:fixed_hostname]
+        dial_targets = addresses.map { |ip, port| "#{fixed_hostname || ip}:#{port}" }.uniq
+        if dial_targets.size < masters.size
           raise KeyspaceNotificationsRefreshError.new(
             {}, "CLUSTER NODES reports #{masters.size} primaries but only " \
-                "#{primaries.size} distinguishable endpoints; per-node notification " \
+                "#{dial_targets.size} distinguishable endpoints; per-node notification " \
                 "sidecars need a unique address per primary"
           )
         end
-        primaries
+        addresses.to_h { |ip, port| ["#{ip}:#{port}", [ip, port]] }
       end
 
       CLUSTER_ONLY_OPTIONS = %i[

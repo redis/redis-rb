@@ -642,6 +642,31 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     end
   end
 
+  def test_distinct_ips_sharing_a_port_are_rejected_under_fixed_hostname
+    client = build_another_client(fixed_hostname: DEFAULT_HOST)
+    # fixed_hostname replaces the announced host as the dial target, so
+    # primaries differing only by IP collapse onto one hostname:port — the
+    # uniqueness guard must key on the effective dial target, or one sidecar
+    # silently covers a single node.
+    view = [
+      { 'node_id' => 'node-a', 'ip_port' => '10.0.0.1:6379@16379', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '8191') },
+      { 'node_id' => 'node-b', 'ip_port' => '10.0.0.2:6379@16379', 'flags' => %w[master],
+        'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('8192', '16383') }
+    ]
+    client.stubs(:cluster).with('nodes').returns(view)
+    begin
+      error = assert_raises(Redis::Cluster::KeyspaceNotificationsRefreshError) do
+        client.keyspace_notifications(error_handler: ->(_error, _node) {})
+      end
+
+      assert_match(/distinguishable endpoints/, error.message)
+    ensure
+      client.unstub(:cluster)
+      client.close
+    end
+  end
+
   def test_subkey_notifications_on_cluster
     omit_version('8.8.0')
 
