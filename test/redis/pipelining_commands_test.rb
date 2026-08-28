@@ -252,6 +252,18 @@ class TestPipeliningCommands < Minitest::Test
     assert_instance_of RedisClient::WrongTypeError, future.value
   end
 
+  def test_exec_error_in_a_non_raising_pipeline
+    multi_future = nil
+    result = r.pipelined(exception: false) do |pipeline|
+      multi_future = pipeline.multi do |transaction|
+        transaction.call("doesnt_exist")
+      end
+    end
+
+    assert_instance_of RedisClient::CommandError, multi_future.value
+    assert_same multi_future.value, result.last
+  end
+
   def test_hgetall_in_a_multi_in_a_pipeline_returns_hash
     future = nil
     result = r.pipelined do |p|
