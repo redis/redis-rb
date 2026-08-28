@@ -2,9 +2,8 @@
 
 require_relative 'helper'
 
-# Keyspace notifications in cluster are node-local: these tests prove the manager's
-# all-primaries fan-out (a single-node subscription would receive ~1/N of the events),
-# its reactive refresh, and the serialized dispatch contract.
+# Keyspace notifications in cluster are node-local: these tests pin the manager's
+# all-primaries fan-out, reactive refresh, and serialized dispatch contract.
 class TestClusterKeyspaceNotifications < Minitest::Test
   include Helper::Cluster
 
@@ -13,9 +12,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
   def setup
     super
     @managers = []
-    # notify-keyspace-events must be set on EVERY node, replicas included: CONFIG SET
-    # through the cluster client only reaches the connected primaries (replica: false),
-    # and a replica promoted by a failover would otherwise emit no notifications.
+    # Set flags on EVERY node, replicas included: CONFIG SET via the cluster client
+    # only reaches primaries, and a promoted replica would otherwise emit nothing.
     @original_flags = apply_flags_on_all_nodes('KEA')
   end
 
@@ -119,8 +117,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager = new_manager(error_handler: ->(error, _node_key) { errors << error })
     manager.subscribe_keyevent('set') { |notification| queue << notification.key }
 
-    # Kill every pub/sub connection on one primary: its listener errors, reports,
-    # and the manager reconciles reactively.
+    # Kill one primary's pub/sub connections: the listener reports the error and
+    # the manager reconciles reactively.
     victim = manager.node_keys.first
     host, port = victim.split(':')
     node = Redis.new(host: host, port: Integer(port), timeout: TIMEOUT)
@@ -159,9 +157,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     src_key = "#{src['master']['ip']}:#{src['master']['port']}"
     dest_key = "#{dest['master']['ip']}:#{dest['master']['port']}"
 
-    # The new owner emits the event while it holds the slot (the helper migrates
-    # the slot back afterwards); all-primaries fan-out means we are already
-    # subscribed there.
+    # The new owner emits the event while it holds the slot; all-primaries
+    # fan-out means we are already subscribed there.
     new_owner_check = lambda do
       redis.set(key, 'v2')
 
@@ -186,8 +183,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager.subscribe_keyevent('set') { |notification| queue << notification.key }
 
     redis_cluster_failover do
-      # The long-lived test client's router can keep raising NodeMightBeDown for a
-      # while after a takeover; a fresh client bootstraps the settled topology.
+      # A fresh client bootstraps the settled topology; the long-lived one can keep
+      # raising NodeMightBeDown after a takeover.
       writer = build_another_client
       keys = Array.new(KEY_COUNT) { |i| "failover:key#{i}" }
       received = nil
@@ -205,14 +202,9 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         end
 
         received = collect(queue, KEY_COUNT, timeout: 2, flunk_on_timeout: false)
-        # Break only on EXACT delivery — every key once, no duplicates. A manual
-        # failover demotes the old primary without dropping its connections, and
-        # as a replica it re-emits every replicated write; a refresh that sampled
-        # a node with a stale gossip view (old primary still reported as master)
-        # keeps it listened, so its shard's events arrive TWICE. Counting items
-        # alone would accept such a duplicated batch. Retrying rides out the
-        # gossip window: a later refresh sees the settled view, prunes the
-        # demoted node, and delivery converges to exactly-once.
+        # Require EXACT delivery: the demoted primary keeps its connections and
+        # re-emits replicated writes as a replica, so a stale-gossip refresh can
+        # leave its shard's events duplicated; retry until a refresh prunes it.
         break if received.sort == keys.sort
 
         sleep 0.5
@@ -241,22 +233,18 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager = new_manager(queue_size: 1)
     manager.subscribe_keyevent('set') do |_notification|
       started_handling << true
-      # Stall the dispatcher for longer than the whole close sequence: the queue
-      # fills and node readers block in push, and nothing but close's
-      # queue-close can ever free them (a shorter stall would end around when
-      # close returns, drain the queue itself, and mask a missing queue-close).
+      # Stall the dispatcher for longer than the whole close sequence so the
+      # queue stays full and only close's queue-close can free the blocked
+      # readers (a shorter stall would drain the queue itself and mask a bug).
       sleep 60
     end
 
     KEY_COUNT.times { |i| redis.set("backpressure:key#{i}", 'v') }
     started_handling.pop(timeout: 3)
 
-    # The regression signal is BEHAVIORAL, not a tight wall-clock bound: closing
-    # the queue first unblocks readers stuck in push, so every node listener
-    # thread terminates within close's bounded joins. Without it the readers
-    # stay stuck in Ruby (not I/O — force-closing their sockets can't help),
-    # close burns the same bounded joins, and the threads leak alive. Capture
-    # them before close prunes the listener registry.
+    # Closing the queue first unblocks readers stuck in push, so listener threads
+    # exit within close's bounded joins instead of leaking. Capture the threads
+    # before close prunes the listener registry.
     reader_threads = manager.instance_variable_get(:@lock).synchronize do
       manager.instance_variable_get(:@listeners).values.map do |listener|
         listener.instance_variable_get(:@manager).instance_variable_get(:@thread)
@@ -272,17 +260,15 @@ class TestClusterKeyspaceNotifications < Minitest::Test
       refute_predicate thread, :alive?, 'a node reader stayed stuck on the full queue through close'
     end
     # Loose sanity bound only — close's legitimate worst case is a stack of
-    # bounded joins (parallel per-listener join + force-close join, the
-    # refresher's and the stalled dispatcher's join timeouts ≈ 8s), which a
-    # tight threshold would race on a loaded machine.
+    # bounded joins (≈ 8s), which a tight threshold would race on.
     assert_operator elapsed, :<, 10, 'close exceeded even its bounded-join worst case'
   end
 
   def test_subscribe_recovers_listeners_after_a_fully_failed_refresh
     queue = Queue.new
     manager = new_manager
-    # Simulate the aftermath of a refresh that failed for every primary: no
-    # listeners, no connections, therefore no error signal to drive recovery.
+    # Simulate a refresh that failed for every primary: no listeners left, so
+    # no error signal to drive recovery.
     manager.instance_variable_get(:@lock).synchronize do
       manager.instance_variable_get(:@listeners).each_value(&:close)
       manager.instance_variable_get(:@listeners).clear
@@ -303,9 +289,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager.subscribe_keyevent('set') { |notification| queue << notification.key }
     listeners_before = manager.node_keys.sort
 
-    # A degraded/mid-reset node can answer CLUSTER NODES with a view containing
-    # no slot-owning primary (e.g. only itself, freshly reset); the manager must
-    # refuse to reconcile against it rather than tear everything down.
+    # A degraded node can answer CLUSTER NODES with no slot-owning primary; the
+    # manager must refuse to reconcile rather than tear everything down.
     degraded = [
       { 'node_id' => 'reset-node', 'ip_port' => '127.0.0.1:7000@17000',
         'flags' => %w[myself master], 'master_node_id' => '-', 'ping_sent' => '0',
@@ -326,11 +311,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
 
   def test_primary_enumeration_includes_zero_slot_masters
     manager = new_manager
-    # A scale-out primary owns no slots yet: CLUSTER SLOTS could never show it,
-    # and a listener attached only after resharding would silently miss every
-    # notification for the migrated keys until some unrelated refresh. The
-    # membership view must include it — and must still exclude replicas,
-    # confirmed-failed masters and handshaking nodes.
+    # A scale-out primary owns no slots yet, so CLUSTER SLOTS misses it. The view
+    # must include it while still excluding replicas, failed and handshaking nodes.
     view = [
       { 'node_id' => 'a', 'ip_port' => '127.0.0.1:7000@17000', 'flags' => %w[master],
         'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '16383') },
@@ -356,10 +338,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
 
   def test_mid_failover_view_is_rejected_and_keeps_listeners
     manager = new_manager
-    # Mid-failover: the dying primary carries the `fail` flag but still owns its
-    # slots (its replica has not claimed them yet). Reconciling against this view
-    # would succeed with N-1 listeners and stop the reactive refresher — the
-    # promoted primary would then be silently missed until an unrelated refresh.
+    # Mid-failover the dying primary is flagged `fail` but still owns its slots;
+    # reconciling against this view would silently miss the promoted primary.
     view = [
       { 'node_id' => 'a', 'ip_port' => '127.0.0.1:7000@17000', 'flags' => %w[master],
         'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '8191') },
@@ -383,9 +363,7 @@ class TestClusterKeyspaceNotifications < Minitest::Test
   def test_cluster_nodes_reshaping_tolerates_single_slot_and_marker_fields
     hashify = Redis::Commands::HashifyClusterNodeInfo
     prefix = 'abc 127.0.0.1:7006@17006 master - 0 0 7 connected'
-    # A lone slot number is a valid CLUSTER NODES form (e.g. a scale-out
-    # primary's first migrated slot); it used to crash Range.new and take the
-    # whole refresh enumeration down with it.
+    # A lone slot number is a valid CLUSTER NODES form and must parse as a range.
     assert_equal Range.new('5460', '5460'), hashify.call("#{prefix} 5460")['slots']
     assert_equal Range.new('0', '5460'), hashify.call("#{prefix} 0-5460")['slots']
     # A bracketed importing/migrating marker is not an owned slot.
@@ -408,22 +386,16 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         error = assert_raises(Redis::CommandError) { manager.subscribe_keyevent('expired') }
         assert_match(/NOPERM|permission/i, error.message)
 
-        # The rejected pattern was evicted (it could never succeed), leaving only
-        # the valid pattern registered. The rejection bounced every node's
-        # subscriber session, so the concurrent reactive refresh may transiently
-        # prune and rebuild listeners whose core managers are mid-reconnect —
-        # node_keys is only stable again after a refresh converges. A refresh over
-        # the cleaned registry must succeed (the poison would have failed it on
-        # every primary and destroyed the listeners in a loop) and restore the
-        # full listener set.
+        # The rejected pattern is evicted, leaving only the valid one. The
+        # rejection bounced every node's subscriber session, so a refresh over
+        # the cleaned registry must succeed and restore the full listener set.
         assert_equal [allowed], manager.patterns
         manager.refresh
 
         assert_equal listeners_before, manager.node_keys.sort
 
-        # The rejection bounced the node sessions; delivery of the valid pattern
-        # recovers, but events published into the reconnect gap are lost
-        # (fire-and-forget) — probe with retries.
+        # Delivery recovers, but events published into the reconnect gap are
+        # lost (fire-and-forget) — probe with retries.
         received = nil
         wait_until(timeout: 5) do
           redis.set('acl:probe', 'v')
@@ -452,19 +424,15 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         manager.subscribe(allowed) { |notification| queue << notification.key }
         manager.subscribe(poisoned) { |_notification| }
 
-        # Revoke the second pattern AFTER it was subscribed: the server kills the
-        # user's pub/sub sessions, every node's reconnect replay is rejected, and
-        # each node's core manager evicts the pattern from its LOCAL registry.
-        # The CommandError must schedule a refresh whose catch-up re-runs the
-        # rejection and evicts it from the canonical registry too — without it,
-        # `patterns` kept reporting a pattern no node was subscribed to, with no
-        # signal left to ever converge.
+        # Revoke the pattern AFTER subscribing: the reconnect replay's rejection
+        # evicts it per-node, and the scheduled refresh must evict it from the
+        # canonical registry too — otherwise `patterns` never converges.
         reconfigure.call([allowed])
 
         wait_until(timeout: 10) { !manager.patterns.include?(poisoned) }
 
-        # The surviving pattern recovers once the reconciled topology settles
-        # (events published into the bounce are lost — probe with retries).
+        # The surviving pattern recovers; events published into the bounce are
+        # lost — probe with retries.
         received = nil
         wait_until(timeout: 10) do
           redis.set('acl:background', 'v')
@@ -491,16 +459,10 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         closed_from_handler = Queue.new
         error_handler = lambda do |error, _node_key|
           next unless error.is_a?(Redis::CommandError)
-          # The node readers report the same rejection too (mostly while the
-          # pattern is still registered, but a delayed one can slip past the
-          # registry filter). Only the refresher's own deferred report is under
-          # test: it must arrive with the refresh lock RELEASED — under the lock
-          # (the pre-fix behavior) close raises ThreadError, is swallowed, and the
-          # manager keeps running. Probe the lock non-blockingly: a reader-thread
-          # report racing the in-flight refresh legitimately sees it held and must
-          # not close from there (that would park the reader the refresh needs and
-          # stall the test on ack timeouts — the documented reason error handlers
-          # should not call close synchronously).
+          # Only the refresher's deferred report is under test: it must arrive
+          # with the refresh lock RELEASED, or close raises ThreadError and is
+          # swallowed. Probe the lock non-blockingly — a reader-thread report
+          # racing the refresh may see it held and must not close from there.
           next if manager.nil? || manager.patterns.include?(forbidden)
 
           refresh_lock = manager.instance_variable_get(:@refresh_lock)
@@ -514,7 +476,7 @@ class TestClusterKeyspaceNotifications < Minitest::Test
         @managers << manager
         subscribed_once = Queue.new
         manager.subscribe(allowed) do |_notification|
-          # An in-handler subscribe of a forbidden pattern: deferred to the
+          # In-handler subscribe of a forbidden pattern is deferred to the
           # refresher, whose catch-up hits the rejection and evicts it.
           manager.subscribe(forbidden) { |_n| } if subscribed_once.empty?
           subscribed_once << true
@@ -545,9 +507,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
 
     assert_raises(Redis::CommandError) { manager.subscribe(pattern) { |_n| } }
 
-    # The rejection is raised to the caller; every node that failed for a
-    # DIFFERENT reason must still be reported with its node_key, never silently
-    # dropped behind the raise.
+    # The rejection is raised; every node that failed for a DIFFERENT reason
+    # must still be reported with its node_key, not dropped behind the raise.
     expected = keys[1..]
     reported = Array.new(expected.size) { errors.pop(timeout: 1) }
     refute_includes reported, nil, 'expected one report per additional failed node'
@@ -605,12 +566,9 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
 
     assert_predicate manager, :closed?
-    # close raises @closed before waiting on the refresh lock, and the in-flight
-    # refresh aborts at the next node boundary: aborted, close waits out at most
-    # the CURRENT catch-up (~1.5s) plus teardown; without the abort it would sit
-    # out every remaining catch-up too (>= 4.5s of stubbed sleeps) with close
-    # blocked behind the lock. The threshold sits between, with headroom for a
-    # loaded machine's slower teardown joins.
+    # close flags @closed before taking the refresh lock, so the in-flight
+    # refresh aborts at the next node boundary (~1.5s) instead of running every
+    # remaining stubbed catch-up (>= 4.5s); the threshold sits between.
     assert_operator elapsed, :<, 4, 'close waited out the whole in-flight refresh'
     refresher.join(5)
   end
@@ -621,9 +579,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager.on_reconnect { |node_key| reconnects << node_key }
     manager.subscribe_keyevent('set') { |_n| }
 
-    # Kill the pub/sub connection on one primary: whichever path re-establishes
-    # its subscriptions — the listener's own reconnect replay, or the reactive
-    # refresh rebuilding it — must announce the gap's end with the node_key.
+    # Kill one primary's pub/sub connection: whichever path re-establishes the
+    # subscriptions must announce the gap's end with the node_key.
     victim = manager.node_keys.first
     host, port = victim.split(':')
     node = Redis.new(host: host, port: Integer(port), timeout: TIMEOUT)
@@ -648,12 +605,9 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     manager.on_reconnect { |node_key| reconnects << node_key }
     manager.subscribe_keyevent('set') { |_n| }
 
-    # Tear one node's listener down silently (no error signal), as if a previous
-    # refresh had failed on it: the next refresh attaches a fresh listener and
-    # must announce the node once it converged. Announcements key on ATTACHMENT,
-    # so the same path covers a promoted replica replacing a dead primary under
-    # a new node_key and a scale-out primary — gaps a mark under the vanished
-    # node's key could never announce.
+    # Tear one listener down silently: the next refresh attaches a fresh one and
+    # must announce it. Announcements key on ATTACHMENT, so nodes appearing under
+    # brand-new node_keys (promotion, scale-out) are covered too.
     victim = manager.node_keys.first
     listener = manager.instance_variable_get(:@lock).synchronize do
       manager.instance_variable_get(:@listeners).delete(victim)
@@ -667,9 +621,8 @@ class TestClusterKeyspaceNotifications < Minitest::Test
 
   def test_concealed_same_port_primaries_are_rejected_under_fixed_hostname
     client = build_another_client(fixed_hostname: DEFAULT_HOST)
-    # Two DISTINCT primaries (different node ids) concealing their IPs while
-    # sharing a port: fixed_hostname supplies a dial target, but it cannot
-    # distinguish them — one sidecar would silently miss the other's events.
+    # Two distinct primaries concealing their IPs while sharing a port:
+    # fixed_hostname cannot distinguish them, so the view must be rejected.
     concealed = [
       { 'node_id' => 'node-a', 'ip_port' => ':6379@16379', 'flags' => %w[master],
         'master_node_id' => '-', 'link_state' => 'connected', 'slots' => Range.new('0', '8191') },
@@ -737,14 +690,12 @@ class TestClusterKeyspaceNotifications < Minitest::Test
     nil
   end
 
-  # A user with full command access but restricted pub/sub channels, created on
-  # EVERY node (ACL is not propagated across the cluster): the manager's sidecars
-  # authenticate with the cluster client's credentials on whichever primary they
-  # dial, so the restriction must hold everywhere.
+  # A user with restricted pub/sub channels, created on EVERY node (ACL is not
+  # cluster-propagated) since the sidecars may dial any primary.
   def with_channel_restricted_user(allowed_channels)
     admins = DEFAULT_PORTS.map { |port| Redis.new(host: DEFAULT_HOST, port: port, timeout: TIMEOUT) }
-    # Reapplies the channel list on every node; narrowing it mid-test also kills
-    # the user's pub/sub sessions server-side (revoked-after-subscribe scenarios).
+    # Narrowing the channel list mid-test also kills the user's pub/sub sessions
+    # server-side (revoked-after-subscribe scenarios).
     reconfigure = lambda do |channels|
       admins.each do |admin|
         admin.acl('SETUSER', 'kn_limited', 'on', '>knpass', '+@all',

@@ -6,39 +6,31 @@ class Redis
     # parsed {Notification} objects to per-pattern handlers.
     #
     # Every subscription is a +psubscribe+ pattern (a pattern without glob characters
-    # matches itself literally). This keeps the listener loop terminable, makes handler
-    # routing an exact lookup on the matched pattern, and allows database wildcards.
-    # When several subscribed patterns match the same message, each pattern's handler
-    # fires once (server behavior).
+    # matches itself literally): the listener loop stays terminable, handler routing
+    # is an exact lookup on the matched pattern, and database wildcards work. When
+    # several subscribed patterns match one message, each handler fires once.
     #
     # Handlers run on the listener thread: they should be fast and must not call
-    # blocking Redis commands on the manager's own connection. Exceptions raised by
-    # handlers (and message parse errors) are reported to the error handler and never
-    # kill the listener.
+    # blocking Redis commands on the manager's own connection. Handler exceptions
+    # and parse errors are reported to the error handler and never kill the listener.
     #
-    # If the connection is lost, the manager reconnects (following the
-    # +reconnect_attempts+ schedule, an exponential 0.5s → 30s ladder by default) and
-    # re-subscribes every registered pattern. A pattern the server rejects on that
-    # replay (e.g. its channel permissions were revoked after it was subscribed) is
-    # evicted from the registry and reported to the error handler, instead of failing
-    # every subsequent reconnect. Notifications published while the connection was
-    # down are lost forever (pub/sub is fire-and-forget) — register an
-    # {#on_reconnect} callback to reconcile after a gap.
+    # On connection loss the manager reconnects (per +reconnect_attempts+, an
+    # exponential 0.5s → 30s ladder by default) and re-subscribes every registered
+    # pattern. A pattern the server rejects on that replay (e.g. permissions revoked
+    # since it was subscribed) is evicted and reported instead of failing every
+    # reconnect. Notifications published while the connection was down are lost
+    # (pub/sub is fire-and-forget) — use {#on_reconnect} to reconcile after a gap.
     class Manager
       DEFAULT_CLOSE_TIMEOUT = 2
-      # Registry values: a fresh object per (re-)subscription, so a concurrent
-      # unsubscribe can tell "the registration I captured" apart from "the same
-      # pattern re-registered meanwhile" and never removes or fights the latter.
-      # +failed+ marks a registration as dead for good — set when its own subscribe
-      # rolled back, or when an unsubscribe targeting it completed — so a concurrent
-      # failed subscribe's rollback never resurrects it as "the previous
-      # registration". (A timed-out unsubscribe does NOT mark: there the
-      # registration legitimately lives on and the caller retries.)
+      # A fresh object per (re-)subscription, so concurrent operations can tell "the
+      # registration I captured" from "the same pattern re-registered meanwhile".
+      # +failed+ marks it dead for good (its subscribe rolled back, or an unsubscribe
+      # targeting it completed) so a rollback never resurrects it; a timed-out
+      # unsubscribe does NOT mark — that registration legitimately lives on.
       Registration = Struct.new(:handler, :failed)
       private_constant :Registration
-      # One sleep duration (in seconds) per consecutive reconnect attempt; the manager
-      # gives up when the schedule is exhausted. The budget resets after every healthy
-      # session, so only a persistent outage runs through the whole ladder (~2 minutes).
+      # Sleep per consecutive reconnect attempt; exhausted = give up. The budget
+      # resets after every healthy session.
       DEFAULT_RECONNECT_ATTEMPTS = [0.5, 1, 2, 4, 8, 16, 30, 30, 30, 30].freeze
       SUBSCRIBE_ACK_TIMEOUT = 5
 
@@ -54,18 +46,14 @@ class Redis
       def initialize(redis:, error_handler: nil, reconnect_attempts: DEFAULT_RECONNECT_ATTEMPTS)
         @redis = redis
         @error_handler = error_handler
-        # Validated here so a bad value fails at the call site: undetected, it
-        # would only surface as a NoMethodError on the listener thread after a
-        # connection loss, killing the reconnect machinery instead of the caller.
+        # Validated here so a bad value fails at the call site instead of killing
+        # the listener thread (outside its rescue) after the first connection loss.
         @reconnect_attempts = case reconnect_attempts
         when Integer
           Array.new(reconnect_attempts, 0).freeze
         when Array
-          # Finite, non-negative REALS only: NaN/Infinity (or a Complex) satisfy
-          # Numeric but blow up the backoff arithmetic on the listener thread —
-          # outside its rescue — after the first connection loss, killing the
-          # reconnect machinery instead of the caller that passed the value.
-          # (real? is checked first: Complex has no #>= to consult.)
+          # NaN/Infinity/Complex satisfy Numeric but blow up the backoff
+          # arithmetic; real? first — Complex has no #>=.
           unless reconnect_attempts.all? { |delay| delay.is_a?(Numeric) && delay.real? && delay.finite? && delay >= 0 }
             raise ArgumentError, "reconnect_attempts must contain only finite, non-negative sleep durations"
           end
@@ -77,29 +65,18 @@ class Redis
                 "got #{reconnect_attempts.class}"
         end
         @handlers = {} # pattern (BINARY String) => handler (Proc, nil for default)
-        # pattern (BINARY String) => confirmation GENERATION (monotonic), as acked
-        # by the server on the current session. Consumers of "is it subscribed?"
-        # test presence; a re-subscribing caller's wait compares the generation
-        # against its install-time snapshot instead — only an acknowledgment that
-        # arrived AFTER the install satisfies it. That keeps the entry in place
-        # across a same-session replacement (the server-side subscription
-        # genuinely persists, so `patterns`/`subscribed?` stay truthful and a
-        # failed call's rollback leaves no observable dent) while still refusing
-        # to report success on the replaced registration's stale confirmation.
+        # pattern => confirmation GENERATION (monotonic) acked on the current
+        # session. Presence answers "is it subscribed?"; a re-subscribing wait
+        # compares the generation against its install-time snapshot so only an
+        # ack that arrived AFTER the install satisfies it — the entry survives a
+        # same-session replacement (the server-side subscription persists).
         @confirmed = {}
         @confirm_seq = 0
-        # pattern (BINARY String) => queue of psubscribe commands issued on the
-        # live session whose acknowledgment has not been consumed yet, in wire
-        # order — each entry is the issuing blocking batch's seq (nil for writes
-        # with no waiting batch). Acks arrive in command order, so each shifts
-        # the OLDEST entry: the queue names exactly which command an ack answers.
-        # An ack that leaves the queue non-empty resolves nothing pattern-wide —
-        # with several commands on the wire (two callers re-subscribing the same
-        # pattern concurrently), an earlier command's ack must neither confirm
-        # the newer registration (whose own, later command the server may still
-        # reject) nor retire its validation marker — but it DOES credit its own
-        # batch's retirement from rejection attribution. Cleared together with
-        # @confirmed at session end: pending acks die with their session.
+        # pattern => queue of unconsumed psubscribe acks in wire order; each entry
+        # is the issuing blocking batch's seq (nil for writes with no waiter).
+        # Acks arrive in command order, so each shifts the OLDEST entry. A
+        # non-final ack resolves nothing pattern-wide but retires its own batch
+        # from rejection attribution. Dies with its session.
         @pending_acks = {}
         @default_handler = nil
         @reconnect_handler = nil
@@ -110,81 +87,53 @@ class Redis
         @listener_error_epoch = 0
         @reconnect_now = false
         @removing = {} # pattern => the Registration an in-flight unsubscribe targets
-        # pattern => { entry: Registration, batch: Object, seq: Integer } for
-        # registrations installed from a handler and not yet server-acked; batch
-        # identifies the subscribe call and seq its issue order, so a session
-        # rejection drops only the oldest (culprit) batch. Age must be an explicit
-        # sequence: re-marking a pattern keeps its ORIGINAL Hash position, so map
-        # order lies about command order when a later call replaces an earlier
-        # call's pattern. Cleared at session end (the markers' commands died with
-        # their session): a stale marker surviving into the next session would
-        # win that session's rejection attribution and evict its perfectly valid
-        # pattern — cross-session poison is the probing replay's to identify.
+        # pattern => { entry:, batch:, seq: } for in-handler registrations not yet
+        # server-acked; a session rejection evicts only the oldest (culprit) batch.
+        # Age is an explicit seq — re-marking keeps the original Hash position, so
+        # map order lies about command order. Dies with its session: a stale
+        # marker would win the next session's rejection attribution over the
+        # replay itself (cross-session poison is the probing replay's job).
         @unvalidated = {}
-        # pattern => { entry: Registration, seq: Integer } for the single-pattern
-        # replay commands of a probing session (see @probe_replay) that were not
-        # acknowledged yet. Cleared with @pending_acks at session end: a lost
-        # probe's command died with its session, and the next rejection re-probes.
+        # pattern => { entry:, seq: } for a probing session's unacked single-pattern
+        # replay commands. Dies with its session; a lost probe just re-probes.
         @probe_inflight = {}
-        # pattern => true for the session-opening batch replay's patterns whose
-        # acknowledgment was not consumed yet, with @opening_seq the batch's
-        # position on the @issue_seq axis (assigned when the replay is tracked,
-        # before any later command on the session can take a seq). Represents
-        # the opening batch in rejection attribution: without it, a rejection of
-        # the replay would be pinned on a subscription issued LATER on the
-        # session — rolling back a valid registration while the poisoned replay
-        # pattern rides along for another bounce. Dies with its session.
+        # Unacked patterns of the session-opening batch, with @opening_seq its
+        # position on the @issue_seq axis: represents the opening in rejection
+        # attribution, or its rejection would be pinned on a later command. Dies
+        # with its session.
         @opening_pending = {}
         @opening_seq = nil
-        # True from the moment a session's opening acks are tracked until its
-        # first acknowledgment arrives: the subscription client becomes visible
-        # to writers a beat before the opening command hits the socket, and a
-        # write slipping into that gap would precede the opening on the wire —
-        # inverting @pending_acks against reply order. write_to_session refuses
-        # writes while set (the session-not-ready answer callers handle).
-        # Set/cleared under @lock; lifted at session end whatever happened.
+        # True from opening-ack tracking until the first ack arrives. The
+        # subscription client becomes visible to writers a beat before the opening
+        # write hits the socket; a write in that gap would precede the opening on
+        # the wire and invert @pending_acks against reply order, so
+        # write_to_session refuses writes while set. Lifted at session end.
         @establishing = false
-        # The issue seq of the blocking subscribe a session-killing rejection was
-        # attributed to (nil when it was pinned on a marker/probe/opening batch or
-        # was unattributable). A waiter raises a fresh CommandError only when it
-        # names ITS command: raising it to every waiter sharing the session made
-        # innocent callers roll back valid registrations — and misled the cluster
-        # manager's per-pattern rejection probes into evicting healthy patterns
-        # whose probe merely rode a session another pattern's poison bounced.
+        # Issue seq of the blocking subscribe a session-killing rejection was
+        # attributed to (nil otherwise). A waiter raises a fresh CommandError only
+        # when it names ITS command — raising to every waiter sharing the session
+        # rolled back valid registrations (and misled the cluster manager's probes).
         @rejected_wait = nil
-        # Set when a session-killing rejection could not be attributed to any
-        # outstanding command: the server rejected the reconnect replay itself
-        # (e.g. permissions on a long-registered pattern were revoked since it
-        # was subscribed). The batch replay names no culprit, so the next session
-        # replays one pattern per command instead — the rejection then attributes
-        # to the oldest unacknowledged probe, and that pattern is evicted rather
-        # than failing every reconnect until the schedule is exhausted.
+        # Set when a rejection was unattributable (the batch replay itself was
+        # rejected): the next session replays one pattern per command so the
+        # rejection lands on exactly the poisoned pattern.
         @probe_replay = false
-        # Set when the listener died with registrations still on the books (its
-        # reconnect schedule was exhausted): the next start_listener is a restart
-        # after a lossy gap, not a first start, and must run as a reconnect so
-        # {#on_reconnect} still announces the gap's end.
+        # Set when the listener died with registrations still on the books: the
+        # next start is a restart after a lossy gap and must run as a reconnect
+        # so {#on_reconnect} announces it.
         @resume_reconnecting = false
-        # Numbers every issued subscribe batch — in-handler AND blocking — in wire
-        # order (assigned under @lock at write time). Rejection attribution must
-        # span both kinds: a blocking command has its own waiter to roll it back,
-        # but only this sequence tells the listener that the rejected command was
-        # the blocking one and not the oldest in-handler batch.
+        # Wire-orders every issued subscribe batch (assigned under @lock at write
+        # time); rejection attribution spans blocking, in-handler, probe and
+        # opening commands on this one axis.
         @issue_seq = 0
         # issue seq => the blocking subscribe's patterns still awaiting their own
-        # acknowledgments; the entry lives until its wait exits or every one of
-        # its command's acks was consumed off the reply stream (tracked per
-        # issued command via the @pending_acks tokens, NOT via pattern-wide
-        # confirmation: an overlapping younger command's unread ack gates the
-        # pattern's confirmation, and that must not keep an already-acknowledged
-        # batch in rejection attribution as a possible culprit, shielding the
-        # genuinely-poisoned younger batch).
+        # acks. An entry lives until its wait exits or every one of its command's
+        # acks was consumed (per-command tokens, not pattern-wide confirmation —
+        # an acked batch must retire from rejection attribution immediately).
         @inflight_waits = {}
-        # Bumped when a listener session starts issuing its opening command. Waits
-        # re-issue an unconfirmed pattern at most ONCE per session: every duplicate
-        # adds a pending acknowledgment the final-ack gate must drain, so a
-        # time-based retry (the pre-fix every-50ms loop) under a delayed listener
-        # would keep pushing confirmation behind fresh duplicates of itself.
+        # Bumped per session-opening command; waits re-issue an unconfirmed
+        # pattern at most ONCE per session (duplicates stack pending acks the
+        # final-ack gate must drain).
         @session_seq = 0
         @closing = false
         @closed = false
@@ -218,81 +167,57 @@ class Redis
           raise SubscriptionError, "keyspace notifications manager is closed" if @closed || @closing
 
           patterns.each do |pattern|
-            # Remember what registration looked like before, so a failed subscribe
-            # can restore it exactly. The handler must be registered before the
-            # command is issued: matching messages can arrive ahead of our ack
-            # processing and dispatch needs to find it.
+            # Snapshot the previous registration for rollback. The handler must be
+            # registered before the command is issued: matching messages can
+            # arrive ahead of our ack processing.
             unless previous.key?(pattern)
               previous[pattern] = @handlers.key?(pattern) ? { entry: @handlers[pattern] } : nil
             end
             @handlers[pattern] = installed[pattern] = Registration.new(handler)
-            # A (re-)subscribe demands a FRESH acknowledgment: a confirmation earned
-            # by a replaced registration must not satisfy this call's wait — the
-            # server may reject the new command (e.g. permissions revoked since),
-            # and returning on the stale entry would report success while leaving a
-            # poisoned registration no wait can ever roll back. Snapshotting the
-            # current generation (the wait accepts only a NEWER one) enforces that
-            # WITHOUT deleting the entry: the server-side subscription genuinely
-            # persists across a same-session replacement, so `patterns` /
-            # `subscribed?` keep reporting it, and a failed call's rollback leaves
-            # no observable dent (deleting here made a timed-out re-subscribe
-            # under-report the still-subscribed pattern until its late ack finally
-            # healed it). Re-subscribing an already-subscribed pattern is re-acked
-            # promptly, minting the fresh generation.
+            # A (re-)subscribe demands a FRESH acknowledgment: the wait accepts
+            # only a generation newer than this snapshot, so a replaced
+            # registration's confirmation can't report success for a command the
+            # server may still reject. The entry itself is kept — the server-side
+            # subscription persists across a same-session replacement.
             stale_confirmations[pattern] = @confirmed[pattern]
           end
-          # Sequenced HERE — the same locked section as the write — so batch age
-          # reflects true wire order for both call kinds (a marker sequenced in a
-          # later section could be overtaken by a concurrent caller's write).
+          # Sequenced in the same hold as the write, so batch age reflects true
+          # wire order.
           issue_seq = (@issue_seq += 1)
-          # The error-freshness epoch is sampled in this same hold too: sampled
-          # when the wait re-acquires the lock instead, the listener can read
-          # our command's rejection in the gap and bump the epoch first — the
-          # waiter then reads its OWN rejection as stale and converges only via
-          # the replay/probe bounces (seconds) instead of raising promptly.
-          # Precision is preserved by the @rejected_wait naming: an error minted
-          # after this sample raises here only when attribution names this seq.
+          # The error-freshness epoch is sampled in this same hold too: sampled at
+          # wait entry instead, the listener could process our own rejection in
+          # the gap and the waiter would read it as stale (converging via seconds
+          # of replay bounces instead of raising promptly).
           error_epoch = @listener_error_epoch
           @inflight_waits[issue_seq] = patterns.uniq unless listener_thread?
           if listening?
             if write_to_session(:psubscribe, patterns)
               track_pending_acks(patterns, issue_seq)
             else
-              # The listener session is down (likely parked in a reconnect backoff
-              # that can far outlast our confirmation wait): wake it to attempt the
-              # reconnect NOW. If the server is back, the replay covers this pattern
-              # within the wait; if it is genuinely unreachable, the wait below times
-              # out and the rollback keeps caller and server state consistent.
+              # Session down (possibly parked in a long backoff): reconnect NOW so
+              # the replay covers this pattern within the wait.
               @reconnect_now = true
               @cond.broadcast
             end
           else
-            # A dead listener (exhausted reconnect schedule) still has every prior
-            # registration in @handlers: restart with the COMPLETE registry, not just
-            # the new patterns, or earlier subscriptions would silently stop receiving.
-            # The restart runs as a reconnect (see start_listener), so on_reconnect
-            # still announces the gap the death opened.
+            # A dead listener still has every prior registration: restart with the
+            # COMPLETE registry (as a reconnect — see start_listener), or earlier
+            # subscriptions would silently stop receiving.
             start_listener(@handlers.keys)
           end
         end
 
-        # Called from inside a handler, this runs on the listener thread — the only
-        # thread that can read the acknowledgments — so waiting would stall delivery
-        # until timeout. The command is on the wire; the acks are processed as soon
-        # as the handler returns. Because nobody waits, a server rejection (e.g. an
-        # ACL-forbidden pattern) can't roll back here either — the registrations are
-        # marked unvalidated so a session-killing command error removes them instead
-        # of poisoning every reconnect replay with the rejected pattern.
+        # In-handler call: this is the listener thread, the only one that can read
+        # acks, so waiting would stall delivery. Nobody can roll back a rejection
+        # either — mark the registrations unvalidated so a session-killing
+        # rejection evicts them instead of poisoning every replay.
         if listener_thread?
           @lock.synchronize do
             seq = issue_seq
             patterns.each do |pattern|
-              # Only mark a registration that is still the live one: a concurrent
-              # replacement between the install and this lock makes ours stale, and
-              # a stale marker matches no future ack and would be retained forever.
-              # The `installed` hash doubles as the batch token: acks arrive in
-              # command order, so a session-killing rejection is attributable to
-              # the OLDEST outstanding batch — later ones survive for the replay.
+              # Mark only the still-live registration (a stale marker matches no
+              # future ack). `installed` doubles as the batch token: a rejection
+              # is attributable to the OLDEST outstanding batch.
               if @handlers[pattern].equal?(installed[pattern])
                 @unvalidated[pattern] = { entry: installed[pattern], batch: installed, seq: seq }
               end
@@ -307,9 +232,7 @@ class Redis
           rollback_registration(previous, installed)
           raise
         ensure
-          # Resolved either way: confirmed batches were already consumed off the
-          # reply stream, and failed ones are this rescue's rollback to undo —
-          # attribution must stop considering them.
+          # Resolved either way; attribution must stop considering this batch.
           @lock.synchronize { @inflight_waits.delete(issue_seq) }
         end
       end
@@ -337,47 +260,37 @@ class Redis
           targets = patterns.empty? ? @handlers.keys : patterns.select { |pattern| @handlers.key?(pattern) }
           return if targets.empty?
 
-          # Capture the exact registrations this call is removing: a concurrent
-          # subscribe replacing one of them mid-flight must neither be deleted from
-          # the registry nor have its server-side subscription fought below. The
-          # @removing marks tell the punsubscribe-ack invariant which registration
-          # each ack is aimed at, so it can re-establish a replacement our command
-          # killed on the wire (subscribe write ordered before our unsubscribe write).
+          # Capture the exact registrations being removed: a concurrent
+          # replacement must neither be deleted nor fought. The @removing marks
+          # tell the punsubscribe-ack invariant which registration each ack
+          # targets, so it can re-establish a replacement our command killed.
           targets.each do |pattern|
             owned[pattern] = @handlers[pattern]
             @removing[pattern] = owned[pattern]
           end
 
           if listening?
-            # Always the captured targets, never a blanket PUNSUBSCRIBE: with no
-            # arguments the server would also drop patterns a concurrent subscribe
-            # added after our capture. A false return means the session is down —
-            # nothing is subscribed server-side anymore and removal is already
-            # consistent; wait_for_removal falls through once the session's
-            # confirmations are cleared, and a replay racing this removal is
-            # reverted by the listener's registry check on its ack.
+            # Always the captured targets, never a blanket PUNSUBSCRIBE (which
+            # would also drop patterns added after our capture). A false return
+            # means the session is down — removal is already consistent.
             write_to_session(:punsubscribe, targets)
           end
         end
 
         begin
           if listener_thread?
-            # Called from inside a handler (the one-shot subscription pattern): this
-            # thread is the only one that can read the acknowledgment, so waiting would
-            # stall delivery until timeout. The command is on the wire — commit the
-            # removal now. In-flight messages are dropped by dispatch's registry check,
-            # and a replay race is reverted by the ack-time registry check.
+            # In-handler call (one-shot pattern): can't wait for the ack — commit
+            # the removal now. In-flight messages are dropped by dispatch's
+            # registry check; a replay race is reverted at ack time.
             @lock.synchronize do
               targets.each do |pattern|
-                # This call succeeded: the registrations it targeted are dead for good
-                # — either deleted below or already replaced. A failed subscribe's
-                # rollback must never resurrect one as "the previous registration".
+                # Dead for good: a failed subscribe's rollback must never
+                # resurrect this registration.
                 owned[pattern].failed = true
                 next unless @handlers[pattern].equal?(owned[pattern])
 
                 @handlers.delete(pattern)
-                # An in-handler registration removed before its ack: purge its
-                # validation entry too, or it would be retained forever.
+                # Purge the pre-ack validation marker too, or it leaks forever.
                 @unvalidated.delete(pattern) if @unvalidated[pattern]&.fetch(:entry).equal?(owned[pattern])
               end
             end
@@ -387,33 +300,27 @@ class Redis
           wait_for_removal(targets, owned)
           @lock.synchronize do
             targets.each do |pattern|
-              # This call succeeded: the registrations it targeted are dead for good
-              # — either deleted below or already replaced. A failed subscribe's
-              # rollback must never resurrect one as "the previous registration".
+              # Dead for good: a failed subscribe's rollback must never
+              # resurrect this registration.
               owned[pattern].failed = true
               next unless @handlers[pattern].equal?(owned[pattern])
 
               @handlers.delete(pattern)
-              # An in-handler registration removed before its ack: purge its
-              # validation entry too, or it would be retained forever.
+              # Purge the pre-ack validation marker too, or it leaks forever.
               @unvalidated.delete(pattern) if @unvalidated[pattern]&.fetch(:entry).equal?(owned[pattern])
             end
-            # A reconnect replay may have re-subscribed a target between the ack and
-            # this removal; sweep anything still acknowledged that no registration owns.
+            # A reconnect replay may have re-subscribed a target meanwhile; sweep
+            # anything still acknowledged that no registration owns.
             sweep = targets.select { |pattern| @confirmed.key?(pattern) && !@handlers.key?(pattern) }
             punsubscribe_quietly(sweep)
-            # A replacement that slipped in while this removal completed keeps
-            # its registration (the deletes above are identity-guarded) — but
-            # the listener may have exited on this removal's ack believing it
-            # emptied the registry. Its own recheck usually revives it; when
-            # the replacement landed after that recheck, this is the only
-            # actor left that can.
+            # The listener may have exited on this removal's ack while a
+            # replacement landed after its recheck — revive it for the survivors.
             restart_dead_listener
           end
         ensure
-          # Late acks (after a timeout raise, or after this call finished) are then
-          # judged purely by the live registry: a still-registered pattern gets
-          # re-established by the ack invariant instead of matching a stale mark.
+          # Late acks are then judged purely by the live registry: a
+          # still-registered pattern is re-established instead of matching a
+          # stale mark.
           @lock.synchronize do
             targets.each { |pattern| @removing.delete(pattern) if @removing[pattern].equal?(owned[pattern]) }
           end
@@ -483,9 +390,7 @@ class Redis
       # connection errors; must not raise.
       # @yieldparam error [StandardError]
       def on_error(&block)
-        # Synchronized like every other piece of shared state: an unsynchronized
-        # write has no happens-before edge with the background threads' reads, so
-        # a non-GVL runtime could keep invoking the replaced handler indefinitely.
+        # Synchronized for the happens-before edge non-GVL runtimes need.
         @lock.synchronize { @error_handler = block }
         nil
       end
@@ -505,9 +410,8 @@ class Redis
 
       # The registered intent, regardless of server confirmation — the set a
       # reconnect replay will re-subscribe. Differs from {#patterns} while the
-      # connection is down or acknowledgments are in flight; reconciliation
-      # (e.g. the cluster manager's per-node catch-up) must compare against this,
-      # or an obsolete registration invisible to {#patterns} survives replays.
+      # connection is down or acknowledgments are in flight; reconciliation must
+      # compare against this.
       #
       # @return [Array<String>] the registered patterns
       def registered_patterns
@@ -521,9 +425,8 @@ class Redis
 
       # @return [Boolean]
       def closed?
-        # Synchronized like every other piece of shared state: without the
-        # happens-before edge a non-GVL runtime could report a torn-down manager
-        # as live after close returned (NodeListener#healthy? relies on this).
+        # Synchronized for the happens-before edge non-GVL runtimes need
+        # (NodeListener#healthy? relies on it).
         @lock.synchronize { @closed }
       end
 
@@ -538,8 +441,8 @@ class Redis
           return if @closed
 
           @closing = true
-          # Wake a listener parked in a reconnect backoff — closing the socket can't
-          # interrupt a plain sleep, and a 30s delay would outlive the bounded joins.
+          # Wake a listener parked in a reconnect backoff — closing the socket
+          # can't interrupt a plain sleep.
           @cond.broadcast
           @thread
         end
@@ -551,18 +454,17 @@ class Redis
         end
 
         begin
-          # Thread#join re-raises whatever unhandled exception killed the
-          # listener thread; the teardown below runs in the ensure either way,
-          # or a dead-by-bug listener would leak the connection and leave the
-          # manager stuck half-closed (@closing true, @closed false).
+          # Thread#join re-raises whatever killed the listener; the ensure keeps
+          # teardown complete either way (no leaked connection, no half-closed
+          # manager).
           if thread && !thread.equal?(Thread.current) && !thread.join(timeout)
             force_close_redis
             thread.join(timeout)
           end
         ensure
           force_close_redis
-          # Written under @lock (paired with closed?'s synchronized read) so the
-          # closed state is visible to other threads the moment close returns.
+          # Under @lock (paired with closed?'s read) so the state is visible the
+          # moment close returns.
           @lock.synchronize { @closed = true }
         end
         nil
@@ -580,9 +482,8 @@ class Redis
       end
 
       # Waits up to +delay+ seconds between reconnect attempts, waking immediately
-      # when close begins or when a subscribe requests an immediate reconnect
-      # (spurious wakeups from ack broadcasts just resume waiting).
-      # Returns false when the manager is closing.
+      # on close or when a subscribe requests an immediate reconnect. Returns false
+      # when the manager is closing.
       def interruptible_backoff(delay)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + delay
         @lock.synchronize do
@@ -601,12 +502,11 @@ class Redis
         false
       end
 
-      # Revives a listener that exited while registrations remain — the
-      # unsubscribe races where the exiting listener's clean-exit recheck saw
-      # only removal targets, but a timeout or a concurrent replacement left a
-      # live registration behind it. The registrations lost their server-side
-      # subscriptions with the listener's session (a lossy gap), so the restart
-      # runs as a reconnect and on_reconnect announces it. Called under @lock.
+      # Revives a listener that exited while registrations remain (an unsubscribe
+      # race: its clean-exit recheck saw only removal targets, but a timeout or a
+      # concurrent replacement left a live registration behind). Runs as a
+      # reconnect — the survivors' server-side subscriptions died with the
+      # session. Called under @lock.
       def restart_dead_listener
         return if listening? || @handlers.empty? || @closing || @closed
 
@@ -617,9 +517,8 @@ class Redis
       # Called under @lock (all call sites hold it).
       def start_listener(patterns)
         @listener_error = nil
-        # A restart after a lossy death replays the surviving registrations: run
-        # it as a reconnect so on_reconnect announces the gap's end (a first
-        # start has no gap and stays silent).
+        # A restart after a lossy death runs as a reconnect so on_reconnect
+        # announces the gap's end; a first start has no gap and stays silent.
         reconnecting = @resume_reconnecting
         @resume_reconnecting = false
         @thread = Thread.new { run_listener(patterns, reconnecting: reconnecting) }
@@ -633,18 +532,14 @@ class Redis
           @session_confirmed = false
           begin
             listen(patterns, reconnecting)
-            # Clean termination: every pattern unsubscribed, or close. One exception —
-            # a subscription that replaced (or arrived alongside) the final
-            # unsubscribe: the loop exits on the punsubscribe ack (count 0) without
-            # ever reading the replacement's ack, so a registration here that is NOT
-            # the removal's own target means "start a fresh session", not "done".
-            # The ownership check must compare REGISTRATIONS, not patterns: an
-            # unsubscribing thread deletes its entry only after this very ack woke
-            # it, so its target legitimately lingers (skip it — replaying would
-            # resubscribe what was just removed), while a replacement under the same
-            # pattern is a different registration that must be replayed — its waiter
-            # may already have returned on the replaced entry's confirmation, leaving
-            # this recheck as the only actor that can revive it.
+            # Clean termination (everything unsubscribed, or close) — except a
+            # registration that replaced or arrived alongside the final
+            # unsubscribe: the loop exited on the punsubscribe ack without ever
+            # reading the replacement's ack, so it must be replayed on a fresh
+            # session. Compare REGISTRATIONS, not patterns: the unsubscriber's
+            # own target legitimately lingers until this very ack wakes it and
+            # must be skipped, while a replacement under the same pattern is a
+            # different registration.
             patterns = @lock.synchronize do
               @handlers.reject { |pattern, entry| entry.equal?(@removing[pattern]) }.keys
             end
@@ -656,59 +551,40 @@ class Redis
           rescue StandardError => error
             break if @closing
 
-            # The subscription loop bypasses Redis::Client's rescue wrappers, so
-            # redis-client errors surface untranslated here.
+            # The subscription loop bypasses Redis::Client's rescue wrappers.
             error = translate_error(error)
-            # Attribution and error publication share ONE lock hold: an eviction
-            # and the epoch bump must be observed atomically, or a waiter waking
-            # between them would read its deleted registration as a successful
-            # replacement without ever seeing the rejection that names it.
+            # Attribution and error publication share ONE lock hold: observed
+            # separately, a waiter could see its registration evicted without
+            # ever seeing the rejection that names it.
             @lock.synchronize do
               if error.is_a?(CommandError)
-                # The server rejected a command on this session — most likely a
-                # pattern subscribed from inside a handler (nobody could wait for
-                # its ack, so nobody could roll it back). Replies arrive in
-                # command order, so every earlier command's acks already
-                # validated (and removed) their markers: the OLDEST remaining
-                # batch is the rejected command. Drop only it — later batches may
-                # be perfectly valid and get replayed; a later poison is
-                # identified by a later rejection on this session, or by the
-                # probing replay one session later.
+                # The server rejected a command on this session. Replies arrive
+                # in command order, so the rejected command is the OLDEST
+                # outstanding one — attribute it to whichever candidate is
+                # oldest on the @issue_seq axis and evict only that; later
+                # batches may be valid and get replayed.
                 @rejected_wait = nil
                 # min_by seq, NOT map order: a re-marked pattern keeps its
-                # original Hash position, which would misattribute the rejection
-                # to the newer batch and kill a valid replacement.
+                # original Hash position.
                 oldest_marker = @unvalidated.values.min_by { |record| record[:seq] }
-                # A blocking subscribe older than every in-handler batch is still
-                # unresolved: the rejected command is (or may be) THAT one, and its
-                # own waiter observes this error via the epoch and rolls it back.
-                # Dropping the oldest in-handler batch instead would kill a valid
-                # registration the rejection never touched. Candidacy comes only
-                # from tokens of the wait's OWN commands still outstanding on
-                # THIS session (its direct write, or its once-per-session
-                # re-issue): replies answer this session's commands, so a wait
-                # whose command died with an older session must not absorb a
-                # rejection that belongs to the replay or a probe. The opening
-                # command's credit token (the queue head while the pattern's
-                # opening ack is outstanding) is the OPENING's command, not the
-                # wait's — excluded, so an opening rejection attributes to
-                # :opening (and the probing replay), never to an innocent rider.
+                # A wait is a candidate only through tokens of its OWN commands
+                # still outstanding on THIS session (direct write or re-issue) —
+                # a wait whose command died with an older session must not
+                # absorb this session's rejection. The opening command's credit
+                # token (queue head while the opening ack is outstanding) is the
+                # OPENING's command, not the wait's, and is excluded.
                 live_wait_tokens = @pending_acks.flat_map do |pattern, tokens|
                   @opening_pending[pattern] ? tokens.drop(1) : tokens
                 end
                 oldest_wait = live_wait_tokens.select { |token| token && @inflight_waits.key?(token) }.min
-                # A probing session's single-pattern replay commands compete on
-                # the same wire-order axis (their seqs come from @issue_seq too).
                 oldest_probe = @probe_inflight.min_by { |_, record| record[:seq] }
                 candidates = {}
                 candidates[:marker] = oldest_marker[:seq] if oldest_marker
                 candidates[:wait] = oldest_wait if oldest_wait
                 candidates[:probe] = oldest_probe[1][:seq] if oldest_probe
-                # The session-opening batch replay competes too: still
-                # unacknowledged, it is the oldest command on THIS session and
-                # must win over subscriptions issued after it — pinning its
-                # rejection on a later valid call would leave the poisoned
-                # replay pattern unprobed for another bounce.
+                # The unacknowledged opening replay competes too — it is the
+                # oldest command on this session and must win over commands
+                # issued after it.
                 candidates[:opening] = @opening_seq unless @opening_pending.empty?
                 case candidates.min_by { |_, seq| seq }&.first
                 when :marker
@@ -716,92 +592,65 @@ class Redis
                   @unvalidated.each do |pattern, record|
                     next unless record[:batch].equal?(oldest_batch)
 
-                    # Dead for good WHETHER OR NOT it is still the live entry: the
-                    # server rejected this batch's command. A concurrent blocking
-                    # re-subscribe of the same pattern that replaced this entry is
-                    # rejected (and rolls back) itself one replay later — without
-                    # the mark, its rollback would restore the rejected entry as
-                    # "the previous registration" and poison every reconnect replay.
+                    # Dead for good even if already replaced: a concurrent
+                    # rollback must not restore the rejected entry as "the
+                    # previous registration".
                     record[:entry].failed = true
                     @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
                   end
                   @unvalidated.delete_if { |_, record| record[:batch].equal?(oldest_batch) }
                 when :probe
-                  # The rejected command is a probe carrying exactly one pattern:
-                  # the culprit is identified — evict it. The un-probed remainder
-                  # may hide more poison, so the next session probes again (a
-                  # clean probing session simply confirms everything).
+                  # A probe carries exactly one pattern: the culprit. Evict it;
+                  # the un-probed remainder may hide more poison, so probe again.
                   pattern, record = oldest_probe
                   record[:entry].failed = true
                   @handlers.delete(pattern) if @handlers[pattern].equal?(record[:entry])
-                  # A wait awaiting the evicted pattern is waiting on a
-                  # registration the server just rejected: name it so it raises
-                  # the rejection (and rolls back) instead of resolving the
-                  # eviction's registry delete as a successful replacement.
+                  # A wait awaiting the evicted pattern must raise the rejection
+                  # instead of resolving the eviction's delete as a replacement.
                   @rejected_wait = @inflight_waits.find { |_, awaiting| awaiting.include?(pattern) }&.first
                   @probe_replay = true
                 when :opening
-                  # The oldest unacknowledged command is the session's own batch
-                  # replay: it names no culprit — replay the next session one
-                  # pattern per command so the rejection lands on the probe
-                  # carrying the poison. (Waiters sharing the session observe
-                  # the indivisible error and roll back on their own.)
+                  # The batch replay names no culprit: probe next session.
                   @probe_replay = true
                 when :wait
-                  # The rejected command is (or may be) the blocking subscribe's:
-                  # naming it here makes ITS waiter (and only its) observe the
-                  # error via the epoch and roll the registration back — nothing
-                  # to evict on this side.
+                  # Name the blocking subscribe: its waiter (and only its)
+                  # observes the error and rolls back.
                   @rejected_wait = oldest_wait
                 else
-                  # Nothing outstanding is attributable: the rejected command was
-                  # the session's own batch replay — a long-registered pattern
-                  # the server no longer accepts (e.g. its permissions were
-                  # revoked after it was subscribed). The batch names no culprit,
-                  # and left alone it would fail every reconnect until the
-                  # schedule is exhausted and then brick every restart. Replay
-                  # the next session one pattern per command instead, so the
-                  # rejection lands on the probe that carries the poison.
+                  # Nothing outstanding is attributable — the replay itself was
+                  # rejected (e.g. permissions revoked on a long-registered
+                  # pattern). Probe next session so the rejection lands on
+                  # exactly the poisoned pattern.
                   @probe_replay = true
                 end
               end
               @listener_error = error
-              # Waits compare against this epoch to tell a FRESH error (arrived after
-              # the wait began — the waiter's command was on the killed session) from
-              # a STALE one left over from before they even started.
+              # Waits compare against this epoch to tell a FRESH error from a
+              # stale one left over from before they started.
               @listener_error_epoch += 1
-              # The session's server-side subscriptions died with it: clear the
-              # confirmations BEFORE the error reaches user code, so `patterns` /
-              # `subscribed?` (and the cluster wrapper's health checks, which a
-              # reactive refresh may consult during the callback) never report the
-              # dead session as live. Pending acks, probes and validation markers
-              # die with the session too (their commands did): a marker kept
-              # alive into the next session would win rejection attribution over
-              # that session's own batch replay, evicting its perfectly valid
-              # pattern while the real poison stays registered — the probing
-              # replay identifies cross-session poison instead.
+              # The session's server-side subscriptions died with it: clear
+              # confirmations BEFORE the error reaches user code, and everything
+              # else whose commands died with the session (a stale @unvalidated
+              # marker would misdirect the next session's rejection attribution).
               @confirmed.clear
               @pending_acks.clear
               @probe_inflight.clear
               @opening_pending.clear
               @unvalidated.clear
-              # A session that died before its first acknowledgment must lift the
-              # opening gate, or every future write would be refused forever.
+              # A session that died before its first ack must lift the opening
+              # gate, or every future write would be refused forever.
               @establishing = false
               @cond.broadcast
             end
             report_error(error)
           ensure
-            # Clean exits pass through here too; for error exits this repeats the
-            # clear above as a no-op.
+            # Clean exits pass through here too; after an error exit this is a no-op.
             @lock.synchronize do
               @confirmed.clear
               @pending_acks.clear
               @probe_inflight.clear
               @opening_pending.clear
               @unvalidated.clear
-              # A session that died before its first acknowledgment must lift the
-              # opening gate, or every future write would be refused forever.
               @establishing = false
               @cond.broadcast
             end
@@ -811,10 +660,8 @@ class Redis
           delay = @reconnect_attempts[attempts]
           attempts += 1
           if delay.nil? # the reconnect schedule is exhausted
-            # The registrations outlive this death; a later subscribe restarts
-            # the listener with them (see #subscribe), and that restart follows
-            # a lossy gap — flag it so it runs as a reconnect and on_reconnect
-            # still announces the gap's end.
+            # Registrations outlive this death; a later subscribe restarts the
+            # listener, and that restart must run as a reconnect.
             @lock.synchronize { @resume_reconnecting = true unless @handlers.empty? }
             break
           end
@@ -838,16 +685,12 @@ class Redis
       end
 
       def listen(patterns, reconnected)
-        # The reconnect hook is documented to run AFTER the manager re-subscribed:
-        # fire it once every replayed pattern is either confirmed or no longer
-        # registered (unregistered acks are reverted and must not count as "live").
+        # on_reconnect is documented to fire AFTER the manager re-subscribed:
+        # once every replayed pattern is confirmed or no longer registered.
         announce_pending = reconnected ? patterns.dup : nil
-        # A probing session (the previous session's rejection named no culprit)
-        # replays one pattern per command instead of one batch: replies arrive in
-        # command order, so a rejection then attributes to exactly one pattern.
-        # The opening command carries only the first pattern; the rest are issued
-        # individually once the session demonstrably works (its first ack), each
-        # tracked in @probe_inflight for the rejection attribution.
+        # A probing session replays one pattern per command (opening carries the
+        # first; the rest go out on the first ack), so a rejection attributes to
+        # exactly one pattern.
         probing = @lock.synchronize do
           probe = @probe_replay
           @probe_replay = false
@@ -855,23 +698,15 @@ class Redis
         end
         opening = probing ? patterns.first(1) : patterns
         probe_queue = probing ? patterns.drop(1) : nil
-        # The session-opening command is one psubscribe per pattern, acknowledged
-        # like any later one: record the expected acks before issuing it (a failed
-        # connect raises into run_listener, whose session-end clear discards them).
-        # The session sequence is bumped alongside: waits key their single re-issue
-        # to it, and bumping before the connect lets a wait that sampled the old
-        # session retry against this one.
+        # Track the opening acks before the connect (a failed connect discards
+        # them via the session-end clear). @session_seq is bumped alongside so a
+        # wait that sampled the old session can retry against this one.
         @lock.synchronize do
           @session_seq += 1
-          # No command may reach the new session's socket BEFORE the opening
-          # command: its acks are tracked here, ahead of the connect, and the
-          # subscription client becomes visible to writers a beat before the
-          # opening write goes out — a concurrent write slipping into that gap
-          # would land first on the wire, inverting @pending_acks against reply
-          # order and mis-crediting every later acknowledgment (and, through
-          # them, the rejection attribution). write_to_session refuses (returns
-          # false, the "session not ready" answer callers already handle) until
-          # the first acknowledgment proves the opening command went out.
+          # No command may reach the new session's socket before the opening
+          # command: a write slipping into the establishment gap would invert
+          # @pending_acks against reply order. write_to_session refuses writes
+          # until the first ack proves the opening went out.
           @establishing = true
           probing ? mark_probes(opening) : track_opening_acks(opening)
         end
@@ -883,65 +718,43 @@ class Redis
             announce = false
             @lock.synchronize do
               @session_confirmed = true
-              # The opening command is demonstrably on the wire (this ack answers
-              # it): writes may flow — everything from here on is tracked and
-              # written atomically under @lock, in wire order.
+              # This ack proves the opening command is on the wire: writes may flow.
               @establishing = false
-              # The listener demonstrably recovered: a stale error from a previous
-              # session must not be re-raised by a later wait on a clean exit.
+              # The listener demonstrably recovered: a stale error must not be
+              # re-raised by a later wait.
               @listener_error = nil
-              # Consume the OLDEST expected acknowledgment: replies arrive in
-              # command order, so the shifted token names exactly the command this
-              # ack answers. Its blocking batch is credited on EVERY ack, gated or
-              # not — a batch whose own acknowledgments were all consumed can no
-              # longer be the rejected command and must retire from rejection
-              # attribution immediately; retiring only on final acks would let an
-              # overlapping younger command's unread ack keep an already-
-              # acknowledged batch in @inflight_waits as a possible culprit,
-              # shielding the genuinely-poisoned younger batch for a session
-              # bounce.
+              # Consume the OLDEST expected ack — replies arrive in command
+              # order, so the shifted token names exactly the command this ack
+              # answers. The batch is credited on EVERY ack, gated or not: a
+              # fully-acked batch can no longer be the rejected command and must
+              # retire from attribution immediately.
               tokens = @pending_acks[key]
               token = tokens&.shift
               @pending_acks.delete(key) if tokens && tokens.empty?
-              # The opening command was written first, so a pattern's FIRST ack
-              # this session is the opening's: the pattern retires from the
-              # opening batch's rejection attribution (later shifts are no-ops).
+              # A pattern's FIRST ack this session is the opening's.
               @opening_pending.delete(key)
               if token && (awaiting = @inflight_waits[token])
                 awaiting.delete(key)
                 @inflight_waits.delete(token) if awaiting.empty?
               end
-              # In-handler batches retire their validation markers the same way —
-              # on THEIR OWN command's ack, not the pattern's final one: an
-              # overlapping younger command's unread ack must not keep a fully
-              # acknowledged batch attributable, or a later rejection gets blamed
-              # on the acked batch (marking its valid registration dead for
-              # rollbacks) while the real poison survives the drop.
+              # In-handler markers and probes retire the same way — on THEIR OWN
+              # command's ack.
               marker = @unvalidated[key]
               @unvalidated.delete(key) if marker && token && marker[:seq] == token
-              # A probe command retires from rejection attribution on its own
-              # ack, exactly like the batches above.
               probe = @probe_inflight[key]
               @probe_inflight.delete(key) if probe && token && probe[:seq] == token
-              # While more acknowledgments remain, this ack answers an EARLIER
-              # command than the pattern's newest one and resolves nothing
-              # pattern-wide: confirming here would let a caller's wait return
-              # success for a later command the server may still reject (leaving a
-              # poisoned registration no wait can roll back), and retiring another
-              # command's validation marker here would hide that later command
-              # from rejection attribution.
+              # A non-final ack answers an EARLIER command than the pattern's
+              # newest one and resolves nothing pattern-wide: confirming here
+              # would report success for a command the server may still reject.
               pending = tokens ? !tokens.empty? : false
               next if pending
 
-              # Any final ack for this pattern retires its validation marker: a
-              # marker matching the live registration is now validated; one that
-              # doesn't match is stale (its registration was replaced or removed)
-              # and would otherwise be retained forever.
+              # Any final ack retires the validation marker (a non-matching one
+              # is stale and would otherwise leak).
               @unvalidated.delete(key)
               if @handlers.key?(key)
-                # A fresh generation per final ack: re-subscribing callers' waits
-                # compare against their install-time snapshot, so only this — an
-                # acknowledgment consumed AFTER their install — satisfies them.
+                # Fresh generation per final ack: only an ack consumed AFTER a
+                # caller's install satisfies its wait.
                 @confirmed[key] = (@confirm_seq += 1)
                 @cond.broadcast
                 registered = true
@@ -954,18 +767,15 @@ class Redis
                 end
               end
             end
-            # A probing session's deferred patterns go out on the first ack —
-            # the session demonstrably works from here on.
+            # A probing session's deferred patterns go out on the first ack.
             if probe_queue
               deferred = probe_queue
               probe_queue = nil
               issue_probes(deferred)
             end
-            # The server confirmed a pattern nobody is registered for anymore (an
-            # unsubscribe or a rolled-back subscribe raced this ack): revert it so
-            # server state converges back to the registry. A pending (non-final)
-            # ack resolved nothing above and must not be reverted either — the
-            # pattern's newest command is still awaiting its own ack.
+            # The server confirmed a pattern nobody is registered for anymore
+            # (an unsubscribe or rollback raced this ack): revert it. A pending
+            # ack resolved nothing above and is not reverted either.
             revert_subscription(pattern) unless registered || pending
             fire_reconnect if announce
           end
@@ -975,19 +785,14 @@ class Redis
               @confirmed.delete(key)
               @cond.broadcast
               entry = @handlers[key]
-              # Wanted again unless this ack answers the unsubscribe that targets the
-              # live registration (the normal flow, where deletion follows the ack) —
-              # or close's blanket punsubscribe: registrations legitimately outlive
-              # a close, but re-establishing them would fight the teardown with
-              # wasted writes until the connection is force-closed under them.
+              # Wanted again unless this ack answers the unsubscribe targeting
+              # the live registration, or close's blanket punsubscribe
+              # (re-establishing would fight the teardown).
               still_wanted = !@closing && !entry.nil? && !entry.equal?(@removing[key])
-              # A registered pattern lost its server-side subscription to an unsubscribe
-              # aimed at an older, since-replaced registration (the two block-less writes
-              # crossed on the wire): re-establish it. INSIDE the lock hold, like every
-              # other psubscribe write, so the write and its ack tracking are atomic —
-              # a concurrent subscribe slotting in between would leave @pending_acks in
-              # the opposite order from the wire, retiring a blocking batch on another
-              # command's ack and misdirecting a rejection onto a valid registration.
+              # A registered pattern lost its subscription to an unsubscribe
+              # aimed at an older, since-replaced registration: re-establish it.
+              # Inside the lock hold so the write and its ack tracking stay in
+              # wire order against concurrent subscribes.
               psubscribe_quietly([pattern]) if still_wanted
             end
           end
@@ -1010,8 +815,8 @@ class Redis
 
         key = pattern.b
         handler = @lock.synchronize do
-          # In-flight messages for a pattern that is no longer registered (it is
-          # being unsubscribed) are dropped rather than leaked to the default handler.
+          # Messages for a pattern being unsubscribed are dropped rather than
+          # leaked to the default handler.
           entry = @handlers[key]
           entry ? (entry.handler || @default_handler) : nil
         end
@@ -1020,43 +825,26 @@ class Redis
         report_error(error)
       end
 
-      # Waits for every pattern that is still THIS call's to confirm. A pattern whose
-      # registration was removed or replaced by a concurrent operation stops being
-      # waited for — it resolves to that operation's outcome, and timing out on it
-      # would make the rollback tear down the batch's innocent siblings (the cluster
-      # catch-up batches a node's whole registry, so one racing unsubscribe would
-      # otherwise fail the entire node refresh).
+      # Waits for every pattern that is still THIS call's to confirm. A pattern
+      # removed or replaced by a concurrent operation stops being waited for — it
+      # resolves to that operation's outcome (timing out on it would tear down
+      # the batch's innocent siblings).
       def wait_for_confirmation(patterns, installed, issue_seq, stale_confirmations, entry_epoch)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         restarted = false
         reissued_session = nil
         @lock.synchronize do
-          # Only errors NEWER than this wait implicate its command: a stale
-          # CommandError persists until the reconnect replay confirms, and raising
-          # it to a valid subscribe issued during that window would falsely reject
-          # a pattern the killed session never saw. entry_epoch was sampled by
-          # the caller in the SAME lock hold that issued the command — sampling
-          # here instead let the listener process our own rejection in the gap
-          # and bump the epoch first, making the waiter read it as stale and
-          # converge via seconds of replay/probe bounces instead of raising.
+          # entry_epoch was sampled in the same hold that issued the command, so
+          # a rejection processed before this wait entered still reads as fresh.
           loop do
-            # A fresh CommandError means the server REJECTED a command on this
-            # session (e.g. an ACL-forbidden pattern): retrying cannot fix it, so
-            # raise it promptly — but ONLY when the attribution named THIS wait's
-            # command; the caller's rollback then removes the poisoned
-            # registration instead of the replay churning until the generic
-            # timeout. A rejection pinned on another command (an in-handler
-            # batch, a probe, the opening replay) must not tear down an innocent
-            # waiter: its own command is replayed and confirms on the recovered
-            # session — raising here rolled back valid registrations, and misled
-            # the cluster manager's rejection probes (which ride these waits)
-            # into evicting healthy patterns. The epoch is consumed either way,
-            # so the same stored error is not re-examined every wake — only a
-            # NEWER rejection can implicate this wait later. Checked BEFORE the
-            # resolution break: a probe eviction resolves the pattern by
-            # deleting this call's registration in the same stroke as it names
-            # this wait, and the raise must win over "resolved by replacement"
-            # or the server's rejection would read as a successful subscribe.
+            # A fresh CommandError is raised promptly — but ONLY when attribution
+            # named THIS wait's command; a rejection pinned elsewhere must not
+            # tear down an innocent waiter (its command is replayed and confirms).
+            # The epoch is consumed either way so the same error is not
+            # re-examined every wake. Checked BEFORE the resolution break: a
+            # probe eviction deletes this call's registration in the same stroke
+            # as it names this wait, and the raise must win over "resolved by
+            # replacement".
             if (rejection = @listener_error).is_a?(CommandError) && @listener_error_epoch > entry_epoch
               raise rejection if @rejected_wait == issue_seq
 
@@ -1071,8 +859,8 @@ class Redis
                 raise SubscriptionError, "keyspace notifications listener died before confirming"
               end
 
-              # The previous listener ended naturally (e.g. a racing unsubscribe-all);
-              # restart it once with everything still registered.
+              # The previous listener ended naturally (e.g. a racing
+              # unsubscribe-all); restart it once.
               start_listener(@handlers.keys)
               restarted = true
             end
@@ -1081,16 +869,9 @@ class Redis
             raise SubscriptionError, "timed out waiting for subscription confirmation" if remaining <= 0
 
             @cond.wait([remaining, 0.05].min)
-            # At most ONE re-issue per listener session — not per 50ms wake. The
-            # re-issue exists to cover the session-establishment window (a pattern
-            # registered after the replay snapshot was taken has no command on the
-            # new session); on a live session whose command simply hasn't been
-            # acked yet, retrying is not only useless but harmful: every duplicate
-            # adds a pending acknowledgment the final-ack gate must drain, and a
-            # delayed listener would see confirmation recede behind an ever-growing
-            # backlog of the wait's own retries. Marked only when the write
-            # actually went out — an attempt against a still-connecting session is
-            # retried on the next wake.
+            # At most ONE re-issue per listener session: it exists to cover the
+            # session-establishment window, and duplicates stack pending acks the
+            # final-ack gate must drain. Marked only when the write went out.
             if @session_seq != reissued_session &&
                reissue_unconfirmed(patterns, installed, issue_seq, stale_confirmations)
               reissued_session = @session_seq
@@ -1100,15 +881,10 @@ class Redis
         nil
       end
 
-      # Re-issues psubscribe for patterns the server hasn't acked yet. Covers the
-      # window where a pattern was registered while the listener session wasn't
-      # established (thread starting up, or between reconnect attempts). Subscribing
-      # to an already-subscribed pattern is harmless — the server just re-acks it.
-      # Patterns removed from the registry in the meantime are skipped.
-      # Returns whether the command actually went out on the session.
-      # The re-issue carries its batch's seq: when the original write was lost
-      # with its session, the re-issue IS the batch's command, and its acks must
-      # credit the batch's retirement from rejection attribution.
+      # Re-issues psubscribe for patterns the server hasn't acked yet (covers a
+      # pattern registered while the session wasn't established). Re-subscribing
+      # is harmless — the server re-acks. Carries the batch's seq: when the
+      # original write died with its session, the re-issue IS the batch's command.
       def reissue_unconfirmed(patterns, installed, issue_seq, stale_confirmations)
         unconfirmed = patterns.select do |pattern|
           @handlers[pattern].equal?(installed[pattern]) && !fresh_confirmation?(pattern, stale_confirmations)
@@ -1116,29 +892,25 @@ class Redis
         psubscribe_quietly(unconfirmed, issue_seq)
       end
 
-      # A pattern stops being waited for once its confirmation generation is
-      # newer than the caller's install-time snapshot, or once its registration
-      # was replaced/removed by a concurrent operation (it then resolves to that
-      # operation's outcome). Called under @lock.
+      # A pattern stops being waited for once its confirmation is newer than the
+      # caller's install-time snapshot, or once its registration was replaced or
+      # removed (it then resolves to that operation's outcome). Called under @lock.
       def confirmed_or_replaced?(pattern, installed, stale_confirmations)
         fresh_confirmation?(pattern, stale_confirmations) || !@handlers[pattern].equal?(installed[pattern])
       end
 
-      # Whether the pattern's confirmation was minted AFTER the caller's install
-      # (the install snapshots the generation it saw). A kept-but-stale entry —
-      # the replaced registration's — reports the pattern as subscribed to the
-      # world, but must not satisfy the replacing call's wait. Called under @lock.
+      # Whether the pattern's confirmation was minted AFTER the caller's install:
+      # a kept-but-stale entry reports the pattern as subscribed to the world but
+      # must not satisfy the replacing call's wait. Called under @lock.
       def fresh_confirmation?(pattern, stale_confirmations)
         confirmation = @confirmed[pattern]
         !confirmation.nil? && confirmation != stale_confirmations[pattern]
       end
 
       # Blocks until the server no longer acknowledges any still-owned target as
-      # subscribed. The confirmations arrive via on.punsubscribe acks; a dead or
-      # restarting session counts as removed because its confirmations are cleared
-      # (server-side subscriptions die with the connection). A target whose
-      # registration was replaced by a concurrent subscribe stops being waited for —
-      # it is that subscribe's to confirm, and fighting it would just duel.
+      # subscribed. A dead or restarting session counts as removed (its
+      # confirmations are cleared); a target replaced by a concurrent subscribe
+      # stops being waited for — it is that subscribe's to confirm.
       def wait_for_removal(patterns, owned)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + SUBSCRIBE_ACK_TIMEOUT
         reissued_session = nil
@@ -1146,30 +918,20 @@ class Redis
           until patterns.none? { |pattern| @confirmed.key?(pattern) && @handlers[pattern].equal?(owned[pattern]) }
             remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
             if remaining <= 0
-              # Clear the removal marks ATOMICALLY with the timeout decision: after
-              # this raise the registration stays (caller retries), so a late ack
-              # must see no mark and re-establish it — releasing the lock between
-              # the raise and a separate mark-clearing would let that ack slip
-              # through with stale ownership and leave the pattern deaf.
+              # Clear the marks ATOMICALLY with the timeout decision: after the
+              # raise the registration stays (caller retries), and a late ack
+              # must see no stale mark.
               patterns.each { |pattern| @removing.delete(pattern) if @removing[pattern].equal?(owned[pattern]) }
-              # After the raise the registrations legitimately live on (the
-              # caller retries) — but the listener may have exited believing
-              # this removal completes it (its clean-exit recheck skips removal
-              # targets). Left dead, the surviving registrations would sit deaf
-              # until some later subscribe happens to restart it: revive it here.
+              # The listener may have exited believing this removal completes
+              # it; the surviving registrations would sit deaf — revive it.
               restart_dead_listener
               raise SubscriptionError, "timed out waiting for unsubscription confirmation"
             end
 
             @cond.wait([remaining, 0.05].min)
-            # At most ONE re-issue per listener session, like the subscribe
-            # path's reissue_unconfirmed: it exists only to catch a reconnect
-            # replay re-subscribing a removal target (the replay snapshots the
-            # full registry). Re-issuing every 50ms wake would stack up to ~100
-            # duplicate punsubscribes against a slow node, and each late ack
-            # then drops the pattern's confirmation and re-establishes it —
-            # flapping `subscribed?`, which is exactly what the cluster wrapper
-            # prunes whole nodes on. Marked only when the write went out.
+            # At most ONE re-issue per session (it exists to catch a reconnect
+            # replay re-subscribing a removal target); every-wake duplicates
+            # flap `subscribed?`, which the cluster wrapper prunes nodes on.
             pending = patterns.select do |pattern|
               @confirmed.key?(pattern) && @handlers[pattern].equal?(owned[pattern])
             end
@@ -1197,34 +959,24 @@ class Redis
         written
       end
 
-      # Records one expected acknowledgment per pattern for a psubscribe command
-      # that went out on the live session, remembering WHICH command it was: the
-      # issuing blocking batch's seq, or nil for writes with no waiting batch
-      # (the session-opening command, in-handler subscribes, re-establishes).
-      # EVERY psubscribe write must pass through here: an untracked command's ack
-      # would be credited to another command's token and un-gate a confirmation
-      # or retire a batch early.
+      # Records one expected ack per pattern for a psubscribe that went out,
+      # remembering WHICH command it was (the blocking batch's seq, nil for writes
+      # with no waiter). EVERY psubscribe write must pass through here, or its ack
+      # would be credited to another command's token.
       def track_pending_acks(patterns, batch_seq = nil)
         @lock.synchronize do
           patterns.each { |pattern| (@pending_acks[pattern.b] ||= []) << batch_seq }
         end
       end
 
-      # Records the expected acknowledgment per opening pattern, crediting it to
-      # the oldest blocking batch awaiting that pattern: the opening command IS
-      # the session's (re-)issue of such a wait's command — the wait that started
-      # the listener, or one whose command died with the previous session. Left
-      # uncredited (nil tokens), a completed wait would linger in rejection
-      # attribution until its caller thread happens to be scheduled; an
-      # in-handler subscription rejected in that window would be blamed on the
-      # finished wait, and the poisoned registration would survive into another
-      # session's replay.
+      # Tracks the opening batch's acks, crediting each pattern to the oldest
+      # blocking wait awaiting it — the opening IS the session's (re-)issue of
+      # that wait's command. Left uncredited, a completed wait would linger in
+      # rejection attribution until its caller thread is scheduled.
       def track_opening_acks(patterns)
         @lock.synchronize do
-          # The opening batch competes in rejection attribution like any other
-          # command: sequenced HERE — before any later write on this session can
-          # take a seq — so "opening still unacknowledged" correctly outranks
-          # every subscription issued after the replay began.
+          # Sequenced before any later write on this session can take a seq, so
+          # "opening still unacknowledged" outranks everything issued after it.
           @opening_seq = (@issue_seq += 1)
           patterns.each do |pattern|
             @opening_pending[pattern] = true
@@ -1234,8 +986,7 @@ class Redis
         end
       end
 
-      # Registers the probe bookkeeping for patterns whose single-pattern command
-      # is about to be issued (the probing session's opening command).
+      # Probe bookkeeping for the probing session's opening command.
       def mark_probes(patterns)
         @lock.synchronize do
           patterns.each do |pattern|
@@ -1250,11 +1001,9 @@ class Redis
       end
 
       # Issues one single-pattern psubscribe per remaining pattern of a probing
-      # session (on the listener thread, after the opening ack). Sequenced and
-      # written under one lock hold apiece, like every other write, so probe age
-      # reflects true wire order. A pattern unregistered meanwhile is skipped; a
-      # dead session stops the loop — the next replay owns convergence, and no
-      # probe entry is left behind for a command that never went out.
+      # session (listener thread, after the opening ack). Sequenced and written
+      # under one lock hold apiece so probe age reflects wire order; a dead
+      # session stops the loop with no dangling probe entries.
       def issue_probes(patterns)
         patterns.each do |pattern|
           alive = @lock.synchronize do
@@ -1274,18 +1023,13 @@ class Redis
         end
       end
 
-      # Every block-less write onto the subscription socket races its teardown:
-      # between any subscribed? check and the write, the session can close under us.
-      # That surfaces as SubscriptionError (no session), a connection error (socket
-      # died), or — when redis-client's PubSub has already discarded its raw
-      # connection — a NoMethodError on nil. All three mean the same thing here:
-      # the session is gone, and the registry replay plus the ack-time invariants
-      # own convergence. Returns false in that case, true when the write went out.
+      # Block-less writes race the session's teardown; SubscriptionError, a
+      # connection error, or redis-client's discarded-connection NoMethodError all
+      # mean "session gone" — the replay and ack-time invariants own convergence.
+      # Returns false then, true when the write went out.
       def write_to_session(verb, patterns)
-        # The session-opening command must be FIRST on the wire (see listen's
-        # tracking comment): until its acknowledgment arrives, every other
-        # write is refused exactly like a down session — the registry replay
-        # and the ack-time invariants own convergence either way.
+        # The opening command must be FIRST on the wire: until its ack arrives,
+        # every other write is refused exactly like a down session.
         return false if @establishing
 
         @redis.public_send(verb, *patterns)
@@ -1294,8 +1038,7 @@ class Redis
         false
       rescue NoMethodError => error
         # NoMethodError#receiver raises ArgumentError when the error carries no
-        # receiver information (e.g. manually constructed) — treat that as "not
-        # the torn-down-connection shape" and re-raise.
+        # receiver information — treat that as "not the torn-down shape".
         receiver_nil = begin
           error.receiver.nil?
         rescue ArgumentError
@@ -1308,15 +1051,13 @@ class Redis
 
       # A raised subscribe must leave no trace: restore each pattern's previous
       # registration exactly, and revert any newly-added pattern the server did
-      # manage to confirm in the meantime. Acks that arrive even later are reverted
-      # by the listener's registry check.
+      # confirm meanwhile. Later acks are reverted by the listener's registry check.
       def rollback_registration(previous, installed)
         revert = []
         @lock.synchronize do
           previous.each do |pattern, entry|
-            # This call failed, so its registration is dead wherever it ends up —
-            # marking it prevents a concurrent failed subscribe's rollback from
-            # restoring it as "the previous registration".
+            # Dead wherever it ends up: a concurrent failed subscribe's rollback
+            # must not restore it as "the previous registration".
             installed[pattern].failed = true
             # Re-registered by a concurrent subscribe meanwhile: theirs, not ours.
             next unless @handlers[pattern].equal?(installed[pattern])
@@ -1341,8 +1082,8 @@ class Redis
       end
 
       def fire_reconnect
-        # Read under @lock (paired with on_reconnect's synchronized write), called
-        # outside it — user code must never run while the manager lock is held.
+        # Read under @lock, called outside it — user code must never run while
+        # the manager lock is held.
         handler = @lock.synchronize { @reconnect_handler }
         handler&.call
       rescue StandardError => error

@@ -20,11 +20,9 @@ class Redis
         def initialize(node_key, redis_options, queue, on_error:, on_reconnect:)
           @node_key = node_key
           @queue = queue
-          # One shared wrapper for every pattern: it only enqueues the notification;
-          # the user handler is resolved from the cluster registry AT DISPATCH TIME,
-          # so buffered events honor unsubscribes and handler replacements that
-          # completed while they were queued. Runs on this node's listener thread and
-          # blocks when the queue is full, back-pressuring this node's socket reads.
+          # One shared wrapper for every pattern: it only enqueues; the user
+          # handler is resolved from the cluster registry at dispatch time. A
+          # full queue blocks this node's reads (backpressure).
           @enqueue = lambda do |notification|
             @queue.push(notification)
           rescue ClosedQueueError
@@ -41,20 +39,17 @@ class Redis
           @manager.on_reconnect { on_reconnect.call(node_key) }
         end
 
-        # Reconcile this node with the registered patterns: subscribe every one
-        # (idempotent — already-subscribed patterns are simply re-acked) and remove
-        # any pattern the node is still subscribed to that is no longer registered
-        # (e.g. a per-node unsubscribe failure that tracking-first removal left
-        # behind). This is the per-node convergence step run by every refresh.
+        # Per-node convergence step run by every refresh: subscribe every
+        # registered pattern (idempotent) and remove leftovers that are no
+        # longer registered.
         #
         # @param patterns [Array<String>] the registered patterns
         # @return [NodeListener] self
         def catch_up(patterns)
           subscribe(patterns) unless patterns.empty?
-          # Compare against the core manager's registered INTENT, not its confirmed
-          # set: a failed unsubscribe followed by a connection drop leaves the
-          # obsolete pattern registered-but-unconfirmed, and the reconnect replay
-          # would resurrect it on this node if reconciliation couldn't see it.
+          # Compare against registered INTENT, not confirmations: a
+          # registered-but-unconfirmed leftover would be resurrected by the
+          # reconnect replay if reconciliation couldn't see it.
           extra = @manager.registered_patterns - patterns
           @manager.unsubscribe(*extra) unless extra.empty?
           self
@@ -73,10 +68,9 @@ class Redis
           @manager.unsubscribe(*patterns)
         end
 
-        # Whether this listener needs no rebuild. When subscriptions are expected it
-        # must be actively subscribed — a listener that is mid-reconnect or whose
-        # reconnect budget ran out reports false and is rebuilt (and caught up) by
-        # the refresh that is asking.
+        # Whether this listener needs no rebuild: with subscriptions expected it
+        # must be actively subscribed (mid-reconnect or budget-exhausted
+        # listeners report false and are rebuilt by the asking refresh).
         #
         # @param expect_subscribed [Boolean] whether the cluster registry has patterns
         # @return [Boolean]

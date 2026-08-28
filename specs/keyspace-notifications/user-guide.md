@@ -8,7 +8,8 @@ If you read only one thing: keyspace notifications ride on ordinary pub/sub, but
 pub/sub" is not enough. Channel names and payloads have server-defined wire formats (some
 binary-safe and length-prefixed), delivery is **fire-and-forget**, and in **cluster** the events
 are node-local — a naive `subscribe` receives only a fraction of them. redis-rb ships tested
-builders, a binary-safe parser, and managers so you don't have to reimplement any of that.
+builders, a binary-safe parser, and managers so you don't have to reimplement any of that; the
+**managers (§4, §6) are the recommended entry point**.
 
 This document is the user-facing contract. The internal architecture — threading and consistency
 models, edge-case handling, and the trade-offs behind each decision — is described in
@@ -103,39 +104,17 @@ Layer 2:  Manager (Redis#keyspace_notifications)      Cluster manager (Redis::Cl
                         │                                                   │
 Layer 1:  Channels (builders)  +  Parser  +  Notification   ← pure, reusable anywhere
                         │
-Layer 0:  the existing subscribe/psubscribe DSL (lib/redis/subscribe.rb) — unchanged
+Layer 0:  the existing subscribe/psubscribe DSL (lib/redis/subscribe.rb) — same API, hardened
+          for cross-thread use (writes/close from other threads are now safe on all drivers)
 ```
 
-## 4. Layer 1 — builders and parser with the plain pub/sub DSL
+## 4. Layer 2 — the standalone manager (start here)
 
-Use this when you want full control of the subscription loop:
-
-```ruby
-channels = Redis::KeyspaceNotifications::Channels
-pattern  = channels.keyspace("user:*", db: 0)   # => "__keyspace@0__:user:*"
-
-redis.psubscribe(pattern) do |on|
-  on.pmessage do |matched, channel, payload|
-    n = Redis::KeyspaceNotifications::Parser.parse(channel, payload, pattern: matched)
-    next if n.nil? # not a notification channel
-
-    puts "#{n.event} on #{n.key} (db #{n.db}), subkeys: #{n.subkeys.inspect}"
-  end
-end
-```
-
-- Builders: `keyspace(key, db: 0)`, `keyevent(event, db: 0)`, `subkeyspace(key, db: 0)`,
-  `subkeyevent(event, db: 0)`, `subkeyspaceitem(key, subkey, db: 0)`,
-  `subkeyspaceevent(event, key, db: 0)`. `db:` accepts an Integer or `"*"`; key/event arguments may
-  contain globs for `psubscribe`. All return BINARY-encoded strings.
-- `Parser.parse(channel, payload, pattern: nil)` returns a `Notification`, `nil` for channels that
-  aren't notification channels, and raises `Redis::KeyspaceNotifications::ParseError` (carrying the
-  raw `channel`/`payload`) for a malformed body on a notification channel.
-- `Notification` exposes `family` (Symbol), `db`, `event`, `key`, `subkeys` (frozen Array),
-  `channel`, `payload`, `pattern`, plus `subkey` and `subkey_family?`. `key`/`subkeys` are
-  BINARY-encoded (keys are bytes on the wire); `force_encoding("UTF-8")` if you know better.
-
-## 5. Layer 2 — the standalone manager
+The manager is the **recommended way to consume notifications**: it owns the subscription
+connection and thread for you, confirms subscriptions with the server, parses every message,
+auto-resubscribes after connection loss, and gives you the reconciliation hooks the
+fire-and-forget transport demands. Reach for Layer 1 (§5) only if you need to run the
+subscription loop yourself.
 
 ```ruby
 manager = redis.keyspace_notifications(error_handler: ->(e) { Rails.logger.warn(e) })
@@ -176,12 +155,21 @@ Semantics worth knowing:
 - **Auto-resubscribe:** on connection loss the manager reconnects and replays every registered
   pattern, then fires `on_reconnect`. The `reconnect_attempts:` option uses the same semantics as
   the `Redis.new` option of the same name — an Integer (that many immediate retries) or an Array
-  of sleep durations between attempts (`[]` disables reconnection). The default is an exponential
+  of finite, non-negative sleep durations between attempts (`[]` disables reconnection; invalid
+  values raise `ArgumentError` at construction). The default is an exponential
   ladder of 10 attempts, 0.5s doubling up to 30s (~2 minutes of patience); the budget resets after
-  every healthy session. The gap is inherently lossy — `on_reconnect` is your reconciliation hook.
+  every healthy session. The gap is inherently lossy — `on_reconnect` is your reconciliation hook,
+  and it also fires when a later `subscribe` revives a listener whose schedule was exhausted (the
+  surviving patterns went through the same lossy gap).
+- **Rejected patterns are evicted, not retried forever.** If the server rejects a pattern on the
+  reconnect replay — typically because its channel permissions were revoked *after* it was
+  subscribed — the manager evicts that pattern from its registry and reports the rejection to the
+  error handler, instead of failing every subsequent reconnect and eventually going dark. The
+  other patterns keep flowing. (A rejection at `subscribe` time still raises the
+  `Redis::CommandError` to you directly and leaves no registration.)
 - Typed helpers (`subscribe_keyspace`, `subscribe_keyevent`, `subscribe_subkeyspace`,
   `subscribe_subkeyevent`, `subscribe_subkeyspaceitem`, `subscribe_subkeyspaceevent`) are
-  one-liners over `subscribe` + the builders; `on_notification` sets a default handler;
+  one-liners over `subscribe` + the channel builders (§5); `on_notification` sets a default handler;
   `unsubscribe` (no args = all) stops delivery, and unsubscribing the last pattern parks the
   thread until the next `subscribe`.
 
@@ -211,6 +199,37 @@ threads operate on the keyspace:
 
 Runnable demo: `examples/keyspace_notifications_pool.rb`.
 
+## 5. Layer 1 — builders and parser with the plain pub/sub DSL
+
+Most applications should use the manager (§4; §6 in cluster). Drop down to this layer only
+when you want full control of the subscription loop — you then own reconnection, replay and
+error handling yourself, and only the channel formats and parsing are solved for you:
+
+```ruby
+channels = Redis::KeyspaceNotifications::Channels
+pattern  = channels.keyspace("user:*", db: 0)   # => "__keyspace@0__:user:*"
+
+redis.psubscribe(pattern) do |on|
+  on.pmessage do |matched, channel, payload|
+    n = Redis::KeyspaceNotifications::Parser.parse(channel, payload, pattern: matched)
+    next if n.nil? # not a notification channel
+
+    puts "#{n.event} on #{n.key} (db #{n.db}), subkeys: #{n.subkeys.inspect}"
+  end
+end
+```
+
+- Builders: `keyspace(key, db: 0)`, `keyevent(event, db: 0)`, `subkeyspace(key, db: 0)`,
+  `subkeyevent(event, db: 0)`, `subkeyspaceitem(key, subkey, db: 0)`,
+  `subkeyspaceevent(event, key, db: 0)`. `db:` accepts an Integer or `"*"`; key/event arguments may
+  contain globs for `psubscribe`. All return BINARY-encoded strings.
+- `Parser.parse(channel, payload, pattern: nil)` returns a `Notification`, `nil` for channels that
+  aren't notification channels, and raises `Redis::KeyspaceNotifications::ParseError` (carrying the
+  raw `channel`/`payload`) for a malformed body on a notification channel.
+- `Notification` exposes `family` (Symbol), `db`, `event`, `key`, `subkeys` (frozen Array),
+  `channel`, `payload`, `pattern`, plus `subkey` and `subkey_family?`. `key`/`subkeys` are
+  BINARY-encoded (keys are bytes on the wire); `force_encoding("UTF-8")` if you know better.
+
 ## 6. Cluster — why a manager is required, not optional
 
 In a cluster, keyspace notifications are **node-local**: each node publishes events only for keys
@@ -231,22 +250,30 @@ manager.refresh
 
 How it works:
 
-- One dedicated pub/sub connection **per primary** (enumerated via `CLUSTER SLOTS`), each running a
+- One dedicated pub/sub connection **per primary** (enumerated via `CLUSTER NODES` — membership,
+  so a freshly added primary is discovered even before it owns a slot), each running a
   standalone manager internally; a canonical pattern registry is the source of truth.
 - All node listeners funnel into one bounded queue drained by a **single dispatcher thread**:
   handlers need not be thread-safe; per-node ordering is preserved, cross-node ordering is
   unspecified. A slow handler back-pressures the node readers (tune with `queue_size:`).
-- **Reactive refresh:** any node connection error signals a dedicated refresher thread, which
-  reconciles — re-enumerate primaries, drop vanished/demoted nodes, connect and catch up new
-  ones on every registered pattern. It runs off the dispatcher so dispatch keeps draining the
-  queue during a refresh (node readers blocked on a full queue must be able to process the
-  subscription acks the refresh waits for), and a failed reactive refresh reschedules itself
-  with exponential backoff (0.25s doubling to 30s) until it succeeds. There is no proactive
-  polling; after a scale-out call `refresh` yourself (a brand-new primary emits no error
-  signal). Manual `refresh` raises `Redis::Cluster::KeyspaceNotificationsRefreshError` (with a
+- **Reactive refresh:** any node connection error — or a server rejection during a node's
+  reconnect replay — signals a dedicated refresher thread, which reconciles: re-enumerate
+  primaries, drop vanished/demoted nodes, connect and catch up new ones on every registered
+  pattern. It runs off the dispatcher so dispatch keeps draining the queue during a refresh
+  (node readers blocked on a full queue must be able to process the subscription acks the
+  refresh waits for), and a failed reactive refresh reschedules itself with exponential
+  backoff (0.25s doubling to 30s) until it succeeds. There is no proactive polling; after a
+  scale-out call `refresh` yourself (a brand-new primary emits no error signal) — calling it
+  *before* resharding works, and attaches the listener ahead of the first migrated key.
+  Manual `refresh` raises `Redis::Cluster::KeyspaceNotificationsRefreshError` (with a
   per-node `#errors` hash) if any primary still can't be subscribed.
 - Slot migration emits **no** unsubscribe signal, but because every primary is subscribed, keys
   moving between existing primaries keep flowing transparently.
+- **Handlers should tolerate duplicates.** A primary demoted *without* its connections dropping
+  (e.g. a manual `CLUSTER FAILOVER`) emits no error signal, and as a replica it re-emits every
+  replicated write — so its shard's events can arrive twice until a refresh observes the settled
+  topology and prunes it. Keyspace notifications never promise exactly-once; design handlers to
+  be idempotent.
 - `unsubscribe` removes registry tracking first — the opposite of the standalone manager's
   ack-then-commit, and deliberate: with N nodes a partial failure is normal, and keeping the
   pattern registered because one node failed would make the next refresh re-subscribe it on the
@@ -255,8 +282,9 @@ How it works:
 - One exception to best-effort: when the **server rejects** a pattern (e.g. an ACL-forbidden
   channel), `subscribe` raises the `Redis::CommandError` and the pattern is evicted from the
   registry — it could never succeed anywhere, and left registered it would fail every future
-  refresh. The call's other patterns stay registered. Rejections of patterns subscribed from
-  inside a handler are reported to the error handler and evicted by the next refresh.
+  refresh. The call's other patterns stay registered. Rejections with no caller to raise to —
+  patterns subscribed from inside a handler, or a pattern rejected on a node's reconnect replay
+  after its permissions changed — are reported to the error handler and evicted via refresh.
 - The **error handler can be invoked from node reader threads** (as well as the dispatcher and
   refresher): keep it fast and non-blocking, like a notification handler. In particular, don't
   call `close` or `refresh` from it synchronously — while a refresh is reconciling, those block

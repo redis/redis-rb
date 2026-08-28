@@ -2,13 +2,11 @@
 
 require "helper"
 
-# Exercises the manager's dispatch and lifecycle mechanics fully end to end: every
-# notification consumed here is emitted by the server itself in response to real key
-# modifications (`notify-keyspace-events` is enabled in setup and restored in
-# teardown). The test database is 15, so events land on `__keyspace@15__` channels.
-# Wire-format coverage across all six channel families lives in
-# test/redis/keyspace_notifications_test.rb; malformed-payload parsing is covered by
-# the parser unit tests (the server never emits malformed notifications on its own).
+# End-to-end tests of the manager's dispatch and lifecycle mechanics: every
+# notification is emitted by the server in response to real key modifications
+# (`notify-keyspace-events` set in setup, restored in teardown; test db is 15).
+# Wire-format coverage lives in test/redis/keyspace_notifications_test.rb;
+# malformed-payload parsing is covered by the parser unit tests.
 class TestKeyspaceNotificationsManager < Minitest::Test
   include Helper::Client
 
@@ -91,8 +89,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     notifications = Queue.new
     errors = Queue.new
     manager = new_manager(error_handler: ->(error) { errors << error })
-    # A manager pointed at an ordinary pub/sub channel: real messages arriving there
-    # are not notifications — reported as ParseError, and the listener keeps going.
+    # Ordinary pub/sub messages are not notifications: reported as ParseError,
+    # and the listener keeps going.
     manager.subscribe("app-events:*", handler: ->(notification) { notifications << notification })
     manager.subscribe_keyspace("realkey", db: DB) { |notification| notifications << notification }
 
@@ -133,8 +131,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager = new_manager
     manager.subscribe(CHANNELS.keyspace("confirmed", db: DB), handler: ->(notification) { queue << notification })
 
-    # Notifications are fire-and-forget: if subscribe had returned before the server
-    # registered the pattern, the event of this write could be lost.
+    # Notifications are fire-and-forget: an unconfirmed subscribe could lose this event.
     r.set("confirmed", "v")
 
     assert_equal "set", assert_pop(queue).event
@@ -154,8 +151,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
 
     manager.unsubscribe(channel_b)
 
-    # Unsubscribe blocked until the server acked, so this write emits nothing to us;
-    # the next delivery must be a's (a stale b event would arrive first if it existed).
+    # Unsubscribe blocked until the server acked, so a stale b event would arrive before a's.
     r.set("b", "v2")
     r.set("a", "v")
 
@@ -201,8 +197,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_empty manager.patterns
     wait_until { !manager.subscribed? }
 
-    # The server acked the removal before unsubscribe returned, so this event is
-    # never sent to us — if it were, it would arrive before the del below.
+    # The removal was acked before unsubscribe returned, so this event is never sent to us.
     r.set("k", "v")
 
     manager.subscribe(channel, handler: ->(notification) { queue << notification })
@@ -303,21 +298,16 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     r.client(:kill, "TYPE", "pubsub") # reconnect schedule empty: the listener dies
     wait_until { !manager.subscribed? }
 
-    # Restarting the dead listener replays the old registration after a lossy
-    # gap of arbitrary length: on_reconnect must announce the gap's end exactly
-    # like a same-thread reconnect, or the application never reconciles.
+    # Restarting a dead listener is a reconnect: on_reconnect must announce the
+    # end of the lossy gap just like a same-thread reconnect.
     manager.subscribe(CHANNELS.keyspace("new", db: DB), handler: ->(_notification) {})
 
     assert_pop(reconnects, timeout: 5)
   end
 
   def test_close_racing_the_listeners_session_teardown_is_safe
-    # Regression: close writes PUNSUBSCRIBE from the closing thread while the
-    # listener thread tears down the same pub/sub connection after a
-    # session-killing rejection. Unserialized, the write lands on a freed
-    # hiredis context — a native use-after-free (CI SIGSEGV in
-    # redisBufferWrite), not a rescuable exception. The write must either
-    # complete before the teardown or observe the closed client and raise.
+    # close writes PUNSUBSCRIBE while the listener thread tears down the same
+    # connection; unserialized, that is a native use-after-free in hiredis.
     r.acl("SETUSER", "kn_limited9", "on", ">knpass", "+@all", "resetchannels",
           "&#{CHANNELS.keyspace('closerace', db: DB)}")
     10.times do
@@ -349,10 +339,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager.on_reconnect { reconnects << true }
     manager.subscribe(CHANNELS.keyspace("revive", db: DB), handler: ->(notification) { queue << notification })
 
-    # The end state of the unsubscribe races: the listener exited (its
-    # clean-exit recheck saw only removal targets) while a registration
-    # survived — a timed-out unsubscribe kept it, or a replacement landed
-    # after the recheck. Nothing else would ever restart the listener.
+    # Simulate the unsubscribe-race end state: the listener exited while a
+    # registration survived — nothing else would ever restart it.
     thread = manager.instance_variable_get(:@thread)
     thread.kill
     thread.join
@@ -361,8 +349,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       manager.send(:restart_dead_listener)
     end
 
-    # The revival runs as a reconnect (the registration's server-side
-    # subscription died with the listener's session) and delivery resumes.
+    # The revival runs as a reconnect and delivery resumes.
     assert_pop(reconnects, timeout: 5)
     r.set("revive", "v")
 
@@ -384,9 +371,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
   end
 
   def test_invalid_reconnect_attempts_fail_at_construction
-    # Undetected, a bad value only surfaces as a NoMethodError on the listener
-    # thread after a connection loss — killing the reconnect machinery (and,
-    # pre-fix, close's teardown) instead of the caller that passed it.
+    # Undetected, a bad value only surfaces on the listener thread after a
+    # connection loss instead of at the caller that passed it.
     error = assert_raises(ArgumentError) do
       Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: 1.5)
     end
@@ -395,9 +381,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_raises(ArgumentError) do
       Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: ["fast"])
     end
-    # Non-finite (or negative, or non-real) delays satisfy Numeric but blow up
-    # the backoff arithmetic on the listener thread after the first connection
-    # loss — they must fail at the call site like any other bad value.
+    # Non-finite or negative delays satisfy Numeric but break the backoff arithmetic.
     [[Float::NAN], [Float::INFINITY], [-1], [0.5, Float::NAN]].each do |delays|
       assert_raises(ArgumentError, "expected #{delays.inspect} to be rejected") do
         Redis::KeyspaceNotifications::Manager.new(redis: Redis.new(OPTIONS), reconnect_attempts: delays)
@@ -422,17 +406,14 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager.subscribe(allowed, handler: ->(notification) { notifications << notification })
     manager.subscribe(poisoned, handler: ->(_notification) {})
 
-    # Revoke the pattern AFTER it was subscribed: the batch replay of the whole
-    # registry is then rejected wholesale, naming no culprit. Before the probing
-    # replay this looped until the reconnect schedule was exhausted and left the
-    # manager dead with the poison still registered, bricking every restart.
+    # Revoke the pattern AFTER it was subscribed: the batch replay is rejected
+    # wholesale, naming no culprit, so the probing replay must find and evict it.
     r.acl("SETUSER", "kn_limited6", "resetchannels", "&#{allowed}")
     r.client(:kill, "TYPE", "pubsub") # in case the ACL change did not kill the session itself
 
     wait_until(timeout: 10) { !manager.registered_patterns.include?(poisoned) }
 
-    # The surviving pattern recovers on the cleaned replay (events published
-    # into the reconnect gap are lost, so probe with retries).
+    # Events published into the reconnect gap are lost, so probe with retries.
     delivered = nil
     10.times do
       r.set("allowed", "v")
@@ -460,9 +441,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       reconnect_attempts: [0.05] * 20
     )
     @managers << manager
-    # The poison is FIRST in registry (and thus replay) order: the probing
-    # session's opening command itself is rejected, before any acknowledgment
-    # could arrive — the eviction must attribute it all the same.
+    # The poison is FIRST in replay order: the probing session's opening command
+    # itself is rejected before any ack — eviction must attribute it all the same.
     manager.subscribe(poisoned, handler: ->(_notification) {})
     manager.subscribe(allowed, handler: ->(notification) { notifications << notification })
 
@@ -515,10 +495,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     r.set("trigger3", "v")
     gate.pop # the listener is parked in the handler; the valid marker is unretired
 
-    # Revoke the OTHER pattern and kill the session while parked: the replay is
-    # rejected because of the poison, but the dead session's stale marker used to
-    # win the attribution — permanently evicting the valid pattern while the
-    # poison stayed registered. Markers must die with their session.
+    # Revoke the OTHER pattern and kill the session while parked: the dead
+    # session's stale marker must not win the attribution — markers die with their session.
     r.acl("SETUSER", "kn_limited8", "resetchannels", "&#{trigger}", "&#{valid}")
     r.client(:kill, "TYPE", "pubsub")
     release << true
@@ -560,8 +538,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_equal "oneshot", assert_pop(queue).key
     assert_operator elapsed, :<, 1, "self-unsubscribe stalled the listener thread"
 
-    # The ack is processed right after the handler returns; the unsubscribed pattern
-    # disappears from both the server and the confirmed set, the other keeps flowing.
+    # The ack is processed once the handler returns; the other pattern keeps flowing.
     wait_until { r.pubsub(:numpat) == 1 }
     wait_until { manager.patterns == [CHANNELS.keyspace("other", db: DB)] }
     r.set("oneshot", "v2")
@@ -614,9 +591,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     first = CHANNELS.keyspace("swap:first", db: DB)
     second = CHANNELS.keyspace("swap:second", db: DB)
     manager.subscribe(first, handler: lambda { |notification|
-      # Unsubscribe everything, then register a replacement before returning: the
-      # session ends on the punsubscribe ack, but the listener must restart for
-      # the replacement instead of treating it as a clean shutdown.
+      # Unsubscribe everything, then register a replacement before returning:
+      # the listener must restart for it instead of treating this as a clean shutdown.
       manager.unsubscribe
       manager.subscribe(second, handler: ->(n) { queue << n })
       queue << notification
@@ -652,12 +628,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       end
       unsubscriber.join
 
-      # Concurrent subscribe/unsubscribe of one pattern has no defined winner; the
-      # contract is convergence — the server-side subscription must agree with the
-      # local registration (the ack-time invariants repair wire-order races), and
-      # delivery must agree with both. Settled means ALL THREE layers agree —
-      # registry (intent), confirmed (acked) and the server — otherwise a re-issue
-      # can still be in flight while confirmed and NUMPAT momentarily read empty.
+      # No defined winner; the contract is convergence. Settled means all three
+      # layers agree — registry (intent), confirmed (acked), and the server.
       registered = nil
       settle_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 3
       loop do
@@ -676,12 +648,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
         sleep 0.01
       end
       if registered
-        # The settled subscription must deliver — but a single probe can be lost:
-        # an unsubscribe aimed at a replaced registration may still be in flight
-        # server-side (invisible to every layer until it lands), and an event
-        # published into that gap is gone forever (fire-and-forget) before the
-        # ack invariant re-subscribes. That loss window is inherent to pub/sub —
-        # the guarantee is that the STREAM recovers, so probe with retries.
+        # A single probe can be published into an in-flight unsubscribe gap and
+        # lost (fire-and-forget); the guarantee is that the stream recovers, so retry.
         delivered = nil
         3.times do
           r.set("race", "v")
@@ -692,8 +660,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
         flunk "no delivery despite a settled registration" unless delivered
         assert_equal "race", delivered.key
       else
-        # An empty settled state stays silent: nothing re-subscribes an
-        # unregistered pattern, and dispatch drops events for one regardless.
+        # An empty settled state stays silent.
         r.set("race", "v")
         sleep 0.05
 
@@ -705,9 +672,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
 
   def test_subscribe_during_reconnect_backoff_triggers_immediate_reconnect
     errors = Queue.new
-    # One long delay: without the immediate-reconnect wake-up, a subscribe issued
-    # during this backoff could only wait out its confirmation timeout and fail,
-    # even though the server is perfectly reachable again.
+    # One long delay: a subscribe during this backoff must wake an immediate
+    # reconnect instead of waiting out its confirmation timeout.
     manager = new_manager(error_handler: ->(error) { errors << error }, reconnect_attempts: [30])
     old_queue = Queue.new
     manager.subscribe(CHANNELS.keyspace("old", db: DB), handler: ->(notification) { old_queue << notification })
@@ -718,7 +684,6 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     new_queue = Queue.new
     manager.subscribe(CHANNELS.keyspace("new", db: DB), handler: ->(notification) { new_queue << notification })
 
-    # The subscribe returned confirmed: both the replayed and the new pattern are live.
     r.set("old", "v")
     r.set("new", "v")
 
@@ -779,19 +744,16 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     assert_match(/NOPERM|permission/i, error.message)
     assert_operator elapsed, :<, 3, "a server rejection must raise promptly, not wait out the ack timeout"
 
-    # A VALID subscribe issued during the reconnect window (the stale CommandError
-    # is still stored until the replay confirms) must not inherit the rejection:
-    # only errors newer than the wait implicate its command.
+    # A valid subscribe during the reconnect window must not inherit the stored
+    # stale rejection: only errors newer than the wait implicate its command.
     queue2 = Queue.new
     manager.subscribe(CHANNELS.keyspace("allowed2", db: DB), handler: ->(notification) { queue2 << notification })
     r.set("allowed2", "v")
 
     assert_equal "allowed2", assert_pop(queue2).key
 
-    # The rejected registration was rolled back, so the reconnect replay is clean
-    # and the surviving pattern recovers. The rejection killed the session, and
-    # events published into the reconnect gap are lost (fire-and-forget) — NUMPAT
-    # can even briefly count the dying session — so probe with retries.
+    # The rejection killed the session; events published into the reconnect gap
+    # are lost, so probe with retries.
     delivered = nil
     5.times do
       r.set("allowed", "v")
@@ -815,17 +777,14 @@ class TestKeyspaceNotificationsManager < Minitest::Test
 
     manager.unsubscribe(channel)
 
-    # rollback_registration consults this flag when restoring "the previous
-    # registration": one disposed of by a completed unsubscribe (deleted, or
-    # released because it was replaced) must never be resurrected by a failed
-    # concurrent subscribe's rollback.
+    # A registration disposed of by a completed unsubscribe must never be
+    # resurrected by a failed concurrent subscribe's rollback.
     assert entry.failed, "a completed unsubscribe must mark its captured registration dead"
   end
 
   def test_close_interrupts_a_reconnect_backoff
     errors = Queue.new
-    # A single long delay: without an interruptible backoff, close would leave the
-    # listener thread sleeping for the full 30s after its bounded joins expire.
+    # A single long delay: close must interrupt the backoff sleep.
     manager = new_manager(error_handler: ->(error) { errors << error }, reconnect_attempts: [30])
     manager.subscribe_keyspace("k", db: DB)
 
@@ -859,8 +818,6 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     sleep 0.2
     # The replaced registration's stale confirmation must not satisfy the
     # replacement's wait: its own ack can only be read once the listener resumes.
-    # Returning early would report success for a command the server could still
-    # reject, with no waiter left to roll the registration back.
     assert_predicate replacer, :alive?, "replacement subscribe returned before its acknowledgment could be read"
 
     release << true
@@ -886,19 +843,16 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       next unless fired.empty?
 
       fired << true
-      # Batch 1: a valid pattern sharing the call with a forbidden one. Batch 2:
-      # replaces the valid pattern before the handler returns. Re-marking the
-      # pattern keeps its ORIGINAL map position, so position-based age would
-      # blame batch 2 for batch 1's rejection — killing the valid replacement
-      # and keeping the poison.
+      # Batch 2 replaces batch 1's valid pattern at its ORIGINAL map position,
+      # so position-based age would blame batch 2 for batch 1's rejection.
       manager.subscribe(shared, CHANNELS.keyspace("forbidden", db: DB), handler: ->(_n) {})
       manager.subscribe(shared, handler: ->(notification) { replaced << notification })
     })
     r.set("trigger", "v")
     assert fired.pop(timeout: 3)
 
-    # The rejection bounces the session; the replacement must survive the batch
-    # drop and be replayed, while the forbidden pattern is dropped for good.
+    # The replacement must survive the batch drop and be replayed; the forbidden
+    # pattern is dropped for good.
     wait_until(timeout: 5) do
       manager.registered_patterns.sort == [CHANNELS.keyspace("trigger", db: DB), shared].sort
     end
@@ -933,18 +887,15 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager.subscribe(trigger, handler: lambda { |_notification|
       gate << true
       release.pop
-      # Wire position 2: a VALID in-handler subscribe, issued after the caller's
-      # rejected command already sits first on the wire. The session-killing
-      # rejection belongs to the caller's command — which has its own waiter to
-      # roll it back — so attribution must not blame (and delete) this batch.
+      # Wire position 2: a VALID in-handler subscribe behind the caller's rejected
+      # command — attribution must not blame this batch (the caller has its own waiter).
       manager.subscribe(inhandler, handler: ->(notification) { received << notification })
     })
     r.set("trigger", "v")
     gate.pop # the listener is parked: nothing is read until release
 
     rejector = Thread.new do
-      # Wire position 1: written immediately (writes don't need the listener),
-      # rejected once the listener resumes reading.
+      # Wire position 1: written immediately, rejected once the listener resumes reading.
       manager.subscribe(CHANNELS.keyspace("forbidden", db: DB))
     rescue StandardError => error
       error
@@ -953,9 +904,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release << true
 
     assert_kind_of Redis::CommandError, rejector.value
-    # The in-handler registration survives attribution, is replayed after the
-    # rejection's session bounce, and delivers; the rejected pattern is rolled
-    # back by its own waiter.
+    # The in-handler registration survives attribution and is replayed after the
+    # session bounce; the rejected pattern is rolled back by its own waiter.
     wait_until(timeout: 5) do
       manager.registered_patterns.sort == [inhandler, trigger].sort && manager.subscribed?
     end
@@ -988,10 +938,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     state = states.pop(timeout: 3)
     refute_nil state, "the connection loss never reached the error handler"
     assert_kind_of Redis::BaseConnectionError, state[:error]
-    # The session's server-side subscriptions died with it: confirmations must be
-    # cleared BEFORE the error reaches user code, or the callback (and anything it
-    # consults, like the cluster wrapper's health checks) sees the dead session
-    # as live.
+    # Confirmations must be cleared BEFORE the error reaches user code, or the
+    # callback sees the dead session as live.
     refute state[:subscribed], "error handler saw the dead session as subscribed"
     assert_empty state[:patterns]
   end
@@ -1014,11 +962,9 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager.subscribe(trigger, handler: lambda { |_notification|
       gate << true
       release.pop
-      # Wire order: the blocking subscribe below is acked FIRST, then this
-      # rejected command errors. A fully-acknowledged blocking batch must retire
-      # from rejection attribution at ack time — even while its caller has not
-      # resumed — or the rejection is not attributed to this batch and the poison
-      # survives into (and bounces) a second session.
+      # The blocking subscribe below is acked FIRST, then this command errors.
+      # A fully-acknowledged batch must retire from rejection attribution at ack
+      # time, or the poison survives into a second session.
       manager.subscribe(CHANNELS.keyspace("forbidden", db: DB), handler: ->(_n) {})
     })
     r.set("trigger", "v")
@@ -1034,8 +980,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release << true
 
     waiter.join(5)
-    # Exactly ONE rejection converges the poison out of the registry; a second one
-    # means the acked wait masked the attribution and the poison was replayed.
+    # Exactly ONE rejection converges the poison out; a second means it was replayed.
     assert_kind_of Redis::CommandError, rejections.pop(timeout: 3)
     wait_until(timeout: 5) do
       !manager.registered_patterns.include?(CHANNELS.keyspace("forbidden", db: DB)) && manager.subscribed?
@@ -1066,7 +1011,7 @@ class TestKeyspaceNotificationsManager < Minitest::Test
 
     refute_predicate manager, :subscribed?
     # Intent and confirmations diverge while down: the registration survives
-    # (a reconnect replay would restore it) even though nothing is confirmed.
+    # even though nothing is confirmed.
     assert_empty manager.patterns
     assert_equal [Redis::KeyspaceNotifications::Channels.keyspace("k", db: DB)], manager.registered_patterns
     r.set("k", "v")
@@ -1079,8 +1024,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     gate = Queue.new
     release = Queue.new
     manager = new_manager(error_handler: ->(_error) {})
-    # A parking channel: its handler blocks the listener thread on demand, so the
-    # acknowledgments piling up behind each publication are read only when we say so.
+    # A parking channel: its handler blocks the listener thread on demand, so
+    # acknowledgments are read only when we say so.
     manager.subscribe(CHANNELS.keyspace("park", db: DB), handler: lambda { |_notification|
       gate << true
       release.pop
@@ -1102,9 +1047,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     release << true # the listener consumes the first command's ack, then parks on "v2"
     gate.pop
     sleep 0.2
-    # The consumed ack answered the FIRST command. The second call's own, later command
-    # is still unanswered — its wait must not be satisfied by the earlier acknowledgment
-    # (the server could still reject it, with no waiter left to roll the poison back).
+    # The consumed ack answered the FIRST command; the second call's later command
+    # is still unanswered — its wait must not be satisfied by the earlier ack.
     assert_predicate second, :alive?, "second re-subscribe returned on the first command's acknowledgment"
 
     release << true # the listener reads on: the second command's ack resolves the wait
@@ -1139,9 +1083,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     pending = manager.instance_variable_get(:@lock).synchronize do
       (manager.instance_variable_get(:@pending_acks)[target.b] || []).size
     end
-    # The command itself plus at most one same-session re-issue: each duplicate is
-    # another acknowledgment the final-ack gate must drain, so unbounded retries
-    # would keep pushing confirmation behind fresh duplicates of themselves.
+    # The command plus at most one same-session re-issue: unbounded retries would
+    # keep pushing confirmation behind fresh duplicates of themselves.
     assert_operator pending, :<=, 2, "the wait stacked #{pending} pending acknowledgments"
 
     release << true
@@ -1166,11 +1109,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     end
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
 
-    # The manager is the sole owner of reconnection timing. The owned connection
-    # is duplicated from the source client, and copying its reconnect_attempts
-    # would make this single connect attempt sit out the source's [30] transport
-    # ladder inside redis-client — the empty MANAGER schedule notwithstanding —
-    # leaving subscribe to die by ack timeout while the listener sleeps for 30s.
+    # The owned connection must not copy the source's reconnect_attempts: this
+    # single connect would sit out the source's [30] transport ladder inside redis-client.
     assert_kind_of Redis::BaseConnectionError, error
     assert_operator elapsed, :<, 4, "subscribe waited out a transport-level retry ladder"
     wait_until(timeout: 2) { !manager.instance_variable_get(:@thread).alive? }
@@ -1194,9 +1134,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager.subscribe(trigger, handler: lambda { |_notification|
       next unless fired.empty?
 
-      # A fully valid in-handler batch, then the actual poison, then park: both
-      # commands' replies are read only after the blocking call below put a
-      # younger command for x on the wire.
+      # A fully valid batch, then the poison, then park: both replies are read
+      # only after the blocking call below put a younger x command on the wire.
       manager.subscribe(x, y, handler: ->(_n) {})
       manager.subscribe(forbidden, handler: ->(_n) {})
       fired << true
@@ -1214,13 +1153,9 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     sleep 0.2 # the younger x command is on the wire; the valid batch's x ack will be gated
     release << true # the listener reads the valid batch's acks, then the rejection
 
-    # The rejection belongs to the forbidden batch. The valid batch was fully
-    # acknowledged — its x ack merely arrived while the younger command was
-    # pending — so it must have retired from attribution on its OWN ack: blaming
-    # it would mark its x registration dead and poison the rollbacks. The
-    # replacer's own command was NOT the rejected one either, so the rejection
-    # is not raised to it — it rides out the session bounce and its registration
-    # is established by the replay.
+    # The fully-acknowledged valid batch must retire from attribution on its OWN
+    # ack even though a younger x command was pending; the replacer's command was
+    # not the rejected one either, so it rides out the session bounce.
     assert_equal :subscribed, replacer.value
     wait_until(timeout: 5) do
       manager.registered_patterns.sort == [trigger, x, y].sort
@@ -1256,17 +1191,14 @@ class TestKeyspaceNotificationsManager < Minitest::Test
       error
     end
     sleep 0.5
-    # The server-side subscription persists across a same-session replacement and
-    # events still dispatch — `patterns` must keep saying so rather than dropping
-    # the pattern the moment a re-subscribe is merely in flight.
+    # The server-side subscription persists across a same-session replacement —
+    # `patterns` must keep reporting it while the re-subscribe is merely in flight.
     assert_includes manager.patterns, target
 
     # The wait can only time out: its ack is stuck behind the parked handler.
     assert_kind_of Redis::SubscriptionError, replacer.value
-    # The rollback restored the previous registration. The confirmation was never
-    # deleted, so the still-subscribed, still-delivering pattern does not vanish
-    # from `patterns` until a late ack happens to heal it (the listener is STILL
-    # parked here — pre-fix, the pattern is missing at this point).
+    # The rollback must not delete the live confirmation: the still-delivering
+    # pattern stays visible even while the listener is still parked.
     assert_includes manager.patterns, target
 
     release << true
@@ -1290,8 +1222,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     manager.subscribe(trigger, handler: lambda { |_notification|
       next unless fired.empty?
 
-      # An in-handler subscribe of a forbidden pattern, then park: the server's
-      # rejection is read only after the blocking call below replaced the entry.
+      # Subscribe a forbidden pattern, then park: the rejection is read only
+      # after the blocking call below replaced the entry.
       manager.subscribe(forbidden, handler: ->(_n) {})
       fired << true
       release.pop
@@ -1308,9 +1240,8 @@ class TestKeyspaceNotificationsManager < Minitest::Test
     sleep 0.2 # the replacement is installed, remembering the rejected entry as "previous"
     release << true # the listener reads the rejection: attribution drops the in-handler batch
 
-    # The blocking call shares the session error and rolls back. Attribution must
-    # have marked the rejected (already-replaced) entry dead, or the rollback
-    # restores it as "the previous registration" and every replay is poisoned.
+    # Attribution must mark the rejected (already-replaced) entry dead, or the
+    # rollback restores it as "the previous registration" and every replay is poisoned.
     assert_kind_of Redis::CommandError, replacer.value
     wait_until(timeout: 5) { !manager.registered_patterns.include?(forbidden) }
     assert_equal [trigger], manager.registered_patterns
