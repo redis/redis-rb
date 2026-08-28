@@ -118,7 +118,7 @@ class Redis
     end
 
     def _set(replies)
-      @object = if replies
+      @object = if replies && !replies.is_a?(::StandardError)
         @futures.map.with_index do |future, index|
           future._set(replies[index])
           future.value
