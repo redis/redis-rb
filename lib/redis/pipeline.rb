@@ -19,7 +19,7 @@ class Redis
     end
 
     def multi
-      transaction = MultiConnection.new(@pipeline, @futures)
+      transaction = MultiConnection.new(@pipeline, @futures, exception: @exception)
       send_command([:multi])
       size = @futures.size
       yield transaction
