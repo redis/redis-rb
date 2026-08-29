@@ -96,6 +96,10 @@ class Redis
       value
     end
 
+    def _set_unless_error(object)
+      _set(object) unless @object.is_a?(::StandardError)
+    end
+
     def value
       ::Kernel.raise(@object) if @exception && @object.is_a?(::StandardError)
       @object
@@ -123,6 +127,9 @@ class Redis
           future._set(replies[index])
           future.value
         end
+      elsif replies.is_a?(::StandardError)
+        @futures.each { |future| future._set_unless_error(replies) }
+        replies
       else
         replies
       end
