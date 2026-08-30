@@ -108,7 +108,8 @@ class Redis
           @steps << if fields.empty?
             ["LOAD", "*"]
           else
-            ["LOAD", fields.size, *fields.flatten]
+            fields.flatten!(1)
+            ["LOAD", fields.size, *fields]
           end
           self
         end
