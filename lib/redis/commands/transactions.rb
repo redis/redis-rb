@@ -23,7 +23,7 @@ class Redis
       def multi
         synchronize do |client|
           client.multi do |raw_transaction|
-            yield MultiConnection.new(raw_transaction, client)
+            yield MultiConnection.new(raw_transaction, client: client)
           end
         end
       end
