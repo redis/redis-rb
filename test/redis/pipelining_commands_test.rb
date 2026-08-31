@@ -239,6 +239,37 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal ["value", 1.0], future.value
   end
 
+  def test_error_in_a_multi_in_a_non_raising_pipeline
+    r.set("string", "value")
+    future = nil
+
+    r.pipelined(exception: false) do |pipeline|
+      pipeline.multi do |transaction|
+        future = transaction.sadd?("string", "member")
+      end
+    end
+
+    assert_instance_of RedisClient::WrongTypeError, future.value
+  end
+
+  def test_exec_error_in_a_non_raising_pipeline
+    queued_future = nil
+    command_error_future = nil
+    multi_future = nil
+    result = r.pipelined(exception: false) do |pipeline|
+      multi_future = pipeline.multi do |transaction|
+        queued_future = transaction.set("key", "value")
+        command_error_future = transaction.call("doesnt_exist")
+      end
+    end
+
+    assert_instance_of RedisClient::CommandError, multi_future.value
+    assert_same multi_future.value, result.last
+    assert_same multi_future.value, queued_future.value
+    assert_instance_of RedisClient::CommandError, command_error_future.value
+    refute_same multi_future.value, command_error_future.value
+  end
+
   def test_hgetall_in_a_multi_in_a_pipeline_returns_hash
     future = nil
     result = r.pipelined do |p|
@@ -282,6 +313,20 @@ class TestPipeliningCommands < Minitest::Test
     future = pipeline.ping
 
     assert_same future, futures.last
+  end
+
+  def test_nested_transaction_preserves_client_defaults
+    raw_pipeline = mock("raw pipeline")
+    client = Struct.new(:db, :timeout).new(2, 3)
+    migrate = [:migrate, "127.0.0.1", 6379, "key", 2, 3]
+    raw_pipeline.expects(:call_v).with([:multi]).yields("OK")
+    raw_pipeline.expects(:call_v).with(migrate).yields("QUEUED")
+    raw_pipeline.expects(:call_v).with([:exec]).yields(["OK"])
+    pipeline = Redis::PipelinedConnection.new(raw_pipeline, client: client)
+
+    pipeline.multi do |transaction|
+      transaction.migrate("key", host: "127.0.0.1", port: 6379)
+    end
   end
 
   def test_pipeline_select

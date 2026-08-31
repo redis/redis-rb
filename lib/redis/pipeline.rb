@@ -20,7 +20,7 @@ class Redis
     end
 
     def multi
-      transaction = MultiConnection.new(@pipeline, @futures, client: @client)
+      transaction = MultiConnection.new(@pipeline, @futures, client: @client, exception: @exception)
       send_command([:multi])
       size = @futures.size
       yield transaction
@@ -93,8 +93,12 @@ class Redis
     end
 
     def _set(object)
-      @object = @coerce ? @coerce.call(object) : object
+      @object = @coerce && !object.is_a?(::StandardError) ? @coerce.call(object) : object
       value
+    end
+
+    def _set_unless_error(object)
+      _set(object) unless @object.is_a?(::StandardError)
     end
 
     def value
@@ -119,11 +123,14 @@ class Redis
     end
 
     def _set(replies)
-      @object = if replies
+      @object = if replies && !replies.is_a?(::StandardError)
         @futures.map.with_index do |future, index|
           future._set(replies[index])
           future.value
         end
+      elsif replies.is_a?(::StandardError)
+        @futures.each { |future| future._set_unless_error(replies) }
+        replies
       else
         replies
       end
