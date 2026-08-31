@@ -239,6 +239,37 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal ["value", 1.0], future.value
   end
 
+  def test_error_in_a_multi_in_a_non_raising_pipeline
+    r.set("string", "value")
+    future = nil
+
+    r.pipelined(exception: false) do |pipeline|
+      pipeline.multi do |transaction|
+        future = transaction.sadd?("string", "member")
+      end
+    end
+
+    assert_instance_of RedisClient::WrongTypeError, future.value
+  end
+
+  def test_exec_error_in_a_non_raising_pipeline
+    queued_future = nil
+    command_error_future = nil
+    multi_future = nil
+    result = r.pipelined(exception: false) do |pipeline|
+      multi_future = pipeline.multi do |transaction|
+        queued_future = transaction.set("key", "value")
+        command_error_future = transaction.call("doesnt_exist")
+      end
+    end
+
+    assert_instance_of RedisClient::CommandError, multi_future.value
+    assert_same multi_future.value, result.last
+    assert_same multi_future.value, queued_future.value
+    assert_instance_of RedisClient::CommandError, command_error_future.value
+    refute_same multi_future.value, command_error_future.value
+  end
+
   def test_hgetall_in_a_multi_in_a_pipeline_returns_hash
     future = nil
     result = r.pipelined do |p|
