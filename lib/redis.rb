@@ -128,7 +128,7 @@ class Redis
   def pipelined(exception: true)
     synchronize do |client|
       client.pipelined(exception: exception) do |raw_pipeline|
-        yield PipelinedConnection.new(raw_pipeline, exception: exception)
+        yield PipelinedConnection.new(raw_pipeline, client: client, exception: exception)
       end
     end
   end

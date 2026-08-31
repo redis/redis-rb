@@ -6,8 +6,9 @@ class Redis
   class PipelinedConnection
     attr_accessor :db
 
-    def initialize(pipeline, futures = [], exception: true)
+    def initialize(pipeline, futures = [], client: pipeline, exception: true)
       @pipeline = pipeline
+      @client = client
       @futures = futures
       @exception = exception
     end
@@ -19,7 +20,7 @@ class Redis
     end
 
     def multi
-      transaction = MultiConnection.new(@pipeline, @futures, exception: @exception)
+      transaction = MultiConnection.new(@pipeline, @futures, client: @client, exception: @exception)
       send_command([:multi])
       size = @futures.size
       yield transaction

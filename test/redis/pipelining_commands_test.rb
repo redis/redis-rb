@@ -304,6 +304,31 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal "bar", r.get("foo")
   end
 
+  def test_pipelined_connection_preserves_positional_futures
+    raw_pipeline = mock("raw pipeline")
+    raw_pipeline.expects(:call_v).with([:ping]).yields("PONG")
+    futures = []
+    pipeline = Redis::PipelinedConnection.new(raw_pipeline, futures)
+
+    future = pipeline.ping
+
+    assert_same future, futures.last
+  end
+
+  def test_nested_transaction_preserves_client_defaults
+    raw_pipeline = mock("raw pipeline")
+    client = Struct.new(:db, :timeout).new(2, 3)
+    migrate = [:migrate, "127.0.0.1", 6379, "key", 2, 3]
+    raw_pipeline.expects(:call_v).with([:multi]).yields("OK")
+    raw_pipeline.expects(:call_v).with(migrate).yields("QUEUED")
+    raw_pipeline.expects(:call_v).with([:exec]).yields(["OK"])
+    pipeline = Redis::PipelinedConnection.new(raw_pipeline, client: client)
+
+    pipeline.multi do |transaction|
+      transaction.migrate("key", host: "127.0.0.1", port: 6379)
+    end
+  end
+
   def test_pipeline_select
     r.select 1
     r.set("db", "1")
