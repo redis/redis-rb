@@ -1184,8 +1184,9 @@ class Redis
     # owns needs the fieldset on its own connection.
     def himport_prepare(fieldset_name, *fields)
       fields.flatten!(1)
+      fields.map! { |field| field.dup.freeze }
       results = on_each_node(:himport_prepare, fieldset_name, fields)
-      @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
+      @himport_fieldsets[fieldset_name.to_s] = fields.freeze
       results
     end
 

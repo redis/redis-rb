@@ -123,6 +123,21 @@ class TestDistributedHimport < Minitest::Test
     end
   end
 
+  def test_add_node_replays_snapshotted_field_names
+    target_version "8.9" do
+      field = +"f1"
+      r.himport_prepare("fs", [field])
+      field.replace("changed")
+
+      r.add_node("redis://127.0.0.1:#{PORT}/14")
+      r.flushdb
+      _, key_b = keys_on_distinct_nodes
+
+      assert_equal "OK", r.himport_set(key_b, "fs", %w[value])
+      assert_equal({ "f1" => "value" }, r.hgetall(key_b))
+    end
+  end
+
   def test_add_node_does_not_receive_discarded_fieldsets
     target_version "8.9" do
       r.himport_prepare("fs", %w[f1])
