@@ -181,9 +181,10 @@ class Redis
 
   def himport_prepare(fieldset_name, *fields)
     fields.flatten!(1)
+    fields.map! { |field| field.dup.freeze }
     @monitor.synchronize do
       reply = super(fieldset_name, fields)
-      @himport_fieldsets[fieldset_name.to_s] = fields.dup.freeze
+      @himport_fieldsets[fieldset_name.to_s] = fields.freeze
       reply
     end
   end
