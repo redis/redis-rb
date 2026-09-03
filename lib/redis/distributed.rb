@@ -1356,6 +1356,11 @@ class Redis
       on_each_node(:script, subcommand, *args)
     end
 
+    # Manage Redis Functions libraries.
+    def function(subcommand, *args, **options)
+      nodes.map { |node| node.function(subcommand, *args, **options) }
+    end
+
     # Set one or more contiguous values starting at an index in an array.
     def arset(key, index, *values)
       node_for(key).arset(key, index, *values)
@@ -1487,6 +1492,16 @@ class Redis
     # Evaluate Lua script by its SHA.
     def evalsha(*args)
       _eval(:evalsha, args)
+    end
+
+    # Invoke a Redis Function.
+    def fcall(*args)
+      _eval(:fcall, args)
+    end
+
+    # Invoke a read-only Redis Function.
+    def fcall_ro(*args)
+      _eval(:fcall_ro, args)
     end
 
     def inspect

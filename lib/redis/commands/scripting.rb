@@ -97,6 +97,115 @@ class Redis
         _eval(:evalsha, args)
       end
 
+      # Manage Redis Functions libraries.
+      #
+      # @example Load a library
+      #   redis.function(:load, "#!lua name=mylib\n...")
+      #     # => "mylib"
+      # @example Replace an existing library
+      #   redis.function(:load, code, replace: true)
+      #     # => "mylib"
+      # @example List loaded libraries
+      #   redis.function(:list)
+      #     # => [{ "library_name" => "mylib", "engine" => "LUA", "functions" => [...] }]
+      # @example List one library including its source code
+      #   redis.function(:list, libraryname: "mylib", withcode: true)
+      # @example Delete a library
+      #   redis.function(:delete, "mylib")
+      #     # => "OK"
+      # @example Dump and restore all libraries
+      #   payload = redis.function(:dump)
+      #   redis.function(:restore, payload, policy: :replace)
+      #     # => "OK"
+      # @example Get engine and running-function statistics
+      #   redis.function(:stats)
+      #     # => { "running_script" => nil,
+      #     #      "engines" => { "LUA" => { "libraries_count" => 1, "functions_count" => 2 } } }
+      # @example Kill the currently running function
+      #   redis.function(:kill)
+      #     # => "OK"
+      #
+      # @param [String, Symbol] subcommand e.g. `load`, `delete`, `flush`, `list`, `dump`, `restore`, `stats`, `kill`
+      # @param [Array<String>] args depends on subcommand
+      # @param [Hash] options
+      #   - `:replace => true`: (`load`) overwrite an existing library of the same name
+      #   - `:libraryname => String`: (`list`) only list libraries matching this pattern
+      #   - `:withcode => true`: (`list`) include each library's source code in the reply
+      #   - `:policy => Symbol`: (`restore`) one of `:append` (default), `:flush`, `:replace`
+      # @return [String, Array<Hash>, Hash] depends on subcommand
+      #
+      # @see #fcall
+      # @see #fcall_ro
+      def function(subcommand, *args, **options)
+        subcommand = subcommand.to_s.downcase
+
+        case subcommand
+        when "load"
+          command = %i[function load]
+          command << "REPLACE" if options[:replace]
+          send_command(command + args)
+        when "list"
+          command = %i[function list]
+          command << "LIBRARYNAME" << options[:libraryname] if options[:libraryname]
+          command << "WITHCODE" if options[:withcode]
+          send_command(command, &HashifyFunctionList)
+        when "restore"
+          command = %i[function restore] + args
+          command << options[:policy].to_s.upcase if options[:policy]
+          send_command(command)
+        when "stats"
+          send_command(%i[function stats], &HashifyFunctionStats)
+        else
+          send_command([:function, subcommand] + args)
+        end
+      end
+
+      # Invoke a Redis Function loaded with FUNCTION LOAD.
+      #
+      # @example FCALL without keys nor arguments
+      #   redis.fcall("myfunc")
+      #     # => <depends on the function>
+      # @example FCALL with keys and arguments as array arguments
+      #   redis.fcall("myfunc", ["k1", "k2"], ["a1", "a2"])
+      #     # => <depends on the function>
+      # @example FCALL with keys and arguments in a hash argument
+      #   redis.fcall("myfunc", :keys => ["k1", "k2"], :argv => ["a1", "a2"])
+      #     # => <depends on the function>
+      #
+      # @param [Array<String>] keys optional array with keys to pass to the function
+      # @param [Array<String>] argv optional array with arguments to pass to the function
+      # @param [Hash] options
+      #   - `:keys => Array<String>`: optional array with keys to pass to the function
+      #   - `:argv => Array<String>`: optional array with arguments to pass to the function
+      # @return depends on the function
+      #
+      # @see #function
+      # @see #fcall_ro
+      def fcall(*args)
+        _eval(:fcall, args)
+      end
+
+      # Invoke a read-only Redis Function loaded with FUNCTION LOAD.
+      #
+      # The function must have been registered with the `no-writes` flag.
+      #
+      # @example FCALL_RO with a key
+      #   redis.fcall_ro("myfunc", ["k1"])
+      #     # => <depends on the function>
+      #
+      # @param [Array<String>] keys optional array with keys to pass to the function
+      # @param [Array<String>] argv optional array with arguments to pass to the function
+      # @param [Hash] options
+      #   - `:keys => Array<String>`: optional array with keys to pass to the function
+      #   - `:argv => Array<String>`: optional array with arguments to pass to the function
+      # @return depends on the function
+      #
+      # @see #function
+      # @see #fcall
+      def fcall_ro(*args)
+        _eval(:fcall_ro, args)
+      end
+
       private
 
       def _eval(cmd, args)
