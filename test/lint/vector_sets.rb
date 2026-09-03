@@ -430,26 +430,34 @@ module Lint
     end
 
     def test_vsim_with_scores_and_attribs
-      target_version "8.0" do
+      target_version "8.0.3" do
         add_vsim_fixture
 
         results = r.vsim("foo", element: "a", with_scores: true, with_attribs: true)
         assert_equal %w[a b c], results.keys
         score, attribs = results["a"]
         assert_in_delta 1.0, score, 0.001
-        assert_equal({ "n" => 1 }, JSON.parse(attribs))
+        assert_equal({ "n" => 1 }, attribs)
         assert_nil results["b"][1]
+
+        raw_results = r.vsim("foo", element: "a", with_scores: true, with_attribs: true, raw: true)
+        assert_equal({ "n" => 1 }, JSON.parse(raw_results["a"][1]))
+        assert_nil raw_results["b"][1]
       end
     end
 
     def test_vsim_with_attribs
-      target_version "8.0" do
+      target_version "8.0.3" do
         add_vsim_fixture
 
         results = r.vsim("foo", element: "a", with_attribs: true)
-        assert_equal({ "n" => 1 }, JSON.parse(results["a"]))
+        assert_equal({ "n" => 1 }, results["a"])
         assert_nil results["b"]
-        assert_equal({ "n" => 3 }, JSON.parse(results["c"]))
+        assert_equal({ "n" => 3 }, results["c"])
+
+        raw_results = r.vsim("foo", element: "a", with_attribs: true, raw: true)
+        assert_equal({ "n" => 1 }, JSON.parse(raw_results["a"]))
+        assert_nil raw_results["b"]
       end
     end
 

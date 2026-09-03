@@ -112,7 +112,7 @@ class Redis
       #     # => [0.1004752591252327, 1.2000000476837158, 0.5023762512207031]
       # @example Raw internal representation
       #   redis.vemb("mykey", "my-element", raw: true)
-      #     # => { "quantization" => "q8", "raw" => "\x0b\x7f5", "l2" => 1.3038404, "range" => 0.009448819 }
+      #     # => { "quantization" => "int8", "raw" => "\x0b\x7f5", "l2" => 1.3038404, "range" => 0.009448819 }
       #
       # @param [String] key
       # @param [String] element name of the element whose vector to retrieve
@@ -168,7 +168,7 @@ class Redis
       #     # => { "apple" => 0.9998867657923256, ... }
       # @example With scores and attributes
       #   redis.vsim("mykey", element: "apple", with_scores: true, with_attribs: true)
-      #     # => { "apple" => [0.9998867657923256, "{\"len\": 5}"], ... }
+      #     # => { "apple" => [0.9998867657923256, { "len" => 5 }], ... }
       #
       # @param [String] key
       # @param [Hash] options
@@ -177,8 +177,10 @@ class Redis
       #   as the similarity reference
       # @option options [Boolean] :with_scores include the similarity score
       #   (1 identical … 0 opposite) for each result
-      # @option options [Boolean] :with_attribs include the JSON attributes
-      #   (unparsed, nil when absent) for each result
+      # @option options [Boolean] :with_attribs include the attributes for
+      #   each result, parsed with JSON.parse (nil when absent)
+      # @option options [Boolean] :raw return attribute JSON strings as stored
+      #   instead of parsing them
       # @option options [Integer] :count limit the number of results
       # @option options [Float] :epsilon only return elements with a distance
       #   no further than this delta (similarity better than 1 - delta)
@@ -190,12 +192,13 @@ class Redis
       # @option options [Boolean] :nothread run in the main thread
       # @return [Array<String>, Hash] element names; with `with_scores:` a
       #   `{ name => Float }` Hash; with `with_scores:` and `with_attribs:` a
-      #   `{ name => [Float, String] }` Hash; with `with_attribs:` alone a
-      #   `{ name => String }` Hash. Empty when the key does not exist.
+      #   `{ name => [Float, Object] }` Hash; with `with_attribs:` alone a
+      #   `{ name => Object }` Hash (the attributes as JSON strings when
+      #   `raw: true`). Empty when the key does not exist.
       # @raise [Redis::CommandError] if an `element:` reference does not exist
       def vsim(key, vector: nil, element: nil, withscores: false, with_scores: withscores,
-               withattribs: false, with_attribs: withattribs, count: nil, epsilon: nil,
-               ef: nil, filter: nil, filter_ef: nil, truth: nil, nothread: nil)
+               withattribs: false, with_attribs: withattribs, raw: false, count: nil,
+               epsilon: nil, ef: nil, filter: nil, filter_ef: nil, truth: nil, nothread: nil)
         unless vector.nil? ^ element.nil?
           raise ArgumentError, "must provide exactly one of vector or element"
         end
@@ -220,11 +223,25 @@ class Redis
         args << "NOTHREAD" if nothread
 
         if with_scores && with_attribs
-          send_command(args, &HashifyVectorScoresWithAttribs)
+          send_command(args) do |reply|
+            reply = HashifyVectorScoresWithAttribs.call(reply)
+            if raw || !reply.is_a?(Hash)
+              reply
+            else
+              reply.transform_values { |(score, attribs)| [score, attribs && ::JSON.parse(attribs)] }
+            end
+          end
         elsif with_scores
           send_command(args, &HashifyVectorScores)
         elsif with_attribs
-          send_command(args, &Hashify)
+          send_command(args) do |reply|
+            reply = Hashify.call(reply)
+            if raw || !reply.is_a?(Hash)
+              reply
+            else
+              reply.transform_values { |attribs| attribs && ::JSON.parse(attribs) }
+            end
+          end
         else
           send_command(args)
         end
