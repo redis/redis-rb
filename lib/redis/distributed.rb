@@ -1361,6 +1361,71 @@ class Redis
       nodes.map { |node| node.function(subcommand, *args, **options) }
     end
 
+    # Add a new element into a vector set, or update its vector if it already exists.
+    def vadd(key, vector, element, **options)
+      node_for(key).vadd(key, vector, element, **options)
+    end
+
+    # Return the number of elements in a vector set.
+    def vcard(key)
+      node_for(key).vcard(key)
+    end
+
+    # Return the number of dimensions of the vectors in a vector set.
+    def vdim(key)
+      node_for(key).vdim(key)
+    end
+
+    # Return the approximate vector associated with an element in a vector set.
+    def vemb(key, element, **options)
+      node_for(key).vemb(key, element, **options)
+    end
+
+    # Associate, update or delete the JSON attributes of an element in a vector set.
+    def vsetattr(key, element, attributes)
+      node_for(key).vsetattr(key, element, attributes)
+    end
+
+    # Return the JSON attributes associated with an element in a vector set.
+    def vgetattr(key, element, **options)
+      node_for(key).vgetattr(key, element, **options)
+    end
+
+    # Return elements of a vector set by vector similarity.
+    def vsim(key, **options)
+      node_for(key).vsim(key, **options)
+    end
+
+    # Remove an element from a vector set.
+    def vrem(key, element)
+      node_for(key).vrem(key, element)
+    end
+
+    # Check if an element exists in a vector set.
+    def vismember(key, element)
+      node_for(key).vismember(key, element)
+    end
+
+    # Return the neighbors of an element at each layer in the HNSW graph.
+    def vlinks(key, element, **options)
+      node_for(key).vlinks(key, element, **options)
+    end
+
+    # Return metadata and internal details about a vector set.
+    def vinfo(key)
+      node_for(key).vinfo(key)
+    end
+
+    # Return one or more random elements from a vector set.
+    def vrandmember(key, count = nil)
+      node_for(key).vrandmember(key, count)
+    end
+
+    # Return elements of a vector set in a lexicographical range.
+    def vrange(key, start, stop, count = nil)
+      node_for(key).vrange(key, start, stop, count)
+    end
+
     # Set one or more contiguous values starting at an index in an array.
     def arset(key, index, *values)
       node_for(key).arset(key, index, *values)

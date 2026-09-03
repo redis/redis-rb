@@ -19,6 +19,7 @@ require "redis/commands/sorted_sets"
 require "redis/commands/streams"
 require "redis/commands/strings"
 require "redis/commands/transactions"
+require "redis/commands/vector_sets"
 
 class Redis
   module Commands
@@ -41,12 +42,25 @@ class Redis
     include Streams
     include Strings
     include Transactions
+    include VectorSets
 
     # Commands returning 1 for true and 0 for false may be executed in a pipeline
     # where the method call will return nil. Propagate the nil instead of falsely
     # returning false.
     Boolify = lambda { |value|
       value != 0 unless value.nil?
+    }
+
+    # For commands whose reply is an integer under RESP2 but a native boolean
+    # under RESP3 (e.g. VADD): pass booleans through, boolify integers, and
+    # propagate nil for pipelined calls.
+    BoolifyBoolean = lambda { |value|
+      case value
+      when true, false, nil
+        value
+      else
+        value != 0
+      end
     }
 
     BoolifySet = lambda { |value|
@@ -93,6 +107,14 @@ class Redis
       end
     }
 
+    # Number arrays (e.g. the VEMB vector) arrive as native doubles under
+    # RESP3 but as bulk strings under RESP2; converge on an array of Floats.
+    FloatifyArray = lambda { |value|
+      return value unless value.is_a?(Array)
+
+      value.first.is_a?(String) ? value.map(&Floatify) : value
+    }
+
     FloatifyPair = lambda { |(first, score)|
       [first, Floatify.call(score)]
     }
@@ -120,6 +142,56 @@ class Redis
       reply.each do |field, field_value|
         reply[field] = Floatify.call(field_value) if field.start_with?("avg-")
       end
+    }
+
+    # VEMB RAW: [quantization, blob, l2, (range, q8 only)] with the numeric
+    # fields as bulk strings under RESP2 but doubles under RESP3.
+    HashifyVectorEmbeddingRaw = lambda { |reply|
+      return reply unless reply.is_a?(Array)
+
+      result = {
+        "quantization" => reply[0],
+        "raw" => reply[1],
+        "l2" => Floatify.call(reply[2])
+      }
+      result["range"] = Floatify.call(reply[3]) if reply.size > 3
+      result
+    }
+
+    # Element => score pairs (VSIM WITHSCORES, one VLINKS layer): a native map
+    # with double scores under RESP3, a flat [name, score, ...] array of bulk
+    # strings under RESP2; converge on a Hash of name => Float.
+    HashifyVectorScores = lambda { |reply|
+      case reply
+      when Hash
+        reply
+      when Array
+        reply.each_slice(2).to_h { |name, score| [name, Floatify.call(score)] }
+      else
+        reply
+      end
+    }
+
+    # VSIM WITHSCORES WITHATTRIBS: a native map of name => [double, attrs]
+    # under RESP3, a flat [name, score, attrs, ...] triplet array under RESP2
+    # (attrs is nil for elements without attributes); converge on a Hash of
+    # name => [Float, attrs].
+    HashifyVectorScoresWithAttribs = lambda { |reply|
+      case reply
+      when Hash
+        reply
+      when Array
+        reply.each_slice(3).to_h { |name, score, attrs| [name, [Floatify.call(score), attrs]] }
+      else
+        reply
+      end
+    }
+
+    # VLINKS WITHSCORES: one name => score map per HNSW layer.
+    HashifyVectorLinksWithScores = lambda { |reply|
+      return reply unless reply.is_a?(Array)
+
+      reply.map(&HashifyVectorScores)
     }
 
     HashifyInfo = lambda { |reply|
