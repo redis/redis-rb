@@ -113,6 +113,40 @@ class TestDistributedScripting < Minitest::Test
     end
   end
 
+  def test_function_runs_once_per_physical_server
+    target_version "7.0.0" do
+      # Two ring nodes on the same server (different databases): library mutations
+      # must run once per physical server or the second run fails on collision.
+      node_urls = ["redis://127.0.0.1:#{PORT}/14", "redis://127.0.0.1:#{PORT}/15"]
+      redis = Redis::Distributed.new(node_urls, timeout: TIMEOUT, driver: ENV["DRIVER"], protocol: PROTOCOL)
+
+      redis.function(:flush)
+      assert_equal ["mylib"], redis.function(:load, FUNCTIONS_LIB)
+      assert_equal ["OK"], redis.function(:delete, "mylib")
+    end
+  end
+
+  def test_function_kill_when_idle
+    target_version "7.0.0" do
+      error = assert_raises(Redis::CommandError) { r.function(:kill) }
+      assert_match(/NOTBUSY/, error.message)
+    end
+  end
+
+  def test_function_kill_tolerates_idle_nodes
+    idle = ->(*_) { "-NOTBUSY No scripts in execution right now." }
+    busy = ->(*_) { "+OK" }
+
+    RedisMock.start(function: idle) do |idle_port|
+      RedisMock.start(function: busy) do |busy_port|
+        node_urls = ["redis://127.0.0.1:#{idle_port}", "redis://127.0.0.1:#{busy_port}"]
+        redis = Redis::Distributed.new(node_urls, timeout: TIMEOUT, driver: ENV["DRIVER"], protocol: PROTOCOL)
+
+        assert_equal "OK", redis.function(:kill)
+      end
+    end
+  end
+
   def test_fcall
     target_version "7.0.0" do
       load_functions

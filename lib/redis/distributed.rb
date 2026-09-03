@@ -1357,8 +1357,33 @@ class Redis
     end
 
     # Manage Redis Functions libraries.
+    #
+    # Function libraries are server-global rather than per-database, so the fan-out runs
+    # once per physical server: ring nodes differing only by database would re-run
+    # mutations (e.g. FUNCTION LOAD) against the same server and fail on collision.
     def function(subcommand, *args, **options)
-      nodes.map { |node| node.function(subcommand, *args, **options) }
+      function_nodes = nodes.uniq { |node| [node._client.path, node._client.host, node._client.port] }
+
+      if subcommand.to_s.downcase == "kill"
+        # Only the node actually running a function replies OK; idle nodes raise NOTBUSY.
+        # Succeed when any node killed a function, mirroring the cluster client's
+        # one_succeeded fan-out semantics.
+        not_busy = nil
+        killed = function_nodes.filter_map do |node|
+          node.function(:kill)
+        rescue CommandError => e
+          raise unless e.message.start_with?("NOTBUSY")
+
+          not_busy = e
+          nil
+        end
+
+        raise not_busy if killed.empty? && not_busy
+
+        killed.first
+      else
+        function_nodes.map { |node| node.function(subcommand, *args, **options) }
+      end
     end
 
     # Add a new element into a vector set, or update its vector if it already exists.

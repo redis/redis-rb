@@ -145,7 +145,7 @@ class Redis
           command << "REPLACE" if options[:replace]
           send_command(command + args)
         when "list"
-          command = %i[function list]
+          command = %i[function list] + args
           command << "LIBRARYNAME" << options[:libraryname] if options[:libraryname]
           command << "WITHCODE" if options[:withcode]
           send_command(command, &HashifyFunctionList)

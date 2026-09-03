@@ -121,6 +121,10 @@ class TestScripting < Minitest::Test
       reply = r.function(:list, libraryname: "mylib", withcode: true)
       assert_equal 1, reply.size
       assert_equal FUNCTIONS_LIB, reply.first["library_code"]
+
+      positional = r.function(:list, "LIBRARYNAME", "mylib", "WITHCODE")
+      assert_equal 1, positional.size
+      assert_equal FUNCTIONS_LIB, positional.first["library_code"]
     end
   end
 
