@@ -1362,7 +1362,12 @@ class Redis
     # once per physical server: ring nodes differing only by database would re-run
     # mutations (e.g. FUNCTION LOAD) against the same server and fail on collision.
     def function(subcommand, *args, **options)
-      function_nodes = nodes.uniq { |node| [node._client.path, node._client.host, node._client.port] }
+      # Both RedisClient::Config and RedisClient::SentinelConfig expose the address;
+      # for a sentinel-backed node it is the currently resolved master.
+      function_nodes = nodes.uniq do |node|
+        config = node._client.config
+        [config.path, config.host, config.port]
+      end
 
       if subcommand.to_s.downcase == "kill"
         # Only the node actually running a function replies OK; idle nodes raise NOTBUSY.

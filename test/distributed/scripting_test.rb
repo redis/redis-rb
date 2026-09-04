@@ -126,6 +126,34 @@ class TestDistributedScripting < Minitest::Test
     end
   end
 
+  def test_function_dedups_sentinel_backed_nodes
+    target_version "7.0.0" do
+      # Sentinel-backed nodes resolve their address through SentinelConfig. Both mock
+      # sentinels point at the same standalone master, so mutations must run exactly once.
+      sentinel = lambda do |command, *_|
+        case command
+        when "get-master-addr-by-name" then ["127.0.0.1", PORT.to_s]
+        when "sentinels" then []
+        else raise "Unexpected sentinel command #{command}"
+        end
+      end
+
+      RedisMock.start(sentinel: sentinel) do |sentinel_a|
+        RedisMock.start(sentinel: sentinel) do |sentinel_b|
+          nodes = [
+            { name: "shard-a", sentinels: [{ host: "127.0.0.1", port: sentinel_a }], db: 14 },
+            { name: "shard-b", sentinels: [{ host: "127.0.0.1", port: sentinel_b }], db: 15 },
+          ]
+          redis = Redis::Distributed.new(nodes, timeout: TIMEOUT, driver: ENV["DRIVER"], protocol: PROTOCOL)
+
+          redis.function(:flush)
+          assert_equal ["mylib"], redis.function(:load, FUNCTIONS_LIB)
+          assert_equal ["OK"], redis.function(:delete, "mylib")
+        end
+      end
+    end
+  end
+
   def test_function_kill_when_idle
     target_version "7.0.0" do
       error = assert_raises(Redis::CommandError) { r.function(:kill) }
