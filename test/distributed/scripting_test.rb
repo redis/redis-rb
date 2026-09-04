@@ -84,4 +84,124 @@ class TestDistributedScripting < Minitest::Test
     assert_equal ["k1"], r.evalsha(to_sha("return KEYS"), { keys: ["k1"] })
     assert_equal ["a1", "a2"], r.evalsha(to_sha("return ARGV"), { keys: ["k1"], argv: ["a1", "a2"] })
   end
+
+  FUNCTIONS_LIB = <<~LUA
+    #!lua name=mylib
+    local function myfunc(keys, args)
+      return { keys, args }
+    end
+    redis.register_function('myfunc', myfunc)
+  LUA
+
+  def load_functions
+    r.function(:flush)
+    r.function(:load, FUNCTIONS_LIB)
+  end
+
+  def test_function
+    target_version "7.0.0" do
+      r.function(:flush)
+
+      assert_equal ["mylib"], r.function(:load, FUNCTIONS_LIB)
+      assert_equal ["mylib"], r.function(:load, FUNCTIONS_LIB, replace: true)
+
+      libraries = r.function(:list).first
+      assert_equal(["mylib"], libraries.map { |library| library["library_name"] })
+
+      assert_equal ["OK"], r.function(:delete, "mylib")
+      assert_equal [[]], r.function(:list)
+    end
+  end
+
+  def test_function_runs_once_per_physical_server
+    target_version "7.0.0" do
+      # Two ring nodes on the same server (different databases): library mutations
+      # must run once per physical server or the second run fails on collision.
+      node_urls = ["redis://127.0.0.1:#{PORT}/14", "redis://127.0.0.1:#{PORT}/15"]
+      redis = Redis::Distributed.new(node_urls, timeout: TIMEOUT, driver: ENV["DRIVER"], protocol: PROTOCOL)
+
+      redis.function(:flush)
+      assert_equal ["mylib"], redis.function(:load, FUNCTIONS_LIB)
+      assert_equal ["OK"], redis.function(:delete, "mylib")
+    end
+  end
+
+  def test_function_dedups_sentinel_backed_nodes
+    target_version "7.0.0" do
+      # Sentinel-backed nodes resolve their address through SentinelConfig. Both mock
+      # sentinels point at the same standalone master, so mutations must run exactly once.
+      sentinel = lambda do |command, *_|
+        case command
+        when "get-master-addr-by-name" then ["127.0.0.1", PORT.to_s]
+        when "sentinels" then []
+        else raise "Unexpected sentinel command #{command}"
+        end
+      end
+
+      RedisMock.start(sentinel: sentinel) do |sentinel_a|
+        RedisMock.start(sentinel: sentinel) do |sentinel_b|
+          nodes = [
+            { name: "shard-a", sentinels: [{ host: "127.0.0.1", port: sentinel_a }], db: 14 },
+            { name: "shard-b", sentinels: [{ host: "127.0.0.1", port: sentinel_b }], db: 15 },
+          ]
+          redis = Redis::Distributed.new(nodes, timeout: TIMEOUT, driver: ENV["DRIVER"], protocol: PROTOCOL)
+
+          redis.function(:flush)
+          assert_equal ["mylib"], redis.function(:load, FUNCTIONS_LIB)
+          assert_equal ["OK"], redis.function(:delete, "mylib")
+        end
+      end
+    end
+  end
+
+  def test_function_kill_when_idle
+    target_version "7.0.0" do
+      error = assert_raises(Redis::CommandError) { r.function(:kill) }
+      assert_match(/NOTBUSY/, error.message)
+    end
+  end
+
+  def test_function_kill_tolerates_idle_nodes
+    idle = ->(*_) { "-NOTBUSY No scripts in execution right now." }
+    busy = ->(*_) { "+OK" }
+
+    RedisMock.start(function: idle) do |idle_port|
+      RedisMock.start(function: busy) do |busy_port|
+        node_urls = ["redis://127.0.0.1:#{idle_port}", "redis://127.0.0.1:#{busy_port}"]
+        redis = Redis::Distributed.new(node_urls, timeout: TIMEOUT, driver: ENV["DRIVER"], protocol: PROTOCOL)
+
+        assert_equal "OK", redis.function(:kill)
+      end
+    end
+  end
+
+  def test_fcall
+    target_version "7.0.0" do
+      load_functions
+
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.fcall("myfunc")
+      end
+
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.fcall("myfunc", ["k1", "k2"])
+      end
+
+      assert_equal [["k1"], ["a1"]], r.fcall("myfunc", ["k1"], ["a1"])
+      assert_equal [["k1"], ["a1"]], r.fcall("myfunc", { keys: ["k1"], argv: ["a1"] })
+    end
+  end
+
+  def test_fcall_ro
+    target_version "7.0.0" do
+      load_functions
+
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.fcall_ro("myfunc")
+      end
+
+      # myfunc is not registered with the no-writes flag.
+      assert_raises(Redis::CommandError) { r.fcall_ro("myfunc", ["k1"]) }
+    end
+  end
 end

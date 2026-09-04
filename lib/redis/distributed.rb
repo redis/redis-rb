@@ -1356,6 +1356,41 @@ class Redis
       on_each_node(:script, subcommand, *args)
     end
 
+    # Manage Redis Functions libraries.
+    #
+    # Function libraries are server-global rather than per-database, so the fan-out runs
+    # once per physical server: ring nodes differing only by database would re-run
+    # mutations (e.g. FUNCTION LOAD) against the same server and fail on collision.
+    def function(subcommand, *args, **options)
+      # Both RedisClient::Config and RedisClient::SentinelConfig expose the address;
+      # for a sentinel-backed node it is the currently resolved master.
+      function_nodes = nodes.uniq do |node|
+        config = node._client.config
+        [config.path, config.host, config.port]
+      end
+
+      if subcommand.to_s.downcase == "kill"
+        # Only the node actually running a function replies OK; idle nodes raise NOTBUSY.
+        # Succeed when any node killed a function, mirroring the cluster client's
+        # one_succeeded fan-out semantics.
+        not_busy = nil
+        killed = function_nodes.filter_map do |node|
+          node.function(:kill)
+        rescue CommandError => e
+          raise unless e.message.start_with?("NOTBUSY")
+
+          not_busy = e
+          nil
+        end
+
+        raise not_busy if killed.empty? && not_busy
+
+        killed.first
+      else
+        function_nodes.map { |node| node.function(subcommand, *args, **options) }
+      end
+    end
+
     # Add a new element into a vector set, or update its vector if it already exists.
     def vadd(key, vector, element, **options)
       node_for(key).vadd(key, vector, element, **options)
@@ -1552,6 +1587,16 @@ class Redis
     # Evaluate Lua script by its SHA.
     def evalsha(*args)
       _eval(:evalsha, args)
+    end
+
+    # Invoke a Redis Function.
+    def fcall(*args)
+      _eval(:fcall, args)
+    end
+
+    # Invoke a read-only Redis Function.
+    def fcall_ro(*args)
+      _eval(:fcall_ro, args)
     end
 
     def inspect

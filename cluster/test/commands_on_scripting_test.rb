@@ -51,4 +51,71 @@ class TestClusterCommandsOnScripting < Minitest::Test
   def test_script_load
     assert_equal 'e0e1f9fabfc9d4800c877a703b823ac0578ff8db', redis.script(:load, 'return 1')
   end
+
+  FUNCTIONS_LIB = <<~LUA
+    #!lua name=mylib
+    local function myfunc(keys, args)
+      return { keys, args }
+    end
+    redis.register_function('myfunc', myfunc)
+    redis.register_function{function_name='myfunc_ro', callback=myfunc, flags={'no-writes'}}
+  LUA
+
+  def load_functions
+    redis.function(:flush)
+    redis.function(:load, FUNCTIONS_LIB)
+  end
+
+  def test_function_load_list_delete
+    target_version '7.0.0' do
+      redis.function(:flush)
+
+      # FUNCTION LOAD carries the all_shards/all_succeeded command tips, so the
+      # cluster client fans it out to every primary and returns a single reply.
+      assert_equal 'mylib', redis.function(:load, FUNCTIONS_LIB)
+      assert_equal 'mylib', redis.function(:load, FUNCTIONS_LIB, replace: true)
+
+      libraries = redis.function(:list)
+      assert_equal(['mylib'], libraries.map { |library| library['library_name'] })
+      assert_equal %w[myfunc myfunc_ro], libraries.first['functions'].map { |function| function['name'] }.sort
+
+      assert_equal 'OK', redis.function(:delete, 'mylib')
+      assert_equal [], redis.function(:list)
+    end
+  end
+
+  def test_function_stats
+    target_version '7.0.0' do
+      load_functions
+
+      stats = redis.function(:stats)
+      assert_nil stats['running_script']
+      assert stats['engines'].key?('LUA')
+    end
+  end
+
+  def test_fcall
+    target_version '7.0.0' do
+      load_functions
+
+      keys = %w[key1 key2]
+      assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
+        redis.fcall('myfunc', keys: keys, argv: %w[a1])
+      end
+
+      keys = %w[{key}1 {key}2]
+      assert_equal [keys, %w[a1]], redis.fcall('myfunc', keys: keys, argv: %w[a1])
+    end
+  end
+
+  def test_fcall_ro
+    target_version '7.0.0' do
+      load_functions
+
+      assert_equal [%w[{key}1], %w[a1]], redis.fcall_ro('myfunc_ro', keys: %w[{key}1], argv: %w[a1])
+
+      # myfunc is not registered with the no-writes flag.
+      assert_raises(Redis::CommandError) { redis.fcall_ro('myfunc', keys: %w[{key}1]) }
+    end
+  end
 end
