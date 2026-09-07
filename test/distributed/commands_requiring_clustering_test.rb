@@ -186,6 +186,31 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     end
   end
 
+  def test_sort_with_get_hash_returns_the_element_itself
+    r.set("{qux}foo:1", "s1")
+    r.set("{qux}foo:2", "s2")
+
+    r.rpush("{qux}bar", "1")
+    r.rpush("{qux}bar", "2")
+
+    # `GET #` is not a key and must not take part in same-node routing.
+    assert_equal %w[1 2], r.sort("{qux}bar", get: "#")
+    assert_equal [["1", "s1"], ["2", "s2"]], r.sort("{qux}bar", get: ["#", "{qux}foo:*"])
+  end
+
+  def test_sort_ro_with_get_hash_returns_the_element_itself
+    target_version "7.0.0" do
+      r.set("{qux}foo:1", "s1")
+      r.set("{qux}foo:2", "s2")
+
+      r.rpush("{qux}bar", "1")
+      r.rpush("{qux}bar", "2")
+
+      assert_equal %w[1 2], r.sort_ro("{qux}bar", get: "#")
+      assert_equal [["1", "s1"], ["2", "s2"]], r.sort_ro("{qux}bar", get: ["#", "{qux}foo:*"])
+    end
+  end
+
   def test_bitop
     r.set("{qux}foo", "a")
     r.set("{qux}bar", "b")

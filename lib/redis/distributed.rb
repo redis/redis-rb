@@ -259,18 +259,14 @@ class Redis
 
     # Sort the elements in a list, set or sorted set.
     def sort(key, **options)
-      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
-
-      ensure_same_node(:sort, keys) do |node|
+      ensure_same_node(:sort, sort_keys(key, options)) do |node|
         node.sort(key, **options)
       end
     end
 
     # Sort the elements in a list, set or sorted set without storing the result.
     def sort_ro(key, **options)
-      keys = [key, options[:by], *Array(options[:get])].compact
-
-      ensure_same_node(:sort_ro, keys) do |node|
+      ensure_same_node(:sort_ro, sort_keys(key, options)) do |node|
         node.sort_ro(key, **options)
       end
     end
@@ -1654,6 +1650,13 @@ class Redis
     def key_tag(key)
       key = key.to_s
       key[@tag, 1] if key.match?(@tag)
+    end
+
+    # Keys SORT/SORT_RO touch, for same-node routing. `GET #` denotes the sorted element
+    # itself rather than another key, so it takes no part in routing.
+    def sort_keys(key, options)
+      get = Array(options[:get]).reject { |pattern| pattern == "#" }
+      [key, options[:by], options[:store], *get].compact
     end
 
     def ensure_same_node(command, keys)
