@@ -100,8 +100,8 @@ class Redis
     end
 
     # Get information and statistics about the server.
-    def info(cmd = nil)
-      on_each_node :info, cmd
+    def info(*sections)
+      on_each_node :info, *sections
     end
 
     # Get the UNIX time stamp of the last successful save to disk.

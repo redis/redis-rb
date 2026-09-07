@@ -26,6 +26,16 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
     end
   end
 
+  def test_info_with_multiple_sections
+    target_version "7.0.0" do
+      r.info(:server, :clients).each do |info|
+        assert info.key?("redis_version")
+        assert info.key?("connected_clients")
+        assert !info.key?("used_memory")
+      end
+    end
+  end
+
   def test_info_commandstats
     r.nodes.each do |n|
       n.config(:resetstat)
