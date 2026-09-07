@@ -298,6 +298,34 @@ class Redis
       reply.map { |str| HashifyClusterNodeInfo.call(str) }
     }
 
+    # FUNCTION LIST: RESP2 replies with a flat [k, v, ...] array per library (and per
+    # function within it); RESP3 already returns maps. Converge on nested Hashes.
+    HashifyFunctionList = lambda { |reply|
+      reply.map do |library|
+        library = library.each_slice(2).to_h unless library.is_a?(Hash)
+        library["functions"] = library["functions"].map do |function|
+          function.is_a?(Hash) ? function : function.each_slice(2).to_h
+        end
+        library
+      end
+    }
+
+    # FUNCTION STATS: RESP2 replies with nested flat [k, v, ...] arrays; RESP3 with maps.
+    HashifyFunctionStats = lambda { |reply|
+      reply = reply.each_slice(2).to_h unless reply.is_a?(Hash)
+
+      running = reply["running_script"]
+      reply["running_script"] = running.each_slice(2).to_h if running.is_a?(Array)
+
+      engines = reply["engines"]
+      engines = engines.each_slice(2).to_h unless engines.is_a?(Hash)
+      reply["engines"] = engines.transform_values do |stats|
+        stats.is_a?(Hash) ? stats : stats.each_slice(2).to_h
+      end
+
+      reply
+    }
+
     Noop = ->(reply) { reply }
 
     # Sends a command to Redis and returns its reply.
