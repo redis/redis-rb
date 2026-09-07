@@ -1652,11 +1652,12 @@ class Redis
       key[@tag, 1] if key.match?(@tag)
     end
 
-    # Keys SORT/SORT_RO touch, for same-node routing. `GET #` denotes the sorted element
-    # itself rather than another key, so it takes no part in routing.
+    # Keys SORT/SORT_RO touch, for same-node routing. A BY/GET pattern without `*` never reads
+    # another key (`BY nosort` skips sorting, `GET #` yields the element itself), so it is
+    # left out.
     def sort_keys(key, options)
-      get = Array(options[:get]).reject { |pattern| pattern == "#" }
-      [key, options[:by], options[:store], *get].compact
+      patterns = [options[:by], *Array(options[:get])].compact.select { |pattern| pattern.to_s.include?("*") }
+      [key, options[:store], *patterns].compact
     end
 
     def ensure_same_node(command, keys)

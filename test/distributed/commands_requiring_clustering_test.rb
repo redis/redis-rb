@@ -211,6 +211,25 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     end
   end
 
+  def test_sort_with_by_nosort_keeps_insertion_order
+    r.rpush("{qux}bar", "2")
+    r.rpush("{qux}bar", "1")
+
+    # A constant BY pattern skips sorting and reads no key, so it must not affect routing.
+    assert_equal %w[2 1], r.sort("{qux}bar", by: "nosort")
+    assert_equal %w[1 2], r.sort("{qux}bar")
+  end
+
+  def test_sort_ro_with_by_nosort_keeps_insertion_order
+    target_version "7.0.0" do
+      r.rpush("{qux}bar", "2")
+      r.rpush("{qux}bar", "1")
+
+      assert_equal %w[2 1], r.sort_ro("{qux}bar", by: "nosort")
+      assert_equal %w[1 2], r.sort_ro("{qux}bar")
+    end
+  end
+
   def test_bitop
     r.set("{qux}foo", "a")
     r.set("{qux}bar", "b")
