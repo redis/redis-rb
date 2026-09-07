@@ -375,6 +375,54 @@ module Lint
       assert_equal "abcde", r.getrange("foo", 0, -1)
     end
 
+    def test_lcs
+      target_version "7.0.0" do
+        r.set("{1}foo", "ohmytext")
+        r.set("{1}bar", "mynewtext")
+
+        assert_equal "mytext", r.lcs("{1}foo", "{1}bar")
+      end
+    end
+
+    def test_lcs_with_len
+      target_version "7.0.0" do
+        r.set("{1}foo", "ohmytext")
+        r.set("{1}bar", "mynewtext")
+
+        assert_equal 6, r.lcs("{1}foo", "{1}bar", len: true)
+      end
+    end
+
+    def test_lcs_with_idx
+      target_version "7.0.0" do
+        r.set("{1}foo", "ohmytext")
+        r.set("{1}bar", "mynewtext")
+
+        expected = { "matches" => [[[4, 7], [5, 8]], [[2, 3], [0, 1]]], "len" => 6 }
+        assert_equal expected, r.lcs("{1}foo", "{1}bar", idx: true)
+      end
+    end
+
+    def test_lcs_with_idx_minmatchlen_and_withmatchlen
+      target_version "7.0.0" do
+        r.set("{1}foo", "ohmytext")
+        r.set("{1}bar", "mynewtext")
+
+        assert_equal({ "matches" => [[[4, 7], [5, 8]]], "len" => 6 },
+                     r.lcs("{1}foo", "{1}bar", idx: true, minmatchlen: 4))
+        assert_equal({ "matches" => [[[4, 7], [5, 8], 4]], "len" => 6 },
+                     r.lcs("{1}foo", "{1}bar", idx: true, minmatchlen: 4, withmatchlen: true))
+      end
+    end
+
+    def test_lcs_with_missing_keys
+      target_version "7.0.0" do
+        assert_equal "", r.lcs("{1}missing1", "{1}missing2")
+        assert_equal 0, r.lcs("{1}missing1", "{1}missing2", len: true)
+        assert_equal({ "matches" => [], "len" => 0 }, r.lcs("{1}missing1", "{1}missing2", idx: true))
+      end
+    end
+
     def test_setrange
       r.set("foo", "abcde")
 

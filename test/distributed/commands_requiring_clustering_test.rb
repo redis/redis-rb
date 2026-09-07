@@ -158,6 +158,34 @@ class TestDistributedCommandsRequiringClustering < Minitest::Test
     assert_equal ["s1", "s2"], r.lrange("{qux}baz", 0, -1)
   end
 
+  def test_sort_ro
+    target_version "7.0.0" do
+      r.set("{qux}foo:1", "s1")
+      r.set("{qux}foo:2", "s2")
+
+      r.rpush("{qux}bar", "1")
+      r.rpush("{qux}bar", "2")
+
+      assert_equal ["s1"], r.sort_ro("{qux}bar", get: "{qux}foo:*", limit: [0, 1])
+      assert_equal ["s2"], r.sort_ro("{qux}bar", get: "{qux}foo:*", limit: [0, 1], order: "desc alpha")
+    end
+  end
+
+  def test_sort_ro_with_an_array_of_gets
+    target_version "7.0.0" do
+      r.set("{qux}foo:1:a", "s1a")
+      r.set("{qux}foo:1:b", "s1b")
+
+      r.set("{qux}foo:2:a", "s2a")
+      r.set("{qux}foo:2:b", "s2b")
+
+      r.rpush("{qux}bar", "1")
+      r.rpush("{qux}bar", "2")
+
+      assert_equal [["s1a", "s1b"], ["s2a", "s2b"]], r.sort_ro("{qux}bar", get: ["{qux}foo:*:a", "{qux}foo:*:b"])
+    end
+  end
+
   def test_bitop
     r.set("{qux}foo", "a")
     r.set("{qux}bar", "b")

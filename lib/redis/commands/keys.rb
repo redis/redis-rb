@@ -412,7 +412,54 @@ class Redis
       #   element specified in `:get`
       #   - when `:store` is specified, the number of elements in the stored result
       def sort(key, by: nil, limit: nil, get: nil, order: nil, store: nil)
-        args = [:sort, key]
+        _sort(:sort, key, by: by, limit: limit, get: get, order: order, store: store)
+      end
+
+      # Sort the elements in a list, set or sorted set without storing the result.
+      #
+      # Read-only variant of `sort`: it has no `STORE` option, so it is flagged read-only on the
+      # server and can be executed on read-only replicas (a cluster replica in `READONLY` mode
+      # redirects plain `SORT` to the master).
+      #
+      # @example Retrieve the first 2 elements from an alphabetically sorted "list"
+      #   redis.sort_ro("list", :order => "alpha", :limit => [0, 2])
+      #     # => ["a", "b"]
+      # @example Sort by an external key and fetch each element together with its weight
+      #   redis.sort_ro("list", :by => "weight_*", :get => ["#", "weight_*"])
+      #     # => [["c", "10"], ["b", "20"], ["a", "30"]]
+      #
+      # @param [String] key
+      # @param [Hash] options
+      #   - `:by => String`: use external key to sort elements by
+      #   - `:limit => [offset, count]`: skip `offset` elements, return a maximum
+      #   of `count` elements
+      #   - `:get => [String, Array<String>]`: single key or array of keys to
+      #   retrieve per element in the result
+      #   - `:order => String`: combination of `ASC`, `DESC` and optionally `ALPHA`
+      #
+      # @return [Array<String>, Array<Array<String>>]
+      #   - when `:get` is not specified, or holds a single element, an array of elements
+      #   - when `:get` is specified, and holds more than one element, an array of
+      #   elements where every element is an array with the result for every
+      #   element specified in `:get`
+      #
+      # @see #sort
+      def sort_ro(key, by: nil, limit: nil, get: nil, order: nil)
+        _sort(:sort_ro, key, by: by, limit: limit, get: get, order: order)
+      end
+
+      # Determine the type stored at key.
+      #
+      # @param [String] key
+      # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
+      def type(key)
+        send_command([:type, key])
+      end
+
+      private
+
+      def _sort(command, key, by:, limit:, get:, order:, store: nil)
+        args = [command, key]
         args << "BY" << by if by
 
         if limit
@@ -436,16 +483,6 @@ class Redis
           end
         end
       end
-
-      # Determine the type stored at key.
-      #
-      # @param [String] key
-      # @return [String] `string`, `list`, `set`, `zset`, `hash` or `none`
-      def type(key)
-        send_command([:type, key])
-      end
-
-      private
 
       def _scan(command, cursor, args, match: nil, count: nil, type: nil, novalues: false, &block)
         # SSCAN/ZSCAN/HSCAN already prepend the key to +args+.

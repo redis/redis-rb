@@ -266,6 +266,15 @@ class Redis
       end
     end
 
+    # Sort the elements in a list, set or sorted set without storing the result.
+    def sort_ro(key, **options)
+      keys = [key, options[:by], *Array(options[:get])].compact
+
+      ensure_same_node(:sort_ro, keys) do |node|
+        node.sort_ro(key, **options)
+      end
+    end
+
     # Determine the type stored at key.
     def type(key)
       node_for(key).type(key)
@@ -538,6 +547,13 @@ class Redis
     # Get the length of the value stored in a key.
     def strlen(key)
       node_for(key).strlen(key)
+    end
+
+    # Find the longest common subsequence of the strings stored at two keys.
+    def lcs(key1, key2, **options)
+      ensure_same_node(:lcs, [key1, key2]) do |node|
+        node.lcs(key1, key2, **options)
+      end
     end
 
     def [](key)
@@ -819,6 +835,14 @@ class Redis
       end
     end
 
+    # Get the number of members in the intersection of multiple sets.
+    def sintercard(*keys, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:sintercard, keys) do |node|
+        node.sintercard(keys, limit: limit)
+      end
+    end
+
     # Intersect multiple sets and store the resulting set in a key.
     def sinterstore(destination, *keys)
       keys.flatten!(1)
@@ -963,6 +987,14 @@ class Redis
       keys.flatten!(1)
       ensure_same_node(:zinter, keys) do |node|
         node.zinter(keys, **options)
+      end
+    end
+
+    # Get the number of members in the intersection of multiple sorted sets.
+    def zintercard(*keys, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:zintercard, keys) do |node|
+        node.zintercard(keys, limit: limit)
       end
     end
 
