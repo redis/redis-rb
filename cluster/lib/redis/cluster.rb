@@ -198,16 +198,19 @@ class Redis
     # primary over the connection that carried this client's writes. The driver leaves it on
     # single-node routing (no aggregation for its `agg_min` tip over array replies), so
     # DEFAULT_COMMAND_ROUTINGS routes it to all shards and the driver returns one
-    # `[local, replicas]` pair per primary. Summing has to happen here rather than in a reply
-    # block on the shared command: the driver applies reply blocks per node, before it collects
-    # the fan-out. `local` becomes the number of primaries that fsynced the writes and
-    # `replicas` the total replica acks, mirroring the driver's own WAIT handling. Inside
-    # `pipelined`/`multi` the driver routes the command to one node and the plain pair comes
-    # back, so no aggregation is needed there. The Array guard passes a plain pair through
-    # (caller-supplied routing, or a driver that aggregates natively).
+    # `[local, replicas]` pair per primary. Aggregation has to happen here rather than in a
+    # reply block on the shared command: the driver applies reply blocks per node, before it
+    # collects the fan-out. Each position is collapsed with its minimum, as the server's
+    # `response_policy:agg_min` tip prescribes, so the standalone thresholds keep their
+    # meaning: `local` is 1 only if every primary fsynced the writes, and `replicas` is the
+    # fewest acks any shard got, so `replicas >= numreplicas` holds on every shard. (A sum
+    # would let well-replicated shards mask one that is lagging.) Inside `pipelined`/`multi`
+    # the driver routes the command to one node and the plain pair comes back, so no
+    # aggregation is needed there. The Array guard passes a plain pair through (caller-supplied
+    # routing, or a driver that aggregates natively).
     def waitaof(numlocal, numreplicas, timeout)
       reply = super
-      reply.first.is_a?(Array) ? reply.transpose.map(&:sum) : reply
+      reply.first.is_a?(Array) ? reply.transpose.map(&:min) : reply
     end
 
     private

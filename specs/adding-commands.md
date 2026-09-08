@@ -277,14 +277,14 @@ redis-cli COMMAND INFO <name> | grep policy
 
      def waitaof(numlocal, numreplicas, timeout)
        reply = super
-       reply.first.is_a?(Array) ? reply.transpose.map(&:sum) : reply
+       reply.first.is_a?(Array) ? reply.transpose.map(&:min) : reply
      end
      ```
 
      Pipelines do not need the override: inside `pipelined`/`multi` the driver routes every command to a single node, so the plain standalone shape comes back even though the block receiver (`PipelinedConnection`) never sees `Redis::Cluster` overrides.
 
-  3. Add cluster tests under `cluster/test/`: one proving the fan-out reaches every primary (e.g. a count that equals `redis.role.size`), one that a caller-supplied `command_routings:` entry for the command is respected, and one that issues the command inside `pipelined` and gets the standalone shape back.
-  4. Document the aggregation you chose in the override's comment and mention it in the command's docstring. Mirror what the driver already does for a sibling command when one exists (`WAIT` sums replica acks, so `WAITAOF` sums too).
+  3. Add cluster tests under `cluster/test/`: one proving the fan-out reaches every primary (e.g. provoke a per-node error and assert `CommandErrorCollection#errors.size == redis.role.size`), one that a caller-supplied `command_routings:` entry for the command is respected, and one that issues the command inside `pipelined` and gets the standalone shape back.
+  4. Aggregate the way the server's `response_policy` tip prescribes, and document it in the override's comment and the command's docstring: `agg_min` means a per-position minimum (so `WAITAOF`'s `[local, replicas]` keeps its single-node threshold meaning: `local` is `1` only if every primary fsynced), `agg_sum` means a sum, `all_succeeded` means any one reply. Do not copy how the driver happens to treat a sibling command (it sums `WAIT`, which predates the tips) — a sum lets healthy shards mask a lagging one.
 
 Prefer opening a `redis-cluster-client` change for the missing policy over growing these overrides, and re-audit `DEFAULT_COMMAND_ROUTINGS` and the overrides on every driver bump (the gemspec pins an exact version for this reason).
 

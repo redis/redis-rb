@@ -211,7 +211,7 @@ class TestClusterCommandsOnServer < Minitest::Test
     end
   end
 
-  def test_waitaof_counts_local_fsyncs_across_every_primary
+  def test_waitaof_reports_a_local_fsync_only_when_every_primary_has_one
     target_version "7.2.0" do
       original = redis.config(:get, 'appendonly')['appendonly']
       begin
@@ -223,8 +223,26 @@ class TestClusterCommandsOnServer < Minitest::Test
 
         local, replicas = redis.waitaof(1, 0, 5000)
 
-        assert_equal redis.role.size, local
+        # Minimum across primaries: 1 means all of them fsynced, never a count above 1.
+        assert_equal 1, local
         assert_kind_of Integer, replicas
+      ensure
+        redis.config(:set, 'appendonly', original)
+      end
+    end
+  end
+
+  def test_waitaof_reaches_every_primary
+    target_version "7.2.0" do
+      original = redis.config(:get, 'appendonly')['appendonly']
+      begin
+        redis.config(:set, 'appendonly', 'no')
+
+        # With AOF disabled every primary rejects numlocal=1, so the fan-out surfaces one error
+        # per primary rather than a single node's.
+        error = assert_raises(Redis::Cluster::CommandErrorCollection) { redis.waitaof(1, 0, 0) }
+        assert_equal redis.role.size, error.errors.size
+        error.errors.each_value { |e| assert_match(/appendonly is disabled/, e.message) }
       ensure
         redis.config(:set, 'appendonly', original)
       end
