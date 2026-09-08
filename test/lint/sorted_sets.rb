@@ -681,6 +681,54 @@ module Lint
       end
     end
 
+    def test_zintercard
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3'], [4, 'm4']]
+        r.zadd '{1}bar', [[1, 'm2'], [2, 'm3'], [3, 'm4'], [4, 'm5']]
+        r.zadd '{1}baz', [[1, 'm3'], [2, 'm4'], [3, 'm6']]
+
+        assert_equal 3, r.zintercard('{1}foo', '{1}bar')
+        assert_equal 2, r.zintercard('{1}foo', '{1}bar', '{1}baz')
+      end
+    end
+
+    def test_zintercard_with_single_key
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+
+        assert_equal 3, r.zintercard('{1}foo')
+        assert_equal 0, r.zintercard('{1}nonexistent')
+      end
+    end
+
+    def test_zintercard_with_missing_key
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+
+        assert_equal 0, r.zintercard('{1}foo', '{1}nonexistent')
+      end
+    end
+
+    def test_variadic_zintercard_expand
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+        r.zadd '{1}bar', [[1, 'm2'], [2, 'm3']]
+
+        assert_equal 2, r.zintercard(['{1}foo', '{1}bar'])
+      end
+    end
+
+    def test_zintercard_with_limit
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3'], [4, 'm4']]
+        r.zadd '{1}bar', [[1, 'm2'], [2, 'm3'], [3, 'm4']]
+
+        assert_equal 1, r.zintercard('{1}foo', '{1}bar', limit: 1)
+        assert_equal 3, r.zintercard('{1}foo', '{1}bar', limit: 0)
+        assert_equal 3, r.zintercard('{1}foo', '{1}bar', limit: 10)
+      end
+    end
+
     def test_zinter_with_count_aggregate
       target_version "8.8" do
         r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]

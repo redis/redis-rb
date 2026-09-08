@@ -395,6 +395,51 @@ class Redis
         send_command([:strlen, key])
       end
 
+      # Find the longest common subsequence of the strings stored at two keys.
+      #
+      # Matching characters need not be contiguous: the LCS of "foo" and "fao" is "fo".
+      # Runs in O(N*M) on the server, so keep the strings small.
+      #
+      # @example Get the subsequence
+      #   redis.mset("key1", "ohmytext", "key2", "mynewtext")
+      #   redis.lcs("key1", "key2")
+      #     # => "mytext"
+      # @example Get only its length
+      #   redis.lcs("key1", "key2", len: true)
+      #     # => 6
+      # @example Get the match positions, last match first
+      #   redis.lcs("key1", "key2", idx: true)
+      #     # => { "matches" => [[[4, 7], [5, 8]], [[2, 3], [0, 1]]], "len" => 6 }
+      # @example Only matches of at least 4 characters, each with its length
+      #   redis.lcs("key1", "key2", idx: true, minmatchlen: 4, withmatchlen: true)
+      #     # => { "matches" => [[[4, 7], [5, 8], 4]], "len" => 6 }
+      #
+      # @param [String] key1
+      # @param [String] key2
+      # @param [Hash] options
+      #   - `:len => true`: return the length of the subsequence instead of the subsequence
+      #   - `:idx => true`: return the match positions instead of the subsequence
+      #   - `:minmatchlen => Integer`: (`idx`) only report matches at least this long
+      #   - `:withmatchlen => true`: (`idx`) append each match's length to its entry
+      #
+      # @return [String, Integer, Hash]
+      #   - by default, the subsequence (`""` when there is none)
+      #   - with `:len`, its length
+      #   - with `:idx`, `{ "matches" => [[[start1, end1], [start2, end2], (len)], ...], "len" => Integer }`
+      def lcs(key1, key2, len: false, idx: false, minmatchlen: nil, withmatchlen: false)
+        args = [:lcs, key1, key2]
+        args << "LEN" if len
+        args << "IDX" if idx
+        args << "MINMATCHLEN" << Integer(minmatchlen) if minmatchlen
+        args << "WITHMATCHLEN" if withmatchlen
+
+        if idx
+          send_command(args, &Hashify)
+        else
+          send_command(args)
+        end
+      end
+
       private
 
       # INCREX bounds decide whether the increment is applied at all, so a

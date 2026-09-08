@@ -87,6 +87,14 @@ class TestClusterCommandsOnKeys < Minitest::Test
     assert_equal %w[1 2 3 4 5], redis.sort('mylist')
   end
 
+  def test_sort_ro
+    target_version "7.0.0" do
+      redis.rpush('mylist', %w[3 1 5 2 4])
+      assert_equal %w[1 2 3 4 5], redis.sort_ro('mylist')
+      assert_equal %w[5 4], redis.sort_ro('mylist', order: 'desc', limit: [0, 2])
+    end
+  end
+
   def test_touch
     set_some_keys
     assert_equal 1, redis.touch('key1')

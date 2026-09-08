@@ -91,6 +91,12 @@ class TestDistributedCommandsOnSets < Minitest::Test
     end
   end
 
+  def test_sintercard_with_keys_on_different_nodes
+    assert_raises Redis::Distributed::CannotDistribute do
+      r.sintercard('foo', 'bar')
+    end
+  end
+
   def test_sscan
     r.sadd 'foo', 's1'
     r.sadd 'foo', 's2'

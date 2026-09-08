@@ -14,6 +14,12 @@ class TestDistributedCommandsOnSortedSets < Minitest::Test
     assert_raises(Redis::Distributed::CannotDistribute) { super }
   end
 
+  def test_zintercard_with_keys_on_different_nodes
+    assert_raises(Redis::Distributed::CannotDistribute) do
+      r.zintercard('foo', 'bar')
+    end
+  end
+
   def test_zinter_with_aggregate
     assert_raises(Redis::Distributed::CannotDistribute) { super }
   end

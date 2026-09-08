@@ -736,6 +736,28 @@ class Redis
       end
       ruby2_keywords(:zinter) if respond_to?(:ruby2_keywords, true)
 
+      # Get the number of members in the intersection of multiple sorted sets.
+      #
+      # @example
+      #   redis.zadd("zsetA", [[1, "v1"], [2, "v2"], [3, "v3"]])
+      #   redis.zadd("zsetB", [[1, "v2"], [2, "v3"], [3, "v4"]])
+      #   redis.zintercard("zsetA", "zsetB")
+      #     # => 2
+      # @example Stop counting once the intersection reaches 1 member
+      #   redis.zintercard("zsetA", "zsetB", limit: 1)
+      #     # => 1
+      #
+      # @param [String, Array<String>] keys one or more keys to intersect
+      # @param [Integer] limit stop counting once the intersection reaches `limit`
+      #   members (`0` means unlimited)
+      # @return [Integer] number of members in the intersection
+      def zintercard(*keys, limit: nil)
+        keys.flatten!(1)
+        args = [:zintercard, keys.size].concat(keys)
+        args << "LIMIT" << Integer(limit) if limit
+        send_command(args)
+      end
+
       # Intersect multiple sorted sets and store the resulting sorted set in a new
       # key.
       #

@@ -37,6 +37,12 @@ class TestDistributedCommandsOnStrings < Minitest::Test
     end
   end
 
+  def test_lcs_with_keys_on_different_nodes
+    assert_raises Redis::Distributed::CannotDistribute do
+      r.lcs("foo", "bar")
+    end
+  end
+
   def test_mset_mapped
     assert_raises Redis::Distributed::CannotDistribute do
       r.mapped_mset(foo: "s1", bar: "s2")
