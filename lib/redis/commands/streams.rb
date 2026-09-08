@@ -397,8 +397,12 @@ class Redis
       # @param justid        [Boolean]       whether to fetch just an array of entry ids or not.
       #                                      Does not increment retry count when true
       #
-      # @return [Hash{String => Hash}] the entries successfully claimed
-      # @return [Array<String>]        the entry ids successfully claimed if justid option is `true`
+      # @return [Hash] with the keys
+      #   * `'next'`    [String] the entry id to pass as `start` on the next call, `0-0` when done
+      #   * `'entries'` [Array<[String, Hash]>] the claimed entries as `[id, fields]` pairs, or just
+      #     the ids when `justid` is `true`
+      #   * `'deleted'` [Array<String>] ids that were deleted from the stream and dropped from the
+      #     PEL (Redis 7.0); always `[]` on Redis 6.2
       def xautoclaim(key, group, consumer, min_idle_time, start, count: nil, justid: false)
         args = [:xautoclaim, key, group, consumer, min_idle_time, start]
         if count

@@ -219,19 +219,23 @@ class Redis
       end
     }
 
+    # XAUTOCLAIM: Redis 7.0 appends the ids of entries that were deleted from the stream and
+    # dropped from the PEL; 6.2 has no third element and reports them as nils inside entries.
     HashifyStreamAutoclaim = lambda { |reply|
       {
         'next' => reply[0],
         'entries' => reply[1].compact.map do |entry, values|
           [entry, values.each_slice(2)&.to_h]
-        end
+        end,
+        'deleted' => reply[2] || []
       }
     }
 
     HashifyStreamAutoclaimJustId = lambda { |reply|
       {
         'next' => reply[0],
-        'entries' => reply[1]
+        'entries' => reply[1],
+        'deleted' => reply[2] || []
       }
     }
 

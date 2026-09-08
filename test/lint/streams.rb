@@ -981,6 +981,7 @@ module Lint
       assert_equal '0-0', actual['next']
       assert_equal %w(0-2 0-3), actual['entries'].map(&:first)
       assert_equal(%w(v2 v3), actual['entries'].map { |i| i.last['f'] })
+      assert_equal [], actual['deleted']
     end
 
     def test_xautoclaim_with_justid_option
@@ -1046,6 +1047,26 @@ module Lint
 
       assert_equal '0-0', actual['next']
       assert_equal [], actual['entries']
+      # 7.0 reports the ids it dropped from the PEL; 6.2 has no such reply element.
+      assert_equal(version >= '7.0.0' ? ['0-2'] : [], actual['deleted'])
+    end
+
+    def test_xautoclaim_with_deleted_entry_and_justid_option
+      omit_version('7.0.0')
+
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xgroup(:create, 's1', 'g1', '$')
+      redis.xadd('s1', { f: 'v2' }, id: '0-2')
+      redis.xadd('s1', { f: 'v3' }, id: '0-3')
+      redis.xreadgroup('g1', 'c1', 's1', '>')
+      redis.xdel('s1', '0-2')
+      sleep 0.01
+
+      actual = redis.xautoclaim('s1', 'g1', 'c2', 0, '0-0', justid: true)
+
+      assert_equal '0-0', actual['next']
+      assert_equal ['0-3'], actual['entries']
+      assert_equal ['0-2'], actual['deleted']
     end
 
     def test_xpending
