@@ -267,7 +267,7 @@ redis-cli COMMAND INFO <name> | grep policy
 - **No tips, or tips the driver handles** — nothing to do. The driver routes it correctly; the lint tests on cluster confirm it.
 - **Tips the driver does not handle** — apply the routing from redis-rb *through the driver*, not around it:
   1. Add an entry to `DEFAULT_COMMAND_ROUTINGS` in `cluster/lib/redis/cluster.rb`. `Redis::Cluster#initialize_client` passes it as the driver's `command_routings:` config option, which the driver validates and merges over its own table. Caller-supplied `command_routings:` are merged on top, so applications keep the last word. Pick the closest supported `request_policy` (`all_shards` for primaries, `all_nodes` to include replicas) and the closest supported `response_policy`, or leave the response policy out to receive one reply per node.
-  2. If no supported `response_policy` yields the standalone return value, add a **thin reply-shaping override** in `Redis::Cluster` that only collapses the per-node array — never one that sends commands itself. Guard it with `reply.first.is_a?(Array)` (or `reply.is_a?(Array)`) so a caller who changes the routing, or a future driver release that aggregates natively, passes through untouched. `waitaof` and the `himport_*` methods are the existing examples:
+  2. If no supported `response_policy` yields the standalone return value, add a **thin reply-shaping override** in `Redis::Cluster` that only collapses the per-node array — never one that sends commands itself. It must be a method override, not a reply block (§4) on the shared command: the driver applies reply blocks **per node**, before it collects the fan-out, so a block only ever sees a single node's reply. Guard the override with `reply.first.is_a?(Array)` so a plain reply passes through untouched (a caller who changed the routing, or a future driver release that aggregates natively). `waitaof` and the `himport_*` methods are the existing examples:
 
      ```ruby
      # cluster/lib/redis/cluster.rb
@@ -281,8 +281,10 @@ redis-cli COMMAND INFO <name> | grep policy
      end
      ```
 
-  3. Add a cluster test under `cluster/test/` that proves the fan-out reaches every primary (e.g. a count that equals `redis.role.size`), and one that a caller-supplied `command_routings:` entry for the command is respected.
-  4. Document the aggregation you chose in the override's comment. Mirror what the driver already does for a sibling command when one exists (`WAIT` sums replica acks, so `WAITAOF` sums too).
+     Pipelines do not need the override: inside `pipelined`/`multi` the driver routes every command to a single node, so the plain standalone shape comes back even though the block receiver (`PipelinedConnection`) never sees `Redis::Cluster` overrides.
+
+  3. Add cluster tests under `cluster/test/`: one proving the fan-out reaches every primary (e.g. a count that equals `redis.role.size`), one that a caller-supplied `command_routings:` entry for the command is respected, and one that issues the command inside `pipelined` and gets the standalone shape back.
+  4. Document the aggregation you chose in the override's comment and mention it in the command's docstring. Mirror what the driver already does for a sibling command when one exists (`WAIT` sums replica acks, so `WAITAOF` sums too).
 
 Prefer opening a `redis-cluster-client` change for the missing policy over growing these overrides, and re-audit `DEFAULT_COMMAND_ROUTINGS` and the overrides on every driver bump (the gemspec pins an exact version for this reason).
 
@@ -674,7 +676,7 @@ Use this when adding a new command:
 - [ ] If a new error class is needed, add it to `lib/redis/errors.rb` and `Redis::Client::ERROR_MAPPING` (and the cluster equivalent if relevant).
 - [ ] Check the command's cluster routing (`redis-cli COMMAND INFO <name> | grep policy`, §3 "Command routings on cluster"):
   - [ ] Tips absent or handled by `redis-cluster-client`: nothing to do.
-  - [ ] Otherwise add a `DEFAULT_COMMAND_ROUTINGS` entry in `cluster/lib/redis/cluster.rb`, at most a thin Array-guarded reply-shaping override in `Redis::Cluster`, and a cluster test proving the fan-out.
+  - [ ] Otherwise add a `DEFAULT_COMMAND_ROUTINGS` entry in `cluster/lib/redis/cluster.rb`, at most a thin Array-guarded reply-shaping override in `Redis::Cluster` (the driver applies reply blocks per node, so a block cannot aggregate), and cluster tests proving the fan-out, caller precedence, and the pipelined shape.
 - [ ] Run locally: `make start_all && make test && bundle exec rubocop && make stop_all`.
 
 That's it. The two-gem structure and the lint-module sharing conspire to make the common case (a single Ruby method definition plus tests) the only thing you actually have to write.

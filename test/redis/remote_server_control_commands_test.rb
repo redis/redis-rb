@@ -98,6 +98,20 @@ class TestRemoteServerControlCommands < Minitest::Test
     assert_equal %w[0 1 1000], received
   end
 
+  def test_waitaof_in_pipeline
+    target_version "7.2.0" do
+      r.set("foo", "bar")
+
+      result = r.pipelined do |pipe|
+        pipe.waitaof(0, 0, 0)
+      end
+
+      local, replicas = result.first
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
+
   def test_monitor_redis
     log = []
 

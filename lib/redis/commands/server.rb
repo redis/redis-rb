@@ -141,6 +141,9 @@ class Redis
       # the command returned, whether or not the requested levels were reached, so compare it
       # against what you asked for. Inside `multi` the command does not block.
       #
+      # On `Redis::Cluster` the command is sent to every primary and the counts are summed, like
+      # `WAIT`: `local` is then the number of primaries (up to N) that fsynced the writes.
+      #
       # @example Wait for the local AOF fsync
       #   redis.set("foo", "bar")
       #   redis.waitaof(1, 0, 0)
@@ -154,8 +157,8 @@ class Redis
       # @param [Integer] numreplicas number of replicas that must acknowledge the fsync
       # @param [Integer] timeout maximum time to wait in milliseconds, `0` blocks indefinitely
       #
-      # @return [Array<Integer>] `[local, replicas]`: the number of local servers (`0` or `1`) and
-      #   replicas that had fsynced the writes
+      # @return [Array<Integer>] `[local, replicas]`: the number of local servers (`0` or `1`,
+      #   up to the number of primaries on cluster) and replicas that had fsynced the writes
       def waitaof(numlocal, numreplicas, timeout)
         timeout = Integer(timeout)
         command = [:waitaof, Integer(numlocal), Integer(numreplicas), timeout]

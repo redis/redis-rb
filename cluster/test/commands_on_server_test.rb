@@ -244,4 +244,18 @@ class TestClusterCommandsOnServer < Minitest::Test
       assert_kind_of Integer, replicas
     end
   end
+
+  def test_waitaof_in_pipeline_keeps_the_standalone_shape
+    target_version "7.2.0" do
+      redis.set('{a}foo', 'bar')
+
+      result = redis.pipelined do |pipe|
+        pipe.waitaof(0, 0, 0)
+      end
+
+      local, replicas = result.first
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
 end

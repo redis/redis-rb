@@ -194,15 +194,17 @@ class Redis
       reply.is_a?(Array) ? reply.max : reply
     end
 
-    # WAITAOF on cluster: the guarantee is per connection, so the command has to reach every
-    # primary over the connection that carried this client's writes. redis-cluster-client
-    # (0.17) leaves WAITAOF on single-node routing because its `agg_min` response policy has
-    # no defined aggregation for array replies, so #initialize_client routes it with
-    # `request_policy:all_shards` via the driver's `command_routings` option and the driver
-    # returns one `[local, replicas]` pair per primary. This override sums them, like the
-    # driver does for WAIT: `local` is the number of primaries that fsynced the writes and
-    # `replicas` the total replica acks. A caller-supplied `command_routings` entry for
-    # `waitaof` takes precedence; the Array guard passes a non-fanned-out reply through.
+    # WAITAOF on cluster: the guarantee is per connection, so the command must reach every
+    # primary over the connection that carried this client's writes. The driver leaves it on
+    # single-node routing (no aggregation for its `agg_min` tip over array replies), so
+    # DEFAULT_COMMAND_ROUTINGS routes it to all shards and the driver returns one
+    # `[local, replicas]` pair per primary. Summing has to happen here rather than in a reply
+    # block on the shared command: the driver applies reply blocks per node, before it collects
+    # the fan-out. `local` becomes the number of primaries that fsynced the writes and
+    # `replicas` the total replica acks, mirroring the driver's own WAIT handling. Inside
+    # `pipelined`/`multi` the driver routes the command to one node and the plain pair comes
+    # back, so no aggregation is needed there. The Array guard passes a plain pair through
+    # (caller-supplied routing, or a driver that aggregates natively).
     def waitaof(numlocal, numreplicas, timeout)
       reply = super
       reply.first.is_a?(Array) ? reply.transpose.map(&:sum) : reply
@@ -211,7 +213,7 @@ class Redis
     private
 
     # Routing overrides handed to redis-cluster-client for commands whose server tips it does
-    # not act on; see #waitaof. Caller-supplied `command_routings` are merged on top.
+    # not act on; see #waitaof. Caller-supplied `command_routings` are merged on top and win.
     DEFAULT_COMMAND_ROUTINGS = {
       'waitaof' => { request_policy: 'all_shards' }.freeze
     }.freeze
