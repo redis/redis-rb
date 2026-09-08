@@ -194,12 +194,35 @@ class Redis
       reply.is_a?(Array) ? reply.max : reply
     end
 
+    # WAITAOF on cluster: the guarantee is per connection, so the command has to reach every
+    # primary over the connection that carried this client's writes. redis-cluster-client
+    # (0.17) leaves WAITAOF on single-node routing because its `agg_min` response policy has
+    # no defined aggregation for array replies, so #initialize_client routes it with
+    # `request_policy:all_shards` via the driver's `command_routings` option and the driver
+    # returns one `[local, replicas]` pair per primary. This override sums them, like the
+    # driver does for WAIT: `local` is the number of primaries that fsynced the writes and
+    # `replicas` the total replica acks. A caller-supplied `command_routings` entry for
+    # `waitaof` takes precedence; the Array guard passes a non-fanned-out reply through.
+    def waitaof(numlocal, numreplicas, timeout)
+      reply = super
+      reply.first.is_a?(Array) ? reply.transpose.map(&:sum) : reply
+    end
+
     private
 
+    # Routing overrides handed to redis-cluster-client for commands whose server tips it does
+    # not act on; see #waitaof. Caller-supplied `command_routings` are merged on top.
+    DEFAULT_COMMAND_ROUTINGS = {
+      'waitaof' => { request_policy: 'all_shards' }.freeze
+    }.freeze
+    private_constant :DEFAULT_COMMAND_ROUTINGS
+
     def initialize_client(options)
+      command_routings = DEFAULT_COMMAND_ROUTINGS.merge(options[:command_routings] || {})
       # protocol defaults to 3 (RESP3) but a caller-provided protocol: in options overrides it.
       cluster_config = RedisClient.cluster(
         protocol: 3, **options,
+        command_routings: command_routings,
         driver_info: ::Redis::LibIdentity.driver_info(options[:driver_info]),
         client_implementation: ::Redis::Cluster::Client
       )

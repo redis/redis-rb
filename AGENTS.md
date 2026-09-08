@@ -150,6 +150,14 @@ The `HIMPORT` command family (Redis 8.10) is the one place a command's state out
 - `Redis::Cluster#connection` raises `NotImplementedError` — there's no single "connection" to report.
 - Extra error classes: `InitialSetupError`, `OrchestrationCommandNotSupported`, `CommandErrorCollection`, `AmbiguousNodeError`, `TransactionConsistencyError`, `NodeMightBeDown` (defined in `cluster/lib/redis/cluster.rb`).
 
+### Command routings (cluster)
+
+Which node(s) a command goes to, and how fan-out replies are combined, is the **driver's job, not redis-rb's**. `redis-cluster-client` routes keyed commands by slot and keyless commands by the server's command tips (`request_policy` / `response_policy` from `COMMAND INFO`), with a built-in routing table for the exceptions (`RedisClient::Cluster::Router::RoutingTable`). Do not reimplement that in `Redis::Cluster` by enumerating nodes and calling them one by one — it bypasses the driver's redirection handling, topology refresh and error collection.
+
+When the driver's default routing is wrong for a command, fix it through the driver's `command_routings` config option rather than in Ruby: `Redis::Cluster#initialize_client` passes `DEFAULT_COMMAND_ROUTINGS` (`cluster/lib/redis/cluster.rb`), a `{ 'command' => { request_policy:, response_policy: } }` hash the driver validates and merges over its table, and caller-supplied `command_routings:` are merged on top so applications keep the last word. Supported values are the driver's, not the server's full set: `request_policy` `all_shards` / `all_nodes`, and `response_policy` `nil` (one reply per node), `all_succeeded`, `one_succeeded`, `agg_sum` (sums Integer replies only). Anything else, e.g. `agg_min`, is rejected at construction.
+
+Only when no driver response policy produces the documented standalone return value does `Redis::Cluster` add a **thin reply-shaping override** (`waitaof`, `himport_*`): the driver still does the fan-out and hands back one reply per primary, and the override only collapses that array into the standalone shape, guarded by an `is_a?(Array)` check so a later driver release that aggregates natively is passed through unchanged. Prefer contributing the missing policy upstream over growing these overrides. Re-audit `DEFAULT_COMMAND_ROUTINGS` and the overrides on every `redis-cluster-client` bump (the gemspec pins an exact version for this reason).
+
 ### `Redis::Distributed` is not Redis Cluster
 
 `lib/redis/distributed.rb` + `lib/redis/hash_ring.rb` implement **client-side consistent-hash sharding** across N independent standalone Redis servers. It is *not* the Redis Cluster protocol — there are no slot maps, no MOVED/ASK redirects, no automatic resharding. Keys are hashed with CRC32 against an MD5-built ring (160 vnodes/server) and dispatched to one underlying `Redis` instance. Multi-key commands raise `CannotDistribute` since co-location isn't guaranteed.

@@ -201,9 +201,44 @@ class TestClusterCommandsOnServer < Minitest::Test
 
   def test_waitaof
     target_version "7.2.0" do
-      redis.set('foo', 'bar')
+      redis.set('{a}foo', 'bar')
+      redis.set('{b}foo', 'bar')
 
       local, replicas = redis.waitaof(0, 0, 0)
+
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
+
+  def test_waitaof_counts_local_fsyncs_across_every_primary
+    target_version "7.2.0" do
+      original = redis.config(:get, 'appendonly')['appendonly']
+      begin
+        # CONFIG SET fans out to every node, so all primaries get an AOF to fsync.
+        redis.config(:set, 'appendonly', 'yes')
+        redis.set('{a}foo', 'bar')
+        redis.set('{b}foo', 'bar')
+        redis.set('{c}foo', 'bar')
+
+        local, replicas = redis.waitaof(1, 0, 5000)
+
+        assert_equal redis.role.size, local
+        assert_kind_of Integer, replicas
+      ensure
+        redis.config(:set, 'appendonly', original)
+      end
+    end
+  end
+
+  def test_waitaof_respects_a_caller_supplied_routing
+    target_version "7.2.0" do
+      # A nil routing drops our all-shards default, so the driver routes WAITAOF to a single
+      # node and the plain [local, replicas] pair is passed through unaggregated.
+      r = build_another_client(command_routings: { 'waitaof' => nil })
+      r.set('{a}foo', 'bar')
+
+      local, replicas = r.waitaof(0, 0, 0)
 
       assert_equal 0, local
       assert_kind_of Integer, replicas
