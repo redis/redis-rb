@@ -244,6 +244,27 @@ module Lint
       end
     end
 
+    def test_zrank_with_score_for_a_missing_member
+      target_version "7.2" do
+        r.zadd "foo", 1, "s1"
+
+        # Same nil as the plain form, not a [nil, nil] pair.
+        assert_nil r.zrank("foo", "nope")
+        assert_nil r.zrank("foo", "nope", with_score: true)
+        assert_nil r.zrank("missing", "s1", with_score: true)
+      end
+    end
+
+    def test_zrevrank_with_score_for_a_missing_member
+      target_version "7.2" do
+        r.zadd "foo", 1, "s1"
+
+        assert_nil r.zrevrank("foo", "nope")
+        assert_nil r.zrevrank("foo", "nope", with_score: true)
+        assert_nil r.zrevrank("missing", "s1", with_score: true)
+      end
+    end
+
     def test_zrange
       r.zadd "foo", 1, "s1"
       r.zadd "foo", 2, "s2"
