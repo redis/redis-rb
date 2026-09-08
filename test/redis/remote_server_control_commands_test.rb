@@ -33,6 +33,41 @@ class TestRemoteServerControlCommands < Minitest::Test
     assert_equal '2', result['get']['calls']
   end
 
+  def test_info_with_a_single_section
+    info = r.info(:server)
+
+    assert info.key?("redis_version")
+    assert !info.key?("connected_clients")
+  end
+
+  def test_info_with_nil_section_behaves_like_no_section
+    assert_equal r.info.keys, r.info(nil).keys
+  end
+
+  def test_info_with_multiple_sections
+    target_version "7.0.0" do
+      info = r.info(:server, :clients)
+
+      assert info.key?("redis_version")
+      assert info.key?("connected_clients")
+      assert !info.key?("used_memory")
+
+      # Values such as uptime change between calls, so compare the section layout only.
+      assert_equal info.keys, r.info(%i[server clients]).keys
+    end
+  end
+
+  def test_info_with_commandstats_and_another_section_is_not_nested
+    target_version "7.0.0" do
+      r.get("foo")
+
+      info = r.info(:server, :commandstats)
+
+      assert info.key?("redis_version")
+      assert info.key?("cmdstat_get")
+    end
+  end
+
   def test_monitor_redis
     log = []
 
