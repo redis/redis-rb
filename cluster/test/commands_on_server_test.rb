@@ -198,4 +198,15 @@ class TestClusterCommandsOnServer < Minitest::Test
   def test_time
     assert_instance_of Array, redis.time
   end
+
+  def test_waitaof
+    target_version "7.2.0" do
+      redis.set('foo', 'bar')
+
+      local, replicas = redis.waitaof(0, 0, 0)
+
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
 end

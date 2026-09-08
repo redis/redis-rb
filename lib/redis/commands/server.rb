@@ -134,6 +134,34 @@ class Redis
         send_command([:save])
       end
 
+      # Block until the write commands previously sent on this connection have been fsynced to
+      # the append-only file of the local server and/or of the given number of replicas.
+      #
+      # The reply always reports how many local servers and replicas had fsynced the writes when
+      # the command returned, whether or not the requested levels were reached, so compare it
+      # against what you asked for. Inside `multi` the command does not block.
+      #
+      # @example Wait for the local AOF fsync
+      #   redis.set("foo", "bar")
+      #   redis.waitaof(1, 0, 0)
+      #     # => [1, 0]
+      # @example Wait at most one second for one replica
+      #   redis.waitaof(0, 1, 1000)
+      #     # => [1, 0]
+      #
+      # @param [Integer] numlocal `1` to wait for the local AOF fsync, `0` to skip it. Requires
+      #   `appendonly yes` on the server when set.
+      # @param [Integer] numreplicas number of replicas that must acknowledge the fsync
+      # @param [Integer] timeout maximum time to wait in milliseconds, `0` blocks indefinitely
+      #
+      # @return [Array<Integer>] `[local, replicas]`: the number of local servers (`0` or `1`) and
+      #   replicas that had fsynced the writes
+      def waitaof(numlocal, numreplicas, timeout)
+        timeout = Integer(timeout)
+        command = [:waitaof, Integer(numlocal), Integer(numreplicas), timeout]
+        send_blocking_command(command, timeout / 1000.0)
+      end
+
       # Synchronously save the dataset to disk and then shut down the server.
       def shutdown
         synchronize do |client|

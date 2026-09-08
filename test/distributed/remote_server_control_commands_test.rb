@@ -38,6 +38,20 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
     end
   end
 
+  def test_waitaof
+    target_version "7.2.0" do
+      r.set("foo", "bar")
+
+      results = r.waitaof(0, 0, 0)
+
+      assert_equal r.nodes.size, results.size
+      results.each do |local, replicas|
+        assert_equal 0, local
+        assert_kind_of Integer, replicas
+      end
+    end
+  end
+
   def test_monitor
     r.monitor
   rescue Exception => ex

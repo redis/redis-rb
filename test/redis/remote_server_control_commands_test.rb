@@ -33,6 +33,71 @@ class TestRemoteServerControlCommands < Minitest::Test
     assert_equal '2', result['get']['calls']
   end
 
+  def test_waitaof
+    target_version "7.2.0" do
+      r.set("foo", "bar")
+
+      local, replicas = r.waitaof(0, 0, 0)
+
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
+
+  def test_waitaof_with_local_fsync
+    target_version "7.2.0" do
+      original = r.config(:get, "appendonly")["appendonly"]
+      begin
+        r.config(:set, "appendonly", "yes")
+        r.set("foo", "bar")
+
+        assert_equal 1, r.waitaof(1, 0, 5000).first
+      ensure
+        r.config(:set, "appendonly", original)
+      end
+    end
+  end
+
+  def test_waitaof_with_numlocal_when_aof_is_disabled
+    target_version "7.2.0" do
+      original = r.config(:get, "appendonly")["appendonly"]
+      begin
+        r.config(:set, "appendonly", "no")
+
+        error = assert_raises(Redis::CommandError) { r.waitaof(1, 0, 0) }
+        assert_match(/appendonly is disabled/, error.message)
+      ensure
+        r.config(:set, "appendonly", original)
+      end
+    end
+  end
+
+  def test_waitaof_returns_when_the_timeout_expires
+    target_version "7.2.0" do
+      r.set("foo", "bar")
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      # Nobody has 100 replicas, so this can only return via the 100ms timeout.
+      local, replicas = r.waitaof(0, 100, 100)
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+      assert_operator elapsed, :<, 2
+    end
+  end
+
+  def test_waitaof_sends_the_arguments_in_order
+    received = nil
+    commands = { waitaof: ->(*args) { received = args; "*2\r\n:1\r\n:0\r\n" } }
+
+    redis_mock(commands) do |redis|
+      assert_equal [1, 0], redis.waitaof(0, 1, 1000)
+    end
+
+    assert_equal %w[0 1 1000], received
+  end
+
   def test_monitor_redis
     log = []
 
