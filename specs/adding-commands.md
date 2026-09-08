@@ -250,6 +250,41 @@ Important facts:
 | A new client-side reshape of an existing verb | Same as above + a reshape lambda (§4) | None. Reshapes live entirely in redis-rb. |
 | A command whose RESP3 reply shape differs from RESP2 (native map/double vs flat array) | Same as above — make the reshape lambda protocol-aware (accept both shapes, converge on one Ruby value) and test under `PROTOCOL=2` and `PROTOCOL=3` | None. The client negotiates RESP3 by default since 6.0 and falls back to RESP2 automatically. |
 | Behavior that needs RESP3 **push messages** (client tracking / invalidation) | Not yet supported in redis-rb. Drop down to `RedisClient` directly. | n/a |
+| A keyless or fan-out command whose server `request_policy`/`response_policy` tips `redis-cluster-client` does not act on | `DEFAULT_COMMAND_ROUTINGS` in `cluster/lib/redis/cluster.rb`, plus at most a thin reply-shaping override in `Redis::Cluster` (see "Command routings on cluster" below) | Ideally none: prefer contributing the missing policy to `redis-cluster-client`. |
+
+### Command routings on cluster
+
+On `Redis::Cluster`, **which node(s) a command is sent to and how fan-out replies are combined is the driver's job**. `redis-cluster-client` routes keyed commands by slot and keyless commands by the tips the server publishes in `COMMAND INFO` (`request_policy:` and `response_policy:`), with a built-in table for exceptions (`RedisClient::Cluster::Router::RoutingTable`). redis-rb never enumerates cluster nodes and calls them one by one: that would bypass the driver's MOVED/ASK handling, topology refresh, and per-node error collection.
+
+The driver does **not** act on every tip the server can publish. As of the pinned version it handles `request_policy` `all_shards` / `all_nodes` and `response_policy` `nil` (one reply per node), `all_succeeded`, `one_succeeded` and `agg_sum` (Integer replies only). Commands with anything else — `agg_min`, `agg_max`, `agg_logical_*`, `special` — silently fall back to **single-node routing**, which can be wrong for the command's semantics (e.g. `WAITAOF` only reports the node and connection it happened to land on).
+
+So when you add a command, check its tips:
+
+```sh
+redis-cli COMMAND INFO <name> | grep policy
+```
+
+- **No tips, or tips the driver handles** — nothing to do. The driver routes it correctly; the lint tests on cluster confirm it.
+- **Tips the driver does not handle** — apply the routing from redis-rb *through the driver*, not around it:
+  1. Add an entry to `DEFAULT_COMMAND_ROUTINGS` in `cluster/lib/redis/cluster.rb`. `Redis::Cluster#initialize_client` passes it as the driver's `command_routings:` config option, which the driver validates and merges over its own table. Caller-supplied `command_routings:` are merged on top, so applications keep the last word. Pick the closest supported `request_policy` (`all_shards` for primaries, `all_nodes` to include replicas) and the closest supported `response_policy`, or leave the response policy out to receive one reply per node.
+  2. If no supported `response_policy` yields the standalone return value, add a **thin reply-shaping override** in `Redis::Cluster` that only collapses the per-node array — never one that sends commands itself. Guard it with `reply.first.is_a?(Array)` (or `reply.is_a?(Array)`) so a caller who changes the routing, or a future driver release that aggregates natively, passes through untouched. `waitaof` and the `himport_*` methods are the existing examples:
+
+     ```ruby
+     # cluster/lib/redis/cluster.rb
+     DEFAULT_COMMAND_ROUTINGS = {
+       'waitaof' => { request_policy: 'all_shards' }.freeze
+     }.freeze
+
+     def waitaof(numlocal, numreplicas, timeout)
+       reply = super
+       reply.first.is_a?(Array) ? reply.transpose.map(&:sum) : reply
+     end
+     ```
+
+  3. Add a cluster test under `cluster/test/` that proves the fan-out reaches every primary (e.g. a count that equals `redis.role.size`), and one that a caller-supplied `command_routings:` entry for the command is respected.
+  4. Document the aggregation you chose in the override's comment. Mirror what the driver already does for a sibling command when one exists (`WAIT` sums replica acks, so `WAITAOF` sums too).
+
+Prefer opening a `redis-cluster-client` change for the missing policy over growing these overrides, and re-audit `DEFAULT_COMMAND_ROUTINGS` and the overrides on every driver bump (the gemspec pins an exact version for this reason).
 
 ### The error translation contract
 
@@ -637,6 +672,9 @@ Use this when adding a new command:
   - [ ] Gate version-specific tests with `target_version` / `omit_version`.
   - [ ] Add a pipelined test if the command does more than `send_command(args, &block)`.
 - [ ] If a new error class is needed, add it to `lib/redis/errors.rb` and `Redis::Client::ERROR_MAPPING` (and the cluster equivalent if relevant).
+- [ ] Check the command's cluster routing (`redis-cli COMMAND INFO <name> | grep policy`, §3 "Command routings on cluster"):
+  - [ ] Tips absent or handled by `redis-cluster-client`: nothing to do.
+  - [ ] Otherwise add a `DEFAULT_COMMAND_ROUTINGS` entry in `cluster/lib/redis/cluster.rb`, at most a thin Array-guarded reply-shaping override in `Redis::Cluster`, and a cluster test proving the fan-out.
 - [ ] Run locally: `make start_all && make test && bundle exec rubocop && make stop_all`.
 
 That's it. The two-gem structure and the lint-module sharing conspire to make the common case (a single Ruby method definition plus tests) the only thing you actually have to write.
