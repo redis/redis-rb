@@ -241,6 +241,9 @@ class TestClusterCommandsOnServer < Minitest::Test
         # With AOF disabled every primary rejects numlocal=1, so the fan-out surfaces one error
         # per primary rather than a single node's.
         error = assert_raises(Redis::Cluster::CommandErrorCollection) { redis.waitaof(1, 0, 0) }
+        # redis.role.size equals the primary count only under the default `replica: false`
+        # topology, where `PrimaryOnly` aliases `clients` to `primary_clients`. With
+        # `replica: true`, ROLE fans out to all nodes while the errors come from primaries only.
         assert_equal redis.role.size, error.errors.size
         error.errors.each_value { |e| assert_match(/appendonly is disabled/, e.message) }
       ensure
@@ -263,10 +266,13 @@ class TestClusterCommandsOnServer < Minitest::Test
     end
   end
 
-  def test_waitaof_in_pipeline_keeps_the_standalone_shape
+  def test_waitaof_in_pipeline_returns_a_single_node_pair
     target_version "7.2.0" do
       redis.set('{a}foo', 'bar')
 
+      # The reply shape matches standalone, but the pinning guarantee does not: inside a
+      # pipeline the driver routes WAITAOF to whichever node any_replica_node_key picks, not
+      # the node(s) that carried the writes above, so this only proves the shape survives.
       result = redis.pipelined do |pipe|
         pipe.waitaof(0, 0, 0)
       end

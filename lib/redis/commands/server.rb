@@ -143,7 +143,11 @@ class Redis
       #
       # On `Redis::Cluster` the command is sent to every primary and each count is the minimum
       # across them (the server's `agg_min` policy): `local` is `1` only if every primary
-      # fsynced, and `replicas` is the fewest acks any shard received.
+      # fsynced, and `replicas` is the fewest acks any shard received. This per-connection
+      # guarantee does not hold inside `pipelined`/`multi` on cluster: `WAITAOF` carries no
+      # `write` flag, so the driver routes it to an arbitrary node (a random primary, or a
+      # replica when `replica: true`) rather than the node(s) that carried the pipeline's
+      # writes, so the reply is shape-correct but unrelated to those writes.
       #
       # @example Wait for the local AOF fsync
       #   redis.set("foo", "bar")
