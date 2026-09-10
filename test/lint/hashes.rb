@@ -68,6 +68,266 @@ module Lint
       assert_nil r.hget("foo", "f2")
     end
 
+    def test_hgetdel
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        assert_equal ["s1"], r.hgetdel("foo", "f1")
+        assert_nil r.hget("foo", "f1")
+      end
+    end
+
+    def test_splat_hgetdel
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1", "f2", "s2")
+
+        assert_equal ["s1", "s2"], r.hgetdel("foo", "f1", "f2")
+
+        assert_nil r.hget("foo", "f1")
+        assert_nil r.hget("foo", "f2")
+      end
+    end
+
+    def test_variadic_hgetdel
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1", "f2", "s2")
+
+        assert_equal ["s1", "s2"], r.hgetdel("foo", ["f1", "f2"])
+
+        assert_nil r.hget("foo", "f1")
+        assert_nil r.hget("foo", "f2")
+      end
+    end
+
+    def test_hgetdel_with_a_missing_field
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        assert_equal ["s1", nil], r.hgetdel("foo", "f1", "f2")
+        assert_nil r.hget("foo", "f1")
+      end
+    end
+
+    def test_hgetdel_removes_the_key_when_the_last_field_is_deleted
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        r.hgetdel("foo", "f1")
+
+        assert_equal false, r.exists?("foo")
+      end
+    end
+
+    def test_hgetdel_on_a_missing_key
+      target_version "8.0.0" do
+        assert_equal [nil, nil], r.hgetdel("foo", "f1", "f2")
+        assert_equal false, r.exists?("foo")
+      end
+    end
+
+    def test_hgetdel_on_the_wrong_type
+      target_version "8.0.0" do
+        r.rpush("foo", "s1")
+
+        assert_raises(Redis::CommandError) do
+          r.hgetdel("foo", "f1")
+        end
+      end
+    end
+
+    def test_hgetex
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1", "f2", "s2")
+
+        assert_equal ["s1", "s2"], r.hgetex("foo", "f1", "f2")
+        assert_equal [-1, -1], r.httl("foo", "f1", "f2")
+      end
+    end
+
+    def test_hgetex_with_a_missing_field
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        assert_equal ["s1", nil], r.hgetex("foo", "f1", "f2")
+      end
+    end
+
+    def test_hgetex_on_a_missing_key
+      target_version "8.0.0" do
+        assert_equal [nil, nil], r.hgetex("foo", "f1", "f2")
+        assert_equal false, r.exists?("foo")
+      end
+    end
+
+    def test_hgetex_with_ex
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        assert_equal ["s1"], r.hgetex("foo", "f1", ex: 4)
+        assert_in_range(1..4, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hgetex_with_px
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        assert_equal ["s1"], r.hgetex("foo", "f1", px: 500)
+        assert_in_range(1..500, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hgetex_with_exat
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        assert_equal ["s1"], r.hgetex("foo", "f1", exat: Time.now.to_i + 400)
+        assert_in_range(1..405, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hgetex_with_pxat
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+
+        now_ms = (Time.now.to_f * 1000).to_i
+        assert_equal ["s1"], r.hgetex("foo", "f1", pxat: now_ms + 400_000)
+        assert_in_range(1..405_000, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hgetex_with_persist
+      target_version "8.0.0" do
+        r.hset("foo", "f1", "s1")
+        r.hexpire("foo", 100, "f1")
+
+        assert_equal ["s1"], r.hgetex("foo", "f1", persist: true)
+        assert_equal [-1], r.httl("foo", "f1")
+      end
+    end
+
+    def test_hgetex_on_the_wrong_type
+      target_version "8.0.0" do
+        r.rpush("foo", "s1")
+
+        assert_raises(Redis::CommandError) do
+          r.hgetex("foo", "f1")
+        end
+      end
+    end
+
+    def test_hgetex_with_incompatible_expiration_options
+      target_version "8.0.0" do
+        assert_raises(ArgumentError) { r.hgetex("foo", "f1", ex: 60, px: 60_000) }
+        assert_raises(ArgumentError) { r.hgetex("foo", "f1", ex: 60, persist: true) }
+      end
+    end
+
+    def test_hsetex
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", "f1", "v1", "f2", "v2")
+
+        assert_equal "v1", r.hget("foo", "f1")
+        assert_equal "v2", r.hget("foo", "f2")
+        assert_equal [-1, -1], r.httl("foo", "f1", "f2")
+      end
+    end
+
+    def test_hsetex_with_a_hash
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", { "f1" => "v1", "f2" => "v2" })
+
+        assert_equal "v1", r.hget("foo", "f1")
+        assert_equal "v2", r.hget("foo", "f2")
+      end
+    end
+
+    def test_hsetex_with_ex
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", "f1", "v1", ex: 4)
+
+        assert_equal "v1", r.hget("foo", "f1")
+        assert_in_range(1..4, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hsetex_with_px
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", "f1", "v1", px: 500)
+
+        assert_in_range(1..500, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hsetex_with_exat
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", "f1", "v1", exat: Time.now.to_i + 400)
+
+        assert_in_range(1..405, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hsetex_with_pxat
+      target_version "8.0.0" do
+        now_ms = (Time.now.to_f * 1000).to_i
+        assert_equal 1, r.hsetex("foo", "f1", "v1", pxat: now_ms + 400_000)
+
+        assert_in_range(1..405_000, r.hpttl("foo", "f1")[0])
+      end
+    end
+
+    def test_hsetex_with_keepttl
+      target_version "8.0.0" do
+        r.hsetex("foo", "f1", "v1", ex: 100)
+
+        assert_equal 1, r.hsetex("foo", "f1", "v2", keepttl: true)
+
+        assert_equal "v2", r.hget("foo", "f1")
+        assert_in_range(1..100, r.httl("foo", "f1")[0])
+      end
+    end
+
+    def test_hsetex_with_fnx
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", "f1", "v1", fnx: true)
+        assert_equal "v1", r.hget("foo", "f1")
+
+        assert_equal 0, r.hsetex("foo", "f1", "v2", "f2", "v2", fnx: true)
+        assert_equal "v1", r.hget("foo", "f1")
+        assert_nil r.hget("foo", "f2")
+      end
+    end
+
+    def test_hsetex_with_fxx
+      target_version "8.0.0" do
+        assert_equal 0, r.hsetex("foo", "f1", "v1", fxx: true)
+        assert_nil r.hget("foo", "f1")
+
+        r.hset("foo", "f1", "v1")
+
+        assert_equal 1, r.hsetex("foo", "f1", "v2", fxx: true)
+        assert_equal "v2", r.hget("foo", "f1")
+      end
+    end
+
+    def test_hsetex_with_incompatible_options
+      target_version "8.0.0" do
+        assert_raises(ArgumentError) { r.hsetex("foo", "f1", "v1", ex: 60, keepttl: true) }
+        assert_raises(ArgumentError) { r.hsetex("foo", "f1", "v1", ex: 60, px: 60_000) }
+        assert_raises(ArgumentError) { r.hsetex("foo", "f1", "v1", fnx: true, fxx: true) }
+      end
+    end
+
+    def test_hsetex_on_the_wrong_type
+      target_version "8.0.0" do
+        r.rpush("foo", "s1")
+
+        assert_raises(Redis::CommandError) do
+          r.hsetex("foo", "f1", "v1")
+        end
+      end
+    end
+
     def test_hexists
       assert_equal false, r.hexists("foo", "f1")
 

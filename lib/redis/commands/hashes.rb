@@ -158,6 +158,105 @@ class Redis
         send_command([:hdel, key].concat(fields))
       end
 
+      # Get the value of one or more hash fields and delete them.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1", "f2", "v2")
+      #   redis.hgetdel("hash", "f1", "f2") # => ["v1", "v2"]
+      #   redis.hgetdel("hash", "f1", "f3") # => [nil, nil]
+      #
+      # @param [String] key
+      # @param [Array<String>] fields
+      # @return [Array<String, nil>] the value of each requested field, `nil` for fields that
+      #   did not exist
+      def hgetdel(key, *fields)
+        fields.flatten!(1)
+        send_command([:hgetdel, key, 'FIELDS', fields.length, *fields])
+      end
+
+      # Get the value of one or more hash fields and optionally set their expiration. HGETEX is
+      # similar to HMGET, but is a write command with additional options. When no options are
+      # provided, HGETEX behaves like HMGET.
+      #
+      # @example
+      #   redis.hset("hash", "f1", "v1", "f2", "v2")
+      #   redis.hgetex("hash", "f1", "f2") # => ["v1", "v2"]
+      #   redis.hgetex("hash", "f1", ex: 60) # => ["v1"]
+      #
+      # @param [String] key
+      # @param [Array<String>] fields
+      # @param [Hash] options
+      #   - `:ex => Integer`: Set the specified expire time on the fields, in seconds.
+      #   - `:px => Integer`: Set the specified expire time on the fields, in milliseconds.
+      #   - `:exat => Integer`: Set the specified Unix time at which the fields will expire, in
+      #      seconds.
+      #   - `:pxat => Integer`: Set the specified Unix time at which the fields will expire, in
+      #      milliseconds.
+      #   - `:persist => true`: Remove the time to live associated with the fields.
+      # @return [Array<String, nil>] the value of each requested field, `nil` for fields that
+      #   did not exist
+      def hgetex(key, *fields, ex: nil, px: nil, exat: nil, pxat: nil, persist: false)
+        if [ex, px, exat, pxat, persist].count { |option| option } > 1
+          raise ArgumentError, "ex, px, exat, pxat, and persist are mutually exclusive"
+        end
+
+        fields.flatten!(1)
+        args = [:hgetex, key]
+        args << "EX" << Integer(ex) if ex
+        args << "PX" << Integer(px) if px
+        args << "EXAT" << Integer(exat) if exat
+        args << "PXAT" << Integer(pxat) if pxat
+        args << "PERSIST" if persist
+        args.concat(['FIELDS', fields.length, *fields])
+
+        send_command(args)
+      end
+
+      # Set the value of one or more hash fields, and optionally their expiration. Existing
+      # values for the given fields are overwritten, and any previous TTL on those fields is
+      # discarded unless `:keepttl` is given.
+      #
+      # @example
+      #   redis.hsetex("hash", "f1", "v1", "f2", "v2") # => 1
+      #   redis.hsetex("hash", { "f1" => "v1", "f2" => "v2" }, ex: 60) # => 1
+      #
+      # @param [String] key
+      # @param [Array<String> | Hash<String, String>] attrs array or hash of fields and values
+      # @param [Hash] options
+      #   - `:fnx => true`: Only set the fields if none of them already exist. Mutually
+      #      exclusive with `:fxx`.
+      #   - `:fxx => true`: Only set the fields if all of them already exist. Mutually
+      #      exclusive with `:fnx`.
+      #   - `:ex => Integer`: Set the specified expire time on the fields, in seconds.
+      #   - `:px => Integer`: Set the specified expire time on the fields, in milliseconds.
+      #   - `:exat => Integer`: Set the specified Unix time at which the fields will expire, in
+      #      seconds.
+      #   - `:pxat => Integer`: Set the specified Unix time at which the fields will expire, in
+      #      milliseconds.
+      #   - `:keepttl => true`: Retain the time to live already associated with the fields.
+      # @return [Integer] `1` if all the fields were set, `0` if none were set (e.g. the
+      #   `:fnx`/`:fxx` condition was not met)
+      def hsetex(key, *attrs, fnx: nil, fxx: nil, ex: nil, px: nil, exat: nil, pxat: nil, keepttl: false)
+        raise ArgumentError, "fnx and fxx are mutually exclusive" if fnx && fxx
+        if [ex, px, exat, pxat, keepttl].count { |option| option } > 1
+          raise ArgumentError, "ex, px, exat, pxat, and keepttl are mutually exclusive"
+        end
+
+        attrs = attrs.first.flatten if attrs.size == 1 && attrs.first.is_a?(Hash)
+
+        args = [:hsetex, key]
+        args << "FNX" if fnx
+        args << "FXX" if fxx
+        args << "EX" << Integer(ex) if ex
+        args << "PX" << Integer(px) if px
+        args << "EXAT" << Integer(exat) if exat
+        args << "PXAT" << Integer(pxat) if pxat
+        args << "KEEPTTL" if keepttl
+        args.concat(['FIELDS', attrs.length / 2, *attrs])
+
+        send_command(args)
+      end
+
       # Determine if a hash field exists.
       #
       # @param [String] key
