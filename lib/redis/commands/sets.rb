@@ -164,6 +164,28 @@ class Redis
         send_command([:sinter].concat(keys))
       end
 
+      # Get the number of members in the intersection of multiple sets.
+      #
+      # @example
+      #   redis.sadd("foo", ["s1", "s2", "s3"])
+      #   redis.sadd("bar", ["s2", "s3", "s4"])
+      #   redis.sintercard("foo", "bar")
+      #     # => 2
+      # @example Stop counting once the intersection reaches 1 member
+      #   redis.sintercard("foo", "bar", limit: 1)
+      #     # => 1
+      #
+      # @param [String, Array<String>] keys keys pointing to sets to intersect
+      # @param [Integer] limit stop counting once the intersection reaches `limit`
+      #   members (`0` means unlimited)
+      # @return [Integer] number of members in the intersection
+      def sintercard(*keys, limit: nil)
+        keys.flatten!(1)
+        args = [:sintercard, keys.size].concat(keys)
+        args << "LIMIT" << Integer(limit) if limit
+        send_command(args)
+      end
+
       # Intersect multiple sets and store the resulting set in a key.
       #
       # @param [String] destination destination key

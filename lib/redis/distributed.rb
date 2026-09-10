@@ -100,8 +100,8 @@ class Redis
     end
 
     # Get information and statistics about the server.
-    def info(cmd = nil)
-      on_each_node :info, cmd
+    def info(*sections)
+      on_each_node :info, *sections
     end
 
     # Get the UNIX time stamp of the last successful save to disk.
@@ -265,10 +265,15 @@ class Redis
 
     # Sort the elements in a list, set or sorted set.
     def sort(key, **options)
-      keys = [key, options[:by], options[:store], *Array(options[:get])].compact
-
-      ensure_same_node(:sort, keys) do |node|
+      ensure_same_node(:sort, sort_keys(key, options)) do |node|
         node.sort(key, **options)
+      end
+    end
+
+    # Sort the elements in a list, set or sorted set without storing the result.
+    def sort_ro(key, **options)
+      ensure_same_node(:sort_ro, sort_keys(key, options)) do |node|
+        node.sort_ro(key, **options)
       end
     end
 
@@ -544,6 +549,13 @@ class Redis
     # Get the length of the value stored in a key.
     def strlen(key)
       node_for(key).strlen(key)
+    end
+
+    # Find the longest common subsequence of the strings stored at two keys.
+    def lcs(key1, key2, **options)
+      ensure_same_node(:lcs, [key1, key2]) do |node|
+        node.lcs(key1, key2, **options)
+      end
     end
 
     def [](key)
@@ -825,6 +837,14 @@ class Redis
       end
     end
 
+    # Get the number of members in the intersection of multiple sets.
+    def sintercard(*keys, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:sintercard, keys) do |node|
+        node.sintercard(keys, limit: limit)
+      end
+    end
+
     # Intersect multiple sets and store the resulting set in a key.
     def sinterstore(destination, *keys)
       keys.flatten!(1)
@@ -969,6 +989,14 @@ class Redis
       keys.flatten!(1)
       ensure_same_node(:zinter, keys) do |node|
         node.zinter(keys, **options)
+      end
+    end
+
+    # Get the number of members in the intersection of multiple sorted sets.
+    def zintercard(*keys, limit: nil)
+      keys.flatten!(1)
+      ensure_same_node(:zintercard, keys) do |node|
+        node.zintercard(keys, limit: limit)
       end
     end
 
@@ -1628,6 +1656,14 @@ class Redis
     def key_tag(key)
       key = key.to_s
       key[@tag, 1] if key.match?(@tag)
+    end
+
+    # Keys SORT/SORT_RO touch, for same-node routing. A BY/GET pattern without `*` never reads
+    # another key (`BY nosort` skips sorting, `GET #` yields the element itself), so it is
+    # left out.
+    def sort_keys(key, options)
+      patterns = [options[:by], *Array(options[:get])].compact.select { |pattern| pattern.to_s.include?("*") }
+      [key, options[:store], *patterns].compact
     end
 
     def ensure_same_node(command, keys)

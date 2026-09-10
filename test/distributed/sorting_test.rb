@@ -16,4 +16,15 @@ class TestDistributedSorting < Minitest::Test
       r.sort("bar", get: "foo:*", limit: [0, 1])
     end
   end
+
+  def test_sort_ro
+    target_version "7.0.0" do
+      assert_raises(Redis::Distributed::CannotDistribute) do
+        r.set("foo:1", "s1")
+        r.rpush("bar", "1")
+
+        r.sort_ro("bar", get: "foo:*", limit: [0, 1])
+      end
+    end
+  end
 end

@@ -108,6 +108,9 @@ module RedisMock
         write_resp_value(session, key, protocol)
         write_resp_value(session, val, protocol)
       end
+    when nil
+      # A null element (RESP3 `_`, RESP2 null bulk), e.g. a deleted entry inside XAUTOCLAIM on 6.2.
+      session.write(protocol >= 3 ? "_\r\n" : "$-1\r\n")
     else
       str = value.to_s
       session.write("$#{str.bytesize}\r\n#{str}\r\n")

@@ -405,6 +405,54 @@ module Lint
       end
     end
 
+    def test_sintercard
+      target_version('7.0.0') do
+        r.sadd('{1}foo', %w[s1 s2 s3 s4])
+        r.sadd('{1}bar', %w[s2 s3 s4 s5])
+        r.sadd('{1}baz', %w[s3 s4 s6])
+
+        assert_equal 3, r.sintercard('{1}foo', '{1}bar')
+        assert_equal 2, r.sintercard('{1}foo', '{1}bar', '{1}baz')
+      end
+    end
+
+    def test_sintercard_with_single_key
+      target_version('7.0.0') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+
+        assert_equal 3, r.sintercard('{1}foo')
+        assert_equal 0, r.sintercard('{1}nonexistent')
+      end
+    end
+
+    def test_sintercard_with_missing_key
+      target_version('7.0.0') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+
+        assert_equal 0, r.sintercard('{1}foo', '{1}nonexistent')
+      end
+    end
+
+    def test_variadic_sintercard_expand
+      target_version('7.0.0') do
+        r.sadd('{1}foo', %w[s1 s2 s3])
+        r.sadd('{1}bar', %w[s2 s3])
+
+        assert_equal 2, r.sintercard(['{1}foo', '{1}bar'])
+      end
+    end
+
+    def test_sintercard_with_limit
+      target_version('7.0.0') do
+        r.sadd('{1}foo', %w[s1 s2 s3 s4])
+        r.sadd('{1}bar', %w[s2 s3 s4])
+
+        assert_equal 1, r.sintercard('{1}foo', '{1}bar', limit: 1)
+        assert_equal 3, r.sintercard('{1}foo', '{1}bar', limit: 0)
+        assert_equal 3, r.sintercard('{1}foo', '{1}bar', limit: 10)
+      end
+    end
+
     def test_sscan
       r.sadd('foo', %w[1 2 3 foo foobar feelsgood])
       assert_equal %w[0 feelsgood foo foobar], r.sscan('foo', 0, match: 'f*').flatten.sort

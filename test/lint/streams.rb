@@ -55,6 +55,34 @@ module Lint
       assert_raises(Redis::CommandError) { redis.xinfo(:consumers, 's1', nil) }
     end
 
+    def test_xsetid
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xadd('s1', { f: 'v2' }, id: '0-2')
+
+      assert_equal 'OK', redis.xsetid('s1', '0-5')
+      assert_equal '0-5', redis.xinfo(:stream, 's1')['last-generated-id']
+    end
+
+    def test_xsetid_with_entriesadded_and_maxdeletedid_options
+      target_version '7.0.0' do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+
+        assert_equal 'OK', redis.xsetid('s1', '0-5', entriesadded: 10, maxdeletedid: '0-3')
+
+        info = redis.xinfo(:stream, 's1')
+        assert_equal '0-5', info['last-generated-id']
+        assert_equal 10, info['entries-added']
+        assert_equal '0-3', info['max-deleted-entry-id']
+      end
+    end
+
+    def test_xsetid_with_id_smaller_than_the_last_entry
+      redis.xadd('s1', { f: 'v1' }, id: '0-5')
+
+      assert_raises(Redis::CommandError) { redis.xsetid('s1', '0-1') }
+    end
+
     def test_xadd_with_entry_as_splatted_params
       assert_match ENTRY_ID_FORMAT, redis.xadd('s1', { f1: 'v1', f2: 'v2' })
     end
@@ -600,6 +628,43 @@ module Lint
       assert_equal 'OK', redis.xgroup(:setid, 's1', 'g1', '0')
     end
 
+    def test_xgroup_with_create_subcommand_and_entriesread_option
+      target_version '7.0.0' do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xadd('s1', { f: 'v3' }, id: '0-3')
+
+        assert_equal 'OK', redis.xgroup(:create, 's1', 'g1', '0-1', entriesread: 1)
+
+        group = redis.xinfo(:groups, 's1').first
+        assert_equal 1, group['entries-read']
+        assert_equal 2, group['lag']
+      end
+    end
+
+    def test_xgroup_with_create_subcommand_and_mkstream_and_entriesread_options
+      target_version '7.0.0' do
+        assert_equal 'OK', redis.xgroup(:create, 's2', 'g1', '$', mkstream: true, entriesread: 0)
+        assert_equal 0, redis.xinfo(:groups, 's2').first['entries-read']
+      end
+    end
+
+    def test_xgroup_with_setid_subcommand_and_entriesread_option
+      target_version '7.0.0' do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xadd('s1', { f: 'v3' }, id: '0-3')
+        redis.xgroup(:create, 's1', 'g1', '$')
+
+        assert_equal 'OK', redis.xgroup(:setid, 's1', 'g1', '0-2', entriesread: 2)
+
+        group = redis.xinfo(:groups, 's1').first
+        assert_equal '0-2', group['last-delivered-id']
+        assert_equal 2, group['entries-read']
+        assert_equal 1, group['lag']
+      end
+    end
+
     def test_xgroup_with_destroy_subcommand
       redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
@@ -981,6 +1046,7 @@ module Lint
       assert_equal '0-0', actual['next']
       assert_equal %w(0-2 0-3), actual['entries'].map(&:first)
       assert_equal(%w(v2 v3), actual['entries'].map { |i| i.last['f'] })
+      assert_equal [], actual['deleted']
     end
 
     def test_xautoclaim_with_justid_option
@@ -1046,6 +1112,26 @@ module Lint
 
       assert_equal '0-0', actual['next']
       assert_equal [], actual['entries']
+      # 7.0 reports the ids it dropped from the PEL; 6.2 has no such reply element.
+      assert_equal(version >= '7.0.0' ? ['0-2'] : [], actual['deleted'])
+    end
+
+    def test_xautoclaim_with_deleted_entry_and_justid_option
+      omit_version('7.0.0')
+
+      redis.xadd('s1', { f: 'v1' }, id: '0-1')
+      redis.xgroup(:create, 's1', 'g1', '$')
+      redis.xadd('s1', { f: 'v2' }, id: '0-2')
+      redis.xadd('s1', { f: 'v3' }, id: '0-3')
+      redis.xreadgroup('g1', 'c1', 's1', '>')
+      redis.xdel('s1', '0-2')
+      sleep 0.01
+
+      actual = redis.xautoclaim('s1', 'g1', 'c2', 0, '0-0', justid: true)
+
+      assert_equal '0-0', actual['next']
+      assert_equal ['0-3'], actual['entries']
+      assert_equal ['0-2'], actual['deleted']
     end
 
     def test_xpending

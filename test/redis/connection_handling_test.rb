@@ -110,6 +110,38 @@ class TestConnectionHandling < Minitest::Test
     end
   end
 
+  def test_shutdown_with_options
+    received = nil
+    commands = {
+      shutdown: ->(*args) { received = args; :exit }
+    }
+
+    redis_mock(commands) do |redis|
+      assert_nil redis.shutdown(save: false, now: true, force: true)
+    end
+    assert_equal %w[NOSAVE NOW FORCE], received
+
+    redis_mock(commands) do |redis|
+      assert_nil redis.shutdown(save: true)
+    end
+    assert_equal %w[SAVE], received
+  end
+
+  def test_shutdown_with_abort
+    received = nil
+    commands = {
+      shutdown: ->(*args) { received = args; "+OK\r\n" },
+      ping: ->(*_) { "+PONG\r\n" }
+    }
+
+    redis_mock(commands) do |redis|
+      # ABORT cancels a pending shutdown and replies: the connection stays usable.
+      assert_equal "OK", redis.shutdown(abort: true)
+      assert_equal "PONG", redis.ping
+    end
+    assert_equal %w[ABORT], received
+  end
+
   def test_shutdown_with_error
     connections = 0
     commands = {

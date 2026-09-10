@@ -244,6 +244,27 @@ module Lint
       end
     end
 
+    def test_zrank_with_score_for_a_missing_member
+      target_version "7.2" do
+        r.zadd "foo", 1, "s1"
+
+        # Same nil as the plain form, not a [nil, nil] pair.
+        assert_nil r.zrank("foo", "nope")
+        assert_nil r.zrank("foo", "nope", with_score: true)
+        assert_nil r.zrank("missing", "s1", with_score: true)
+      end
+    end
+
+    def test_zrevrank_with_score_for_a_missing_member
+      target_version "7.2" do
+        r.zadd "foo", 1, "s1"
+
+        assert_nil r.zrevrank("foo", "nope")
+        assert_nil r.zrevrank("foo", "nope", with_score: true)
+        assert_nil r.zrevrank("missing", "s1", with_score: true)
+      end
+    end
+
     def test_zrange
       r.zadd "foo", 1, "s1"
       r.zadd "foo", 2, "s2"
@@ -678,6 +699,54 @@ module Lint
 
         assert_equal 3, r.zunionstore('{1}baz', %w[{1}foo {1}bar], aggregate: :count)
         assert_equal [['m3', 1.0], ['m1', 2.0], ['m2', 2.0]], r.zrange('{1}baz', 0, -1, with_scores: true)
+      end
+    end
+
+    def test_zintercard
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3'], [4, 'm4']]
+        r.zadd '{1}bar', [[1, 'm2'], [2, 'm3'], [3, 'm4'], [4, 'm5']]
+        r.zadd '{1}baz', [[1, 'm3'], [2, 'm4'], [3, 'm6']]
+
+        assert_equal 3, r.zintercard('{1}foo', '{1}bar')
+        assert_equal 2, r.zintercard('{1}foo', '{1}bar', '{1}baz')
+      end
+    end
+
+    def test_zintercard_with_single_key
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+
+        assert_equal 3, r.zintercard('{1}foo')
+        assert_equal 0, r.zintercard('{1}nonexistent')
+      end
+    end
+
+    def test_zintercard_with_missing_key
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+
+        assert_equal 0, r.zintercard('{1}foo', '{1}nonexistent')
+      end
+    end
+
+    def test_variadic_zintercard_expand
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3']]
+        r.zadd '{1}bar', [[1, 'm2'], [2, 'm3']]
+
+        assert_equal 2, r.zintercard(['{1}foo', '{1}bar'])
+      end
+    end
+
+    def test_zintercard_with_limit
+      target_version "7.0.0" do
+        r.zadd '{1}foo', [[1, 'm1'], [2, 'm2'], [3, 'm3'], [4, 'm4']]
+        r.zadd '{1}bar', [[1, 'm2'], [2, 'm3'], [3, 'm4']]
+
+        assert_equal 1, r.zintercard('{1}foo', '{1}bar', limit: 1)
+        assert_equal 3, r.zintercard('{1}foo', '{1}bar', limit: 0)
+        assert_equal 3, r.zintercard('{1}foo', '{1}bar', limit: 10)
       end
     end
 

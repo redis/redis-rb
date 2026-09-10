@@ -219,19 +219,46 @@ class Redis
       #   redis.xgroup(:destroy, 'mystream', 'mygroup')
       # @example With `delconsumer` subcommand
       #   redis.xgroup(:delconsumer, 'mystream', 'mygroup', 'consumer1')
+      # @example With `create` subcommand and the group's entries-read counter (Redis 7.0)
+      #   redis.xgroup(:create, 'mystream', 'mygroup', '$', mkstream: true, entriesread: 10)
       #
-      # @param subcommand     [String] `create` `setid` `destroy` `delconsumer`
+      # @param subcommand     [String] `create` `setid` `destroy` `delconsumer` `createconsumer`
       # @param key            [String] the stream key
       # @param group          [String] the consumer group name
       # @param id_or_consumer [String]
       #   * the entry id or `$`, required if subcommand is `create` or `setid`
-      #   * the consumer name, required if subcommand is `delconsumer`
-      # @param mkstream [Boolean] whether to create an empty stream automatically or not
+      #   * the consumer name, required if subcommand is `delconsumer` or `createconsumer`
+      # @param mkstream    [Boolean] (`create`) create an empty stream automatically if it does not exist
+      # @param entriesread [Integer] (`create`, `setid`) the number of entries the group has read, used by
+      #   the server to compute the group's lag (Redis 7.0)
       #
       # @return [String] `OK` if subcommand is `create` or `setid`
-      # @return [Integer] effected count if subcommand is `destroy` or `delconsumer`
-      def xgroup(subcommand, key, group, id_or_consumer = nil, mkstream: false)
-        args = [:xgroup, subcommand, key, group, id_or_consumer, (mkstream ? 'MKSTREAM' : nil)].compact
+      # @return [Integer] effected count if subcommand is `destroy`, `delconsumer` or `createconsumer`
+      def xgroup(subcommand, key, group, id_or_consumer = nil, mkstream: false, entriesread: nil)
+        args = [:xgroup, subcommand, key, group, id_or_consumer].compact
+        args << 'MKSTREAM' if mkstream
+        args << 'ENTRIESREAD' << Integer(entriesread) if entriesread
+        send_command(args)
+      end
+
+      # Set the last entry id of the stream, and optionally its entries-added counter and
+      # maximal deleted entry id.
+      #
+      # @example Set the last id
+      #   redis.xsetid('mystream', '1526919030474-55')
+      # @example Also set the counters used for lag tracking (Redis 7.0)
+      #   redis.xsetid('mystream', '1526919030474-55', entriesadded: 100, maxdeletedid: '1526919030474-10')
+      #
+      # @param key          [String]  the stream key
+      # @param id           [String]  the new last entry id, must not be smaller than the current one
+      # @param entriesadded [Integer] the number of entries added to the stream over its lifetime (Redis 7.0)
+      # @param maxdeletedid [String]  the maximal entry id that was deleted from the stream (Redis 7.0)
+      #
+      # @return [String] `OK`
+      def xsetid(key, id, entriesadded: nil, maxdeletedid: nil)
+        args = [:xsetid, key, id]
+        args << 'ENTRIESADDED' << Integer(entriesadded) if entriesadded
+        args << 'MAXDELETEDID' << maxdeletedid if maxdeletedid
         send_command(args)
       end
 
@@ -397,8 +424,12 @@ class Redis
       # @param justid        [Boolean]       whether to fetch just an array of entry ids or not.
       #                                      Does not increment retry count when true
       #
-      # @return [Hash{String => Hash}] the entries successfully claimed
-      # @return [Array<String>]        the entry ids successfully claimed if justid option is `true`
+      # @return [Hash] with the keys
+      #   * `'next'`    [String] the entry id to pass as `start` on the next call, `0-0` when done
+      #   * `'entries'` [Array<[String, Hash]>] the claimed entries as `[id, fields]` pairs, or just
+      #     the ids when `justid` is `true`
+      #   * `'deleted'` [Array<String>] ids that were deleted from the stream and dropped from the
+      #     PEL (Redis 7.0); always `[]` on Redis 6.2
       def xautoclaim(key, group, consumer, min_idle_time, start, count: nil, justid: false)
         args = [:xautoclaim, key, group, consumer, min_idle_time, start]
         if count

@@ -84,14 +84,26 @@ class Redis
 
       # Get information and statistics about the server.
       #
-      # @param [String, Symbol] cmd e.g. "commandstats"
-      # @return [Hash<String, String>]
-      def info(cmd = nil)
-        send_command([:info, cmd].compact) do |reply|
+      # @example Default sections
+      #   redis.info
+      # @example One section
+      #   redis.info(:commandstats)
+      #     # => { "get" => { "calls" => "2", ... }, ... }
+      # @example Several sections at once (Redis 7.0)
+      #   redis.info(:server, :clients)
+      #
+      # @param [Array<String, Symbol>] sections zero or more sections, e.g. `server`, `clients`,
+      #   `commandstats`, `all`, `everything`. Passing more than one section requires Redis 7.0.
+      # @return [Hash<String, String>] the parsed `INFO` output. When `commandstats` is the only
+      #   section, the reply is nested per command instead: `{ "get" => { "calls" => "2", ... } }`.
+      def info(*sections)
+        sections.flatten!(1)
+        sections.compact!
+        send_command([:info].concat(sections)) do |reply|
           if reply.is_a?(String)
             reply = HashifyInfo.call(reply)
 
-            if cmd && cmd.to_s == "commandstats"
+            if sections.size == 1 && sections.first.to_s == "commandstats"
               # Extract nested hashes for INFO COMMANDSTATS
               reply = Hash[reply.map do |k, v|
                 v = v.split(",").map { |e| e.split("=") }
@@ -171,10 +183,35 @@ class Redis
       end
 
       # Synchronously save the dataset to disk and then shut down the server.
-      def shutdown
+      #
+      # @example Default: save if a save point is configured, then exit
+      #   redis.shutdown
+      #     # => nil
+      # @example Skip the RDB save and don't wait for lagging replicas (Redis 7.0)
+      #   redis.shutdown(save: false, now: true)
+      # @example Cancel an in-progress shutdown (Redis 7.0)
+      #   redis.shutdown(abort: true)
+      #     # => "OK"
+      #
+      # @param [Boolean, nil] save `true` forces an RDB save (`SAVE`), `false` skips it
+      #   (`NOSAVE`); `nil` leaves the decision to the server's save points
+      # @param [Boolean] now skip waiting for lagging replicas (Redis 7.0)
+      # @param [Boolean] force ignore errors that would normally prevent the shutdown, such as a
+      #   failed RDB or AOF write (Redis 7.0)
+      # @param [Boolean] abort cancel a shutdown that is waiting for replicas (Redis 7.0)
+      #
+      # @return [nil] when the server shut down (the connection is closed without a reply)
+      # @return [String] `OK` when `abort:` cancelled a pending shutdown
+      def shutdown(save: nil, now: false, force: false, abort: false)
+        args = [:shutdown]
+        args << (save ? "SAVE" : "NOSAVE") unless save.nil?
+        args << "NOW" if now
+        args << "FORCE" if force
+        args << "ABORT" if abort
+
         synchronize do |client|
           client.disable_reconnection do
-            client.call_v([:shutdown])
+            client.call_v(args)
           rescue ConnectionError
             # This means Redis has probably exited.
             nil
