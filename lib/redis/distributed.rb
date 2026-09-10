@@ -119,6 +119,12 @@ class Redis
       on_each_node :save
     end
 
+    # Block until each node has fsynced this ring's preceding writes to its AOF and/or its
+    # replicas'. Returns one `[local, replicas]` pair per node.
+    def waitaof(numlocal, numreplicas, timeout)
+      on_each_node :waitaof, numlocal, numreplicas, timeout
+    end
+
     # Get server time: an UNIX timestamp and the elapsed microseconds in the current second.
     def time
       on_each_node :time

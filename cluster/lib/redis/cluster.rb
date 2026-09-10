@@ -85,6 +85,9 @@ class Redis
     #   `himport_set` once) when a node reports it was lost (failover, topology reload, redirection).
     #   When `false`, the error is raised to the caller, who is responsible for retaining the schema
     #   and calling `himport_prepare` again.
+    # @option options [Hash] :command_routings Per-command `request_policy`/`response_policy`
+    #   overrides passed to the driver, merged on top of redis-rb's own defaults (e.g. `waitaof`)
+    #   so caller-supplied entries win.
     #
     # @return [Redis::Cluster] a new client instance
     def initialize(*)
@@ -194,12 +197,43 @@ class Redis
       reply.is_a?(Array) ? reply.max : reply
     end
 
+    # WAITAOF on cluster: the guarantee is per connection, so the command must reach every
+    # primary over the connection that carried this client's writes. The driver leaves it on
+    # single-node routing (no aggregation for its `agg_min` tip over array replies), so
+    # DEFAULT_COMMAND_ROUTINGS routes it to all shards and the driver returns one
+    # `[local, replicas]` pair per primary. Aggregation has to happen here rather than in a
+    # reply block on the shared command: the driver applies reply blocks per node, before it
+    # collects the fan-out. Each position is collapsed with its minimum, as the server's
+    # `response_policy:agg_min` tip prescribes, so the standalone thresholds keep their
+    # meaning: `local` is 1 only if every primary fsynced the writes, and `replicas` is the
+    # fewest acks any shard got, so `replicas >= numreplicas` holds on every shard. (A sum
+    # would let well-replicated shards mask one that is lagging.) Inside `pipelined`/`multi`
+    # the driver routes the command to one node and the plain pair comes back, so no
+    # aggregation is needed there — but that single node is picked by the driver
+    # (`any_replica_node_key`), not by which node carried the pipeline's writes, so the
+    # per-connection guarantee is still lost even though the reply shape is correct. The Array
+    # guard passes a plain pair through (caller-supplied routing, or a driver that aggregates
+    # natively).
+    def waitaof(numlocal, numreplicas, timeout)
+      reply = super
+      reply.first.is_a?(Array) ? reply.transpose.map(&:min) : reply
+    end
+
     private
 
+    # Routing overrides handed to redis-cluster-client for commands whose server tips it does
+    # not act on; see #waitaof. Caller-supplied `command_routings` are merged on top and win.
+    DEFAULT_COMMAND_ROUTINGS = {
+      'waitaof' => { request_policy: 'all_shards' }.freeze
+    }.freeze
+    private_constant :DEFAULT_COMMAND_ROUTINGS
+
     def initialize_client(options)
+      command_routings = DEFAULT_COMMAND_ROUTINGS.merge((options[:command_routings] || {}).transform_keys(&:to_s))
       # protocol defaults to 3 (RESP3) but a caller-provided protocol: in options overrides it.
       cluster_config = RedisClient.cluster(
         protocol: 3, **options,
+        command_routings: command_routings,
         driver_info: ::Redis::LibIdentity.driver_info(options[:driver_info]),
         client_implementation: ::Redis::Cluster::Client
       )

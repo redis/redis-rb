@@ -198,4 +198,88 @@ class TestClusterCommandsOnServer < Minitest::Test
   def test_time
     assert_instance_of Array, redis.time
   end
+
+  def test_waitaof
+    target_version "7.2.0" do
+      redis.set('{a}foo', 'bar')
+      redis.set('{b}foo', 'bar')
+
+      local, replicas = redis.waitaof(0, 0, 0)
+
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
+
+  def test_waitaof_reports_a_local_fsync_only_when_every_primary_has_one
+    target_version "7.2.0" do
+      original = redis.config(:get, 'appendonly')['appendonly']
+      begin
+        # CONFIG SET fans out to every node, so all primaries get an AOF to fsync.
+        redis.config(:set, 'appendonly', 'yes')
+        redis.set('{a}foo', 'bar')
+        redis.set('{b}foo', 'bar')
+        redis.set('{c}foo', 'bar')
+
+        local, replicas = redis.waitaof(1, 0, 5000)
+
+        # Minimum across primaries: 1 means all of them fsynced, never a count above 1.
+        assert_equal 1, local
+        assert_kind_of Integer, replicas
+      ensure
+        redis.config(:set, 'appendonly', original)
+      end
+    end
+  end
+
+  def test_waitaof_reaches_every_primary
+    target_version "7.2.0" do
+      original = redis.config(:get, 'appendonly')['appendonly']
+      begin
+        redis.config(:set, 'appendonly', 'no')
+
+        # With AOF disabled every primary rejects numlocal=1, so the fan-out surfaces one error
+        # per primary rather than a single node's.
+        error = assert_raises(Redis::Cluster::CommandErrorCollection) { redis.waitaof(1, 0, 0) }
+        # redis.role.size equals the primary count only under the default `replica: false`
+        # topology, where `PrimaryOnly` aliases `clients` to `primary_clients`. With
+        # `replica: true`, ROLE fans out to all nodes while the errors come from primaries only.
+        assert_equal redis.role.size, error.errors.size
+        error.errors.each_value { |e| assert_match(/appendonly is disabled/, e.message) }
+      ensure
+        redis.config(:set, 'appendonly', original)
+      end
+    end
+  end
+
+  def test_waitaof_respects_a_caller_supplied_routing
+    target_version "7.2.0" do
+      # A nil routing drops our all-shards default, so the driver routes WAITAOF to a single
+      # node and the plain [local, replicas] pair is passed through unaggregated.
+      r = build_another_client(command_routings: { 'waitaof' => nil })
+      r.set('{a}foo', 'bar')
+
+      local, replicas = r.waitaof(0, 0, 0)
+
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
+
+  def test_waitaof_in_pipeline_returns_a_single_node_pair
+    target_version "7.2.0" do
+      redis.set('{a}foo', 'bar')
+
+      # The reply shape matches standalone, but the pinning guarantee does not: inside a
+      # pipeline the driver routes WAITAOF to whichever node any_replica_node_key picks, not
+      # the node(s) that carried the writes above, so this only proves the shape survives.
+      result = redis.pipelined do |pipe|
+        pipe.waitaof(0, 0, 0)
+      end
+
+      local, replicas = result.first
+      assert_equal 0, local
+      assert_kind_of Integer, replicas
+    end
+  end
 end
