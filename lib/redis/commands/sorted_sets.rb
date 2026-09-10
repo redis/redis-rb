@@ -463,9 +463,10 @@ class Redis
       # @param [String] key
       # @param [String] member
       #
-      # @return [Integer, [Integer, Float]]
+      # @return [Integer, [Integer, Float], nil]
       #   - when `:with_score` is not specified, an Integer
       #   - when `:with_score` is specified, a `[rank, score]` pair
+      #   - `nil` when the key or the member does not exist
       def zrank(key, member, withscore: false, with_score: withscore)
         args = [:zrank, key, member]
 
@@ -490,9 +491,10 @@ class Redis
       # @param [String] key
       # @param [String] member
       #
-      # @return [Integer, [Integer, Float]]
+      # @return [Integer, [Integer, Float], nil]
       #   - when `:with_score` is not specified, an Integer
       #   - when `:with_score` is specified, a `[rank, score]` pair
+      #   - `nil` when the key or the member does not exist
       def zrevrank(key, member, withscore: false, with_score: withscore)
         args = [:zrevrank, key, member]
 

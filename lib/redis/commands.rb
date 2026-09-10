@@ -94,12 +94,16 @@ class Redis
       end
     }
 
+    # RESP2 carries doubles as bulk strings, including the non-finite ones Redis 7.2 normalizes
+    # to "inf", "-inf" and "nan"; RESP3 delivers native Floats, which pass through.
     Floatify = lambda { |value|
       case value
       when "inf"
         Float::INFINITY
       when "-inf"
         -Float::INFINITY
+      when "nan"
+        Float::NAN
       when String
         Float(value)
       else
@@ -115,7 +119,11 @@ class Redis
       value.first.is_a?(String) ? value.map(&Floatify) : value
     }
 
-    FloatifyPair = lambda { |(first, score)|
+    # A nil reply (e.g. ZRANK WITHSCORE on a missing member) stays nil instead of becoming [nil, nil].
+    FloatifyPair = lambda { |pair|
+      return if pair.nil?
+
+      first, score = pair
       [first, Floatify.call(score)]
     }
 
