@@ -109,6 +109,9 @@ class TestRemoteServerControlCommands < Minitest::Test
       local, replicas = result.first
       assert_equal 0, local
       assert_kind_of Integer, replicas
+    end
+  end
+
   def test_info_with_a_single_section
     info = r.info(:server)
 
