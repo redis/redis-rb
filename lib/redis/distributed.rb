@@ -1092,6 +1092,23 @@ class Redis
       node_for(key).hdel(key, fields)
     end
 
+    # Get the value of one or more hash fields and delete them.
+    def hgetdel(key, *fields)
+      fields.flatten!(1)
+      node_for(key).hgetdel(key, fields)
+    end
+
+    # Get the value of one or more hash fields and optionally set their expiration.
+    def hgetex(key, *fields, ex: nil, px: nil, exat: nil, pxat: nil, persist: false)
+      fields.flatten!(1)
+      node_for(key).hgetex(key, *fields, ex: ex, px: px, exat: exat, pxat: pxat, persist: persist)
+    end
+
+    # Set the value of one or more hash fields, and optionally their expiration.
+    def hsetex(key, *attrs, fnx: nil, fxx: nil, ex: nil, px: nil, exat: nil, pxat: nil, keepttl: false)
+      node_for(key).hsetex(key, *attrs, fnx: fnx, fxx: fxx, ex: ex, px: px, exat: exat, pxat: pxat, keepttl: keepttl)
+    end
+
     # Determine if a hash field exists.
     def hexists(key, field)
       node_for(key).hexists(key, field)
