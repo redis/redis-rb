@@ -243,6 +243,7 @@ class Redis
         end
 
         attrs = attrs.first.flatten if attrs.size == 1 && attrs.first.is_a?(Hash)
+        attrs.flatten!(1)
 
         args = [:hsetex, key]
         args << "FNX" if fnx

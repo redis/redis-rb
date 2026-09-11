@@ -233,6 +233,15 @@ module Lint
       end
     end
 
+    def test_variadic_hsetex
+      target_version "8.0.0" do
+        assert_equal 1, r.hsetex("foo", ["f1", "v1", "f2", "v2"])
+
+        assert_equal "v1", r.hget("foo", "f1")
+        assert_equal "v2", r.hget("foo", "f2")
+      end
+    end
+
     def test_hsetex_with_a_hash
       target_version "8.0.0" do
         assert_equal 1, r.hsetex("foo", { "f1" => "v1", "f2" => "v2" })
