@@ -277,6 +277,96 @@ module Lint
       assert_raises(Redis::CommandError) { redis.xdel('s1', []) }
     end
 
+    def test_xdelex_with_splatted_entry_ids
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xadd('s1', { f: '2' }, id: '0-2')
+
+        assert_equal [1, 1, -1], redis.xdelex('s1', '0-1', '0-2', '0-3')
+      end
+    end
+
+    def test_xdelex_with_arrayed_entry_ids
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+
+        assert_equal [1, -1], redis.xdelex('s1', ['0-1', '0-2'])
+      end
+    end
+
+    def test_xdelex_on_a_missing_key
+      target_version "8.2.0" do
+        assert_equal [-1, -1], redis.xdelex('s1', '0-1', '0-2')
+      end
+    end
+
+    def test_xdelex_defaults_to_keepref
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal [1], redis.xdelex('s1', '0-1')
+
+        # KEEPREF is the server's default: the PEL reference survives the entry's deletion.
+        pending = redis.xpending('s1', 'g1', '-', '+', 10)
+        assert_equal(['0-1'], pending.map { |d| d['entry_id'] })
+      end
+    end
+
+    def test_xdelex_with_keepref
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal [1], redis.xdelex('s1', '0-1', keepref: true)
+
+        pending = redis.xpending('s1', 'g1', '-', '+', 10)
+        assert_equal(['0-1'], pending.map { |d| d['entry_id'] })
+      end
+    end
+
+    def test_xdelex_with_delref
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal [1], redis.xdelex('s1', '0-1', delref: true)
+
+        # DELREF also drops the now-dangling PEL reference.
+        assert_equal [], redis.xpending('s1', 'g1', '-', '+', 10)
+      end
+    end
+
+    def test_xdelex_with_acked
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xadd('s1', { f: '2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xack('s1', 'g1', '0-1')
+
+        # 0-1 was acknowledged and gets deleted; 0-2 is still pending and is left alone.
+        assert_equal [1, 2], redis.xdelex('s1', '0-1', '0-2', acked: true)
+        assert_equal ['0-2'], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xdelex_with_incompatible_options
+      target_version "8.2.0" do
+        assert_raises(ArgumentError) { redis.xdelex('s1', '0-1', keepref: true, delref: true) }
+        assert_raises(ArgumentError) { redis.xdelex('s1', '0-1', delref: true, acked: true) }
+      end
+    end
+
+    def test_xdelex_with_invalid_arguments
+      target_version "8.2.0" do
+        assert_raises(Redis::CommandError) { redis.xdelex('s1', []) }
+      end
+    end
+
     def test_xrange
       redis.xadd('s1', { f: 'v1' }, id: '0-1')
       redis.xadd('s1', { f: 'v2' }, id: '0-2')
@@ -835,6 +925,108 @@ module Lint
       redis.xadd('s1', { f: 'v4' }, id: '0-4')
       redis.xadd('s1', { f: 'v5' }, id: '0-5')
       assert_equal 2, redis.xack('s1', 'g1', %w[0-2 0-3])
+    end
+
+    def test_xackdel_with_splatted_entry_ids
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xadd('s1', { f: '2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal [1, 1, -1], redis.xackdel('s1', 'g1', '0-1', '0-2', '0-3')
+      end
+    end
+
+    def test_xackdel_with_arrayed_entry_ids
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal [1, -1], redis.xackdel('s1', 'g1', ['0-1', '0-2'])
+      end
+    end
+
+    def test_xackdel_on_a_missing_key
+      target_version "8.2.0" do
+        assert_equal [-1, -1], redis.xackdel('s1', 'g1', '0-1', '0-2')
+      end
+    end
+
+    def test_xackdel_defaults_to_keepref
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xgroup(:create, 's1', 'g2', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xreadgroup('g2', 'c2', 's1', '>')
+
+        assert_equal [1], redis.xackdel('s1', 'g1', '0-1')
+
+        # KEEPREF is the server's default: g2's PEL reference survives the entry's deletion.
+        pending = redis.xpending('s1', 'g2', '-', '+', 10)
+        assert_equal(['0-1'], pending.map { |d| d['entry_id'] })
+      end
+    end
+
+    def test_xackdel_with_keepref
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xgroup(:create, 's1', 'g2', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xreadgroup('g2', 'c2', 's1', '>')
+
+        assert_equal [1], redis.xackdel('s1', 'g1', '0-1', keepref: true)
+
+        pending = redis.xpending('s1', 'g2', '-', '+', 10)
+        assert_equal(['0-1'], pending.map { |d| d['entry_id'] })
+      end
+    end
+
+    def test_xackdel_with_delref
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xgroup(:create, 's1', 'g2', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xreadgroup('g2', 'c2', 's1', '>')
+
+        assert_equal [1], redis.xackdel('s1', 'g1', '0-1', delref: true)
+
+        # DELREF also drops the now-dangling PEL reference in every other group.
+        assert_equal [], redis.xpending('s1', 'g2', '-', '+', 10)
+      end
+    end
+
+    def test_xackdel_with_acked
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: '1' }, id: '0-1')
+        redis.xadd('s1', { f: '2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xgroup(:create, 's1', 'g2', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        redis.xreadgroup('g2', 'c2', 's1', '>')
+        redis.xack('s1', 'g2', '0-1')
+
+        # 0-1 is now acked by both groups and gets deleted; 0-2 is still pending in g2 and stays.
+        assert_equal [1, 2], redis.xackdel('s1', 'g1', '0-1', '0-2', acked: true)
+        assert_equal ['0-2'], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xackdel_with_incompatible_options
+      target_version "8.2.0" do
+        assert_raises(ArgumentError) { redis.xackdel('s1', 'g1', '0-1', keepref: true, delref: true) }
+        assert_raises(ArgumentError) { redis.xackdel('s1', 'g1', '0-1', delref: true, acked: true) }
+      end
+    end
+
+    def test_xackdel_with_invalid_arguments
+      target_version "8.2.0" do
+        assert_raises(Redis::CommandError) { redis.xackdel('s1', 'g1', []) }
+      end
     end
 
     def test_xnack_with_fail_mode

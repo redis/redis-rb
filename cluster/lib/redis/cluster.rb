@@ -100,9 +100,14 @@ class Redis
     # @see https://redis.io/commands#cluster Reference of cluster command
     #
     # @param subcommand [String, Symbol] the subcommand of cluster command
-    #   e.g. `:slots`, `:nodes`, `:slaves`, `:info`
+    #   e.g. `:slots`, `:nodes`, `:slaves`, `:info`, `:'slot-stats'`
     #
     # @return [Object] depends on the subcommand
+    #
+    # @note `:'slot-stats'` (Redis 8.2) is reshaped here for when redis-cluster-client routes
+    #   it, but the pinned driver version does not yet recognize the subcommand and raises
+    #   {OrchestrationCommandNotSupported} before this method's block ever runs — see the
+    #   `cluster_slot_stats` test in `cluster/test/commands_on_cluster_test.rb`.
     def cluster(subcommand, *args)
       subcommand = subcommand.to_s.downcase
       block = case subcommand
@@ -114,6 +119,8 @@ class Redis
         HashifyClusterSlaves
       when 'info'
         HashifyInfo
+      when 'slot-stats'
+        HashifyClusterSlotStats
       else
         Noop
       end
