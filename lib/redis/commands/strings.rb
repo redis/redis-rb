@@ -160,12 +160,32 @@ class Redis
       #   - `:px => Integer`: Set the specified expire time, in milliseconds.
       #   - `:exat => Integer` : Set the specified Unix time at which the key will expire, in seconds.
       #   - `:pxat => Integer` : Set the specified Unix time at which the key will expire, in milliseconds.
-      #   - `:nx => true`: Only set the key if it does not already exist.
-      #   - `:xx => true`: Only set the key if it already exist.
+      #   - `:nx => true`: Only set the key if it does not already exist. Mutually exclusive with
+      #      `:xx`, `:ifeq`, `:ifne`, `:ifdeq`, and `:ifdne`.
+      #   - `:xx => true`: Only set the key if it already exist. Mutually exclusive with `:nx`,
+      #      `:ifeq`, `:ifne`, `:ifdeq`, and `:ifdne`.
+      #   - `:ifeq => String`: Only set the key if its current value equals the given value.
+      #      Mutually exclusive with `:nx`, `:xx`, `:ifne`, `:ifdeq`, and `:ifdne`.
+      #   - `:ifne => String`: Only set the key if its current value does not equal the given
+      #      value. Mutually exclusive with `:nx`, `:xx`, `:ifeq`, `:ifdeq`, and `:ifdne`.
+      #   - `:ifdeq => String`: Only set the key if the digest of its current value (see #digest)
+      #      equals the given digest. Mutually exclusive with `:nx`, `:xx`, `:ifeq`, `:ifne`, and
+      #      `:ifdne`.
+      #   - `:ifdne => String`: Only set the key if the digest of its current value does not
+      #      equal the given digest. Mutually exclusive with `:nx`, `:xx`, `:ifeq`, `:ifne`, and
+      #      `:ifdeq`.
       #   - `:keepttl => true`: Retain the time to live associated with the key.
-      #   - `:get => true`: Return the old string stored at key, or nil if key did not exist.
-      # @return [String, Boolean] `"OK"` or true, false if `:nx => true` or `:xx => true`
-      def set(key, value, ex: nil, px: nil, exat: nil, pxat: nil, nx: nil, xx: nil, keepttl: nil, get: nil)
+      #   - `:get => true`: Return the old string stored at key, or nil if key did not exist,
+      #      regardless of whether `:nx`/`:xx`/`:ifeq`/`:ifne`/`:ifdeq`/`:ifdne` was satisfied.
+      # @return [String, Boolean] `"OK"`, or true/false if `:nx`, `:xx`, `:ifeq`, `:ifne`,
+      #   `:ifdeq`, or `:ifdne` is given without `:get`
+      def set(key, value, ex: nil, px: nil, exat: nil, pxat: nil, nx: nil, xx: nil,
+              ifeq: nil, ifne: nil, ifdeq: nil, ifdne: nil, keepttl: nil, get: nil)
+        conditions = [nx, xx, ifeq, ifne, ifdeq, ifdne]
+        if conditions.count { |option| option } > 1
+          raise ArgumentError, "nx, xx, ifeq, ifne, ifdeq, and ifdne are mutually exclusive"
+        end
+
         args = [:set, key, value.to_s]
         args << "EX" << Integer(ex) if ex
         args << "PX" << Integer(px) if px
@@ -173,14 +193,54 @@ class Redis
         args << "PXAT" << Integer(pxat) if pxat
         args << "NX" if nx
         args << "XX" if xx
+        args << "IFEQ" << ifeq.to_s if ifeq
+        args << "IFNE" << ifne.to_s if ifne
+        args << "IFDEQ" << ifdeq.to_s if ifdeq
+        args << "IFDNE" << ifdne.to_s if ifdne
         args << "KEEPTTL" if keepttl
         args << "GET" if get
 
-        if nx || xx
+        if nx || xx || ifeq || ifne || ifdeq || ifdne
           send_command(args, &BoolifySet)
         else
           send_command(args)
         end
+      end
+
+      # Delete a key, optionally only if its current value or value digest matches a condition.
+      #
+      # @example Without options
+      #   redis.delex("foo")
+      #     # => 1
+      # @example With IFEQ
+      #   redis.delex("foo", ifeq: "bar")
+      #     # => 1 (if the current value of "foo" was "bar"), 0 otherwise
+      #
+      # @param [String] key
+      # @param [Hash] options
+      #   - `:ifeq => String`: Only delete the key if its current value equals the given value.
+      #      Mutually exclusive with `:ifne`, `:ifdeq`, and `:ifdne`.
+      #   - `:ifne => String`: Only delete the key if its current value does not equal the given
+      #      value. Mutually exclusive with `:ifeq`, `:ifdeq`, and `:ifdne`.
+      #   - `:ifdeq => String`: Only delete the key if the digest of its current value (see
+      #      #digest) equals the given digest. Mutually exclusive with `:ifeq`, `:ifne`, and
+      #      `:ifdne`.
+      #   - `:ifdne => String`: Only delete the key if the digest of its current value does not
+      #      equal the given digest. Mutually exclusive with `:ifeq`, `:ifne`, and `:ifdeq`.
+      # @return [Integer] `1` if the key was deleted, `0` if it did not exist or the condition
+      #   was not met
+      def delex(key, ifeq: nil, ifne: nil, ifdeq: nil, ifdne: nil)
+        if [ifeq, ifne, ifdeq, ifdne].count { |option| option } > 1
+          raise ArgumentError, "ifeq, ifne, ifdeq, and ifdne are mutually exclusive"
+        end
+
+        args = [:delex, key]
+        args << "IFEQ" << ifeq.to_s if ifeq
+        args << "IFNE" << ifne.to_s if ifne
+        args << "IFDEQ" << ifdeq.to_s if ifdeq
+        args << "IFDNE" << ifdne.to_s if ifdne
+
+        send_command(args)
       end
 
       # Set the time to live in seconds of a key.
@@ -384,6 +444,22 @@ class Redis
         args << "PERSIST" if persist
 
         send_command(args)
+      end
+
+      # Compute a digest of the string value stored at a key, suitable for later comparison
+      # via SET's `:ifdeq`/`:ifdne` or DELEX's `:ifdeq`/`:ifdne` options without transmitting
+      # the full value.
+      #
+      # @example
+      #   redis.set("foo", "bar")
+      #   redis.digest("foo")
+      #     # => "<hex digest>"
+      #
+      # @param [String] key
+      # @return [String, nil] the digest of the value stored at key, as a 16-character
+      #   lowercase hex String, or `nil` if the key does not exist
+      def digest(key)
+        send_command([:digest, key])
       end
 
       # Get the length of the value stored in a key.

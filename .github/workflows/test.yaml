@@ -83,6 +83,16 @@ jobs:
           BUNDLE_GEMFILE: cluster/Gemfile
         run: bundle install
 
+      # Off by default (see ext/redis/xxh3/extconf.rb) so a normal `bundle install` never
+      # needs a compiler; built here on MRI so Redis::XXH3 is always defined and
+      # test/redis/xxh3_test.rb and test/redis/digest_consistency_test.rb never skip.
+      # Skipped on TruffleRuby: its C extension support (Sulong) is already known not to
+      # build hiredis cleanly (see the matrix exclude above), so those tests stay skipped
+      # there rather than risk the same on this extension.
+      - name: Build the xxh3 extension
+        if: matrix.ruby_distribution == 'MRI'
+        run: bundle exec rake compile
+
       - name: Boot Redis (all topologies)
         run: docker compose --profile all up -d --wait
 

@@ -40,7 +40,14 @@ Gem::Specification.new do |s|
     "source_code_uri" => "#{s.homepage}/tree/v#{s.version}"
   }
 
-  s.files = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*"]
+  # Restricted to lib/**/*.rb (not a blanket lib/**/*): a local dev build of the optional
+  # xxh3 extension (see ext/redis/xxh3) leaves a compiled artifact at
+  # lib/redis/xxh3/xxh3_ext.<so|bundle>, and a blanket glob would package whatever
+  # platform-specific binary happens to be on the machine running `gem build` right
+  # alongside the source of an otherwise pure-Ruby gem.
+  s.files = Dir["CHANGELOG.md", "LICENSE", "README.md", "lib/**/*.rb",
+                "ext/**/*.{c,h,rb}", "ext/**/LICENSE*"]
+  s.extensions = ["ext/redis/xxh3/extconf.rb"]
 
   s.required_ruby_version = '>= 3.2.0'
 

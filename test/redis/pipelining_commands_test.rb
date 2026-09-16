@@ -239,6 +239,17 @@ class TestPipeliningCommands < Minitest::Test
     assert_equal ["value", 1.0], future.value
   end
 
+  def test_set_with_ifeq_in_a_pipeline_returns_boolean
+    target_version "8.4.0" do
+      r.set("foo", "bar")
+      result = r.pipelined do |pipeline|
+        pipeline.set("foo", "baz", ifeq: "bar")
+        pipeline.set("foo", "qux", ifeq: "nope")
+      end
+      assert_equal [true, false], result
+    end
+  end
+
   def test_error_in_a_multi_in_a_non_raising_pipeline
     r.set("string", "value")
     future = nil
