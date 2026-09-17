@@ -181,8 +181,11 @@ class Redis
       #   `:ifdeq`, or `:ifdne` is given without `:get`
       def set(key, value, ex: nil, px: nil, exat: nil, pxat: nil, nx: nil, xx: nil,
               ifeq: nil, ifne: nil, ifdeq: nil, ifdne: nil, keepttl: nil, get: nil)
-        conditions = [nx, xx, ifeq, ifne, ifdeq, ifdne]
-        if conditions.count { |option| option } > 1
+        # nx/xx are pure flags (only truthiness matters); ifeq/ifne/ifdeq/ifdne are
+        # value-bearing, so a deliberately-passed `false` (e.g. comparing against the
+        # literal string "false") must count as given — only `nil` means "not given".
+        active_conditions = [nx, xx, !ifeq.nil?, !ifne.nil?, !ifdeq.nil?, !ifdne.nil?]
+        if active_conditions.count { |active| active } > 1
           raise ArgumentError, "nx, xx, ifeq, ifne, ifdeq, and ifdne are mutually exclusive"
         end
 
@@ -193,14 +196,17 @@ class Redis
         args << "PXAT" << Integer(pxat) if pxat
         args << "NX" if nx
         args << "XX" if xx
-        args << "IFEQ" << ifeq.to_s if ifeq
-        args << "IFNE" << ifne.to_s if ifne
-        args << "IFDEQ" << ifdeq.to_s if ifdeq
-        args << "IFDNE" << ifdne.to_s if ifdne
+        args << "IFEQ" << ifeq.to_s unless ifeq.nil?
+        args << "IFNE" << ifne.to_s unless ifne.nil?
+        args << "IFDEQ" << ifdeq.to_s unless ifdeq.nil?
+        args << "IFDNE" << ifdne.to_s unless ifdne.nil?
         args << "KEEPTTL" if keepttl
         args << "GET" if get
 
-        if nx || xx || ifeq || ifne || ifdeq || ifdne
+        # GET always returns the previous value (or nil) verbatim; boolifying it would
+        # both mangle a previous value that happened to be "OK" and turn a "key didn't
+        # exist" nil into a misleading false.
+        if !get && active_conditions.any?
           send_command(args, &BoolifySet)
         else
           send_command(args)
@@ -230,15 +236,17 @@ class Redis
       # @return [Integer] `1` if the key was deleted, `0` if it did not exist or the condition
       #   was not met
       def delex(key, ifeq: nil, ifne: nil, ifdeq: nil, ifdne: nil)
-        if [ifeq, ifne, ifdeq, ifdne].count { |option| option } > 1
+        # Value-bearing options: a deliberately-passed `false` must count as given —
+        # only `nil` means "not given" (see #set).
+        if [ifeq, ifne, ifdeq, ifdne].count { |option| !option.nil? } > 1
           raise ArgumentError, "ifeq, ifne, ifdeq, and ifdne are mutually exclusive"
         end
 
         args = [:delex, key]
-        args << "IFEQ" << ifeq.to_s if ifeq
-        args << "IFNE" << ifne.to_s if ifne
-        args << "IFDEQ" << ifdeq.to_s if ifdeq
-        args << "IFDNE" << ifdne.to_s if ifdne
+        args << "IFEQ" << ifeq.to_s unless ifeq.nil?
+        args << "IFNE" << ifne.to_s unless ifne.nil?
+        args << "IFDEQ" << ifdeq.to_s unless ifdeq.nil?
+        args << "IFDNE" << ifdne.to_s unless ifdne.nil?
 
         send_command(args)
       end

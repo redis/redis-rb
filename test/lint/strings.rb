@@ -185,8 +185,47 @@ module Lint
       end
     end
 
+    def test_set_with_get_preserves_a_previous_value_of_ok
+      target_version "8.4.0" do
+        r.set("foo", "OK")
+
+        # BoolifySet ("OK" => true, nil => false) must not run when :get is given —
+        # the previous value is returned verbatim, even when it happens to be "OK".
+        assert_equal "OK", r.set("foo", "baz", ifeq: "OK", get: true)
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_get_on_a_missing_key_returns_nil_not_false
+      target_version "8.4.0" do
+        r.del("foo")
+
+        assert_nil r.set("foo", "bar", nx: true, get: true)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifeq_false_is_a_comparison_value_not_a_missing_condition
+      target_version "8.4.0" do
+        r.set("foo", "false")
+
+        assert r.set("foo", "bar", ifeq: false)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifeq_false_does_not_match_a_different_value
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert !r.set("foo", "baz", ifeq: false)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
     def test_set_with_incompatible_condition_options
       assert_raises(ArgumentError) { r.set("foo", "bar", nx: true, xx: true) }
+      assert_raises(ArgumentError) { r.set("foo", "bar", ifeq: false, ifne: "y") }
       assert_raises(ArgumentError) { r.set("foo", "bar", nx: true, ifeq: "x") }
       assert_raises(ArgumentError) { r.set("foo", "bar", xx: true, ifne: "x") }
       assert_raises(ArgumentError) { r.set("foo", "bar", ifeq: "x", ifne: "y") }
@@ -328,11 +367,30 @@ module Lint
       end
     end
 
+    def test_delex_with_ifeq_false_is_a_comparison_value_not_a_missing_condition
+      target_version "8.4.0" do
+        r.set("foo", "false")
+
+        assert_equal 1, r.delex("foo", ifeq: false)
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifeq_false_does_not_match_a_different_value
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 0, r.delex("foo", ifeq: false)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
     def test_delex_with_incompatible_condition_options
       assert_raises(ArgumentError) { r.delex("foo", ifeq: "x", ifne: "y") }
       assert_raises(ArgumentError) { r.delex("foo", ifeq: "x", ifdeq: "y") }
       assert_raises(ArgumentError) { r.delex("foo", ifne: "x", ifdne: "y") }
       assert_raises(ArgumentError) { r.delex("foo", ifdeq: "x", ifdne: "y") }
+      assert_raises(ArgumentError) { r.delex("foo", ifeq: false, ifne: "y") }
     end
 
     def test_getset
