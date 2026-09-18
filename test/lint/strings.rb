@@ -99,6 +99,141 @@ module Lint
       end
     end
 
+    def test_set_with_ifeq_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert r.set("foo", "baz", ifeq: "bar")
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifeq_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert !r.set("foo", "baz", ifeq: "nope")
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifne_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert r.set("foo", "baz", ifne: "nope")
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifne_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert !r.set("foo", "baz", ifne: "bar")
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifdeq_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+        digest = r.digest("foo")
+
+        assert r.set("foo", "baz", ifdeq: digest)
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifdeq_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert !r.set("foo", "baz", ifdeq: "0000000000000000")
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifdne_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert r.set("foo", "baz", ifdne: "0000000000000000")
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifdne_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+        digest = r.digest("foo")
+
+        assert !r.set("foo", "baz", ifdne: digest)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifeq_and_get
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal "bar", r.set("foo", "baz", ifeq: "bar", get: true)
+        assert_equal "baz", r.get("foo")
+
+        assert_equal "baz", r.set("foo", "qux", ifeq: "nope", get: true)
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_get_preserves_a_previous_value_of_ok
+      target_version "8.4.0" do
+        r.set("foo", "OK")
+
+        # BoolifySet ("OK" => true, nil => false) must not run when :get is given —
+        # the previous value is returned verbatim, even when it happens to be "OK".
+        assert_equal "OK", r.set("foo", "baz", ifeq: "OK", get: true)
+        assert_equal "baz", r.get("foo")
+      end
+    end
+
+    def test_set_with_get_on_a_missing_key_returns_nil_not_false
+      target_version "8.4.0" do
+        r.del("foo")
+
+        assert_nil r.set("foo", "bar", nx: true, get: true)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifeq_false_is_a_comparison_value_not_a_missing_condition
+      target_version "8.4.0" do
+        r.set("foo", "false")
+
+        assert r.set("foo", "bar", ifeq: false)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_ifeq_false_does_not_match_a_different_value
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert !r.set("foo", "baz", ifeq: false)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_set_with_incompatible_condition_options
+      assert_raises(ArgumentError) { r.set("foo", "bar", nx: true, xx: true) }
+      assert_raises(ArgumentError) { r.set("foo", "bar", ifeq: false, ifne: "y") }
+      assert_raises(ArgumentError) { r.set("foo", "bar", nx: true, ifeq: "x") }
+      assert_raises(ArgumentError) { r.set("foo", "bar", xx: true, ifne: "x") }
+      assert_raises(ArgumentError) { r.set("foo", "bar", ifeq: "x", ifne: "y") }
+      assert_raises(ArgumentError) { r.set("foo", "bar", ifeq: "x", ifdeq: "y") }
+      assert_raises(ArgumentError) { r.set("foo", "bar", ifne: "x", ifdne: "y") }
+      assert_raises(ArgumentError) { r.set("foo", "bar", ifdeq: "x", ifdne: "y") }
+    end
+
     def test_setex
       assert r.setex("foo", 1, "bar")
       assert_equal "bar", r.get("foo")
@@ -141,6 +276,121 @@ module Lint
         assert_equal "bar", r.getdel("foo")
         assert_nil r.get("foo")
       end
+    end
+
+    def test_delex
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 1, r.delex("foo")
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_on_a_missing_key
+      target_version "8.4.0" do
+        assert_equal 0, r.delex("foo")
+      end
+    end
+
+    def test_delex_with_ifeq_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 1, r.delex("foo", ifeq: "bar")
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifeq_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 0, r.delex("foo", ifeq: "nope")
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifne_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 1, r.delex("foo", ifne: "nope")
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifne_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 0, r.delex("foo", ifne: "bar")
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifdeq_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+        digest = r.digest("foo")
+
+        assert_equal 1, r.delex("foo", ifdeq: digest)
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifdeq_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 0, r.delex("foo", ifdeq: "0000000000000000")
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifdne_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 1, r.delex("foo", ifdne: "0000000000000000")
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifdne_not_matching
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+        digest = r.digest("foo")
+
+        assert_equal 0, r.delex("foo", ifdne: digest)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifeq_false_is_a_comparison_value_not_a_missing_condition
+      target_version "8.4.0" do
+        r.set("foo", "false")
+
+        assert_equal 1, r.delex("foo", ifeq: false)
+        assert_nil r.get("foo")
+      end
+    end
+
+    def test_delex_with_ifeq_false_does_not_match_a_different_value
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        assert_equal 0, r.delex("foo", ifeq: false)
+        assert_equal "bar", r.get("foo")
+      end
+    end
+
+    def test_delex_with_incompatible_condition_options
+      assert_raises(ArgumentError) { r.delex("foo", ifeq: "x", ifne: "y") }
+      assert_raises(ArgumentError) { r.delex("foo", ifeq: "x", ifdeq: "y") }
+      assert_raises(ArgumentError) { r.delex("foo", ifne: "x", ifdne: "y") }
+      assert_raises(ArgumentError) { r.delex("foo", ifdeq: "x", ifdne: "y") }
+      assert_raises(ArgumentError) { r.delex("foo", ifeq: false, ifne: "y") }
     end
 
     def test_getset
@@ -445,6 +695,43 @@ module Lint
       r.set "foo", "lorem"
 
       assert_equal 5, r.strlen("foo")
+    end
+
+    def test_digest
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+
+        digest = r.digest("foo")
+        assert_kind_of String, digest
+        assert_match(/\A[0-9a-f]{16}\z/, digest)
+      end
+    end
+
+    def test_digest_is_stable_for_the_same_value
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+        r.set("baz", "bar")
+
+        assert_equal r.digest("foo"), r.digest("baz")
+      end
+    end
+
+    def test_digest_changes_when_value_changes
+      target_version "8.4.0" do
+        r.set("foo", "bar")
+        d1 = r.digest("foo")
+
+        r.set("foo", "baz")
+        d2 = r.digest("foo")
+
+        refute_equal d1, d2
+      end
+    end
+
+    def test_digest_on_a_missing_key
+      target_version "8.4.0" do
+        assert_nil r.digest("foo")
+      end
     end
 
     def test_bitfield

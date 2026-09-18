@@ -4,6 +4,24 @@ require 'bundler/gem_tasks'
 Bundler::GemHelper.install_tasks(dir: "cluster", name: "redis-clustering")
 
 require 'rake/testtask'
+require 'rbconfig'
+require 'fileutils'
+
+desc "Build the optional xxh3 extension (off by default; see ext/redis/xxh3/extconf.rb). " \
+     "Needed locally to exercise Redis::XXH3 and its tests."
+task :compile do
+  ext_dir = File.expand_path("ext/redis/xxh3", __dir__)
+  lib_dir = File.expand_path("lib/redis/xxh3", __dir__)
+  so_name = "xxh3_ext.#{RbConfig::CONFIG['DLEXT']}"
+
+  Dir.chdir(ext_dir) do
+    sh "#{RbConfig.ruby} extconf.rb --enable-xxh3"
+    sh "make"
+  end
+
+  FileUtils.mkdir_p(lib_dir)
+  FileUtils.cp(File.join(ext_dir, so_name), File.join(lib_dir, so_name))
+end
 
 namespace :test do
   # `modules` (Redis module commands, e.g. RedisJSON) gets its own task; in CI this runs against

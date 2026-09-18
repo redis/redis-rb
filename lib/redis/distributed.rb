@@ -366,6 +366,16 @@ class Redis
       node_for(key).getex(key, **options)
     end
 
+    # Delete a key, optionally only if its current value or value digest matches a condition.
+    def delex(key, **options)
+      node_for(key).delex(key, **options)
+    end
+
+    # Compute a digest of the string value stored at a key.
+    def digest(key)
+      node_for(key).digest(key)
+    end
+
     # Set the JSON value at a path in the document stored under a key.
     def json_set(key, path, value, **options)
       node_for(key).json_set(key, path, value, **options)
