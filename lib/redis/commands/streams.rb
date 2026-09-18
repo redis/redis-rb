@@ -117,6 +117,45 @@ class Redis
         send_command(args)
       end
 
+      # Delete entries by entry ids, with control over consumer group PEL references. XDELEX
+      # is an extension of XDEL.
+      #
+      # @example With splatted entry ids, keeping consumer group references (the default)
+      #   redis.xdelex('mystream', '0-1', '0-2')
+      # @example With arrayed entry ids
+      #   redis.xdelex('mystream', ['0-1', '0-2'])
+      # @example Also drop dangling consumer group references
+      #   redis.xdelex('mystream', '0-1', delref: true)
+      # @example Only delete entries acknowledged by every consumer group
+      #   redis.xdelex('mystream', '0-1', acked: true)
+      #
+      # @param key [String]        the stream key
+      # @param ids [Array<String>] one or multiple entry ids
+      # @param keepref [Boolean] delete the entries but keep existing consumer group PEL
+      #   references (the server's default). Mutually exclusive with `:delref` and `:acked`.
+      # @param delref [Boolean] delete the entries and remove all consumer group PEL references
+      #   to them, including dangling ones. Mutually exclusive with `:keepref` and `:acked`.
+      # @param acked [Boolean] only delete entries already acknowledged by every consumer group.
+      #   Mutually exclusive with `:keepref` and `:delref`.
+      #
+      # @return [Array<Integer>] one entry per requested id, in order: `-1` if the key or that
+      #   id does not exist, `1` if the entry was deleted, `2` if it was not deleted because
+      #   references still exist (`:acked`) or the stream has no consumer groups
+      def xdelex(key, *ids, keepref: nil, delref: nil, acked: nil)
+        if [keepref, delref, acked].count { |option| option } > 1
+          raise ArgumentError, "keepref, delref, and acked are mutually exclusive"
+        end
+
+        ids = ids.flatten
+        args = [:xdelex, key]
+        args << "KEEPREF" if keepref
+        args << "DELREF" if delref
+        args << "ACKED" if acked
+        args.concat(["IDS", ids.size, *ids])
+
+        send_command(args)
+      end
+
       # Fetches entries of the stream in ascending order.
       #
       # @example Without options
@@ -319,6 +358,49 @@ class Redis
       # @return [Integer] the number of entries successfully acknowledged
       def xack(key, group, *ids)
         args = [:xack, key, group].concat(ids.flatten)
+        send_command(args)
+      end
+
+      # Acknowledges and conditionally deletes one or more entries for a stream consumer
+      # group, in a single atomic operation. XACKDEL combines XACK and XDELEX.
+      #
+      # @example With splatted entry ids, keeping consumer group references (the default)
+      #   redis.xackdel('mystream', 'mygroup', '0-1', '0-2')
+      # @example With arrayed entry ids
+      #   redis.xackdel('mystream', 'mygroup', ['0-1', '0-2'])
+      # @example Also drop dangling consumer group references
+      #   redis.xackdel('mystream', 'mygroup', '0-1', delref: true)
+      # @example Only delete entries acknowledged by every consumer group
+      #   redis.xackdel('mystream', 'mygroup', '0-1', acked: true)
+      #
+      # @param key   [String]        the stream key
+      # @param group [String]        the consumer group name
+      # @param ids   [Array<String>] one or multiple entry ids
+      # @param keepref [Boolean] acknowledge and delete the entries but keep existing consumer
+      #   group PEL references (the server's default). Mutually exclusive with `:delref` and
+      #   `:acked`.
+      # @param delref [Boolean] acknowledge and delete the entries and remove all consumer
+      #   group PEL references to them, including dangling ones. Mutually exclusive with
+      #   `:keepref` and `:acked`.
+      # @param acked [Boolean] acknowledge the entries but only delete those already
+      #   acknowledged by every consumer group. Mutually exclusive with `:keepref` and
+      #   `:delref`.
+      #
+      # @return [Array<Integer>] one entry per requested id, in order: `-1` if the key or that
+      #   id does not exist, `1` if the entry was acknowledged and deleted, `2` if it was
+      #   acknowledged but not deleted because references still exist (`:acked`)
+      def xackdel(key, group, *ids, keepref: nil, delref: nil, acked: nil)
+        if [keepref, delref, acked].count { |option| option } > 1
+          raise ArgumentError, "keepref, delref, and acked are mutually exclusive"
+        end
+
+        ids = ids.flatten
+        args = [:xackdel, key, group]
+        args << "KEEPREF" if keepref
+        args << "DELREF" if delref
+        args << "ACKED" if acked
+        args.concat(["IDS", ids.size, *ids])
+
         send_command(args)
       end
 

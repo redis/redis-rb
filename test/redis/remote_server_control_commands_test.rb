@@ -257,4 +257,33 @@ class TestRemoteServerControlCommands < Minitest::Test
     name = r.client(:getname)
     assert_equal 'redis-rb', name
   end
+
+  def test_cluster_slot_stats_sends_the_subcommand_and_arguments
+    target_version "8.2.0" do
+      received = nil
+      reply = [[0, { "key-count" => 0 }]]
+      commands = { cluster: ->(*args) { received = args; reply } }
+
+      redis_mock(commands) do |redis|
+        redis.cluster('slot-stats', 'SLOTSRANGE', 0, 100)
+      end
+
+      assert_equal %w[slot-stats SLOTSRANGE 0 100], received
+    end
+  end
+
+  def test_cluster_slot_stats_hashifies_the_per_slot_metrics
+    target_version "8.2.0" do
+      # CLUSTER SLOT-STATS replies with [[slot, metrics], ...] where `metrics` is a flat
+      # [metric, value, ...] array under RESP2 and a native map under RESP3; either way this
+      # should converge on the same Ruby Hash per slot (see HashifyClusterSlotStats). Leaf
+      # values come back as bulk strings through this mock helper, which has no RESP integer
+      # frame support — a live server replies with Integers instead, confirmed separately.
+      reply = [["0", { "key-count" => "5" }], ["1", { "key-count" => "3" }]]
+
+      redis_mock(cluster: ->(*_) { reply }) do |redis|
+        assert_equal reply, redis.cluster('slot-stats', 'SLOTSRANGE', 0, 1)
+      end
+    end
+  end
 end

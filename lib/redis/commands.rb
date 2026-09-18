@@ -310,6 +310,15 @@ class Redis
       reply.map { |str| HashifyClusterNodeInfo.call(str) }
     }
 
+    # CLUSTER SLOT-STATS: each element is a [slot, metrics] pair. RESP2 replies with the
+    # per-slot metrics as a flat [metric, value, ...] array; RESP3 already maps them.
+    # Converge on a Hash of metrics for every slot.
+    HashifyClusterSlotStats = lambda { |reply|
+      reply.map do |slot, metrics|
+        [slot, metrics.is_a?(Hash) ? metrics : metrics.each_slice(2).to_h]
+      end
+    }
+
     # FUNCTION LIST: RESP2 replies with a flat [k, v, ...] array per library (and per
     # function within it); RESP3 already returns maps. Converge on nested Hashes.
     HashifyFunctionList = lambda { |reply|
