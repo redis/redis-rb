@@ -46,11 +46,16 @@ class Redis
       # @option opts [Boolean] :approximate whether to add `~` modifier of maxlen/minid or not
       # @option opts [Integer] :limit       maximum count of entries to be evicted, requires approximate trimming
       # @option opts [Boolean] :nomkstream  whether to add NOMKSTREAM, default is not to add
+      # @option opts [Symbol, String] :policy (Redis 8.2) how trimming (`:maxlen`/`:minid`)
+      #   handles consumer group PEL references to the evicted entries: `:keepref` (the
+      #   server's default) keeps them, `:delref` also removes them, `:acked` only evicts
+      #   entries already acknowledged by every consumer group. No effect without trimming.
       #
       # @return [String] the entry id
-      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, limit: nil, nomkstream: nil, id: '*')
+      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, limit: nil, nomkstream: nil, id: '*', policy: nil)
         args = [:xadd, key]
         args << 'NOMKSTREAM' if nomkstream
+        args << xstream_ref_policy_token(policy) if policy
         if maxlen
           raise ArgumentError, "can't supply both maxlen and minid" if minid
 
@@ -89,15 +94,20 @@ class Redis
       #   @param strategy    [String]  the limit strategy, must be MINID
       #   @param approximate [Boolean] whether to add `~` modifier of minid or not
       #   @param limit       [Integer] maximum count of entries to be evicted
+      #   @param policy      [Symbol, String] (Redis 8.2) how trimming handles consumer group
+      #     PEL references to the evicted entries: `:keepref` (the server's default) keeps
+      #     them, `:delref` also removes them, `:acked` only evicts entries already
+      #     acknowledged by every consumer group
       #
       # @return [Integer] the number of entries actually deleted
-      def xtrim(key, len_or_id, strategy: 'MAXLEN', approximate: false, limit: nil)
+      def xtrim(key, len_or_id, strategy: 'MAXLEN', approximate: false, limit: nil, policy: nil)
         strategy = strategy.to_s.upcase
 
         args = [:xtrim, key, strategy]
         args << '~' if approximate
         args << len_or_id
         args.concat(['LIMIT', limit]) if limit
+        args << xstream_ref_policy_token(policy) if policy
         send_command(args)
       end
 
@@ -560,6 +570,15 @@ class Redis
       end
 
       private
+
+      def xstream_ref_policy_token(policy)
+        token = policy.to_s.upcase
+        unless %w[KEEPREF DELREF ACKED].include?(token)
+          raise ArgumentError, "policy must be :keepref, :delref, or :acked"
+        end
+
+        token
+      end
 
       def _xread(args, keys, ids, blocking_timeout_msec)
         keys = keys.is_a?(Array) ? keys : [keys]

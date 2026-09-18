@@ -166,6 +166,55 @@ module Lint
       assert_raises(Redis::CommandError) { redis.xadd('s1', {}) }
     end
 
+    def test_xadd_with_keepref_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        # KEEPREF is the server's default: trimming 0-1 out via MAXLEN still leaves its PEL
+        # reference behind.
+        redis.xadd('s1', { f: 'v2' }, id: '0-2', maxlen: 1, policy: :keepref)
+
+        pending = redis.xpending('s1', 'g1', '-', '+', 10)
+        assert_equal(['0-1'], pending.map { |d| d['entry_id'] })
+        assert_equal ['0-2'], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xadd_with_delref_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        redis.xadd('s1', { f: 'v2' }, id: '0-2', maxlen: 1, policy: :delref)
+
+        # DELREF also drops the now-dangling PEL reference to the trimmed 0-1.
+        assert_equal [], redis.xpending('s1', 'g1', '-', '+', 10)
+      end
+    end
+
+    def test_xadd_with_acked_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        # ACKED: 0-1 hasn't been acknowledged, so MAXLEN 1 can't evict it even though 0-2
+        # pushes the stream over the limit.
+        redis.xadd('s1', { f: 'v2' }, id: '0-2', maxlen: 1, policy: :acked)
+
+        assert_equal %w[0-1 0-2], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xadd_with_invalid_policy
+      target_version "8.2.0" do
+        assert_raises(ArgumentError) { redis.xadd('s1', { f: 'v1' }, policy: :bogus) }
+      end
+    end
+
     def test_xtrim
       redis.xadd('s1', { f: 'v1' })
       redis.xadd('s1', { f: 'v2' })
@@ -236,6 +285,58 @@ module Lint
       redis.xadd('s1', { f: 'v1' })
       error = assert_raises(Redis::CommandError) { redis.xtrim('s1', '1-0', strategy: '') }
       assert_includes error.message, "ERR syntax error"
+    end
+
+    def test_xtrim_with_keepref_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal 1, redis.xtrim('s1', 1, policy: :keepref)
+
+        # KEEPREF is the server's default: trimming 0-1 out of the stream still leaves its
+        # PEL reference behind (0-2 stays pending too since it was never acknowledged).
+        pending = redis.xpending('s1', 'g1', '-', '+', 10)
+        assert_equal(%w[0-1 0-2], pending.map { |d| d['entry_id'] })
+        assert_equal ['0-2'], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xtrim_with_delref_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        assert_equal 1, redis.xtrim('s1', 1, policy: :delref)
+
+        # DELREF also drops the now-dangling PEL reference to the trimmed 0-1.
+        pending = redis.xpending('s1', 'g1', '-', '+', 10)
+        assert_equal(['0-2'], pending.map { |d| d['entry_id'] })
+      end
+    end
+
+    def test_xtrim_with_acked_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+
+        # ACKED: neither entry is acknowledged yet, so MAXLEN 1 can't evict anything.
+        assert_equal 0, redis.xtrim('s1', 1, policy: :acked)
+        assert_equal %w[0-1 0-2], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xtrim_with_invalid_policy
+      target_version "8.2.0" do
+        redis.xadd('s1', { f: 'v1' })
+        assert_raises(ArgumentError) { redis.xtrim('s1', 1, policy: :bogus) }
+      end
     end
 
     def test_xtrim_with_not_existed_stream
