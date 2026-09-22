@@ -444,22 +444,9 @@ digest = Redis::XXH3.hexdigest(value)
 redis.set("mykey", value, ifdeq: digest) # only writes if the current value still hashes to digest
 ```
 
-It vendors the same reference xxHash source the Redis server itself uses, so a digest computed
-this way and one fetched via `DIGEST` for the same value are always byte-identical.
-
-This is an **optional native extension, off by default** — installing the `redis` gem never
-requires a C compiler unless you explicitly ask for this feature:
-
-```sh
-gem install redis -- --enable-xxh3
-# or, with Bundler:
-bundle config build.redis --enable-xxh3
-bundle install
-```
-
-Without that flag, `require "redis/xxh3"` raises a clear `LoadError` explaining how to enable
-it. Everything else in this gem — including `SET`'s `:ifeq`/`:ifne`/`:ifdeq`/`:ifdne`,
-`delex`, and `digest` itself — works with no extension and no compiler at all.
+It's a pure-Ruby port of the same reference xxHash algorithm the Redis server itself uses, so a
+digest computed this way and one fetched via `DIGEST` for the same value are always
+byte-identical. No native extension, no build step — it's always available.
 
 ## Keyspace Notifications
 

@@ -23,14 +23,3 @@ temp-rewriteaof-*.aof
 .bundle/
 dockers/
 
-# Optional xxh3 extension build artifacts (off by default; see ext/redis/xxh3/extconf.rb)
-/ext/**/*.o
-/ext/**/*.bundle
-/ext/**/*.bundle.dSYM
-/ext/**/*.so
-/ext/**/*.dylib
-/ext/**/Makefile
-/ext/**/mkmf.log
-/lib/redis/xxh3/*.bundle
-/lib/redis/xxh3/*.so
-

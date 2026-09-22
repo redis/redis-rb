@@ -1,14 +1,7 @@
 # frozen_string_literal: true
 
 require "helper"
-
-begin
-  require "redis/xxh3"
-rescue LoadError
-  # The optional xxh3 extension hasn't been built in this checkout (it's off by default;
-  # see ext/redis/xxh3/extconf.rb). Skip rather than fail: the core redis gem must work
-  # with zero knowledge of it either way.
-end
+require "redis/xxh3"
 
 class TestDigestConsistency < Minitest::Test
   include Helper::Client
@@ -23,11 +16,6 @@ class TestDigestConsistency < Minitest::Test
     (0..255).to_a.pack("C*"),
     "x" * 10_000
   ].freeze
-
-  def setup
-    super
-    skip "xxh3 extension is not built (see ext/redis/xxh3/extconf.rb)" unless defined?(Redis::XXH3)
-  end
 
   def test_local_and_server_digests_agree
     target_version "8.4.0" do
