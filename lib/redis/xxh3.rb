@@ -1,5 +1,38 @@
 # frozen_string_literal: true
 
+# The module below is a direct, function-by-function port of xxHash's XXH3-64
+# (https://github.com/Cyan4973/xxHash, v0.8.3), reproducing its algorithm, constants,
+# and secret table. xxHash is distributed under the following license, reproduced here
+# per its "redistributions of source code must retain" requirement (see LICENSE for
+# this project's own MIT license, which covers everything else in this repository):
+#
+#   xxHash Library
+#   Copyright (c) 2012-2021 Yann Collet
+#   All rights reserved.
+#
+#   BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
+#
+#   Redistribution and use in source and binary forms, with or without modification,
+#   are permitted provided that the following conditions are met:
+#
+#   * Redistributions of source code must retain the above copyright notice, this
+#     list of conditions and the following disclaimer.
+#
+#   * Redistributions in binary form must reproduce the above copyright notice, this
+#     list of conditions and the following disclaimer in the documentation and/or
+#     other materials provided with the distribution.
+#
+#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+#   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+#   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+#   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+#   ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+#   (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+#   LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+#   ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+#   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 class Redis
   # Pure-Ruby XXH3-64 (unseeded, default secret), matching the Redis server's DIGEST
   # command byte-for-byte. Ported directly, function-by-function, from the reference
