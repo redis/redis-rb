@@ -406,6 +406,48 @@ reply per node; `himport_set` routes by key. With `Redis::Cluster`, the same
 commands fan out to every master node and return a single aggregated reply,
 matching the standalone API.
 
+## Compare-and-set (CAS/CAD)
+
+Redis 8.4 adds atomic compare-and-set to `SET` and a new compare-and-delete command,
+`DELEX`, so operations like "extend my lock if I still hold it" or "release my lock only if
+it's still mine" no longer need `WATCH`/`GET`/`MULTI`/`EXEC` or Lua:
+
+```ruby
+token = SecureRandom.uuid
+redis.set("lock:my-resource", token, nx: true, ex: 30) # acquire
+
+redis.set("lock:my-resource", token, ex: 30, ifeq: token) # extend, only if still held
+redis.delex("lock:my-resource", ifeq: token)              # release, only if still held
+```
+
+`:ifeq`/`:ifne` compare against the key's current value directly; `:ifdeq`/`:ifdne` compare
+against a digest instead, useful when the value itself is large and you'd rather not transmit
+it twice. Fetch a digest from the server with `DIGEST`:
+
+```ruby
+digest = redis.digest("mykey")
+redis.set("mykey", "new value", ifdeq: digest)
+```
+
+`:nx`, `:xx`, `:ifeq`, `:ifne`, `:ifdeq`, and `:ifdne` are all mutually exclusive.
+
+### Computing a digest locally
+
+`Redis::XXH3.hexdigest` computes the same XXH3-64 digest `DIGEST` returns, without a round
+trip — useful when you already have the value on the client and just need a digest to compare
+against:
+
+```ruby
+require "redis/xxh3"
+
+digest = Redis::XXH3.hexdigest(value)
+redis.set("mykey", value, ifdeq: digest) # only writes if the current value still hashes to digest
+```
+
+It's a pure-Ruby port of the same reference xxHash algorithm the Redis server itself uses, so a
+digest computed this way and one fetched via `DIGEST` for the same value are always
+byte-identical. No native extension, no build step — it's always available.
+
 ## Keyspace Notifications
 
 Redis can publish an event on pub/sub for every change to the dataset
