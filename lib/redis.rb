@@ -131,6 +131,9 @@ class Redis
         yield PipelinedConnection.new(raw_pipeline, client: client, exception: exception)
       end
     end
+  rescue ::RedisClient::Error => error
+    # With sentinels, @client is a plain RedisClient that doesn't translate its own errors.
+    Client.translate_error!(error)
   end
 
   def id

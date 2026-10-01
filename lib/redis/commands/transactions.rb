@@ -26,6 +26,9 @@ class Redis
             yield MultiConnection.new(raw_transaction, client: client)
           end
         end
+      rescue ::RedisClient::Error => error
+        # With sentinels, the client is a plain RedisClient that doesn't translate its own errors.
+        Client.translate_error!(error)
       end
 
       # Watch the given keys to determine execution of the MULTI/EXEC block.
@@ -75,6 +78,8 @@ class Redis
             res
           end
         end
+      rescue ::RedisClient::Error => error
+        Client.translate_error!(error)
       end
 
       # Forget about all watched keys.

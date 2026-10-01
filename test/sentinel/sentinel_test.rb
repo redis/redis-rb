@@ -501,4 +501,88 @@ class SentinelTest < Minitest::Test
 
     assert_match(/No sentinels available/, ex.message)
   end
+
+  # With sentinels the underlying client is a plain RedisClient, so the error translation that
+  # Redis::Client performs for direct connections has to happen in Redis itself. (#1394)
+
+  def test_pipelined_translates_command_errors
+    with_sentinel_master(incr: ->(*_) { "-WRONGTYPE Operation against a key holding the wrong kind of value" }) do |redis|
+      error = assert_raises(Redis::CommandError) { redis.pipelined { |pipe| pipe.incr("key") } }
+      assert_match(/WRONGTYPE/, error.message)
+      assert_kind_of RedisClient::CommandError, error.cause
+    end
+  end
+
+  def test_multi_translates_command_errors
+    master = {
+      incr: ->(*_) { "-WRONGTYPE Operation against a key holding the wrong kind of value" },
+      exec: ->(*_) { "-EXECABORT Transaction discarded because of previous errors." }
+    }
+    with_sentinel_master(master) do |redis|
+      assert_raises(Redis::CommandError) { redis.multi { |tx| tx.incr("key") } }
+    end
+  end
+
+  def test_watch_translates_command_errors
+    with_sentinel_master(watch: ->(*_) { "-ERR WATCH inside MULTI is not allowed" }) do |redis|
+      assert_raises(Redis::CommandError) { redis.watch("key") }
+    end
+  end
+
+  def test_pipelined_multi_and_watch_translate_connection_errors
+    with_sentinel_master(nil) do |redis|
+      assert_raises(Redis::CannotConnectError) { redis.pipelined { |pipe| pipe.incr("key") } }
+      assert_raises(Redis::CannotConnectError) { redis.multi { |tx| tx.incr("key") } }
+      assert_raises(Redis::CannotConnectError) { redis.watch("key") }
+      assert_raises(Redis::CannotConnectError) { redis.watch("key") { redis.multi { |tx| tx.incr("key") } } }
+    end
+  end
+
+  def test_watch_does_not_unwatch_after_a_connection_error_in_multi
+    commands = []
+    master = {
+      watch: ->(*_) { commands << "watch"; "+OK" },
+      multi: ->(*_) { commands << "multi"; :close },
+      unwatch: ->(*_) { commands << "unwatch"; "+OK" }
+    }
+    with_sentinel_master(master) do |redis|
+      assert_raises(Redis::ConnectionError) do
+        redis.watch("key") { redis.multi { |tx| tx.incr("key") } }
+      end
+    end
+
+    assert_equal %w[watch multi], commands
+  end
+
+  private
+
+  # Yields a client discovered through a mocked sentinel. The master is a RedisMock serving
+  # +master_commands+, or a closed port when +master_commands+ is nil.
+  def with_sentinel_master(master_commands)
+    sentinel = lambda do |master_port|
+      {
+        sentinel: lambda do |command, *_args|
+          case command
+          when "get-master-addr-by-name" then ["127.0.0.1", master_port.to_s]
+          when "sentinels" then []
+          end
+        end
+      }
+    end
+    connect = lambda do |master_port|
+      RedisMock.start(sentinel.call(master_port)) do |sentinel_port|
+        yield Redis.new(url: "redis://master1", sentinels: [{ host: "127.0.0.1", port: sentinel_port }],
+                        role: :master, reconnect_attempts: 0, protocol: PROTOCOL)
+      end
+    end
+
+    if master_commands
+      RedisMock.start({ role: ->(*_) { ["master"] } }.merge(master_commands)) { |master_port| connect.call(master_port) }
+    else
+      server = TCPServer.new("127.0.0.1", 0)
+      closed_port = server.addr[1]
+      server.close
+      connect.call(closed_port)
+    end
+  end
 end
