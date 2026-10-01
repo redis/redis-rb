@@ -1607,6 +1607,36 @@ class Redis
       node_for(key).arinfo(key, full: full)
     end
 
+    # Return the active protection flags of a key.
+    def bless_get(key)
+      node_for(key).bless_get(key)
+    end
+
+    # Add a protection flag to a key.
+    def bless_set(key, flag)
+      node_for(key).bless_set(key, flag)
+    end
+
+    # Remove a protection flag from a key.
+    def bless_clear(key, flag)
+      node_for(key).bless_clear(key, flag)
+    end
+
+    # A BLESS SCAN cursor is only meaningful on the node that issued it, so a
+    # single cursor cannot drive an iteration across independent ring nodes.
+    # Use #bless_scan_each, which iterates every node in turn.
+    def bless_scan(_cursor, _flag, **_options)
+      raise NotImplementedError
+    end
+
+    # Iterate every key that carries the given protection flag, node by node
+    # in ring order.
+    def bless_scan_each(flag, **options, &block)
+      return to_enum(:bless_scan_each, flag, **options) unless block_given?
+
+      nodes.each { |node| node.bless_scan_each(flag, **options, &block) }
+    end
+
     # Add one or more members to a HyperLogLog structure.
     def pfadd(key, member)
       node_for(key).pfadd(key, member)
