@@ -15,13 +15,13 @@ class TestClusterCommandsOnBless < Minitest::Test
       keys = (1..30).map { |i| "{bless#{i}}key" }
       keys.each do |key|
         redis.set(key, "bar")
-        redis.bless_set(key, :no_evict)
+        redis.bless_set(key, "NO-EVICT")
       end
 
       found = []
       cursor = 0
       loop do
-        cursor, batch = redis.bless_scan(cursor, :no_evict, count: 5)
+        cursor, batch = redis.bless_scan(cursor, "NO-EVICT", count: 5)
         assert_kind_of String, cursor
         found.concat(batch)
         break if cursor == "0"
@@ -36,10 +36,10 @@ class TestClusterCommandsOnBless < Minitest::Test
       keys = (1..10).map { |i| "{bless#{i}}key" }
       keys.each do |key|
         redis.set(key, "bar")
-        redis.bless_set(key, :no_evict)
+        redis.bless_set(key, "NO-EVICT")
       end
 
-      assert_equal keys.sort, redis.bless_scan_each(:no_evict).to_a.sort.uniq
+      assert_equal keys.sort, redis.bless_scan_each("NO-EVICT").to_a.sort.uniq
     end
   end
 
@@ -48,8 +48,8 @@ class TestClusterCommandsOnBless < Minitest::Test
       redis.set("{bless}foo", "bar")
 
       blessed, scanned = redis.pipelined do |pipe|
-        pipe.bless_set("{bless}foo", :no_evict)
-        pipe.bless_scan(0, :no_evict)
+        pipe.bless_set("{bless}foo", "NO-EVICT")
+        pipe.bless_scan(0, "NO-EVICT")
       end
 
       assert_equal true, blessed
