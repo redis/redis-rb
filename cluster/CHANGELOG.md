@@ -1,3 +1,18 @@
+# Unreleased
+
+## New features
+
+- Add the `BLESS` key-protection commands (Redis 8.12): `bless_get`, `bless_set` and
+  `bless_clear` route by the key's hash slot; `bless_scan` and `bless_scan_each` walk every
+  shard the way `scan` does, with the node index encoded in the returned cursor, so a full
+  iteration covers the whole cluster. Inside `pipelined`/`multi`, `bless_scan` is sent to a
+  single node and returns only that node's keys.
+
+## Maintenance
+
+- Bump the exact `redis-cluster-client` pin from `0.17.0` to `0.17.3`, which adds the
+  node-by-node `BLESS SCAN` routing `bless_scan` relies on.
+
 # 6.0.0
 
 ## Breaking changes

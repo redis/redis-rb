@@ -2,6 +2,7 @@
 
 require "redis/commands/arrays"
 require "redis/commands/bitmaps"
+require "redis/commands/bless"
 require "redis/commands/cluster"
 require "redis/commands/connection"
 require "redis/commands/geo"
@@ -25,6 +26,7 @@ class Redis
   module Commands
     include Arrays
     include Bitmaps
+    include Bless
     include Cluster
     include Connection
     include Geo
