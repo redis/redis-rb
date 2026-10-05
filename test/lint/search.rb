@@ -779,21 +779,39 @@ module Lint
       end
     end
 
+    # Run the block with a server config temporarily overridden, restoring the original value
+    # afterwards (also when the block raises).
+    def with_search_config(name, value)
+      original = r.config(:get, name)[name]
+      r.config(:set, name, value)
+      yield
+    ensure
+      r.config(:set, name, original) if original
+    end
+
+    # The `fail` and `return-strict` policies are only enforced deterministically when the
+    # Query Engine runs queries inline (`search-workers 0`). With worker threads the policies
+    # rely on the server's blocked-client timeout sweep, which only runs when the main thread
+    # wakes up, so a query that overruns `TIMEOUT` by less than that interval completes as if
+    # it had not timed out. RediSearch <= 8.10 happened to keep clock checks on the worker
+    # (an unpropagated skip flag), hiding this; 8.12 pre-release builds expose it. Pin the
+    # engine to single-threaded execution so the policy tests stay deterministic on every
+    # version (the test images ship with `search-workers 14`).
+    def with_single_threaded_search(&block)
+      with_search_config("search-workers", 0, &block)
+    end
+
     def test_ft_search_query_with_timeout_fail_policy
       target_version("8.9") do
         create_search_timeout_index
         add_data_for_search_timeout
 
-        original = nil
-        begin
-          original = r.config(:get, "search-on-timeout")["search-on-timeout"]
-          r.config(:set, "search-on-timeout", "fail")
-
-          # With the `fail` policy the server aborts the timed-out search instead of
-          # returning partial results.
-          assert_raises(Redis::CommandError) { search_timeout_query }
-        ensure
-          r.config(:set, "search-on-timeout", original) if original
+        with_single_threaded_search do
+          with_search_config("search-on-timeout", "fail") do
+            # With the `fail` policy the server aborts the timed-out search instead of
+            # returning partial results.
+            assert_raises(Redis::CommandError) { search_timeout_query }
+          end
         end
       end
     end
@@ -803,22 +821,18 @@ module Lint
         create_search_timeout_index
         add_data_for_search_timeout
 
-        original = nil
-        begin
-          original = r.config(:get, "search-on-timeout")["search-on-timeout"]
-          r.config(:set, "search-on-timeout", "return-strict")
+        with_single_threaded_search do
+          with_search_config("search-on-timeout", "return-strict") do
+            # `return-strict` still returns a well-formed (partial) reply for a plain
+            # timed-out search, carrying the same timeout warning as `return`.
+            result = search_timeout_query
 
-          # `return-strict` still returns a well-formed (partial) reply for a plain
-          # timed-out search, carrying the same timeout warning as `return`.
-          result = search_timeout_query
-
-          assert_kind_of Integer, result.total
-          if PROTOCOL == 3
-            assert(result.warnings.any? { |warning| warning.include?("Timeout limit was reached") },
-                   "expected a timeout warning, got: #{result.warnings.inspect}")
+            assert_kind_of Integer, result.total
+            if PROTOCOL == 3
+              assert(result.warnings.any? { |warning| warning.include?("Timeout limit was reached") },
+                     "expected a timeout warning, got: #{result.warnings.inspect}")
+            end
           end
-        ensure
-          r.config(:set, "search-on-timeout", original) if original
         end
       end
     end
