@@ -1762,7 +1762,9 @@ module Lint
         assert_equal "SQ8", attr["compression"]
         assert_equal 4096, attr["training_threshold"].to_i
 
-        # KNN search is unchanged by compression.
+        # Smoke check that the index stays queryable. With this few vectors the query is served
+        # from the flat front-end buffer, before SQ8 training kicks in; exercising the trained
+        # quantizer needs > TRAINING_THRESHOLD vectors and is the server's job, not the client's.
         r.hset("sq8:a", "v", f32(1.0, 2.0, 3.0, 4.0))
         r.hset("sq8:b", "v", f32(9.0, 9.0, 9.0, 9.0))
         wait_for_index(@index_name)

@@ -231,12 +231,12 @@ class Redis
         # Build a +VECTOR+ field.
         #
         # @example
-        #   Redis::Commands::Search::Field::VectorField.new(
+        #   Redis::Commands::Search::VectorField.new(
         #     "embedding", "HNSW", { type: "FLOAT32", dim: 4, distance_metric: "L2" }
         #   )
         #
         # @example HNSW with SQ8 scalar quantization (Redis 8.12+)
-        #   Redis::Commands::Search::Field::VectorField.new(
+        #   Redis::Commands::Search::VectorField.new(
         #     "embedding", "HNSW",
         #     { type: "FLOAT32", dim: 4, distance_metric: "L2", compression: "SQ8", training_threshold: 4096 }
         #   )
