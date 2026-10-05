@@ -57,6 +57,13 @@ module Lint
       end
     end
 
+    # The FT.INFO "attributes" entry for +identifier+ as a Hash (RESP2 returns it as a flat
+    # [k, v, ...] array, RESP3 as a map).
+    def info_attribute(info, identifier)
+      Array(info["attributes"]).map { |attr| attr.is_a?(Hash) ? attr : Hash[*attr] }
+                               .find { |attr| attr["identifier"] == identifier.to_s }
+    end
+
     # ---- Basic CRUD + search -----------------------------------------------------------------
 
     def test_add_and_search
@@ -1738,6 +1745,87 @@ module Lint
         )
         assert_equal 8, result.total
         assert_equal "svs:0", result[0].id
+      end
+    end
+
+    # ---- HNSW SQ8 compression (Redis 8.12) ----------------------------------------------------
+
+    def test_hnsw_sq8_compression
+      target_version("8.12") do
+        schema = Schema.build do
+          vector_field :v, "HNSW", type: "FLOAT32", dim: 4, distance_metric: "L2",
+                                   compression: "SQ8", training_threshold: 4096
+        end
+        r.create_index(@index_name, schema, prefix: "sq8")
+
+        attr = info_attribute(r.ft_info(@index_name), :v)
+        assert_equal "SQ8", attr["compression"]
+        assert_equal 4096, attr["training_threshold"].to_i
+
+        # KNN search is unchanged by compression.
+        r.hset("sq8:a", "v", f32(1.0, 2.0, 3.0, 4.0))
+        r.hset("sq8:b", "v", f32(9.0, 9.0, 9.0, 9.0))
+        wait_for_index(@index_name)
+        result = r.ft_search(@index_name, "*=>[KNN 1 @v $vec]",
+                             params: { vec: f32(1.0, 2.0, 3.0, 4.0) }, dialect: 2)
+        assert_equal "sq8:a", result[0].id
+      end
+    end
+
+    def test_hnsw_sq8_default_and_zero_training_threshold
+      target_version("8.12") do
+        # No TRAINING_THRESHOLD -> server default; an explicit zero is kept, not defaulted.
+        schema = Schema.build { vector_field :v, "HNSW", type: "FLOAT16", dim: 4, distance_metric: "L2", compression: "SQ8" }
+        r.create_index(@index_name, schema, prefix: "sq8d")
+        assert_equal 10_240, info_attribute(r.ft_info(@index_name), :v)["training_threshold"].to_i
+
+        schema = Schema.build do
+          vector_field :v, "HNSW", type: "FLOAT32", dim: 4, distance_metric: "L2",
+                                   compression: "SQ8", training_threshold: 0
+        end
+        r.create_index("#{@index_name}_zero", schema, prefix: "sq8z")
+        assert_equal 0, info_attribute(r.ft_info("#{@index_name}_zero"), :v)["training_threshold"].to_i
+
+        # Uncompressed HNSW fields do not report the two keys at all.
+        r.create_index("#{@index_name}_plain",
+                       Schema.build { vector_field :v, "HNSW", type: "FLOAT32", dim: 4, distance_metric: "L2" },
+                       prefix: "sq8p")
+        attr = info_attribute(r.ft_info("#{@index_name}_plain"), :v)
+        refute attr.key?("compression")
+        refute attr.key?("training_threshold")
+      end
+    end
+
+    def test_hnsw_sq8_alter_schema_add
+      target_version("8.12") do
+        r.create_index(@index_name, Schema.build { text_field :title }, prefix: "sq8alter")
+        field = Redis::Commands::Search::VectorField.new(
+          :v, "HNSW", { type: "FLOAT32", dim: 4, distance_metric: "L2", compression: "SQ8", training_threshold: 2048 }
+        )
+        assert_equal "OK", r.ft_alter(@index_name, field)
+
+        attr = info_attribute(r.ft_info(@index_name), :v)
+        assert_equal "SQ8", attr["compression"]
+        assert_equal 2048, attr["training_threshold"].to_i
+      end
+    end
+
+    def test_hnsw_sq8_server_side_validation
+      target_version("8.12") do
+        # COMPRESSION requires FLOAT32/FLOAT16; TRAINING_THRESHOLD requires COMPRESSION and is
+        # capped at 102400. The client passes attributes through, so the server reports these.
+        {
+          { type: "FLOAT64", dim: 4, distance_metric: "L2", compression: "SQ8" } =>
+            /COMPRESSION is only supported for FLOAT32 and FLOAT16/,
+          { type: "FLOAT32", dim: 4, distance_metric: "L2", training_threshold: 100 } =>
+            /TRAINING_THRESHOLD is irrelevant when compression was not requested/,
+          { type: "FLOAT32", dim: 4, distance_metric: "L2", compression: "SQ8", training_threshold: 102_401 } =>
+            /TRAINING_THRESHOLD cannot exceed 102400/
+        }.each do |attrs, message|
+          schema = Schema.build { vector_field :v, "HNSW", **attrs }
+          error = assert_raises(Redis::CommandError) { r.create_index(@index_name, schema) }
+          assert_match message, error.message
+        end
       end
     end
 

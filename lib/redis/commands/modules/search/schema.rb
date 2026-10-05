@@ -157,6 +157,10 @@ class Redis
         # @example
         #   vector_field "embedding", "HNSW", type: "FLOAT32", dim: 4, distance_metric: "L2"
         #
+        # @example HNSW with SQ8 scalar quantization (Redis 8.12+)
+        #   vector_field "embedding", "HNSW", type: "FLOAT32", dim: 4, distance_metric: "L2",
+        #                                     compression: "SQ8", training_threshold: 4096
+        #
         # @param [String, Symbol] name the document attribute the field indexes
         # @param [String, Symbol] algorithm the indexing method (+FLAT+, +HNSW+, +SVS-VAMANA+)
         # @param [Hash] attributes vector attributes and field-level options
