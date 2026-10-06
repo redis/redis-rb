@@ -231,13 +231,22 @@ class Redis
         # Build a +VECTOR+ field.
         #
         # @example
-        #   Redis::Commands::Search::Field::VectorField.new(
+        #   Redis::Commands::Search::VectorField.new(
         #     "embedding", "HNSW", { type: "FLOAT32", dim: 4, distance_metric: "L2" }
+        #   )
+        #
+        # @example HNSW with SQ8 scalar quantization (Redis 8.12+)
+        #   Redis::Commands::Search::VectorField.new(
+        #     "embedding", "HNSW",
+        #     { type: "FLOAT32", dim: 4, distance_metric: "L2", compression: "SQ8", training_threshold: 4096 }
         #   )
         #
         # @param [String, Symbol] name the document attribute the field indexes
         # @param [String, Symbol] algorithm the indexing method, one of +FLAT+, +HNSW+, +SVS-VAMANA+
-        # @param [Hash] attributes the vector attributes (e.g. +type+, +dim+, +distance_metric+)
+        # @param [Hash] attributes the vector attributes (e.g. +type+, +dim+, +distance_metric+).
+        #   Every pair is sent as-is, so algorithm-specific attributes such as +m+,
+        #   +ef_construction+, +compression+ or +training_threshold+ need no special handling;
+        #   an explicit +training_threshold: 0+ is sent (the server treats zero as meaningful).
         # @option options [String] :as an alias for the field, rendered as +AS <alias>+
         # @raise [ArgumentError] if +algorithm+ is not a supported indexing method
         # @raise [Redis::CommandError] if +:sortable+ or +:no_index+ is given

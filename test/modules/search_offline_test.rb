@@ -137,6 +137,24 @@ class TestSearchOffline < Minitest::Test
     assert_equal ["VECTOR", "HNSW", 2, "RERANK", "TRUE"], field.args
   end
 
+  def test_vector_field_hnsw_sq8_compression
+    # COMPRESSION SQ8 / TRAINING_THRESHOLD (Redis 8.12) flow through the generic attributes
+    # hash like any other HNSW attribute; the count token accounts for the two extra pairs.
+    schema = Schema.build do
+      vector_field :v, "HNSW", type: "FLOAT32", dim: 4, distance_metric: "L2",
+                               compression: "sq8", training_threshold: 4096
+    end
+    args = schema.fields.first.args
+    assert_equal ["VECTOR", "HNSW", 10], args[0, 3]
+    assert_equal "SQ8", args[args.index("COMPRESSION") + 1]
+    assert_equal "4096", args[args.index("TRAINING_THRESHOLD") + 1]
+
+    # An explicit zero is meaningful to the server (it disables mean normalization), so it must
+    # be sent rather than treated as "unset".
+    field = Redis::Commands::Search::VectorField.new("v", "HNSW", { compression: "SQ8", training_threshold: 0 })
+    assert_equal ["VECTOR", "HNSW", 4, "COMPRESSION", "SQ8", "TRAINING_THRESHOLD", "0"], field.args
+  end
+
   # ---- Index definition --------------------------------------------------------------------
 
   def test_index_definition_on_json
