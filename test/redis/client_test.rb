@@ -40,6 +40,13 @@ class TestClient < Minitest::Test
     end
   end
 
+  def test_error_translate_subclasses_with_a_frozen_mapping
+    mapping = Redis::Client::ERROR_MAPPING.dup.freeze
+    error = Class.new(RedisClient::CommandError)
+    assert_equal Redis::CommandError, Redis::Client.send(:translate_error_class, error, mapping: mapping)
+    refute mapping.key?(error)
+  end
+
   def test_mixed_encoding
     r.call("MSET", "fée", "\x00\xFF".b, "じ案".encode(Encoding::SHIFT_JIS), "\t".encode(Encoding::ASCII))
     assert_equal "\x00\xFF".b, r.call("GET", "fée")
