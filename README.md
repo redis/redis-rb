@@ -182,6 +182,13 @@ end
 MyApp.redis.incr("some-counter")
 ```
 
+## Ractors
+
+`Redis` instances can be used in non-main Ractors, one per Ractor. Require
+`redis/ractorize` in the main Ractor first, after anything that adds to
+`Redis::Client::ERROR_MAPPING`, such as `redis-clustering`. In other Ractors,
+leave out the `driver` option or pass a driver class.
+
 ## Sentinel support
 
 The client is able to perform automatic failover by using [Redis

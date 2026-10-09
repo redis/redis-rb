@@ -9,6 +9,9 @@
 - Make the constants under `Redis`, such as the reply-reshaping lambdas and
   `Redis::Future::FutureNotReady`, shareable, so that commands and pipelines work in non-main
   Ractors.
+- Add `redis/ractorize`, which freezes `Redis::Client::ERROR_MAPPING` and
+  `Redis::Cluster::Client::ERROR_MAPPING` so that errors can be translated in non-main Ractors.
+  Require it in the main Ractor after anything that adds errors to the mappings.
 
 # 6.0.0
 
