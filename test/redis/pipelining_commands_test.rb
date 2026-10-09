@@ -163,6 +163,17 @@ class TestPipeliningCommands < Minitest::Test
     end
   end
 
+  def test_futures_raise_a_new_error_each_time_they_are_accessed_too_early
+    r.pipelined do |p|
+      future = p.sadd("foo", 1)
+      first = assert_raises(Redis::FutureNotReady) { future.value }
+      second = assert_raises(Redis::FutureNotReady) { future.value }
+
+      refute_same first, second
+      refute_nil first.backtrace
+    end
+  end
+
   def test_futures_raise_when_command_errors_and_needs_transformation
     assert_raises(Redis::CommandError) do
       r.pipelined do |p|

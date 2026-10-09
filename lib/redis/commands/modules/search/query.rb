@@ -623,8 +623,8 @@ class Redis
         # TAG values are single literal tokens, so whitespace is significant and must be escaped
         # too. TEXT queries keep spaces, which separate terms (a multi-word match is an AND).
         TAG_SPECIAL_CHARACTERS = (TEXT_SPECIAL_CHARACTERS + [' ']).freeze
-        TEXT_ESCAPE_PATTERN = Regexp.union(TEXT_SPECIAL_CHARACTERS)
-        TAG_ESCAPE_PATTERN = Regexp.union(TAG_SPECIAL_CHARACTERS)
+        TEXT_ESCAPE_PATTERN = Regexp.union(TEXT_SPECIAL_CHARACTERS).freeze
+        TAG_ESCAPE_PATTERN = Regexp.union(TAG_SPECIAL_CHARACTERS).freeze
 
         # @param field [String] the field name
         def initialize(field)
