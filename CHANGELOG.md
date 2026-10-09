@@ -6,6 +6,9 @@
   `bless_scan` and `bless_scan_each`. On `Redis::Cluster`, `bless_scan` iterates every shard the
   way `scan` does (requires redis-cluster-client 0.17.3). `Redis::Distributed` implements all but
   `bless_scan`, whose cursor cannot span ring nodes; use `bless_scan_each` there.
+- Make the constants under `Redis`, such as the reply-reshaping lambdas and
+  `Redis::Future::FutureNotReady`, shareable, so that commands and pipelines work in non-main
+  Ractors.
 
 # 6.0.0
 
