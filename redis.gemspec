@@ -49,5 +49,5 @@ Gem::Specification.new do |s|
   # the pre-1.0 driver family ships behavior changes in patch releases, so even a `~> x.y.0`
   # constraint can change semantics under a stable redis release. Bump deliberately and re-run
   # the full suite. Note hiredis-client versions in lockstep (it requires redis-client `= x.y.z`).
-  s.add_runtime_dependency('redis-client', '0.30.1')
+  s.add_runtime_dependency('redis-client', '0.31.0')
 end
