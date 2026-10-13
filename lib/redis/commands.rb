@@ -223,9 +223,10 @@ class Redis
     EMPTY_STREAM_RESPONSE = [nil].freeze
     private_constant :EMPTY_STREAM_RESPONSE
 
+    # XREADGROUP CLAIM appends idle-time and delivery-count to each claimed entry; keep them.
     HashifyStreamEntries = lambda { |reply|
-      reply.compact.map do |entry_id, values|
-        [entry_id, values&.each_slice(2)&.to_h]
+      reply.compact.map do |entry_id, values, *claim_info|
+        [entry_id, values&.each_slice(2)&.to_h, *claim_info]
       end
     }
 

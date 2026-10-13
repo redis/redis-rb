@@ -924,6 +924,29 @@ module Lint
       assert_equal 2, actual['s1'].size
     end
 
+    def test_xreadgroup_with_claim_option
+      target_version('8.4') do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        redis.xgroup(:create, 's1', 'g1', '0')
+        redis.xreadgroup('g1', 'c1', 's1', '>')
+        sleep 0.01
+        redis.xadd('s1', { f: 'v2' }, id: '0-2')
+
+        actual = redis.xreadgroup('g1', 'c2', 's1', '>', claim: 1)
+
+        # Claimed entries come first; every entry carries idle time + delivery count, zero for new ones.
+        claimed, fresh = actual['s1']
+        assert_equal ['0-1', { 'f' => 'v1' }], claimed.first(2)
+        assert_kind_of Integer, claimed[2]
+        assert_operator claimed[2], :>=, 1
+        assert_equal 1, claimed[3]
+        assert_equal ['0-2', { 'f' => 'v2' }, 0, 0], fresh
+        assert_equal(%w[c2 c2], redis.xpending('s1', 'g1', '-', '+', 10).map { |e| e['consumer'] })
+
+        assert_raises(ArgumentError) { redis.xreadgroup('g1', 'c1', 's1', '>', claim: 'a') }
+      end
+    end
+
     def test_xreadgroup_with_block_option
       redis.xadd('s1', { f: 'v' })
       redis.xgroup(:create, 's1', 'g1', '$')
