@@ -166,6 +166,62 @@ module Lint
       assert_raises(Redis::CommandError) { redis.xadd('s1', {}) }
     end
 
+    def test_xadd_with_idmp_option
+      target_version "8.6.0" do
+        first = redis.xadd('s1', { f: 'v1' }, idmp: %w[p1 m1])
+        assert_match ENTRY_ID_FORMAT, first
+
+        # Same (producer, idempotent id) is a duplicate even with different content; a different
+        # producer with the same idempotent id is not.
+        assert_equal first, redis.xadd('s1', { f: 'v2' }, idmp: %w[p1 m1])
+        refute_equal first, redis.xadd('s1', { f: 'v1' }, idmp: %w[p2 m1])
+        assert_equal 2, redis.xlen('s1')
+
+        info = redis.xinfo(:stream, 's1')
+        assert_equal 1, info['iids-duplicates']
+      end
+    end
+
+    def test_xadd_with_idmpauto_option
+      target_version "8.6.0" do
+        first = redis.xadd('s1', { f: 'v1' }, idmpauto: 'p1')
+        assert_equal first, redis.xadd('s1', { f: 'v1' }, idmpauto: 'p1')
+        refute_equal first, redis.xadd('s1', { f: 'v2' }, idmpauto: 'p1')
+        assert_equal 2, redis.xlen('s1')
+      end
+    end
+
+    def test_xadd_with_idmp_and_trimming
+      target_version "8.6.0" do
+        redis.xadd('s1', { f: 'v1' }, id: '0-1')
+        actual = redis.xadd('s1', { f: 'v2' }, idmp: %w[p1 m1], maxlen: 1, policy: :keepref, nomkstream: true)
+        assert_match ENTRY_ID_FORMAT, actual
+        assert_equal [actual], redis.xrange('s1', '-', '+').map(&:first)
+      end
+    end
+
+    def test_xadd_with_invalid_idmp_arguments
+      assert_raises(ArgumentError) { redis.xadd('s1', { f: 'v1' }, idmp: %w[p1 m1], idmpauto: 'p1') }
+      assert_raises(ArgumentError) { redis.xadd('s1', { f: 'v1' }, idmp: 'p1') }
+    end
+
+    def test_xcfgset
+      target_version "8.6.0" do
+        redis.xadd('s1', { f: 'v1' })
+        assert_equal 'OK', redis.xcfgset('s1', duration: 300)
+        assert_equal 'OK', redis.xcfgset('s1', maxsize: 10)
+        assert_equal 'OK', redis.xcfgset('s1', duration: 600, maxsize: 5)
+
+        redis.xadd('s1', { f: 'v2' }, idmp: %w[p1 m1])
+        info = redis.xinfo(:stream, 's1')
+        assert_equal 600, info['idmp-duration']
+        assert_equal 5, info['idmp-maxsize']
+
+        assert_raises(ArgumentError) { redis.xcfgset('s1') }
+        assert_raises(Redis::CommandError) { redis.xcfgset('missing', duration: 1) }
+      end
+    end
+
     def test_xadd_with_keepref_policy
       target_version "8.2.0" do
         redis.xadd('s1', { f: 'v1' }, id: '0-1')
