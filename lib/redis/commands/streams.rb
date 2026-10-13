@@ -35,6 +35,9 @@ class Redis
       #   redis.xadd('mystream', f1: 'v1', f2: 'v2')
       # @example With options
       #   redis.xadd('mystream', { f1: 'v1', f2: 'v2' }, id: '0-0', maxlen: 1000, approximate: true, nomkstream: true)
+      # @example Idempotent production (Redis 8.6)
+      #   redis.xadd('mystream', { f1: 'v1' }, idmp: ['producer-1', 'msg-42'])
+      #   redis.xadd('mystream', { f1: 'v1' }, idmpauto: 'producer-1')
       #
       # @param key   [String] the stream key
       # @param entry [Hash]   one or multiple field-value pairs
@@ -50,12 +53,28 @@ class Redis
       #   handles consumer group PEL references to the evicted entries: `:keepref` (the
       #   server's default) keeps them, `:delref` also removes them, `:acked` only evicts
       #   entries already acknowledged by every consumer group. No effect without trimming.
+      # @option opts [Array(String, String)] :idmp (Redis 8.6) `[producer_id, idempotent_id]` for
+      #   idempotent production: resending the same pair returns the original entry's id instead
+      #   of appending a duplicate. Retention is configured per stream with {#xcfgset}.
+      # @option opts [String] :idmpauto (Redis 8.6) producer id; the server derives the idempotent
+      #   id from the entry's field-value pairs. Mutually exclusive with `:idmp`.
       #
       # @return [String] the entry id
-      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, limit: nil, nomkstream: nil, id: '*', policy: nil)
+      def xadd(key, entry, approximate: nil, maxlen: nil, minid: nil, limit: nil, nomkstream: nil, id: '*', policy: nil,
+               idmp: nil, idmpauto: nil)
         args = [:xadd, key]
         args << 'NOMKSTREAM' if nomkstream
         args << xstream_ref_policy_token(policy) if policy
+        if idmp
+          raise ArgumentError, "can't supply both idmp and idmpauto" if idmpauto
+
+          pid, iid = idmp
+          raise ArgumentError, "idmp must be [producer_id, idempotent_id]" if pid.nil? || iid.nil?
+
+          args << 'IDMP' << pid << iid
+        elsif idmpauto
+          args << 'IDMPAUTO' << idmpauto
+        end
         if maxlen
           raise ArgumentError, "can't supply both maxlen and minid" if minid
 
@@ -308,6 +327,26 @@ class Redis
         args = [:xsetid, key, id]
         args << 'ENTRIESADDED' << Integer(entriesadded) if entriesadded
         args << 'MAXDELETEDID' << maxdeletedid if maxdeletedid
+        send_command(args)
+      end
+
+      # Configures idempotent-producer (IDMP) tracking for an existing stream (Redis 8.6).
+      # Changing either value clears the stream's tracked producer/idempotent-id pairs.
+      #
+      # @example
+      #   redis.xcfgset('mystream', duration: 300, maxsize: 1000)
+      #
+      # @param key      [String]  the stream key, must exist
+      # @param duration [Integer] seconds an idempotent id is retained (1..86400, server default 100)
+      # @param maxsize  [Integer] most recent idempotent ids kept per producer (1..10000, server default 100)
+      #
+      # @return [String] `OK`
+      def xcfgset(key, duration: nil, maxsize: nil)
+        raise ArgumentError, "supply duration and/or maxsize" if duration.nil? && maxsize.nil?
+
+        args = [:xcfgset, key]
+        args << 'IDMP-DURATION' << Integer(duration) if duration
+        args << 'IDMP-MAXSIZE' << Integer(maxsize) if maxsize
         send_command(args)
       end
 
