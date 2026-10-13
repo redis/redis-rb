@@ -324,6 +324,9 @@ class Redis
       #   redis.xreadgroup('mygroup', 'consumer1', 'mystream', '>', block: 1000)
       # @example With noack option
       #   redis.xreadgroup('mygroup', 'consumer1', 'mystream', '>', noack: true)
+      # @example Also claim entries pending for over a minute on other consumers (Redis 8.4+)
+      #   redis.xreadgroup('mygroup', 'consumer1', 'mystream', '>', claim: 60_000)
+      #   # => { 'mystream' => [['0-1', { 'f' => 'v' }, 75_000, 2], ['0-2', { 'f' => 'v' }, 0, 0]] }
       #
       # @param group    [String]        the consumer group name
       # @param consumer [String]        the consumer name
@@ -339,15 +342,23 @@ class Redis
       #   streams combined, measured on the serialized server reply including protocol overhead;
       #   a single oversized first entry can still be returned (Redis 8.10+). Defaults to unlimited.
       # @option opts [Integer] :block the number of milliseconds as blocking timeout
+      # @option opts [Integer] :claim before reading new entries, also claim entries pending for at
+      #   least this many milliseconds on any consumer of the group (Redis 8.4+). Only applies to
+      #   `>` ids. Claimed entries come first, and every entry carries two extra elements, the
+      #   idle time in milliseconds and the prior delivery count (both `0` for new entries), so
+      #   each entry is `[id, fields, idle, deliveries]` instead of `[id, fields]`. `NOACK` does
+      #   not apply to claimed entries.
       # @option opts [Boolean] :noack whether message loss is acceptable or not
       #
-      # @return [Hash{String => Hash{String => Hash}}] the entries
-      def xreadgroup(group, consumer, keys, ids, count: nil, max_count: nil, max_size: nil, block: nil, noack: nil)
+      # @return [Hash{String => Array<Array>}] the entries per stream, each `[id, fields]`
+      def xreadgroup(group, consumer, keys, ids, count: nil, max_count: nil, max_size: nil, block: nil, claim: nil,
+                     noack: nil)
         args = [:xreadgroup, 'GROUP', group, consumer]
         args << 'COUNT' << count if count
         args << 'MAXCOUNT' << Integer(max_count) if max_count
         args << 'MAXSIZE' << Integer(max_size) if max_size
         args << 'BLOCK' << block.to_i if block
+        args << 'CLAIM' << Integer(claim) if claim
         args << 'NOACK' if noack
         _xread(args, keys, ids, block)
       end
