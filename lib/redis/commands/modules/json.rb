@@ -55,6 +55,11 @@ class Redis
         end
       end
 
+      if defined?(Ractor)
+        Ractor.make_shareable(NumincrbyNormalize)
+        Ractor.make_shareable(TypeNormalize)
+      end
+
       # Set the JSON value at +path+ in the document stored under +key+.
       #
       # By default +value+ is a Ruby object that is serialized to JSON text with

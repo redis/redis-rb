@@ -79,7 +79,7 @@ class Redis
   end
 
   class Future < BasicObject
-    FutureNotReady = ::Redis::FutureNotReady.new
+    FutureNotReady = ::Redis::FutureNotReady.new.freeze
 
     def initialize(command, coerce, exception)
       @command = command

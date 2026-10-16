@@ -62,6 +62,8 @@ class Redis
         mapping.fetch(error_class)
       rescue IndexError
         if (client_error = error_class.ancestors.find { |a| mapping[a] })
+          return mapping[client_error] if mapping.frozen?
+
           mapping[error_class] = mapping[client_error]
         else
           raise
