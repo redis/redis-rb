@@ -7,7 +7,7 @@ require "redis/errors"
 require "redis/commands"
 
 class Redis
-  BASE_PATH = __dir__
+  BASE_PATH = __dir__.freeze
   Deprecated = Class.new(StandardError)
 
   class << self

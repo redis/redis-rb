@@ -76,10 +76,14 @@ class Redis
     def initialize
       super("Value will be available once the pipeline executes.")
     end
+
+    def exception(*)
+      frozen? ? dup : super
+    end
   end
 
   class Future < BasicObject
-    FutureNotReady = ::Redis::FutureNotReady.new
+    FutureNotReady = ::Redis::FutureNotReady.new.freeze
 
     def initialize(command, coerce, exception)
       @command = command
