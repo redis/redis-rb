@@ -13,6 +13,11 @@
   `Redis::Cluster::Client::ERROR_MAPPING` so that errors can be translated in non-main Ractors.
   Require it in the main Ractor after anything that adds errors to the mappings.
 
+## Bug fixes
+
+- Make `hset` return `0` without calling the server when given an empty hash, instead of raising
+  `ERR wrong number of arguments for 'hset' command`. (#1290)
+
 # 6.0.0
 
 ## Breaking changes
