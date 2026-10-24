@@ -22,6 +22,7 @@ class Redis
       # @return [Integer] The number of fields that were added to the hash
       def hset(key, *attrs)
         attrs = attrs.first.flatten if attrs.size == 1 && attrs.first.is_a?(Hash)
+        return 0 if attrs.empty?
 
         send_command([:hset, key, *attrs])
       end
