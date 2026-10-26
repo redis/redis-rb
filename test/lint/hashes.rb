@@ -20,6 +20,11 @@ module Lint
       assert_equal "s2", r.hget("bar", "f2")
     end
 
+    def test_hset_with_empty_hash
+      assert_equal 0, r.hset("foo", {})
+      assert_equal false, r.exists?("foo")
+    end
+
     def test_hsetnx
       r.hset("foo", "f1", "s1")
       r.hsetnx("foo", "f1", "s2")
