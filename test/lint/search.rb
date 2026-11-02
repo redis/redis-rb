@@ -1638,6 +1638,10 @@ module Lint
     end
 
     def test_hybrid_with_cursor
+      # The public FT.HYBRID accepted WITHCURSOR only on Redis 8.4 through 8.10; 8.11+ rejects it
+      # (RediSearch#11957). Pre-release images report 255.255.255 and skip here too.
+      skip("FT.HYBRID WITHCURSOR is only exposed on Redis 8.4 through 8.10") if version >= "8.11"
+
       target_version("8.4") do
         create_hybrid_index
         add_hybrid_data(sets: 10)

@@ -394,7 +394,8 @@ class Redis
       # @param post_processing [Search::HybridPostProcessingConfig, nil] a post-fusion pipeline
       # @param params_substitution [Hash, nil] query parameter substitutions (+PARAMS+)
       # @param timeout [Integer, nil] query timeout in milliseconds (+TIMEOUT+)
-      # @param cursor [Search::HybridCursorQuery, nil] cursor/pagination config (+WITHCURSOR+)
+      # @param cursor [Search::HybridCursorQuery, nil] cursor/pagination config (+WITHCURSOR+);
+      #   only honored by Redis 8.4 through 8.10, rejected by 8.11 and later
       # @return [Search::HybridResult] the fused result rows, total, warnings and execution time
       #   (or, for a WITHCURSOR query, the per-leg cursor ids)
       def ft_hybrid_search(
