@@ -380,7 +380,8 @@ class TestScanning < Minitest::Test
     end
     member_scores = r.zrange("zset", 0, -1, with_scores: true)
 
-    assert member_scores.sort == scores_from_scan.sort
+    # SCAN may yield an element more than once; only the set of elements is guaranteed.
+    assert member_scores.sort == scores_from_scan.uniq.sort
   end
 
   def test_zscan_each_block_match
@@ -396,6 +397,6 @@ class TestScanning < Minitest::Test
     member_scores = r.zrange("zset", 0, -1, with_scores: true)
     filtered_members = member_scores.select { |k, _s| k =~ /^key:1..$/ }
 
-    assert filtered_members.sort == scores_from_scan.sort
+    assert filtered_members.sort == scores_from_scan.uniq.sort
   end
 end
