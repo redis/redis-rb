@@ -324,6 +324,9 @@ class Redis
       end
 
       # The +WITHCURSOR+ clause for paging through FT.HYBRID results.
+      #
+      # @note Only honored by Redis 8.4 through 8.10. Redis 8.11 and later reject the clause with
+      #   a command error, as it was never part of the documented FT.HYBRID surface.
       class HybridCursorQuery
         # @param count [Integer] the cursor +COUNT+ (batch size, 0 to omit)
         # @param max_idle [Integer] the cursor +MAXIDLE+ in milliseconds (0 to omit)
