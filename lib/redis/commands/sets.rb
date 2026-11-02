@@ -478,6 +478,52 @@ class Redis
         members.flatten!(1)
         send_command([:spersist, key, 'MEMBERS', members.length, *members])
       end
+
+      # Adds one or more members to a set and optionally sets their expiration.
+      # Without an expiration option, an existing member's TTL is cleared
+      # unless `:keepttl` is given.
+      #
+      # @example
+      #   redis.saddex("set", "m1", "m2", ex: 60) # => 1
+      #   redis.saddex("set", ["m1", "m3"], mnx: true, ex: 60) # => 0
+      #
+      # @param [String] key
+      # @param [Array<String>] members
+      # @param [Hash] options
+      #   - `:mnx => true`: Only apply if none of the members already exist. Mutually
+      #      exclusive with `:mxx`.
+      #   - `:mxx => true`: Only apply if all of the members already exist. Mutually
+      #      exclusive with `:mnx`.
+      #   - `:ex => Integer`: Set the specified expire time on the members, in seconds.
+      #   - `:px => Integer`: Set the specified expire time on the members, in milliseconds.
+      #   - `:exat => Integer`: Set the specified Unix time at which the members will expire, in
+      #      seconds.
+      #   - `:pxat => Integer`: Set the specified Unix time at which the members will expire, in
+      #      milliseconds.
+      #   - `:keepttl => true`: Retain the time to live already associated with the members.
+      # @return [Integer] `1` if the members were added/updated, `0` if the `:mnx`/`:mxx`
+      #   condition was not met
+      # @raise [ArgumentError] when mutually exclusive options are combined
+      def saddex(key, *members, mnx: nil, mxx: nil, ex: nil, px: nil, exat: nil, pxat: nil, keepttl: false)
+        raise ArgumentError, "mnx and mxx are mutually exclusive" if mnx && mxx
+        if [ex, px, exat, pxat, keepttl].count { |option| option } > 1
+          raise ArgumentError, "ex, px, exat, pxat, and keepttl are mutually exclusive"
+        end
+
+        members.flatten!(1)
+
+        args = [:saddex, key]
+        args << "MNX" if mnx
+        args << "MXX" if mxx
+        args << "EX" << Integer(ex) if ex
+        args << "PX" << Integer(px) if px
+        args << "EXAT" << Integer(exat) if exat
+        args << "PXAT" << Integer(pxat) if pxat
+        args << "KEEPTTL" if keepttl
+        args.concat(['MEMBERS', members.length, *members])
+
+        send_command(args)
+      end
     end
   end
 end

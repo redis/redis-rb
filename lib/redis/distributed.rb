@@ -762,6 +762,11 @@ class Redis
       node_for(key).sadd?(key, *members)
     end
 
+    # Add one or more members to a set and optionally set their expiration.
+    def saddex(key, *members, mnx: nil, mxx: nil, ex: nil, px: nil, exat: nil, pxat: nil, keepttl: false)
+      node_for(key).saddex(key, *members, mnx: mnx, mxx: mxx, ex: ex, px: px, exat: exat, pxat: pxat, keepttl: keepttl)
+    end
+
     # Remove one or more members from a set.
     def srem(key, *members)
       node_for(key).srem(key, *members)

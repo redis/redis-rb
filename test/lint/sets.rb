@@ -702,5 +702,65 @@ module Lint
         assert_equal [-1], r.sttl("foo", "m1")
       end
     end
+
+    def test_saddex
+      target_version("8.11") do
+        assert_equal 1, r.saddex("foo", "m1", "m2")
+        assert_equal ["m1", "m2"], r.smembers("foo").sort
+        assert_equal [-1, -1], r.sttl("foo", "m1", "m2")
+
+        # Applies the TTL to both the new and the already-present member.
+        assert_equal 1, r.saddex("foo", ["m1", "m3"], ex: 100)
+        ttl_m1, ttl_m2, ttl_m3 = r.sttl("foo", "m1", "m2", "m3")
+        assert_in_range(1..100, ttl_m1)
+        assert_equal(-1, ttl_m2)
+        assert_in_range(1..100, ttl_m3)
+
+        # Re-adding without an expiration option clears the TTL.
+        assert_equal 1, r.saddex("foo", "m3")
+        assert_equal [-1], r.sttl("foo", "m3")
+      end
+    end
+
+    def test_saddex_expiration_options
+      target_version("8.11") do
+        assert_equal 1, r.saddex("foo", "m1", px: 5_000)
+        assert_in_range(1..5_000, r.spttl("foo", "m1")[0])
+
+        expire_at = Time.now.to_i + 400
+        assert_equal 1, r.saddex("foo", "m2", exat: expire_at)
+        assert_equal [expire_at], r.sexpiretime("foo", "m2")
+
+        expire_at_ms = (Time.now.to_f * 1000).to_i + 400_000
+        assert_equal 1, r.saddex("foo", "m3", pxat: expire_at_ms)
+        assert_equal [expire_at_ms], r.spexpiretime("foo", "m3")
+
+        r.saddex("foo", "m2", keepttl: true)
+        assert_equal [expire_at], r.sexpiretime("foo", "m2")
+      end
+    end
+
+    def test_saddex_conditions
+      target_version("8.11") do
+        r.sadd("foo", "m1")
+
+        assert_equal 0, r.saddex("foo", "m1", "m2", mnx: true, ex: 100)
+        assert_equal ["m1"], r.smembers("foo")
+        assert_equal [-1], r.sttl("foo", "m1")
+        assert_equal 1, r.saddex("foo", "m2", mnx: true, ex: 100)
+        assert_in_range(1..100, r.sttl("foo", "m2")[0])
+
+        assert_equal 0, r.saddex("foo", "m1", "m3", mxx: true, ex: 100)
+        assert_equal [-1], r.sttl("foo", "m1")
+        assert_equal 1, r.saddex("foo", "m1", mxx: true, ex: 100)
+        assert_in_range(1..100, r.sttl("foo", "m1")[0])
+      end
+    end
+
+    def test_saddex_with_conflicting_options
+      assert_raises(ArgumentError) { r.saddex("foo", "m1", mnx: true, mxx: true) }
+      assert_raises(ArgumentError) { r.saddex("foo", "m1", ex: 60, px: 60_000) }
+      assert_raises(ArgumentError) { r.saddex("foo", "m1", ex: 60, keepttl: true) }
+    end
   end
 end
