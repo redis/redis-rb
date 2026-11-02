@@ -799,6 +799,55 @@ class Redis
       node_for(key).smismember(key, *members)
     end
 
+    # Set the time to live in seconds for one or more set members.
+    def sexpire(key, ttl, *members, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).sexpire(key, ttl, *members, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    # Set the time to live in milliseconds for one or more set members.
+    def spexpire(key, ttl, *members, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).spexpire(key, ttl, *members, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    # Set the expiration for one or more set members as an absolute Unix
+    # timestamp in seconds.
+    def sexpireat(key, unix_time_seconds, *members, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).sexpireat(key, unix_time_seconds, *members, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    # Set the expiration for one or more set members as an absolute Unix
+    # timestamp in milliseconds.
+    def spexpireat(key, unix_time_milliseconds, *members, nx: nil, xx: nil, gt: nil, lt: nil)
+      node_for(key).spexpireat(key, unix_time_milliseconds, *members, nx: nx, xx: xx, gt: gt, lt: lt)
+    end
+
+    # Get the time to live in seconds for one or more set members.
+    def sttl(key, *members)
+      node_for(key).sttl(key, *members)
+    end
+
+    # Get the time to live in milliseconds for one or more set members.
+    def spttl(key, *members)
+      node_for(key).spttl(key, *members)
+    end
+
+    # Get the expiration of one or more set members as an absolute Unix
+    # timestamp in seconds.
+    def sexpiretime(key, *members)
+      node_for(key).sexpiretime(key, *members)
+    end
+
+    # Get the expiration of one or more set members as an absolute Unix
+    # timestamp in milliseconds.
+    def spexpiretime(key, *members)
+      node_for(key).spexpiretime(key, *members)
+    end
+
+    # Remove the expiration from one or more set members.
+    def spersist(key, *members)
+      node_for(key).spersist(key, *members)
+    end
+
     # Get all the members in a set.
     def smembers(key)
       node_for(key).smembers(key)

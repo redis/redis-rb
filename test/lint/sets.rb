@@ -457,5 +457,250 @@ module Lint
       r.sadd('foo', %w[1 2 3 foo foobar feelsgood])
       assert_equal %w[0 feelsgood foo foobar], r.sscan('foo', 0, match: 'f*').flatten.sort
     end
+
+    def test_sexpire
+      target_version("8.11") do
+        r.sadd("foo", "m1")
+
+        assert_equal [1, -2], r.sexpire("foo", 4, "m1", "m2")
+        assert_in_range(1..4, r.sttl("foo", "m1")[0])
+        assert_equal [-2], r.sexpire("nonexistent", 4, "m1")
+      end
+    end
+
+    def test_sexpire_with_zero_ttl
+      target_version("8.11") do
+        r.sadd("foo", %w[m1 m2])
+
+        assert_equal [2], r.sexpire("foo", 0, ["m1"])
+        assert_equal ["m2"], r.smembers("foo")
+      end
+    end
+
+    def test_sexpire_options
+      target_version("8.11") do
+        r.sadd("foo", "m1")
+        assert_equal [0], r.sexpire("foo", 5_000, "m1", xx: true)
+
+        assert_equal [1], r.sexpire("foo", 5_000, "m1", nx: true)
+        assert_equal [0], r.sexpire("foo", 5_000, "m1", nx: true)
+
+        assert_equal [1], r.sexpire("foo", 5_000, "m1", xx: true)
+
+        assert_equal [0], r.sexpire("foo", 50_000, "m1", lt: true)
+        assert_equal [1], r.sexpire("foo", 500, "m1", lt: true)
+
+        assert_equal [0], r.sexpire("foo", 400, "m1", gt: true)
+        assert_equal [1], r.sexpire("foo", 50_000, "m1", gt: true)
+      end
+    end
+
+    def test_sexpire_with_multiple_conditions
+      assert_raises(ArgumentError) { r.sexpire("foo", 10, "m1", nx: true, xx: true) }
+    end
+
+    def test_sexpire_with_wrong_type
+      target_version("8.11") do
+        r.set("foo", "bar")
+
+        assert_raises(Redis::WrongTypeError) { r.sexpire("foo", 10, "m1") }
+      end
+    end
+
+    def test_spexpire
+      target_version("8.11") do
+        r.sadd("foo", "m1")
+
+        assert_equal [1, -2], r.spexpire("foo", 4_000, "m1", "m2")
+        assert_in_range(1..4_000, r.spttl("foo", "m1")[0])
+        assert_equal [-2], r.spexpire("nonexistent", 4_000, "m1")
+      end
+    end
+
+    def test_spexpire_with_zero_ttl
+      target_version("8.11") do
+        r.sadd("foo", %w[m1 m2])
+
+        assert_equal [2], r.spexpire("foo", 0, ["m1"])
+        assert_equal ["m2"], r.smembers("foo")
+      end
+    end
+
+    def test_spexpire_options
+      target_version("8.11") do
+        r.sadd("foo", "m1")
+        assert_equal [0], r.spexpire("foo", 5_000_000, "m1", xx: true)
+
+        assert_equal [1], r.spexpire("foo", 5_000_000, "m1", nx: true)
+        assert_equal [0], r.spexpire("foo", 5_000_000, "m1", nx: true)
+
+        assert_equal [1], r.spexpire("foo", 5_000_000, "m1", xx: true)
+
+        assert_equal [0], r.spexpire("foo", 50_000_000, "m1", lt: true)
+        assert_equal [1], r.spexpire("foo", 500_000, "m1", lt: true)
+
+        assert_equal [0], r.spexpire("foo", 400_000, "m1", gt: true)
+        assert_equal [1], r.spexpire("foo", 50_000_000, "m1", gt: true)
+      end
+    end
+
+    def test_spexpire_with_multiple_conditions
+      assert_raises(ArgumentError) { r.spexpire("foo", 10, "m1", gt: true, lt: true) }
+    end
+
+    def test_sexpireat
+      target_version("8.11") do
+        r.sadd("foo", "m1")
+
+        assert_equal [1, -2], r.sexpireat("foo", Time.now.to_i + 400, "m1", "m2")
+        assert_in_range(1..405, r.sttl("foo", "m1")[0])
+        assert_equal [-2], r.sexpireat("nonexistent", Time.now.to_i + 400, "m1")
+      end
+    end
+
+    def test_sexpireat_with_past_timestamp
+      target_version("8.11") do
+        r.sadd("foo", %w[m1 m2])
+
+        assert_equal [2], r.sexpireat("foo", Time.now.to_i - 4, ["m1"])
+        assert_equal ["m2"], r.smembers("foo")
+      end
+    end
+
+    def test_sexpireat_options
+      target_version("8.11") do
+        now = Time.now.to_i
+
+        r.sadd("foo", "m1")
+        assert_equal [0], r.sexpireat("foo", now + 5_000, "m1", xx: true)
+
+        assert_equal [1], r.sexpireat("foo", now + 5_000, "m1", nx: true)
+        assert_equal [0], r.sexpireat("foo", now + 5_000, "m1", nx: true)
+
+        assert_equal [1], r.sexpireat("foo", now + 5_000, "m1", xx: true)
+
+        assert_equal [0], r.sexpireat("foo", now + 50_000, "m1", lt: true)
+        assert_equal [1], r.sexpireat("foo", now + 500, "m1", lt: true)
+
+        assert_equal [0], r.sexpireat("foo", now + 400, "m1", gt: true)
+        assert_equal [1], r.sexpireat("foo", now + 50_000, "m1", gt: true)
+      end
+    end
+
+    def test_sexpireat_with_multiple_conditions
+      assert_raises(ArgumentError) { r.sexpireat("foo", Time.now.to_i + 10, "m1", nx: true, gt: true) }
+    end
+
+    def test_spexpireat
+      target_version("8.11") do
+        now_ms = (Time.now.to_f * 1000).to_i
+        r.sadd("foo", "m1")
+
+        assert_equal [1, -2], r.spexpireat("foo", now_ms + 400_000, "m1", "m2")
+        assert_in_range(1..400_500, r.spttl("foo", "m1")[0])
+        assert_equal [-2], r.spexpireat("nonexistent", now_ms + 400_000, "m1")
+      end
+    end
+
+    def test_spexpireat_with_past_timestamp
+      target_version("8.11") do
+        r.sadd("foo", %w[m1 m2])
+
+        assert_equal [2], r.spexpireat("foo", (Time.now.to_f * 1000).to_i - 4_000, ["m1"])
+        assert_equal ["m2"], r.smembers("foo")
+      end
+    end
+
+    def test_spexpireat_options
+      target_version("8.11") do
+        now_ms = (Time.now.to_f * 1000).to_i
+
+        r.sadd("foo", "m1")
+        assert_equal [0], r.spexpireat("foo", now_ms + 5_000_000, "m1", xx: true)
+
+        assert_equal [1], r.spexpireat("foo", now_ms + 5_000_000, "m1", nx: true)
+        assert_equal [0], r.spexpireat("foo", now_ms + 5_000_000, "m1", nx: true)
+
+        assert_equal [1], r.spexpireat("foo", now_ms + 5_000_000, "m1", xx: true)
+
+        assert_equal [0], r.spexpireat("foo", now_ms + 50_000_000, "m1", lt: true)
+        assert_equal [1], r.spexpireat("foo", now_ms + 500_000, "m1", lt: true)
+
+        assert_equal [0], r.spexpireat("foo", now_ms + 400_000, "m1", gt: true)
+        assert_equal [1], r.spexpireat("foo", now_ms + 50_000_000, "m1", gt: true)
+      end
+    end
+
+    def test_spexpireat_with_multiple_conditions
+      assert_raises(ArgumentError) { r.spexpireat("foo", 10, "m1", xx: true, lt: true) }
+    end
+
+    def test_sttl
+      target_version("8.11") do
+        assert_equal [-2], r.sttl("foo", "m1")
+
+        r.sadd("foo", %w[m1 m2])
+        assert_equal [-1, -1], r.sttl("foo", ["m1", "m2"])
+
+        r.sexpire("foo", 4, "m1")
+        ttl, no_expiry, missing = r.sttl("foo", "m1", "m2", "m3")
+        assert_in_range(1..4, ttl)
+        assert_equal(-1, no_expiry)
+        assert_equal(-2, missing)
+      end
+    end
+
+    def test_spttl
+      target_version("8.11") do
+        assert_equal [-2], r.spttl("foo", "m1")
+
+        r.sadd("foo", %w[m1 m2])
+        assert_equal [-1, -1], r.spttl("foo", ["m1", "m2"])
+
+        r.spexpire("foo", 4_000, "m1")
+        ttl, no_expiry, missing = r.spttl("foo", "m1", "m2", "m3")
+        assert_in_range(1..4_000, ttl)
+        assert_equal(-1, no_expiry)
+        assert_equal(-2, missing)
+      end
+    end
+
+    def test_sexpiretime
+      target_version("8.11") do
+        assert_equal [-2], r.sexpiretime("foo", "m1")
+
+        r.sadd("foo", %w[m1 m2])
+        assert_equal [-1], r.sexpiretime("foo", "m1")
+
+        expire_at = Time.now.to_i + 400
+        r.sexpireat("foo", expire_at, "m1")
+        assert_equal [expire_at, -1, -2], r.sexpiretime("foo", "m1", ["m2", "m3"])
+      end
+    end
+
+    def test_spexpiretime
+      target_version("8.11") do
+        assert_equal [-2], r.spexpiretime("foo", "m1")
+
+        r.sadd("foo", %w[m1 m2])
+        assert_equal [-1], r.spexpiretime("foo", "m1")
+
+        expire_at_ms = (Time.now.to_f * 1000).to_i + 400_000
+        r.spexpireat("foo", expire_at_ms, "m1")
+        assert_equal [expire_at_ms, -1, -2], r.spexpiretime("foo", "m1", ["m2", "m3"])
+      end
+    end
+
+    def test_spersist
+      target_version("8.11") do
+        assert_equal [-2], r.spersist("foo", "m1")
+
+        r.sadd("foo", %w[m1 m2])
+        r.sexpire("foo", 400, "m1")
+
+        assert_equal [1, -1, -2], r.spersist("foo", "m1", ["m2", "m3"])
+        assert_equal [-1], r.sttl("foo", "m1")
+      end
+    end
   end
 end
