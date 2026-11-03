@@ -1445,7 +1445,9 @@ class Redis
     def multi(&block)
       raise CannotDistribute, :multi unless @watch_key
 
-      node_for(@watch_key).multi(&block)
+      result = node_for(@watch_key).multi(&block)
+      @watch_key = nil
+      result
     end
 
     # Execute all commands issued after MULTI.

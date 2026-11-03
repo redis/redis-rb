@@ -66,5 +66,18 @@ class TestDistributedTransactions < Minitest::Test
 
       assert_equal [3, 6, 10], result
     end
+
+    assert_equal "OK", r.set("{other}baz", 1)
+  end
+
+  def test_watch_without_block_then_multi
+    r.watch("{qux}foo")
+    result = r.multi do |transaction|
+      transaction.set("{qux}foo", 1)
+    end
+
+    assert_equal ["OK"], result
+
+    assert_equal "OK", r.set("{other}baz", 1)
   end
 end
