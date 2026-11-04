@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'delegate'
 require 'redis-cluster-client'
 require 'redis/cluster/transaction_adapter'
 
@@ -91,12 +92,33 @@ class Redis
         handle_errors { super(timeout, command, &block) }
       end
 
-      def pipelined(exception: true, &block)
-        handle_errors { super(exception: exception, &block) }
+      # Inside a pipeline or transaction the driver routes the keyless HOTKEYS verbs to an
+      # arbitrary node, so they are rejected there just as Redis::Cluster rejects direct calls.
+      class HotkeysGuard < SimpleDelegator
+        def call_v(command, &block)
+          reject_hotkeys(command)
+          super
+        end
+
+        def blocking_call_v(timeout, command, &block)
+          reject_hotkeys(command)
+          super
+        end
+
+        private
+
+        def reject_hotkeys(command)
+          raise NotImplementedError, HOTKEYS_NOT_SUPPORTED if command.first.to_s.casecmp?('hotkeys')
+        end
+      end
+      private_constant :HotkeysGuard
+
+      def pipelined(exception: true)
+        handle_errors { super(exception: exception) { |pipeline| yield HotkeysGuard.new(pipeline) } }
       end
 
-      def multi(watch: nil, &block)
-        handle_errors { super(watch: watch, &block) }
+      def multi(watch: nil)
+        handle_errors { super(watch: watch) { |transaction| yield HotkeysGuard.new(transaction) } }
       end
 
       def watch(*keys, &block)

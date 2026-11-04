@@ -282,4 +282,18 @@ class TestClusterCommandsOnServer < Minitest::Test
       assert_kind_of Integer, replicas
     end
   end
+
+  def test_hotkeys_commands_are_not_supported
+    assert_raises(NotImplementedError) { redis.hotkeys_start(metrics: :cpu) }
+    assert_raises(NotImplementedError) { redis.hotkeys_get }
+    assert_raises(NotImplementedError) { redis.hotkeys_stop }
+    assert_raises(NotImplementedError) { redis.hotkeys_reset }
+  end
+
+  def test_hotkeys_commands_are_not_supported_in_pipelines_and_transactions
+    assert_raises(NotImplementedError) { redis.pipelined(&:hotkeys_get) }
+    assert_raises(NotImplementedError) { redis.pipelined { |pipe| pipe.hotkeys_start(metrics: :cpu) } }
+    assert_raises(NotImplementedError) { redis.multi(&:hotkeys_stop) }
+    assert_raises(NotImplementedError) { redis.multi(&:hotkeys_reset) }
+  end
 end

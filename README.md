@@ -413,6 +413,37 @@ reply per node; `himport_set` routes by key. With `Redis::Cluster`, the same
 commands fan out to every master node and return a single aggregated reply,
 matching the standalone API.
 
+## Hot key tracking (HOTKEYS)
+
+Redis 8.6 adds the `HOTKEYS` command family, which ranks the keys that consume
+the most CPU time and/or network bytes during a tracking session:
+
+```ruby
+redis.hotkeys_start(metrics: [:cpu, :net], count: 10) # => "OK"
+# ... let traffic flow ...
+result = redis.hotkeys_get
+result["by-cpu-time-us"] # => [["product:1", 1070], ["product:2", 67]]
+result["by-net-bytes"]   # => [["product:1", 411], ["product:2", 37]]
+redis.hotkeys_stop       # => "OK" (nil when no session is active)
+redis.hotkeys_reset      # => "OK"; hotkeys_get now returns nil
+```
+
+`hotkeys_start` also accepts `duration:` (seconds after which the session stops
+by itself), `sample:` (track one command in N) and, in cluster mode, `slots:`.
+`hotkeys_get` returns a Hash keyed by the server's field names: the
+`total-cpu-time-*-ms` and `by-cpu-time-us` fields are present only when `:cpu`
+was requested, `total-net-bytes` and `by-net-bytes` only when `:net` was. The
+`by-*` lists are `[key, value]` pairs, hottest first, with at most `count`
+entries.
+
+A tracking session is state of the server, shared by every connection, and only
+one can run at a time. Because the commands can be neither routed by key nor
+aggregated across nodes, they are only available on a single-node client:
+`Redis::Cluster` and `Redis::Distributed` raise `NotImplementedError`. To
+profile one node of a cluster or ring, connect to it directly with
+`Redis.new(host:, port:)`. The same applies inside `pipelined`/`multi` blocks
+on `Redis::Cluster`.
+
 ## Compare-and-set (CAS/CAD)
 
 Redis 8.4 adds atomic compare-and-set to `SET` and a new compare-and-delete command,

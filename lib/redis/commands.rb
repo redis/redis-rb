@@ -322,6 +322,18 @@ class Redis
       end
     }
 
+    # HOTKEYS GET: the server wraps the reply map (RESP3) or flat [field, value, ...] array (RESP2)
+    # in a one-element array, and the `by-*` lists are flat [key, value, ...] under both protocols.
+    HashifyHotkeys = lambda { |reply|
+      return reply unless reply.is_a?(Array)
+
+      hash = Hashify.call(reply.first)
+      %w[by-cpu-time-us by-net-bytes].each do |field|
+        hash[field] = Pairify.call(hash[field]) if hash.key?(field)
+      end
+      hash
+    }
+
     # FUNCTION LIST: RESP2 replies with a flat [k, v, ...] array per library (and per
     # function within it); RESP3 already returns maps. Converge on nested Hashes.
     HashifyFunctionList = lambda { |reply|

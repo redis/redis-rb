@@ -182,6 +182,84 @@ class Redis
         send_blocking_command(command, timeout / 1000.0)
       end
 
+      # Start a hot-key tracking session (Redis 8.6).
+      #
+      # Keys are ranked by the share of CPU time and/or network bytes they consume while the
+      # session runs. The session is server-wide state shared by every connection, and only one
+      # can run at a time, so the command family is only available on a single-node client:
+      # `Redis::Cluster` and `Redis::Distributed` raise `NotImplementedError`.
+      #
+      # @example Track the top 10 keys by CPU time and network bytes
+      #   redis.hotkeys_start(metrics: [:cpu, :net], count: 10)
+      #     # => "OK"
+      # @example Track CPU time for one minute, sampling one command in five
+      #   redis.hotkeys_start(metrics: :cpu, duration: 60, sample: 5)
+      #     # => "OK"
+      #
+      # @param [Symbol, String, Array<Symbol, String>] metrics one or both of `:cpu` and `:net`
+      # @param [Integer, nil] count keys to report per metric, `1` to `64` (server default `10`)
+      # @param [Integer, nil] duration stop the session after this many seconds, `1` to `1_000_000`;
+      #   without it the session runs until #hotkeys_stop
+      # @param [Integer, nil] sample track one command in `sample` (server default `1`: every command)
+      # @param [Array<Integer>, nil] slots cluster mode only: hash slots to track, all of them owned
+      #   by the receiving node; the server rejects the option outside cluster mode
+      # @return [String] `"OK"`
+      # @raise [Redis::CommandError] when a session is already in progress or a value is out of range
+      def hotkeys_start(metrics:, count: nil, duration: nil, sample: nil, slots: nil)
+        metrics = Array(metrics).map { |metric| metric.to_s.upcase }
+        raise ArgumentError, "metrics must not be empty" if metrics.empty?
+
+        args = [:hotkeys, "START", "METRICS", metrics.size].concat(metrics)
+        args << "COUNT" << Integer(count) if count
+        args << "DURATION" << Integer(duration) if duration
+        args << "SAMPLE" << Integer(sample) if sample
+        slots = Array(slots)
+        args.push("SLOTS", slots.size, *slots.map { |slot| Integer(slot) }) unless slots.empty?
+        send_command(args)
+      end
+
+      # Return the results of the running or most recent hot-key tracking session (Redis 8.6).
+      #
+      # @example
+      #   redis.hotkeys_get
+      #     # => { "tracking-active" => 1, "sample-ratio" => 1, "selected-slots" => [[0, 16383]],
+      #     #      "all-commands-all-slots-us" => 73, "net-bytes-all-commands-all-slots" => 311,
+      #     #      "collection-start-time-unix-ms" => 1793782936885, "collection-duration-ms" => 4,
+      #     #      "total-cpu-time-user-ms" => 0, "total-cpu-time-sys-ms" => 0, "total-net-bytes" => 311,
+      #     #      "by-cpu-time-us" => [["product:1", 69], ["product:2", 4]],
+      #     #      "by-net-bytes" => [["product:1", 285], ["product:2", 26]] }
+      #
+      # @return [Hash{String => Object}] the reply fields, keyed by the server's names. Always
+      #   present: `tracking-active` (`1` or `0`), `sample-ratio`, `selected-slots` (`[first, last]`
+      #   slot ranges), `all-commands-all-slots-us`, `net-bytes-all-commands-all-slots`,
+      #   `collection-start-time-unix-ms` and `collection-duration-ms`. With the `:cpu` metric:
+      #   `total-cpu-time-user-ms`, `total-cpu-time-sys-ms` and `by-cpu-time-us`; with `:net`:
+      #   `total-net-bytes` and `by-net-bytes`. The `by-*` lists are `[key, Integer]` pairs,
+      #   hottest first, with at most `count` entries (possibly none). When `slots:` was given to
+      #   #hotkeys_start the per-slot counters `all-commands-selected-slots-us`,
+      #   `net-bytes-all-commands-selected-slots` and, with sampling,
+      #   `sampled-commands-selected-slots-us`, `net-bytes-sampled-commands-selected-slots` are added.
+      # @return [nil] when no session was started, or after #hotkeys_reset
+      def hotkeys_get
+        send_command([:hotkeys, "GET"], &HashifyHotkeys)
+      end
+
+      # Stop the running hot-key tracking session, keeping its results for #hotkeys_get (Redis 8.6).
+      #
+      # @return [String] `"OK"`
+      # @return [nil] when no session is active
+      def hotkeys_stop
+        send_command([:hotkeys, "STOP"])
+      end
+
+      # Release the resources of a stopped hot-key tracking session (Redis 8.6).
+      #
+      # @return [String] `"OK"`
+      # @raise [Redis::CommandError] while a session is active; call #hotkeys_stop first
+      def hotkeys_reset
+        send_command([:hotkeys, "RESET"])
+      end
+
       # Synchronously save the dataset to disk and then shut down the server.
       #
       # @example Default: save if a save point is configured, then exit

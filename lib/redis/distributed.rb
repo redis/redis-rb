@@ -114,6 +114,27 @@ class Redis
       raise NotImplementedError
     end
 
+    HOTKEYS_NOT_SUPPORTED = "HOTKEYS commands are not supported on Redis::Distributed: the tracking " \
+                            "session is state of a single server. Call them on one node, " \
+                            "e.g. distributed.nodes.first.hotkeys_start(...)."
+    private_constant :HOTKEYS_NOT_SUPPORTED
+
+    def hotkeys_start(**)
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
+    def hotkeys_get
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
+    def hotkeys_stop
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
+    def hotkeys_reset
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
     # Synchronously save the dataset to disk.
     def save
       on_each_node :save
