@@ -131,12 +131,15 @@ class TestRemoteServerControlCommands < Minitest::Test
           assert_kind_of Integer, result[field], field
         end
         %w[by-cpu-time-us by-net-bytes].each do |field|
-          assert_equal "hotkeys:a", result[field].first.first, field
+          assert_includes result[field].map(&:first), "hotkeys:a", field
           result[field].each do |key, value|
             assert_kind_of String, key
             assert_kind_of Integer, value
           end
         end
+        # Byte counts are deterministic; CPU time is per-command wall-clock, so one
+        # stalled command on "hotkeys:b" can outrank 20 GETs of "hotkeys:a".
+        assert_equal "hotkeys:a", result["by-net-bytes"].first.first
 
         assert_equal "OK", r.hotkeys_stop
         assert_equal 0, r.hotkeys_get["tracking-active"]
