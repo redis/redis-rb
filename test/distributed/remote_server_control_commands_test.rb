@@ -69,6 +69,13 @@ class TestDistributedRemoteServerControlCommands < Minitest::Test
     assert ex.is_a?(NotImplementedError)
   end
 
+  def test_hotkeys_commands_are_not_supported
+    assert_raises(NotImplementedError) { r.hotkeys_start(metrics: :cpu) }
+    assert_raises(NotImplementedError) { r.hotkeys_get }
+    assert_raises(NotImplementedError) { r.hotkeys_stop }
+    assert_raises(NotImplementedError) { r.hotkeys_reset }
+  end
+
   def test_echo
     assert_equal ["foo bar baz\n"], r.echo("foo bar baz\n")
   end

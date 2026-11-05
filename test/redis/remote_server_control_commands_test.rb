@@ -112,6 +112,133 @@ class TestRemoteServerControlCommands < Minitest::Test
     end
   end
 
+  def test_hotkeys_start_get_stop_reset
+    target_version "8.6.0" do
+      with_hotkeys_session_cleanup do
+        assert_equal "OK", r.hotkeys_start(metrics: %i[cpu net], count: 10)
+        r.set("hotkeys:a", "x")
+        r.set("hotkeys:b", "x")
+        20.times { r.get("hotkeys:a") }
+        r.get("hotkeys:b")
+
+        result = r.hotkeys_get
+
+        assert_equal 1, result["tracking-active"]
+        assert_equal [[0, 16_383]], result["selected-slots"]
+        %w[sample-ratio all-commands-all-slots-us net-bytes-all-commands-all-slots
+           collection-start-time-unix-ms collection-duration-ms total-cpu-time-user-ms
+           total-cpu-time-sys-ms total-net-bytes].each do |field|
+          assert_kind_of Integer, result[field], field
+        end
+        %w[by-cpu-time-us by-net-bytes].each do |field|
+          assert_includes result[field].map(&:first), "hotkeys:a", field
+          result[field].each do |key, value|
+            assert_kind_of String, key
+            assert_kind_of Integer, value
+          end
+        end
+        # Byte counts are deterministic; CPU time is per-command wall-clock, so one
+        # stalled command on "hotkeys:b" can outrank 20 GETs of "hotkeys:a".
+        assert_equal "hotkeys:a", result["by-net-bytes"].first.first
+
+        assert_equal "OK", r.hotkeys_stop
+        assert_equal 0, r.hotkeys_get["tracking-active"]
+        assert_equal "OK", r.hotkeys_reset
+        assert_nil r.hotkeys_get
+        assert_nil r.hotkeys_stop
+      end
+    end
+  end
+
+  def test_hotkeys_start_with_a_single_metric_omits_the_other_fields
+    target_version "8.6.0" do
+      with_hotkeys_session_cleanup do
+        assert_equal "OK", r.hotkeys_start(metrics: :cpu)
+        r.get("hotkeys:a")
+
+        result = r.hotkeys_get
+
+        assert result.key?("total-cpu-time-user-ms")
+        assert_kind_of Array, result["by-cpu-time-us"]
+        refute result.key?("total-net-bytes")
+        refute result.key?("by-net-bytes")
+      end
+    end
+  end
+
+  def test_hotkeys_start_twice_raises
+    target_version "8.6.0" do
+      with_hotkeys_session_cleanup do
+        r.hotkeys_start(metrics: :cpu)
+
+        error = assert_raises(Redis::CommandError) { r.hotkeys_start(metrics: :net) }
+        assert_match(/already in progress/, error.message)
+      end
+    end
+  end
+
+  def test_hotkeys_reset_while_active_raises
+    target_version "8.6.0" do
+      with_hotkeys_session_cleanup do
+        r.hotkeys_start(metrics: :cpu)
+
+        error = assert_raises(Redis::CommandError) { r.hotkeys_reset }
+        assert_match(/stop tracking first/, error.message)
+      end
+    end
+  end
+
+  def test_hotkeys_start_with_slots_outside_cluster_mode_raises
+    target_version "8.6.0" do
+      with_hotkeys_session_cleanup do
+        error = assert_raises(Redis::CommandError) { r.hotkeys_start(metrics: :cpu, slots: [0]) }
+        assert_match(/non-cluster mode/, error.message)
+      end
+    end
+  end
+
+  def test_hotkeys_start_sends_the_arguments_in_order
+    received = nil
+    commands = { hotkeys: ->(*args) { received = args; "+OK" } }
+
+    redis_mock(commands) do |redis|
+      assert_equal "OK", redis.hotkeys_start(metrics: %w[cpu net], count: 10, duration: 60, sample: 5, slots: [0, 1])
+    end
+
+    assert_equal %w[START METRICS 2 CPU NET COUNT 10 DURATION 60 SAMPLE 5 SLOTS 2 0 1], received
+  end
+
+  def test_hotkeys_start_omits_empty_slots
+    received = nil
+    commands = { hotkeys: ->(*args) { received = args; "+OK" } }
+
+    redis_mock(commands) do |redis|
+      redis.hotkeys_start(metrics: :net, slots: [])
+    end
+
+    assert_equal %w[START METRICS 1 NET], received
+  end
+
+  def test_hotkeys_start_requires_a_metric
+    assert_raises(ArgumentError) { r.hotkeys_start(metrics: []) }
+  end
+
+  def test_hotkeys_get_in_pipeline
+    target_version "8.6.0" do
+      with_hotkeys_session_cleanup do
+        r.hotkeys_start(metrics: :net)
+        r.get("hotkeys:a")
+
+        result = r.pipelined do |pipe|
+          pipe.hotkeys_get
+        end
+
+        assert_equal 1, result.first["tracking-active"]
+        assert_kind_of Array, result.first["by-net-bytes"]
+      end
+    end
+  end
+
   def test_info_with_a_single_section
     info = r.info(:server)
 
@@ -270,6 +397,20 @@ class TestRemoteServerControlCommands < Minitest::Test
 
       assert_equal %w[slot-stats SLOTSRANGE 0 100], received
     end
+  end
+
+  def with_hotkeys_session_cleanup
+    clear_hotkeys_session
+    yield
+  ensure
+    clear_hotkeys_session
+  end
+
+  def clear_hotkeys_session
+    r.hotkeys_stop
+    r.hotkeys_reset
+  rescue Redis::CommandError
+    nil
   end
 
   def test_cluster_slot_stats_hashifies_the_per_slot_metrics

@@ -204,6 +204,27 @@ class Redis
       reply.is_a?(Array) ? reply.max : reply
     end
 
+    HOTKEYS_NOT_SUPPORTED = 'HOTKEYS commands are not supported in cluster mode: the tracking ' \
+                            'session is state of a single node. Connect to that node with ' \
+                            'Redis.new(host:, port:) instead.'
+    private_constant :HOTKEYS_NOT_SUPPORTED
+
+    def hotkeys_start(**)
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
+    def hotkeys_get
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
+    def hotkeys_stop
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
+    def hotkeys_reset
+      raise NotImplementedError, HOTKEYS_NOT_SUPPORTED
+    end
+
     # WAITAOF on cluster: the guarantee is per connection, so the command must reach every
     # primary over the connection that carried this client's writes. The driver leaves it on
     # single-node routing (no aggregation for its `agg_min` tip over array replies), so
