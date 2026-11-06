@@ -1445,7 +1445,10 @@ class Redis
     def multi(&block)
       raise CannotDistribute, :multi unless @watch_key
 
-      result = node_for(@watch_key).multi(&block)
+      node = node_for(@watch_key)
+      result = node.multi(&block)
+      # A block that queues no command sends no MULTI/EXEC, so the server still watches the keys.
+      node.unwatch if result == []
       @watch_key = nil
       result
     end
