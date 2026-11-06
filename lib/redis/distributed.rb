@@ -572,6 +572,11 @@ class Redis
       node_for(key).bitpos(key, bit, start, stop, scale: scale)
     end
 
+    # Return the offsets of the set (or clear) bits in a range of the string value stored at key.
+    def bitrangeintarray(key, start, stop, scale: nil, limit: nil, zeros: false)
+      node_for(key).bitrangeintarray(key, start, stop, scale: scale, limit: limit, zeros: zeros)
+    end
+
     # Set the string value of a key and return its old value.
     def getset(key, value)
       node_for(key).getset(key, value)

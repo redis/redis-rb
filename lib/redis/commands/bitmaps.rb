@@ -68,6 +68,30 @@ class Redis
         command << scale if scale
         send_command(command)
       end
+
+      # Return the offsets of the set (or clear) bits in a range of the string value stored at key.
+      #
+      # @example Offsets of the set bits in the whole string
+      #   redis.bitrangeintarray("key", 0, -1) # => [1, 7, 9, 30]
+      # @example Clear bits in a bit range, at most two of them
+      #   redis.bitrangeintarray("key", 24, 31, scale: :bit, zeros: true, limit: 2) # => [24, 25]
+      #
+      # @param [String] key
+      # @param [Integer] start start index
+      # @param [Integer] stop stop index
+      # @param [String, Symbol] scale the scale of the offset range
+      #     e.g. 'BYTE' - interpreted as a range of bytes, 'BIT' - interpreted as a range of bits
+      # @param [Integer] limit return at most this many offsets; in byte scale the byte
+      #     holding the last match is completed, so a few more may be returned
+      # @param [Boolean] zeros return the offsets of the clear bits instead of the set bits
+      # @return [Array<Integer>] the matching bit offsets in ascending order
+      def bitrangeintarray(key, start, stop, scale: nil, limit: nil, zeros: false)
+        command = [:bitrangeintarray, key, start, stop]
+        command << scale if scale
+        command << "LIMIT" << limit if limit
+        command << "ZEROS" if zeros
+        send_command(command)
+      end
     end
   end
 end

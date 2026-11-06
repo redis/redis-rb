@@ -618,6 +618,51 @@ module Lint
       end
     end
 
+    def test_bitrangeintarray
+      target_version "8.11" do
+        [1, 7, 9, 30].each { |offset| r.setbit("foo", offset, 1) }
+
+        assert_equal [1, 7, 9, 30], r.bitrangeintarray("foo", 0, -1)
+        assert_equal [9, 30], r.bitrangeintarray("foo", 1, -1)
+        assert_equal [], r.bitrangeintarray("foo", 10, 20)
+        assert_equal [], r.bitrangeintarray("nosuchkey", 0, -1)
+      end
+    end
+
+    def test_bitrangeintarray_bit_scale
+      target_version "8.11" do
+        [1, 7, 9, 30].each { |offset| r.setbit("foo", offset, 1) }
+
+        assert_equal [7, 9], r.bitrangeintarray("foo", 5, 10, scale: :bit)
+      end
+    end
+
+    def test_bitrangeintarray_zeros
+      target_version "8.11" do
+        [1, 7, 9, 30].each { |offset| r.setbit("foo", offset, 1) }
+
+        assert_equal [24, 25, 26, 27, 28, 29, 31], r.bitrangeintarray("foo", 24, 31, scale: :bit, zeros: true)
+      end
+    end
+
+    def test_bitrangeintarray_limit
+      target_version "8.11" do
+        [1, 7, 9, 30].each { |offset| r.setbit("foo", offset, 1) }
+
+        assert_equal [7, 9], r.bitrangeintarray("foo", 2, -1, scale: :bit, limit: 2)
+        # byte scale completes the byte holding the last match
+        assert_equal [1, 7], r.bitrangeintarray("foo", 0, -1, limit: 1)
+      end
+    end
+
+    def test_bitrangeintarray_wrong_type
+      target_version "8.11" do
+        r.sadd("foo", "a")
+
+        assert_raises(Redis::WrongTypeError) { r.bitrangeintarray("foo", 0, -1) }
+      end
+    end
+
     def test_getrange
       r.set("foo", "abcde")
 
