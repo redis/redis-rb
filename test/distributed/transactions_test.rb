@@ -95,4 +95,67 @@ class TestDistributedTransactions < Minitest::Test
 
     assert_equal ["OK"], result
   end
+
+  def test_watch_then_multi_with_failing_command
+    r.set("{qux}str", "a")
+    r.watch("{qux}foo")
+
+    assert_raises(Redis::CommandError) do
+      r.multi do |transaction|
+        transaction.incr("{qux}str")
+      end
+    end
+
+    assert_equal "OK", r.set("{other}baz", 1)
+  end
+
+  def test_watch_then_multi_with_exception_in_block
+    r.watch("{qux}foo")
+
+    assert_raises(RuntimeError) do
+      r.multi do |transaction|
+        transaction.set("{qux}foo", 1)
+        raise "woops"
+      end
+    end
+
+    Redis.new(OPTIONS).set("{qux}foo", 2)
+    result = r.watch("{qux}foo") do
+      r.multi do |transaction|
+        transaction.set("{qux}foo", 3)
+      end
+    end
+
+    assert_equal ["OK"], result
+    assert_equal "OK", r.set("{other}baz", 1)
+  end
+
+  def test_watch_block_with_exception_after_watching_another_node
+    redis = Redis::Distributed.new(["redis://127.0.0.1:#{PORT}/14", *NODES], _format_options(protocol: PROTOCOL))
+    first = "{qux}foo"
+    other_tag = (1..100).map { |i| "{tag#{i}}foo" }.find { |key| redis.node_for(key).id != redis.node_for(first).id }
+    other_db = redis.node_for(other_tag)._client.db
+
+    assert_raises(RuntimeError) do
+      redis.watch(first) do
+        redis.multi do |transaction|
+          transaction.set(first, 1)
+        end
+        redis.watch(other_tag)
+        raise "woops"
+      end
+    end
+
+    Redis.new(OPTIONS.merge(db: other_db)).set(other_tag, 2)
+    result = redis.watch(other_tag) do
+      redis.multi do |transaction|
+        transaction.set(other_tag, 3)
+      end
+    end
+
+    assert_equal ["OK"], result
+  ensure
+    Redis.new(OPTIONS.merge(db: other_db)).del(other_tag) if other_db
+    redis&.close
+  end
 end

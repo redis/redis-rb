@@ -1417,12 +1417,15 @@ class Redis
     # Watch the given keys to determine execution of the MULTI/EXEC block.
     def watch(*keys, &block)
       ensure_same_node(:watch, keys) do |node|
-        @watch_key = key_tag(keys.first) || keys.first.to_s
+        watch_key = @watch_key = key_tag(keys.first) || keys.first.to_s
 
         begin
           node.watch(*keys, &block)
-        rescue StandardError
+        rescue StandardError => error
+          # The block can end the first watch with #multi and then watch a key on another node.
+          replacement = @watch_key if @watch_key && @watch_key != watch_key
           @watch_key = nil
+          node_for(replacement).unwatch if replacement && !error.is_a?(ConnectionError)
           raise
         end
       end
@@ -1446,11 +1449,20 @@ class Redis
       raise CannotDistribute, :multi unless @watch_key
 
       node = node_for(@watch_key)
-      result = node.multi(&block)
-      # A block that queues no command sends no MULTI/EXEC, so the server still watches the keys.
-      node.unwatch if result == []
-      @watch_key = nil
-      result
+      begin
+        result = node.multi(&block)
+        # A block that queues no command sends no MULTI/EXEC, so the server still watches the keys.
+        node.unwatch if result == []
+        result
+      rescue ConnectionError
+        raise
+      rescue StandardError
+        # If the block raised, no MULTI/EXEC was sent and the server still watches the keys.
+        node.unwatch
+        raise
+      ensure
+        @watch_key = nil
+      end
     end
 
     # Execute all commands issued after MULTI.
