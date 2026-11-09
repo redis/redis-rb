@@ -81,6 +81,43 @@ class TestDistributedTransactions < Minitest::Test
     assert_equal "OK", r.set("{other}baz", 1)
   end
 
+  def test_watch_multi_then_explicit_unwatch
+    r.watch("{qux}foo")
+    r.multi do |transaction|
+      transaction.set("{qux}foo", 1)
+    end
+
+    assert_equal "OK", r.set("{other}baz", 1)
+    assert_equal "OK", r.unwatch
+
+    assert_raises Redis::Distributed::CannotDistribute do
+      r.unwatch
+    end
+  end
+
+  def test_watch_block_multi_then_explicit_unwatch
+    r.watch("{qux}foo") do
+      r.multi do |transaction|
+        transaction.set("{qux}foo", 1)
+      end
+    end
+
+    assert_equal "OK", r.unwatch
+  end
+
+  def test_watch_then_two_multi
+    r.watch("{qux}foo")
+    r.multi do |transaction|
+      transaction.set("{qux}foo", 1)
+    end
+
+    result = r.multi do |transaction|
+      transaction.incr("{qux}foo")
+    end
+
+    assert_equal [2], result
+  end
+
   def test_watch_then_empty_multi
     r.watch("{qux}foo")
     result = r.multi {}
@@ -131,18 +168,28 @@ class TestDistributedTransactions < Minitest::Test
   end
 
   def test_watch_block_with_exception_after_watching_another_node
+    assert_unwatches_other_node_after(RuntimeError)
+  end
+
+  def test_watch_block_with_connection_error_after_watching_another_node
+    assert_unwatches_other_node_after(Redis::ConnectionError)
+  end
+
+  private
+
+  def assert_unwatches_other_node_after(error_class)
     redis = Redis::Distributed.new(["redis://127.0.0.1:#{PORT}/14", *NODES], _format_options(protocol: PROTOCOL))
     first = "{qux}foo"
     other_tag = (1..100).map { |i| "{tag#{i}}foo" }.find { |key| redis.node_for(key).id != redis.node_for(first).id }
     other_db = redis.node_for(other_tag)._client.db
 
-    assert_raises(RuntimeError) do
+    assert_raises(error_class) do
       redis.watch(first) do
         redis.multi do |transaction|
           transaction.set(first, 1)
         end
         redis.watch(other_tag)
-        raise "woops"
+        raise error_class, "woops"
       end
     end
 
