@@ -756,7 +756,8 @@ client and evangelized Redis in Rubyland. Thank you, Ezra.
 ## Contributing
 
 [Fork the project](https://github.com/redis/redis-rb) and send pull
-requests.
+requests. See [CONTRIBUTORS.md](CONTRIBUTORS.md) for development setup,
+how to run the test suite, and what a pull request needs before merge.
 
 
 [rdoc-master-image]: https://img.shields.io/badge/docs-rdoc.info-blue.svg
