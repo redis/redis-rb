@@ -1454,13 +1454,11 @@ class Redis
       node = node_for(key)
       begin
         result = node.multi(&block)
-      rescue BaseConnectionError
-        release_watch_key(key)
-        raise
       rescue StandardError
-        # If the block raised, no MULTI/EXEC was sent and the server still watches the keys.
+        # If the block raised, no MULTI/EXEC was sent and the server still watches the keys. The
+        # error may come from another connection, so the UNWATCH is always attempted.
         begin
-          node.unwatch
+          unwatch_after_error(key)
         ensure
           release_watch_key(key)
         end

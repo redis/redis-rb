@@ -167,6 +167,42 @@ class TestDistributedTransactions < Minitest::Test
     assert_equal "OK", r.set("{other}baz", 1)
   end
 
+  def test_watch_then_multi_with_connection_error_in_block
+    r.watch("{qux}foo")
+
+    # Raised by the block, e.g. from another Redis instance, while the watched node is healthy.
+    assert_raises(Redis::ConnectionError) do
+      r.multi do |transaction|
+        transaction.set("{qux}foo", 1)
+        raise Redis::ConnectionError, "woops"
+      end
+    end
+
+    Redis.new(OPTIONS).set("{qux}foo", 2)
+    result = r.watch("{qux}foo") do
+      r.multi do |transaction|
+        transaction.set("{qux}foo", 3)
+      end
+    end
+
+    assert_equal ["OK"], result
+  end
+
+  def test_watch_then_multi_keeps_block_error_when_unwatch_fails
+    r.watch("{qux}foo")
+    r.node_for("{qux}foo").stubs(:unwatch).raises(Redis::ConnectionError, "unwatch failed")
+
+    error = assert_raises(RuntimeError) do
+      r.multi do |transaction|
+        transaction.set("{qux}foo", 1)
+        raise "woops"
+      end
+    end
+
+    assert_equal "woops", error.message
+    assert_equal "OK", r.set("{other}baz", 1)
+  end
+
   def test_watch_block_with_exception_after_watching_another_node
     assert_unwatches_other_node_after(RuntimeError)
   end
