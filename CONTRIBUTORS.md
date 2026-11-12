@@ -35,11 +35,13 @@ BUNDLE_GEMFILE=cluster/Gemfile bundle install   # the cluster gem has its own bu
 Redis servers for the test suite run in Docker from the prebuilt `redislabs/client-libs-test` image. Topologies are selected by Compose profile:
 
 ```sh
-make start_all        # standalone + replica + 3 sentinels + 6-node cluster
-make test             # run the whole suite
-make stop_all         # tear everything down
-make all              # start, test, stop in one go
+make start_all                               # standalone + replica + 3 sentinels + 6-node cluster
+BUNDLE_GEMFILE=cluster/Gemfile make test     # run the whole suite, including the cluster group
+make stop_all                                # tear everything down
+BUNDLE_GEMFILE=cluster/Gemfile make all      # start, test, stop in one go
 ```
+
+The cluster bundle is needed for the full suite because the root `Gemfile` does not include `redis-cluster-client`; `make test` under the root bundle fails when it reaches `test:cluster`. The cluster bundle contains everything the other groups need, so it is safe to use for all of them.
 
 Or drive Compose directly when you only need one topology:
 
@@ -59,7 +61,7 @@ The Compose stack uses host networking so sentinel and cluster nodes advertise `
 
 ## Running tests
 
-`bundle exec rake test` runs five Minitest groups defined in the `Rakefile`:
+`BUNDLE_GEMFILE=cluster/Gemfile bundle exec rake test` runs five Minitest groups defined in the `Rakefile`. The first four also work under the root bundle:
 
 ```sh
 bundle exec rake test:redis         # lib/redis core
