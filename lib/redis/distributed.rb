@@ -1018,6 +1018,28 @@ class Redis
       end
     end
 
+    # Atomically move members from one sorted set to another, preserving their scores.
+    def zmove(source, destination, **options)
+      ensure_same_node(:zmove, [source, destination]) do |node|
+        node.zmove(source, destination, **options)
+      end
+    end
+
+    # Atomically move the lowest- or highest-scoring members from one sorted set to
+    # another, or block until a member is available or the timeout expires.
+    def bzmove(source, destination, **options)
+      ensure_same_node(:bzmove, [source, destination]) do |node|
+        node.bzmove(source, destination, **options)
+      end
+    end
+
+    # Atomically move the given members from one sorted set to another, preserving their scores.
+    def zmovemember(source, destination, members, **options)
+      ensure_same_node(:zmovemember, [source, destination]) do |node|
+        node.zmovemember(source, destination, members, **options)
+      end
+    end
+
     # Return a range of members in a sorted set, by index, score or lexicographical ordering.
     def zrange(key, start, stop, **options)
       node_for(key).zrange(key, start, stop, **options)

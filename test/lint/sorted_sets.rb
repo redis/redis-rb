@@ -536,6 +536,100 @@ module Lint
       end
     end
 
+    def test_zmove
+      target_version('8.11.242') do
+        assert_nil r.zmove('{1}foo', '{1}bar')
+
+        r.zadd('{1}foo', %w[-1 a 1 b 2 c 3 d 4 e])
+        # MIN (the default) moves one member, still as a nested pair
+        assert_equal [['a', -1.0]], r.zmove('{1}foo', '{1}bar')
+        # MAX with COUNT moves in descending score order
+        assert_equal [['e', 4.0], ['d', 3.0]], r.zmove('{1}foo', '{1}bar', modifier: 'MAX', count: 2)
+        assert_equal %w[b c], r.zrange('{1}foo', 0, -1)
+        # scores are preserved in the destination
+        assert_equal [['a', -1.0], ['d', 3.0], ['e', 4.0]], r.zrange('{1}bar', 0, -1, with_scores: true)
+
+        # same source and destination moves nothing
+        assert_nil r.zmove('{1}foo', '{1}foo')
+        assert_equal %w[b c], r.zrange('{1}foo', 0, -1)
+
+        # COUNT larger than the source moves what is there and deletes the emptied source
+        assert_equal [['b', 1.0], ['c', 2.0]], r.zmove('{1}foo', '{1}bar', count: 10)
+        assert_equal 0, r.exists('{1}foo')
+      end
+    end
+
+    def test_zmove_byscore
+      target_version('8.11.242') do
+        r.zadd('{1}foo', %w[1 a 2 b 3 c 4 d 5 e inf f])
+
+        # exclusive lower bound, ascending order, whole range without COUNT
+        assert_equal [['b', 2.0], ['c', 3.0]], r.zmove('{1}foo', '{1}bar', byscore: ['(1', 3])
+        # COUNT takes the lowest members of the range
+        assert_equal [['a', 1.0]], r.zmove('{1}foo', '{1}bar', byscore: ['-inf', '+inf'], count: 1)
+        assert_equal [['d', 4.0], ['e', 5.0], ['f', Float::INFINITY]],
+                     r.zmove('{1}foo', '{1}bar', byscore: [4, '+inf'])
+        assert_equal 0, r.exists('{1}foo')
+
+        # empty range moves nothing
+        r.zadd('{1}foo', 1, 'a')
+        assert_nil r.zmove('{1}foo', '{1}bar', byscore: [5, 10])
+        assert_equal ['a'], r.zrange('{1}foo', 0, -1)
+      end
+    end
+
+    def test_zmove_argument_errors
+      target_version('8.11.242') do
+        assert_raises(ArgumentError) { r.zmove('{1}foo', '{1}bar', modifier: 'MID') }
+        assert_raises(ArgumentError) { r.zmove('{1}foo', '{1}bar', modifier: 'MIN', byscore: [1, 2]) }
+
+        r.zadd('{1}foo', 1, 'a')
+        assert_raises(Redis::CommandError) { r.zmove('{1}foo', '{1}bar', count: 0) }
+        assert_raises(Redis::CommandError) { r.zmove('{1}foo', '{1}bar', byscore: ['nan', 2]) }
+
+        r.set('{1}str', 'x')
+        assert_raises(Redis::CommandError) { r.zmove('{1}foo', '{1}str') }
+        assert_equal ['a'], r.zrange('{1}foo', 0, -1)
+      end
+    end
+
+    def test_zmovemember
+      target_version('8.11.242') do
+        r.zadd('{1}foo', %w[-1 a 1 b 2 c 3 d])
+
+        assert_equal [['b', 1.0]], r.zmovemember('{1}foo', '{1}bar', 'b')
+        # given order is kept, missing members are skipped, duplicates move once
+        assert_equal [['d', 3.0], ['a', -1.0]], r.zmovemember('{1}foo', '{1}bar', %w[missing d a d missing])
+        assert_equal [['a', -1.0], ['b', 1.0], ['d', 3.0]], r.zrange('{1}bar', 0, -1, with_scores: true)
+        assert_equal ['c'], r.zrange('{1}foo', 0, -1)
+
+        assert_nil r.zmovemember('{1}foo', '{1}bar', 'missing')
+        assert_nil r.zmovemember('{1}foo', '{1}foo', 'c')
+        assert_equal ['c'], r.zrange('{1}foo', 0, -1)
+
+        # moving the last member deletes the source
+        assert_equal [['c', 2.0]], r.zmovemember('{1}foo', '{1}bar', ['c'])
+        assert_equal 0, r.exists('{1}foo')
+      end
+    end
+
+    def test_zmovemember_nx_xx
+      target_version('8.11.242') do
+        r.zadd('{1}foo', %w[1 a 2 b 3 c])
+        r.zadd('{1}bar', %w[9 b])
+
+        # NX skips members the destination already has
+        assert_equal [['a', 1.0]], r.zmovemember('{1}foo', '{1}bar', %w[a b], nx: true)
+        # XX moves only members the destination has, overwriting the destination score
+        assert_equal [['b', 2.0]], r.zmovemember('{1}foo', '{1}bar', %w[b c], xx: true)
+        assert_equal ['c'], r.zrange('{1}foo', 0, -1)
+        assert_equal [['a', 1.0], ['b', 2.0]], r.zrange('{1}bar', 0, -1, with_scores: true)
+
+        assert_nil r.zmovemember('{1}foo', '{1}bar', 'c', xx: true)
+        assert_raises(ArgumentError) { r.zmovemember('{1}foo', '{1}bar', 'c', nx: true, xx: true) }
+      end
+    end
+
     def test_zremrangebylex
       r.zadd('foo', %w[0 a 0 b 0 c 0 d 0 e 0 f 0 g])
       assert_equal 5, r.zremrangebylex('foo', '(b', '[g')
