@@ -233,6 +233,107 @@ class Redis
         end
       end
 
+      # Atomically move members from one sorted set to another, preserving their scores.
+      #
+      # @example Move the lowest-scoring member
+      #   redis.zmove('src', 'dst')
+      #   #=> [['a', 1.0]]
+      # @example Move the two highest-scoring members
+      #   redis.zmove('src', 'dst', modifier: 'MAX', count: 2)
+      #   #=> [['d', 4.0], ['c', 3.0]]
+      # @example Move every member with a score in (1, 3]
+      #   redis.zmove('src', 'dst', byscore: ['(1', 3])
+      #   #=> [['b', 2.0], ['c', 3.0]]
+      #
+      # @param [String] source source key
+      # @param [String] destination destination key
+      # @param [String] modifier which members to move, `"MIN"` (default) or `"MAX"`;
+      #     not allowed together with `byscore`
+      # @param [Array<String, Numeric>] byscore `[min, max]` score range to move, lowest score first;
+      #     bounds are inclusive unless prefixed with `(`, and `-inf`/`+inf` are accepted
+      # @param [Integer] count move at most `count` members; without it `MIN`/`MAX` move one
+      #     member and `byscore` moves the whole range
+      #
+      # @return [nil, Array<Array<String, Float>>] the moved `[member, score]` pairs, or nil
+      #     when nothing was moved (missing source, empty range, same source and destination)
+      def zmove(source, destination, modifier: nil, byscore: nil, count: nil)
+        raise ArgumentError, "Pick either modifier or byscore" if modifier && byscore
+
+        args = [:zmove, source, destination]
+        if byscore
+          min, max = byscore
+          args << "BYSCORE" << min << max
+        else
+          modifier ||= "MIN"
+          raise ArgumentError, "Pick either MIN or MAX" unless modifier == "MIN" || modifier == "MAX"
+
+          args << modifier
+        end
+        args << "COUNT" << Integer(count) if count
+
+        send_command(args, &FloatifyPairs)
+      end
+
+      # Atomically move the lowest- or highest-scoring members from one sorted set to
+      # another, preserving their scores; or block until a member is available or the
+      # timeout expires.
+      #
+      # @example With timeout
+      #   redis.bzmove('src', 'dst', timeout: 1)
+      #   #=> [['a', 1.0]], or nil on timeout
+      # @example Move up to 3 of the highest-scoring members as soon as any is available
+      #   redis.bzmove('src', 'dst', modifier: 'MAX', count: 3)
+      #
+      # @param [String] source source key
+      # @param [String] destination destination key
+      # @param [Float, Integer] timeout seconds to block, 0 blocks indefinitely
+      # @param [String] modifier which members to move, `"MIN"` (default) or `"MAX"`
+      # @param [Integer] count move at most `count` members once at least one is available
+      #
+      # @return [nil, Array<Array<String, Float>>] the moved `[member, score]` pairs, or nil
+      #     when the timeout expired and nothing was moved
+      #
+      # @see #zmove
+      def bzmove(source, destination, timeout: 0, modifier: "MIN", count: nil)
+        raise ArgumentError, "Pick either MIN or MAX" unless modifier == "MIN" || modifier == "MAX"
+
+        args = [:bzmove, source, destination, modifier, timeout]
+        args << "COUNT" << Integer(count) if count
+
+        send_blocking_command(args, timeout, &FloatifyPairs)
+      end
+
+      # Atomically move the given members from one sorted set to another, preserving
+      # their scores.
+      #
+      # @example Move two members
+      #   redis.zmovemember('src', 'dst', %w[a b])
+      #   #=> [['a', 1.0], ['b', 2.0]]
+      # @example Move a member only when the destination does not have it yet
+      #   redis.zmovemember('src', 'dst', 'a', nx: true)
+      #
+      # @param [String] source source key
+      # @param [String] destination destination key
+      # @param [String, Array<String>] members one or more members, processed in the given order;
+      #     members missing from the source are skipped, duplicates are moved once
+      # @param [Boolean] nx only move members the destination does not have
+      # @param [Boolean] xx only move members the destination already has (their score is overwritten)
+      #
+      # @return [nil, Array<Array<String, Float>>] the moved `[member, score]` pairs in the given
+      #     order, or nil when nothing was moved
+      def zmovemember(source, destination, members, nx: nil, xx: nil)
+        raise ArgumentError, "Pick either NX or XX" if nx && xx
+
+        members = Array(members)
+        args = [:zmovemember, source, destination]
+        args << "NX" if nx
+        args << "XX" if xx
+        args << "MEMBERS" << members.size
+        args.concat(members)
+
+        send_command(args, &FloatifyPairs)
+      end
+
       # Removes and returns up to count members with the highest scores in the sorted set stored at keys,
       #   or block until one is available.
       #

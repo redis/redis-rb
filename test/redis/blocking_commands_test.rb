@@ -35,6 +35,28 @@ class TestBlockingCommands < Minitest::Test
     end
   end
 
+  def test_bzmove_disable_client_timeout
+    target_version "8.11.242" do
+      assert_takes_longer_than_client_timeout do |r|
+        assert_equal [['0', 0.0]], r.bzmove('foo', 'bar')
+      end
+    end
+  end
+
+  def test_bzmove_unblocks_when_a_member_arrives
+    target_version "8.11.242" do
+      writer = Thread.new do
+        sleep 0.1
+        Redis.new(OPTIONS).zadd('foo', 1, 'a')
+      end
+
+      assert_equal [['a', 1.0]], r.bzmove('foo', 'bar', timeout: 2)
+      assert_equal [['a', 1.0]], r.zrange('bar', 0, -1, with_scores: true)
+    ensure
+      writer&.join
+    end
+  end
+
   def test_blmovem_unblocks_when_enough_elements_arrive
     target_version "8.9" do
       writer = Thread.new do

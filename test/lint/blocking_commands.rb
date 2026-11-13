@@ -52,6 +52,10 @@ module Lint
           sleep options[:delay] if options.key?(:delay)
           to_protocol(args.last)
         end,
+        bzmove: lambda do |*args|
+          sleep options[:delay] if options.key?(:delay)
+          to_protocol([[args[3], '0']])
+        end,
         bzpopmax: lambda do |*args|
           sleep options[:delay] if options.key?(:delay)
           to_protocol([args.first, args.last])
@@ -130,6 +134,34 @@ module Lint
         assert_raises(ArgumentError) do
           r.blmovem('{zap}foo', '{zap}bar', 'LEFT', 'RIGHT', order: 'BULK')
         end
+      end
+    end
+
+    def test_bzmove
+      target_version "8.11.242" do
+        # setup: {szap}foo = [a 0, b 1, c 2], {szap}bar = [c 0, d 1, e 2]
+        assert_equal [['a', 0.0]], r.bzmove('{szap}foo', '{szap}bar')
+        assert_equal [['c', 2.0], ['b', 1.0]], r.bzmove('{szap}foo', '{szap}bar', modifier: 'MAX', count: 5)
+        assert_equal 0, r.exists('{szap}foo')
+        assert_equal [['a', 0.0], ['b', 1.0], ['d', 1.0], ['c', 2.0], ['e', 2.0]],
+                     r.zrange('{szap}bar', 0, -1, with_scores: true)
+      end
+    end
+
+    def test_bzmove_timeout
+      target_version "8.11.242" do
+        mock do |r|
+          assert_equal [['0', 0.0]], r.bzmove('{szap}foo', '{szap}bar')
+          assert_equal [[LOW_TIMEOUT.to_s, 0.0]], r.bzmove('{szap}foo', '{szap}bar', timeout: LOW_TIMEOUT)
+        end
+      end
+    end
+
+    def test_bzmove_blocks_until_timeout
+      target_version "8.11.242" do
+        assert_nil r.bzmove('{szap}empty', '{szap}bar', timeout: LOW_TIMEOUT)
+        assert_equal %w[c d e], r.zrange('{szap}bar', 0, -1)
+        assert_raises(ArgumentError) { r.bzmove('{szap}foo', '{szap}bar', modifier: 'MID') }
       end
     end
 
