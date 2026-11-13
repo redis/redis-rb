@@ -1465,12 +1465,16 @@ class Redis
     # Watch the given keys to determine execution of the MULTI/EXEC block.
     def watch(*keys, &block)
       ensure_same_node(:watch, keys) do |node|
-        @watch_key = key_tag(keys.first) || keys.first.to_s
+        watch_key = @watch_key = key_tag(keys.first) || keys.first.to_s
+        @released_watch_key = nil
 
         begin
           node.watch(*keys, &block)
         rescue StandardError
-          @watch_key = nil
+          # The block can end the first watch with #multi and then watch a key on another node.
+          replacement = @watch_key if @watch_key && @watch_key != watch_key
+          @watch_key = @released_watch_key = nil
+          unwatch_after_error(replacement) if replacement
           raise
         end
       end
@@ -1478,10 +1482,11 @@ class Redis
 
     # Forget about all watched keys.
     def unwatch
-      raise CannotDistribute, :unwatch unless @watch_key
+      key = transaction_key
+      raise CannotDistribute, :unwatch unless key
 
-      result = node_for(@watch_key).unwatch
-      @watch_key = nil
+      result = node_for(key).unwatch
+      @watch_key = @released_watch_key = nil
       result
     end
 
@@ -1491,26 +1496,49 @@ class Redis
 
     # Mark the start of a transaction block.
     def multi(&block)
-      raise CannotDistribute, :multi unless @watch_key
+      key = transaction_key
+      raise CannotDistribute, :multi unless key
 
-      node_for(@watch_key).multi(&block)
+      node = node_for(key)
+      begin
+        result = node.multi(&block)
+      rescue StandardError
+        # If the block raised, no MULTI/EXEC was sent and the server still watches the keys. The
+        # error may come from another connection, so the UNWATCH is always attempted.
+        begin
+          unwatch_after_error(key)
+        ensure
+          release_watch_key(key)
+        end
+        raise
+      end
+
+      begin
+        # A block that queues no command sends no MULTI/EXEC, so the server still watches the keys.
+        node.unwatch if result == []
+      ensure
+        release_watch_key(key)
+      end
+      result
     end
 
     # Execute all commands issued after MULTI.
     def exec
-      raise CannotDistribute, :exec unless @watch_key
+      key = transaction_key
+      raise CannotDistribute, :exec unless key
 
-      result = node_for(@watch_key).exec
-      @watch_key = nil
+      result = node_for(key).exec
+      @watch_key = @released_watch_key = nil
       result
     end
 
     # Discard all commands issued after MULTI.
     def discard
-      raise CannotDistribute, :discard unless @watch_key
+      key = transaction_key
+      raise CannotDistribute, :discard unless key
 
-      result = node_for(@watch_key).discard
-      @watch_key = nil
+      result = node_for(key).discard
+      @watch_key = @released_watch_key = nil
       result
     end
 
@@ -1815,6 +1843,26 @@ class Redis
     def key_tag(key)
       key = key.to_s
       key[@tag, 1] if key.match?(@tag)
+    end
+
+    # The key #multi, #exec, #discard and #unwatch run against. After #multi the watched key no
+    # longer pins other commands to its node, but these methods still target that node so that
+    # an explicit #unwatch or a second #multi keeps working as before.
+    def transaction_key
+      @watch_key || @released_watch_key
+    end
+
+    def release_watch_key(key)
+      @released_watch_key = key
+      @watch_key = nil
+    end
+
+    # Cleanup while another error propagates. The error may come from a different node, so the
+    # UNWATCH is always attempted, and a connection error from it does not hide the original.
+    def unwatch_after_error(key)
+      node_for(key).unwatch
+    rescue BaseConnectionError
+      nil
     end
 
     # Keys SORT/SORT_RO touch, for same-node routing. A BY/GET pattern without `*` never reads
