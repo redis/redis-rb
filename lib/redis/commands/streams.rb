@@ -507,7 +507,9 @@ class Redis
       #
       # A claim rewrites the entries' Pending Entries List (PEL) attributes instead of filtering on them:
       # the idle time is reset to 0 and the delivery counter is incremented. Only `min_idle_time` filters.
-      # Because the idle time is reset, two consumers racing for the same entry never both succeed.
+      # That reset is what makes a positive `min_idle_time` behave like a lock: a claimed entry is idle
+      # for 0ms, so a rival claiming with the same positive threshold gets nothing back. It is not a lock
+      # when `min_idle_time` is 0, because then the check is skipped and every caller succeeds.
       #
       # Entries that are not pending in the group are skipped silently, and so are entries that were
       # deleted from the stream (those are also dropped from the PEL on Redis 7.0+). The reply can
@@ -555,9 +557,9 @@ class Redis
       # @option opts [Boolean] :force      also claim ids that are not in the group PEL yet, creating their
       #   pending entries from scratch. The id must still exist in the stream, and `min_idle_time` is
       #   ignored for entries created this way
-      # @option opts [Boolean] :justid     return only the claimed ids and leave the delivery counter
-      #   untouched. The entries are still claimed, and their idle time is still reset unless `:idle` or
-      #   `:time` says otherwise
+      # @option opts [Boolean] :justid     return only the claimed ids and skip the delivery counter's
+      #   automatic increment. An explicit `:retrycount` still overwrites the counter, and the entries are
+      #   still claimed - their idle time is still reset unless `:idle` or `:time` says otherwise
       #
       # @return [Hash{String => Hash}] the entries successfully claimed, keyed by entry id
       # @return [Array<String>]        the entry ids successfully claimed if justid option is `true`
