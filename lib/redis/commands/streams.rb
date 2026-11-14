@@ -503,38 +503,66 @@ class Redis
         send_command(args)
       end
 
-      # Changes the ownership of a pending entry
+      # Changes the ownership of pending stream entries, as if they had just been delivered to `consumer`.
+      #
+      # A claim rewrites the entries' Pending Entries List (PEL) attributes instead of filtering on them:
+      # the idle time is reset to 0 and the delivery counter is incremented. Only `min_idle_time` filters.
+      # Because the idle time is reset, two consumers racing for the same entry never both succeed.
+      #
+      # Entries that are not pending in the group are skipped silently, and so are entries that were
+      # deleted from the stream (those are also dropped from the PEL on Redis 7.0+). The reply can
+      # therefore be shorter than `ids`, or empty.
       #
       # @example With splatted entry ids
       #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-1', '0-2')
       # @example With arrayed entry ids
       #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2])
-      # @example With idle option
-      #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2], idle: 1000)
-      # @example With time option
+      # @example Claim every pending entry, however recently it was delivered
+      #   redis.xclaim('mystream', 'mygroup', 'consumer1', 0, %w[0-1 0-2])
+      # @example Keep an hour of idle time on the claimed entries instead of resetting it
+      #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2], idle: 3600000)
+      # @example Record an absolute Unix time as the last delivery
       #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2], time: 1542866959000)
-      # @example With retrycount option
+      # @example Pin the delivery counter instead of incrementing it
       #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2], retrycount: 10)
-      # @example With force option
+      # @example Claim entries that no consumer has read yet
       #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2], force: true)
-      # @example With justid option
+      # @example Get the claimed ids back without incrementing the delivery counter
       #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, %w[0-1 0-2], justid: true)
       #
       # @param key           [String]        the stream key
       # @param group         [String]        the consumer group name
-      # @param consumer      [String]        the consumer name
-      # @param min_idle_time [Integer]       the number of milliseconds
+      # @param consumer      [String]        the consumer that takes ownership
+      # @param min_idle_time [Integer]       the only filter: claim an entry only if it has been idle for
+      #   at least this many milliseconds. `0` disables the check and claims every entry in `ids` that is
+      #   still pending; a negative value is treated as `0`
       # @param ids           [Array<String>] one or multiple entry ids
-      # @param opts          [Hash]          several options for `XCLAIM` command
+      # @param opts          [Hash]          several options for the `XCLAIM` command. Apart from `:justid`
+      #   they overwrite the claimed entries' PEL attributes rather than select which entries are claimed,
+      #   and exist mainly so the AOF file and replicas can replay a claim exactly; application code
+      #   usually needs nothing beyond `min_idle_time` and `:justid`
       #
-      # @option opts [Integer] :idle       the number of milliseconds as last time it was delivered of the entry
-      # @option opts [Integer] :time       the number of milliseconds as a specific Unix Epoch time
-      # @option opts [Integer] :retrycount the number of retry counter
-      # @option opts [Boolean] :force      whether to create the pending entry to the pending entries list or not
-      # @option opts [Boolean] :justid     whether to fetch just an array of entry ids or not
+      # @option opts [Integer] :idle       the idle time in milliseconds to record on the claimed entries,
+      #   that is the write side of `min_idle_time` rather than a second filter: `min_idle_time` decides
+      #   which entries are claimed, `:idle` decides what their idle time is afterwards. Omitting it
+      #   records 0, as does an out-of-range value (one that would place the last delivery before the
+      #   Unix epoch or in the future)
+      # @option opts [Integer] :time       same as `:idle`, including the out-of-range handling, but as an
+      #   absolute Unix time in milliseconds. Given both, `:time` wins because the client always sends
+      #   `IDLE` before `TIME`
+      # @option opts [Integer] :retrycount the delivery counter to record on the claimed entries, instead of
+      #   incrementing it. `0` resets the counter
+      # @option opts [Boolean] :force      also claim ids that are not in the group PEL yet, creating their
+      #   pending entries from scratch. The id must still exist in the stream, and `min_idle_time` is
+      #   ignored for entries created this way
+      # @option opts [Boolean] :justid     return only the claimed ids and leave the delivery counter
+      #   untouched. The entries are still claimed, and their idle time is still reset unless `:idle` or
+      #   `:time` says otherwise
       #
-      # @return [Hash{String => Hash}] the entries successfully claimed
+      # @return [Hash{String => Hash}] the entries successfully claimed, keyed by entry id
       # @return [Array<String>]        the entry ids successfully claimed if justid option is `true`
+      #
+      # See the [Redis Server XCLAIM documentation](https://redis.io/docs/latest/commands/xclaim/) for details.
       def xclaim(key, group, consumer, min_idle_time, *ids, **opts)
         args = [:xclaim, key, group, consumer, min_idle_time].concat(ids.flatten)
         args.concat(['IDLE',       opts[:idle].to_i])  if opts[:idle]
@@ -551,9 +579,9 @@ class Redis
       # @example Claim next pending message stuck > 5 minutes  and mark as retry
       #   redis.xautoclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0')
       # @example Claim 50 next pending messages stuck > 5 minutes  and mark as retry
-      #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0', count: 50)
+      #   redis.xautoclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0', count: 50)
       # @example Claim next pending message stuck > 5 minutes and don't mark as retry
-      #   redis.xclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0', justid: true)
+      #   redis.xautoclaim('mystream', 'mygroup', 'consumer1', 3600000, '0-0', justid: true)
       # @example Claim next pending message after this id stuck > 5 minutes  and mark as retry
       #   redis.xautoclaim('mystream', 'mygroup', 'consumer1', 3600000, '1641321233-0')
       #
@@ -562,7 +590,7 @@ class Redis
       # @param consumer      [String]        the consumer name
       # @param min_idle_time [Integer]       the number of milliseconds
       # @param start         [String]        entry id to start scanning from or 0-0 for everything
-      # @param count         [Integer]       number of messages to claim (default 1)
+      # @param count         [Integer]       number of messages to claim (default 100)
       # @param justid        [Boolean]       whether to fetch just an array of entry ids or not.
       #                                      Does not increment retry count when true
       #
