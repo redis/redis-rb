@@ -211,9 +211,13 @@ class TestDistributedTransactions < Minitest::Test
     assert_unwatches_other_node_after(Redis::ConnectionError)
   end
 
+  def test_watch_block_with_connection_error_in_nested_watch_block
+    assert_unwatches_other_node_after(Redis::ConnectionError, nested: true)
+  end
+
   private
 
-  def assert_unwatches_other_node_after(error_class)
+  def assert_unwatches_other_node_after(error_class, nested: false)
     redis = Redis::Distributed.new(["redis://127.0.0.1:#{PORT}/14", *NODES], _format_options(protocol: PROTOCOL))
     first = "{qux}foo"
     other_tag = (1..100).map { |i| "{tag#{i}}foo" }.find { |key| redis.node_for(key).id != redis.node_for(first).id }
@@ -224,8 +228,12 @@ class TestDistributedTransactions < Minitest::Test
         redis.multi do |transaction|
           transaction.set(first, 1)
         end
-        redis.watch(other_tag)
-        raise error_class, "woops"
+        if nested
+          redis.watch(other_tag) { raise error_class, "woops" }
+        else
+          redis.watch(other_tag)
+          raise error_class, "woops"
+        end
       end
     end
 

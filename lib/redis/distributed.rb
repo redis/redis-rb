@@ -1422,11 +1422,12 @@ class Redis
 
         begin
           node.watch(*keys, &block)
-        rescue StandardError
+        rescue StandardError => error
           # The block can end the first watch with #multi and then watch a key on another node.
-          replacement = @watch_key if @watch_key && @watch_key != watch_key
+          # Redis#watch skips UNWATCH on a connection error, which may come from another client.
+          current = @watch_key
           @watch_key = @released_watch_key = nil
-          unwatch_after_error(replacement) if replacement
+          unwatch_after_error(current) if current && (current != watch_key || error.is_a?(ConnectionError))
           raise
         end
       end
