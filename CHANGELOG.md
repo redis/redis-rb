@@ -17,6 +17,10 @@
 
 - Make `hset` return `0` without calling the server when given an empty hash, instead of raising
   `ERR wrong number of arguments for 'hset' command`. (#1290)
+- Make `Redis::Distributed#multi` release the watched key once the transaction runs or raises, so
+  that commands on keys stored on other nodes no longer raise `CannotDistribute` after a `watch`
+  and `multi` sequence. An explicit `#unwatch` or another `#multi` after the transaction still
+  works as before.
 
 # 6.0.0
 
