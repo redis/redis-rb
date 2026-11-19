@@ -56,10 +56,17 @@ if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then
 fi
 
 echo "=== PR labels (pattern: /$label_re/i) ==="
-breaking=""
+breaking=""; failed=""
 for n in $prs; do
-  labels="$(gh pr view "$n" --json labels --jq '[.labels[].name] | join(", ")' 2>/dev/null)" || { echo "#$n: (not a PR or not readable)"; continue; }
+  labels="$(gh pr view "$n" --json labels --jq '[.labels[].name] | join(", ")' 2>/dev/null)" || { echo "#$n: lookup FAILED"; failed="$failed $n"; continue; }
   echo "#$n: ${labels:-no labels}"
   printf '%s' "$labels" | grep -Eiq "$label_re" && breaking="$breaking $n"
 done
 echo "BREAKING_PRS:${breaking:- none}"
+# A lookup that fails (rate limit, outage, number that is not a PR) leaves that PR unchecked, so
+# the result is only trustworthy when every lookup succeeded.
+if [ -n "$failed" ]; then
+  echo "BREAKING_SCAN: incomplete — labels could not be read for:$failed (audit these by hand)"
+else
+  echo "BREAKING_SCAN: complete"
+fi

@@ -30,9 +30,21 @@ exec ruby -rjson -e '
        args.none? { |a| a =~ /\A(-a|-s|-u|-m|-F|-d|-f|--annotate|--sign|--local-user.*|--message.*|--file.*|--delete|--force|--edit)\z/ })
   }
 
+  # Attached option values ("--method=POST", "-XPOST", "-fdraft=false", "--input=f") are
+  # split into separate words so the checks below see the same shape as the spaced forms.
+  normalize = ->(words) {
+    words.flat_map { |w|
+      case w
+      when /\A(--[a-z][a-z-]*)=(.*)\z/m then [$1, $2]
+      when /\A(-[XfFHq])(.+)\z/m        then [$1, $2]
+      else [w]
+      end
+    }
+  }
+
   reason = nil
   parts.each do |p|
-    words = p.split(/\s+/)
+    words = normalize.(p.split(/\s+/))
     next if words.empty?
     case words
     in ["git", *git_args] if git_args.first == "tag"
@@ -40,7 +52,7 @@ exec ruby -rjson -e '
       reason ||= "creating or deleting tags is refused: `#{p}`. Tags are created by GitHub when a maintainer publishes the draft release." unless listing_only.(args)
     in ["git", *git_args] if git_args.first == "push"
       args = git_args.drop(1)
-      if args.any? { |a| a =~ /\A(--tags|--follow-tags|--mirror)\z/ || a.include?("refs/tags/") || a =~ /\A\+?v?\d+\.\d+\.\d+(:.*)?\z/ }
+      if args.any? { |a| a =~ /\A(--tags|--follow-tags|--mirror|tag)\z/ || a.include?("refs/tags/") || a =~ /\A\+?v?\d+\.\d+\.\d+(:.*)?\z/ }
         reason ||= "pushing tags is refused: `#{p}`."
       end
     in ["git", "update-ref", *ur] if ur.any? { |a| a.start_with?("refs/tags/") }
@@ -50,12 +62,15 @@ exec ruby -rjson -e '
     in ["rake", /\Arelease(:|\z)/, *]
       reason ||= "`rake release` tags, pushes and publishes; refused. Use the prepare-release skill flow instead."
     in ["gh", "release", "create", *rest]
-      reason ||= "`gh release create` without --draft would publish a release and create its tag; add --draft." unless rest.include?("--draft")
+      # "--draft=false" normalizes to ["--draft", "false"]; only a bare flag or an explicit true counts.
+      draft = rest.each_with_index.any? { |a, i| (a == "--draft" || a == "-d") && rest[i + 1] != "false" }
+      reason ||= "`gh release create` without --draft would publish a release and create its tag; add --draft." unless draft
     in ["gh", "release", ("edit" | "delete" | "delete-asset"), *]
       reason ||= "`gh release #{words[2]}` is refused; publishing or removing a release is a maintainer action in the GitHub UI."
     in ["gh", "api", *api]
       path = api.find { |a| a =~ %r{repos/[^/]+/[^/]+/releases} }
-      writing = api.any? { |a| a =~ /\A(-X|--method)\z/ } && api.any? { |a| a =~ /\A(POST|PATCH|PUT|DELETE)\z/ } || api.any? { |a| a =~ /\A(-f|-F|--field|--raw-field|--input)\z/ }
+      method_write = api.each_with_index.any? { |a, i| a =~ /\A(-X|--method)\z/ && api[i + 1].to_s =~ /\A(POST|PATCH|PUT|DELETE)\z/i }
+      writing = method_write || api.any? { |a| a =~ /\A(-f|-F|--field|--raw-field|--input)\z/ }
       reason ||= "writing to the releases API is refused: `#{p}`." if path && writing
     else
       nil

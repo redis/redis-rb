@@ -74,11 +74,15 @@ Branch name is `BRANCH` (`6.1` for 6.1.0 / 6.1.3; `7.0` for 7.0.0).
   `git merge --no-edit origin/master`. Resolve nothing automatically: on conflicts run
   `git merge --abort`, report the conflicting files and STOP.
 - **patch**: the `x.y` branch must already exist; `BRANCH_REMOTE: missing` → STOP and ask which
-  branch the patch should come from. If `MASTER_AHEAD_OF_BRANCH` is non-zero, list those commits
+  branch the patch should come from. Otherwise switch to it first, exactly as the minor path
+  does: `git switch <BRANCH>` (or `git switch -c <BRANCH> origin/<BRANCH>` when
+  `BRANCH_LOCAL: missing`), then `git merge --ff-only origin/<BRANCH>` so the local branch is at
+  the remote head. Only then, if `MASTER_AHEAD_OF_BRANCH` is non-zero, list those commits
   (`git log --oneline origin/<BRANCH>..origin/master`) and use **AskUserQuestion**: merge all of
   master into the branch (the documented default), cherry-pick selected commits, or leave the
   branch as is. Do what they choose; never decide this yourself, since a patch branch may
-  intentionally exclude the next minor's work.
+  intentionally exclude the next minor's work. Every later step runs on `<BRANCH>`; confirm with
+  `git rev-parse --abbrev-ref HEAD` before Step 3.
 
 In dry-run mode do the same with local branches only.
 
@@ -93,9 +97,11 @@ pass a third argument if the repository uses another label.
   continue as planned and document them under `## Breaking changes`, or stop. STOP on anything
   but "continue".
 - `KIND: major` → breaking PRs are expected; make sure each gets a `## Breaking changes` entry.
-- `BREAKING_SCAN: unavailable` → read the commit list yourself for signs of breaking changes
-  (removed/renamed public methods, changed return shapes, raised minimum Ruby/Redis) and say
-  explicitly that the label scan could not run.
+- `BREAKING_SCAN: unavailable` or `incomplete` → `BREAKING_PRS: none` is not a result then. Read
+  the commit list (all of it when unavailable, the listed PRs when incomplete) for signs of
+  breaking changes (removed/renamed public methods, changed return shapes, raised minimum
+  Ruby/Redis) and say explicitly which PRs the label scan could not check. Only
+  `BREAKING_SCAN: complete` with `BREAKING_PRS: none` means the audit passed on labels alone.
 
 Keep the script output: Step 3 uses the same commit list.
 
@@ -157,11 +163,15 @@ ship behaviour changes in patch releases.
    do not block the release). If `Advisories affecting …` lists anything unpatched by any
    version, tell the user plainly; the release decision is theirs.
 4. To adopt: edit the pin in the gemspec(s) (and the explanatory comment above it if it names
-   versions), then `bundle lock --update redis-client hiredis-client` and
+   versions), then `bundle lock --update redis-client hiredis-client && bundle install` and
    `BUNDLE_GEMFILE=cluster/Gemfile bundle lock --update redis-client hiredis-client
-   redis-cluster-client`. Re-audit the coupling points named in AGENTS.md for every bump. Add a
-   `## Maintenance` bullet (`Pin redis-client to 0.32.0.`) to CHANGELOG.md, and to
-   cluster/CHANGELOG.md for redis-cluster-client. Re-run `validate_metadata.sh`.
+   redis-cluster-client && BUNDLE_GEMFILE=cluster/Gemfile bundle install` (the lock alone does
+   not install the gem, and the suite then fails with `Bundler::GemNotFound`). Re-audit the
+   coupling points named in AGENTS.md for every bump. Add a `## Maintenance` bullet
+   (`Pin redis-client to 0.32.0.`) to CHANGELOG.md, and to cluster/CHANGELOG.md for
+   redis-cluster-client. Re-run `validate_metadata.sh`. A test that asserted the old driver's
+   behaviour (a rejected subcommand, a `CROSSSLOT` error) and now fails is part of the bump:
+   update it to the new behaviour and say so in the PR; any other failure means revert.
 5. Run the suite locally when Docker is available: `make start_all`, then
    `bundle exec rake test:redis test:distributed test:sentinel` and
    `BUNDLE_GEMFILE=cluster/Gemfile bundle exec rake test:cluster`, then `make stop_all`. Report
