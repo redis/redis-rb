@@ -15,7 +15,7 @@
 # Reads the hook JSON on stdin and prints a permission decision on stdout. Exit 0 always; a
 # refusal is expressed in the JSON (hookSpecificOutput.permissionDecision = "deny").
 
-exec ruby -rjson -e '
+exec ruby -rjson -rshellwords -e '
   input = JSON.parse(STDIN.read) rescue {}
   cmd = input.dig("tool_input", "command").to_s
 
@@ -42,9 +42,19 @@ exec ruby -rjson -e '
     }
   }
 
+  # Tokenize like the shell does, so `--method "DELETE"` and `--method=DELETE` look the same as
+  # the bare word; unbalanced quotes fall back to a whitespace split rather than allowing the call.
+  shell_words = ->(str) {
+    begin
+      Shellwords.split(str)
+    rescue ArgumentError
+      str.split(/\s+/)
+    end
+  }
+
   reason = nil
   parts.each do |p|
-    words = normalize.(p.split(/\s+/))
+    words = normalize.(shell_words.(p))
     next if words.empty?
     case words
     in ["git", *git_args] if git_args.first == "tag"
