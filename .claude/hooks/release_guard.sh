@@ -36,6 +36,7 @@ exec ruby -rjson -rshellwords -e '
     words.flat_map { |w|
       case w
       when /\A(--[a-z][a-z-]*)=(.*)\z/m then [$1, $2]
+      when /\A(-[a-zA-Z])=(.*)\z/m       then [$1, $2]
       when /\A(-[XfFHq])(.+)\z/m        then [$1, $2]
       else [w]
       end
@@ -74,8 +75,10 @@ exec ruby -rjson -rshellwords -e '
     in ["gh", "release", ("create" | "new"), *rest]
       # "new" is the documented gh alias for "create". (No apostrophes here: this is inside a
       # single-quoted shell string.)
-      # "--draft=false" normalizes to ["--draft", "false"]; only a bare flag or an explicit true counts.
-      draft = rest.each_with_index.any? { |a, i| (a == "--draft" || a == "-d") && rest[i + 1] != "false" }
+      # "--draft=<v>" normalizes to ["--draft", "<v>"]. gh parses the value with Go ParseBool, so
+      # every false spelling it accepts must count as "not a draft"; a bare flag or a true value counts.
+      false_values = %w[0 f F FALSE false False]
+      draft = rest.each_with_index.any? { |a, i| (a == "--draft" || a == "-d") && !false_values.include?(rest[i + 1].to_s) }
       reason ||= "`gh release create` without --draft would publish a release and create its tag; add --draft." unless draft
     in ["gh", "release", ("edit" | "delete" | "delete-asset"), *]
       reason ||= "`gh release #{words[2]}` is refused; publishing or removing a release is a maintainer action in the GitHub UI."

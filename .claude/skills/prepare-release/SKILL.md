@@ -206,14 +206,16 @@ Live:
 
 Preflight reports `STAGE: pr_merged`.
 
-1. `git fetch origin`. Preflight prints `PR_MERGE_COMMIT`, the commit the PR produced on
-   `master` whichever merge strategy was used (merge commit, squash or rebase). Verify that
-   commit carries the reviewed release content, not merely that the branch is its ancestor:
+1. Preflight prints `PR_MERGE_COMMIT`, the commit the PR produced on `master` whichever merge
+   strategy was used (merge commit, squash or rebase), and `PR_HEAD_COMMIT`, the reviewed
+   commit. The release branch may have been deleted on merge, so compare against the PR head,
+   never against `origin/<BRANCH>`:
    ```sh
+   git fetch origin master "refs/pull/<PR_NUMBER>/head"
    git merge-base --is-ancestor <PR_MERGE_COMMIT> origin/master   # it is on master
    git show <PR_MERGE_COMMIT>:lib/redis/version.rb | grep -F "'<version>'"
    git show <PR_MERGE_COMMIT>:CHANGELOG.md | grep -Fx '# <version>'
-   git diff --stat origin/<BRANCH> <PR_MERGE_COMMIT> -- CHANGELOG.md cluster/CHANGELOG.md \
+   git diff --stat <PR_HEAD_COMMIT> <PR_MERGE_COMMIT> -- CHANGELOG.md cluster/CHANGELOG.md \
      lib/redis/version.rb redis.gemspec cluster/redis-clustering.gemspec   # must print nothing
    ```
    Any of these failing → STOP and report which: the merged content differs from what was
@@ -230,9 +232,10 @@ Preflight reports `STAGE: pr_merged`.
    ```
    `--draft` is mandatory. A draft creates no tag; GitHub creates `v<version>` only when a
    maintainer presses **Publish release**. After a squash or rebase merge the release branch's
-   own commits are not ancestors of the tag; say so, and suggest
-   `git push origin <PR_MERGE_COMMIT>:<BRANCH>` (a fast-forward is impossible then, so this is
-   the maintainer's call) so later patch releases on `<BRANCH>` start from the tagged commit.
+   own commits are not ancestors of the tag, and the branch may have been deleted on merge; say
+   so, and suggest `git push origin <PR_MERGE_COMMIT>:refs/heads/<BRANCH>` (recreates or
+   re-points the branch; not a fast-forward, so this is the maintainer's call) so later patch
+   releases on `<BRANCH>` start from the tagged commit.
 4. Report the draft URL and print Step 8 verbatim. STOP. If `gh release create` is unavailable,
    leave the `.md` file, say so, and print Step 8.
 
