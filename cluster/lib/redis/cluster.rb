@@ -104,10 +104,9 @@ class Redis
     #
     # @return [Object] depends on the subcommand
     #
-    # @note `:'slot-stats'` (Redis 8.2) is reshaped here for when redis-cluster-client routes
-    #   it, but the pinned driver version does not yet recognize the subcommand and raises
-    #   {OrchestrationCommandNotSupported} before this method's block ever runs — see the
-    #   `cluster_slot_stats` test in `cluster/test/commands_on_cluster_test.rb`.
+    # @note `:'slot-stats'` (Redis 8.2) is sent to every primary and the per-node replies are
+    #   concatenated, so `LIMIT n` yields up to `n` slots per primary. Each entry is reshaped
+    #   into `[slot, { "key-count" => Integer, ... }]`.
     def cluster(subcommand, *args)
       subcommand = subcommand.to_s.downcase
       block = case subcommand
