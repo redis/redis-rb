@@ -115,12 +115,15 @@ elif [ "$role" != unknown ] && [ -n "$repo" ]; then
     stage=draft_ready
     echo "DRAFT_URL: $(gh release view "$tag" --json url --jq .url 2>/dev/null)"
   else
-    pr_json="$(gh pr list --repo "$repo" --head "$branch" --base master --state all --search "\"Release $version\" in:title" --json number,state,url --jq '.[0]' 2>/dev/null || true)"
+    pr_json="$(gh pr list --repo "$repo" --head "$branch" --base master --state all --search "\"Release $version\" in:title" --json number,state,url,mergeCommit --jq '.[0]' 2>/dev/null || true)"
     if [ -n "$pr_json" ] && [ "$pr_json" != "null" ]; then
       echo "PR_NUMBER: $(printf '%s' "$pr_json" | sed -nE 's/.*"number":([0-9]+).*/\1/p')"
       echo "PR_URL: $(printf '%s' "$pr_json" | sed -nE 's/.*"url":"([^"]+)".*/\1/p')"
       case "$pr_json" in
-        *'"state":"MERGED"'*) stage=pr_merged ;;
+        *'"state":"MERGED"'*)
+          stage=pr_merged
+          # The commit the PR produced on master, whatever the merge strategy (merge/squash/rebase).
+          echo "PR_MERGE_COMMIT: $(printf '%s' "$pr_json" | sed -nE 's/.*"oid":"([0-9a-f]+)".*/\1/p')" ;;
         *'"state":"OPEN"'*)   stage=pr_open ;;
         *)                    stage=pr_closed ;;
       esac
