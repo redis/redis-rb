@@ -206,36 +206,39 @@ Live:
 
 Preflight reports `STAGE: pr_merged`.
 
-1. Preflight prints `PR_MERGE_COMMIT`, the commit the PR produced on `master` whichever merge
-   strategy was used (merge commit, squash or rebase), and `PR_HEAD_COMMIT`, the reviewed
-   commit. The release branch may have been deleted on merge, so compare against the PR head,
-   never against `origin/<BRANCH>`:
+1. Preflight prints `PR_HEAD_COMMIT`, the reviewed commit (the release branch head at merge
+   time), and `PR_MERGE_COMMIT`, the commit the PR produced on `master`. **The release is
+   `PR_HEAD_COMMIT`.** Master may hold more than the release: a patch branch deliberately
+   excludes the next minor's work (Step 1), and master may have moved on since the review, so
+   the merge commit is only proof that master received the release, never the release itself.
+   The branch may have been deleted on merge, so fetch the PR ref instead of relying on
+   `origin/<BRANCH>`:
    ```sh
    git fetch origin master "refs/pull/<PR_NUMBER>/head"
-   git merge-base --is-ancestor <PR_MERGE_COMMIT> origin/master   # it is on master
-   git show <PR_MERGE_COMMIT>:lib/redis/version.rb | grep -F "'<version>'"
-   git show <PR_MERGE_COMMIT>:CHANGELOG.md | grep -Fx '# <version>'
+   git show <PR_HEAD_COMMIT>:lib/redis/version.rb | grep -F "'<version>'"
+   git show <PR_HEAD_COMMIT>:CHANGELOG.md | grep -Fx '# <version>'
+   git merge-base --is-ancestor <PR_MERGE_COMMIT> origin/master   # master really received it
    git diff --stat <PR_HEAD_COMMIT> <PR_MERGE_COMMIT> -- CHANGELOG.md cluster/CHANGELOG.md \
      lib/redis/version.rb redis.gemspec cluster/redis-clustering.gemspec   # must print nothing
    ```
-   Any of these failing → STOP and report which: the merged content differs from what was
-   reviewed (a later commit on master, a conflict resolution, or a partial merge).
+   Any of these failing → STOP and report which: the version or changelog is not what was
+   reviewed, or master ended up with different release metadata (a conflict resolution or a
+   partial merge).
 2. Write `RELEASE_NOTES-<version>.md` in the repo root from the `# <version>` sections of both
    changelogs, following `.claude/skills/prepare-release/examples/release-notes-template.md`.
    Same content rule as Step 3: what changed, for whom, which Redis version; no reasoning. Do
    not commit this file.
-3. Create the draft, targeting the verified merge commit so the tag will point at exactly the
-   content that was reviewed and is on `master`:
+3. Create the draft, targeting the reviewed commit so the tag will point at exactly the content
+   that was reviewed, and nothing master added before or after:
    ```sh
-   gh release create v<version> --draft --target <PR_MERGE_COMMIT> \
+   gh release create v<version> --draft --target <PR_HEAD_COMMIT> \
      --title "v<version>" --notes-file RELEASE_NOTES-<version>.md
    ```
    `--draft` is mandatory. A draft creates no tag; GitHub creates `v<version>` only when a
-   maintainer presses **Publish release**. After a squash or rebase merge the release branch's
-   own commits are not ancestors of the tag, and the branch may have been deleted on merge; say
-   so, and suggest `git push origin <PR_MERGE_COMMIT>:refs/heads/<BRANCH>` (recreates or
-   re-points the branch; not a fast-forward, so this is the maintainer's call) so later patch
-   releases on `<BRANCH>` start from the tagged commit.
+   maintainer presses **Publish release**. `PR_HEAD_COMMIT` stays reachable through
+   `refs/pull/<PR_NUMBER>/head` even after a squash or rebase merge deletes the branch; if the
+   branch was deleted, say so and suggest `git push origin <PR_HEAD_COMMIT>:refs/heads/<BRANCH>`
+   so later patch releases on `<BRANCH>` start from the tagged commit.
 4. Report the draft URL and print Step 8 verbatim. STOP. If `gh release create` is unavailable,
    leave the `.md` file, say so, and print Step 8.
 
