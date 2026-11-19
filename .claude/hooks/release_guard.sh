@@ -35,8 +35,9 @@ exec ruby -rjson -rshellwords -e '
   normalize = ->(words) {
     words.flat_map { |w|
       case w
+      when /\A(--draft|-d)=/            then [w]        # kept whole: the draft check reads the value itself
       when /\A(--[a-z][a-z-]*)=(.*)\z/m then [$1, $2]
-      when /\A(-[a-zA-Z])=(.*)\z/m       then [$1, $2]
+      when /\A(-[a-ce-zA-Z])=(.*)\z/m    then [$1, $2]  # not -d: see above
       when /\A(-[XfFHq])(.+)\z/m        then [$1, $2]
       else [w]
       end
@@ -100,10 +101,21 @@ exec ruby -rjson -rshellwords -e '
     in ["gh", "release", ("create" | "new"), *rest]
       # "new" is the documented gh alias for "create". (No apostrophes here: this is inside a
       # single-quoted shell string.)
-      # "--draft=<v>" normalizes to ["--draft", "<v>"]. gh parses the value with Go ParseBool, so
-      # every false spelling it accepts must count as "not a draft"; a bare flag or a true value counts.
+      # Walk the arguments the way gh does: a value-taking option swallows the next word, so
+      # "--notes --draft" or "--notes=--draft" is release text, not the draft flag. The draft flag
+      # itself is either bare (draft) or "--draft=<v>" with a Go ParseBool value.
+      value_opts = %w[-n --notes -F --notes-file -t --title --target --discussion-category --notes-start-tag -R --repo]
       false_values = %w[0 f F FALSE false False]
-      draft = rest.each_with_index.any? { |a, i| (a == "--draft" || a == "-d") && !false_values.include?(rest[i + 1].to_s) }
+      draft = false
+      i = 0
+      while i < rest.size
+        a = rest[i]
+        if value_opts.include?(a)                  then i += 2; next
+        elsif a == "--draft" || a == "-d"           then draft = true
+        elsif a =~ /\A(?:--draft|-d)=(.*)\z/        then draft = !false_values.include?($1)
+        end
+        i += 1
+      end
       reason ||= "`gh release create` without --draft would publish a release and create its tag; add --draft." unless draft
     in ["gh", "release", ("edit" | "delete" | "delete-asset"), *]
       reason ||= "`gh release #{words[2]}` is refused; publishing or removing a release is a maintainer action in the GitHub UI."

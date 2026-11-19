@@ -24,9 +24,11 @@ echo "=== Commits (oldest first; merges excluded) ==="
 git log --reverse --no-merges --format='%h %ad %s' --date=short "$range"
 echo
 
-# PR numbers come from subjects only ("… (#1234)"); bodies reference issues ("Fix #1290"), which
-# a changelog entry may cite in addition but which are not gaps.
-prs="$(git log --no-merges --format='%s' "$range" | grep -oE '\(#[0-9]+\)' | tr -d '#()' | sort -un)"
+# PR numbers come from subjects only: squash merges end in "(#1234)", merge commits read
+# "Merge pull request #1234 from …". Bodies reference issues ("Fix #1290"), which a changelog
+# entry may cite in addition but which are not gaps.
+prs="$( { git log --no-merges --format='%s' "$range" | grep -oE '\(#[0-9]+\)' | tr -d '#()';
+          git log --merges --format='%s' "$range" | grep -oE '^Merge pull request #[0-9]+' | grep -oE '[0-9]+'; } | sort -un)"
 echo "PR_COUNT: $(printf '%s\n' $prs | grep -c . || true)"
 
 missing_main=""; missing_cluster=""
