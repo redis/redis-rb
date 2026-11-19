@@ -53,10 +53,29 @@ exec ruby -rjson -rshellwords -e '
     end
   }
 
+  # Git accepts global options before the subcommand ("git -C dir tag v1", "git -c k=v push",
+  # "git --git-dir=.git tag v1"). Drop them so dispatch sees ["git", "<subcommand>", ...].
+  git_value_options = %w[-C -c --git-dir --work-tree --namespace --super-prefix --config-env --exec-path --list-cmds --attr-source]
+  strip_git_globals = ->(words) {
+    return words unless words.first == "git"
+    rest = words.drop(1)
+    until rest.empty?
+      w = rest.first
+      if git_value_options.include?(w)    then rest = rest.drop(2)
+      elsif w =~ /\A-[Cc].+\z/            then rest = rest.drop(1)   # attached: -Cdir, -ck=v
+      elsif w.start_with?("-")             then rest = rest.drop(1)   # --no-pager, -p, --bare, ...
+      else break
+      end
+    end
+    ["git", *rest]
+  }
+
   reason = nil
   parts.each do |p|
     words = normalize.(shell_words.(p))
     next if words.empty?
+    words[0] = File.basename(words[0])   # /usr/bin/git, /opt/homebrew/bin/gem, ...
+    words = strip_git_globals.(words)
     case words
     in ["git", *git_args] if git_args.first == "tag"
       args = git_args.drop(1)
