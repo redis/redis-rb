@@ -21,7 +21,7 @@ exec ruby -rjson -rshellwords -e '
 
   # Split on shell separators so each simple command is judged on its own; strip wrappers.
   parts = cmd.split(/(?:&&|\|\||;|\||\n)/).map(&:strip)
-  parts = parts.map { |p| p.sub(/\A(?:sudo\s+|env\s+(?:\S+=\S+\s+)*|bundle\s+exec\s+|bundler\s+exec\s+)+/, "") }
+  parts = parts.map { |p| p.sub(/\A(?:sudo\s+(?:-\S+\s+)*|env\s+(?:-\S+\s+)*(?:\S+=\S*\s+)*|bundler?\s+exec\s+(?:-\S+\s+)*|\S+=\S*\s+)+/, "") }
 
   # `git tag` with no args, or with a listing flag and no creation/deletion flag, only reads.
   listing_only = ->(args) {
@@ -53,21 +53,27 @@ exec ruby -rjson -rshellwords -e '
     end
   }
 
-  # Git accepts global options before the subcommand ("git -C dir tag v1", "git -c k=v push",
-  # "git --git-dir=.git tag v1"). Drop them so dispatch sees ["git", "<subcommand>", ...].
-  git_value_options = %w[-C -c --git-dir --work-tree --namespace --super-prefix --config-env --exec-path --list-cmds --attr-source]
-  strip_git_globals = ->(words) {
-    return words unless words.first == "git"
+  # git, gh and gem accept options before the subcommand ("git -C dir tag v1", "gh --repo o/r
+  # release create", "gem --config-file f push"). Drop them so dispatch sees
+  # ["<tool>", "<subcommand>", ...]. Options listed here consume a value; any other leading
+  # dash-word is a flag.
+  value_options = {
+    "git" => %w[-C -c --git-dir --work-tree --namespace --super-prefix --config-env --exec-path --list-cmds --attr-source],
+    "gh"  => %w[-R --repo],
+    "gem" => %w[-C --config-file],
+  }
+  strip_global_options = ->(words) {
+    opts = value_options[words.first] or return words
     rest = words.drop(1)
     until rest.empty?
       w = rest.first
-      if git_value_options.include?(w)    then rest = rest.drop(2)
-      elsif w =~ /\A-[Cc].+\z/            then rest = rest.drop(1)   # attached: -Cdir, -ck=v
-      elsif w.start_with?("-")             then rest = rest.drop(1)   # --no-pager, -p, --bare, ...
+      if opts.include?(w)                                     then rest = rest.drop(2)
+      elsif words.first == "git" && w =~ /\A-[Cc].+\z/        then rest = rest.drop(1)   # attached: -Cdir, -ck=v
+      elsif w.start_with?("-")                                 then rest = rest.drop(1)   # --no-pager, -p, --bare, ...
       else break
       end
     end
-    ["git", *rest]
+    [words.first, *rest]
   }
 
   reason = nil
@@ -75,7 +81,7 @@ exec ruby -rjson -rshellwords -e '
     words = normalize.(shell_words.(p))
     next if words.empty?
     words[0] = File.basename(words[0])   # /usr/bin/git, /opt/homebrew/bin/gem, ...
-    words = strip_git_globals.(words)
+    words = strip_global_options.(words)
     case words
     in ["git", *git_args] if git_args.first == "tag"
       args = git_args.drop(1)
@@ -89,7 +95,7 @@ exec ruby -rjson -rshellwords -e '
       reason ||= "writing tag refs is refused: `#{p}`."
     in ["gem", "push", *]
       reason ||= "`gem push` is refused inside a Claude session; the maintainer pushes gems by hand after the release is published."
-    in ["rake", /\Arelease(:|\z)/, *]
+    in ["rake", *rake_args] if rake_args.any? { |a| a =~ /\Arelease(:|\z)/ }   # tasks may follow options, e.g. rake -f Rakefile release
       reason ||= "`rake release` tags, pushes and publishes; refused. Use the prepare-release skill flow instead."
     in ["gh", "release", ("create" | "new"), *rest]
       # "new" is the documented gh alias for "create". (No apostrophes here: this is inside a
