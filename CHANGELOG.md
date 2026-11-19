@@ -1,26 +1,116 @@
-# Unreleased
+# 6.1.0
 
 ## New features
 
 - Add the `BLESS` key-protection commands (Redis 8.12): `bless_get`, `bless_set`, `bless_clear`,
   `bless_scan` and `bless_scan_each`. On `Redis::Cluster`, `bless_scan` iterates every shard the
   way `scan` does (requires redis-cluster-client 0.17.3). `Redis::Distributed` implements all but
-  `bless_scan`, whose cursor cannot span ring nodes; use `bless_scan_each` there.
+  `bless_scan`, whose cursor cannot span ring nodes; use `bless_scan_each` there. (#1395)
+- Add the set member expiration commands (Redis 8.12): `sexpire`, `spexpire`, `sexpireat`,
+  `spexpireat`, `sttl`, `spttl`, `sexpiretime`, `spexpiretime` and `spersist`, with the
+  `nx:`/`xx:`/`gt:`/`lt:` condition options, plus `saddex` with `mnx:`/`mxx:` and the
+  `ex:`/`px:`/`exat:`/`pxat:`/`keepttl:` expiry options. All are available on
+  `Redis::Distributed`. (#1405)
+- Add `zmove`, `bzmove` and `zmovemember` (Redis 8.12). Available on `Redis::Distributed`.
+  (#1411)
+- Add `bitrangeintarray` (Redis 8.12). Available on `Redis::Distributed`. (#1409)
+- Add the array commands (Redis 8.8): `arset`, `arget`, `armset`, `armget`, `argetrange`,
+  `arlen`, `arcount`, `ardel`, `ardelrange`, `arinsert`, `arseek`, `arnext`, `arlastitems`,
+  `arring`, `arscan`, `argrep`, `arop` and `arinfo`. All are available on `Redis::Distributed`.
+  (#1371)
+- Add `increx` with `by:`, `lbound:`/`ubound:`/`saturate:` and the
+  `ex:`/`px:`/`exat:`/`pxat:`/`persist:`/`enx:` expiry options, and `xnack` (Redis 8.8).
+  `increx` is available on `Redis::Distributed`. (#1372)
+- `json_set` now accepts `fpha:` to store a numeric array as a packed floating-point array, and
+  the sorted set union/intersection commands accept `aggregate: "count"` (Redis 8.8). (#1373)
+- Add keyspace notification support: channel builders and a binary-safe parser for the classic
+  `__keyspace@*`/`__keyevent@*` channels and the Redis 8.8 subkey notification families
+  (`Redis::KeyspaceNotifications`), plus a manager (`Redis#keyspace_notifications`) that owns a
+  dedicated connection, dispatches typed `Notification` objects to handlers, and automatically
+  re-subscribes after connection loss (`on_reconnect` signals the lossy gap). Enabling
+  `notify-keyspace-events` on the server remains the operator's responsibility. Not supported by
+  `Redis::Distributed`. See specs/keyspace-notifications/user-guide.md. (#1375)
+- Add the hot key tracking commands (Redis 8.6): `hotkeys_start`, `hotkeys_get`, `hotkeys_stop`
+  and `hotkeys_reset`. A tracking session is state of a single server, so `Redis::Cluster` and
+  `Redis::Distributed` raise `NotImplementedError`, also inside `pipelined`/`multi`; call them
+  on a single node instead. See the README "Hot key tracking (HOTKEYS)" section. (#1408)
+- `xadd` now accepts `idmp:` and `idmpauto:` for idempotent production, and add `xcfgset`
+  (Redis 8.6). (#1402)
+- `xreadgroup` now accepts `claim:` (Redis 8.4). (#1401)
+- Add compare-and-set and compare-and-delete support (Redis 8.4): `set` accepts `ifeq:`, `ifne:`,
+  `ifdeq:` and `ifdne:`, and add `delex` and `digest`. `Redis::XXH3.hexdigest` computes the
+  XXH3-64 digest of a value locally in pure Ruby, so `ifdeq:`/`ifdne:` need no `DIGEST` round
+  trip. Available on `Redis::Distributed`. See the README "Compare-and-set (CAS/CAD)" section.
+  (#1393)
+- Add `xdelex` and `xackdel`; `xadd` and `xtrim` now accept `policy:` (`:keepref`, `:delref` or
+  `:acked`); `cluster('slot-stats', ...)` replies are reshaped into `[slot, Hash]` pairs
+  (Redis 8.2). (#1391, #1392)
+- Add the vector set commands (Redis 8.0): `vadd`, `vcard`, `vdim`, `vemb`, `vlinks`, `vsim`,
+  `vrem`, `vismember`, `vrandmember`, `vrange` (Redis 8.4), `vinfo`, `vsetattr` and `vgetattr`.
+  All are available on `Redis::Distributed`. (#1382)
+- Add `hgetdel`, `hgetex` and `hsetex` (Redis 8.0). All are available on `Redis::Distributed`.
+  (#1389)
+- Add `hexpireat`, `hpexpireat`, `hexpiretime`, `hpexpiretime` and `hpersist`; `hexpire` and
+  `hpexpire` now accept the `nx:`/`xx:`/`gt:`/`lt:` condition options (Redis 7.4). All are
+  available on `Redis::Distributed`. (#1374)
+- Add `waitaof` (Redis 7.2). On `Redis::Cluster` it is sent to every primary and each count in
+  the reply is the minimum across primaries; `Redis::Cluster.new` now accepts
+  `command_routings:` to override the driver's per-command request/response policies. (#1387)
+- Add Redis functions (Redis 7.0): `function`, `fcall` and `fcall_ro`. All are available on
+  `Redis::Distributed`. (#1383)
+- Add `sort_ro`, `lcs`, `sintercard` and `zintercard` (Redis 7.0). All are available on
+  `Redis::Distributed`. (#1384)
+- `info` now accepts several sections at once, `shutdown` accepts `save:`, `now:`, `force:` and
+  `abort:`, `xgroup` accepts `entriesread:`, and add `xsetid` with `entriesadded:` and
+  `maxdeletedid:` (Redis 7.0). (#1385)
+- Query Engine vector fields pass every attribute through, so algorithm-specific ones such as
+  `compression: "SQ8"` and `training_threshold:` (Redis 8.12) need no special handling. (#1397)
 - Make the constants under `Redis`, such as the reply-reshaping lambdas and
   `Redis::Future::FutureNotReady`, shareable, so that commands and pipelines work in non-main
-  Ractors.
+  Ractors. (#1403)
 - Add `redis/ractorize`, which freezes `Redis::Client::ERROR_MAPPING` and
   `Redis::Cluster::Client::ERROR_MAPPING` so that errors can be translated in non-main Ractors.
-  Require it in the main Ractor after anything that adds errors to the mappings.
+  Require it in the main Ractor after anything that adds errors to the mappings. See the README
+  "Ractors" section. (#1403)
 
 ## Bug fixes
 
 - Make `hset` return `0` without calling the server when given an empty hash, instead of raising
-  `ERR wrong number of arguments for 'hset' command`. (#1290)
+  `ERR wrong number of arguments for 'hset' command`. (#1290, #1404)
 - Make `Redis::Distributed#multi` release the watched key once the transaction runs or raises, so
   that commands on keys stored on other nodes no longer raise `CannotDistribute` after a `watch`
   and `multi` sequence. An explicit `#unwatch` or another `#multi` after the transaction still
-  works as before.
+  works as before. (#1407)
+- Fix a race where calling `unsubscribe`/`punsubscribe` from another thread while the
+  subscribed client was concurrently tearing down raised `NoMethodError` instead of
+  `Redis::SubscriptionError`. (#1375)
+- With sentinels, errors raised by `pipelined` and `multi` are now translated to `Redis::*`
+  errors instead of surfacing as `RedisClient::*` errors. (#1396)
+- `zrank` and `zrevrank` with `with_score: true` return `nil` for a missing key or member
+  instead of `[nil, nil]`, and RESP2 `nan` replies become `Float::NAN` (Redis 7.2). (#1388)
+- `xautoclaim` replies now include a `'deleted'` key with the ids that were deleted from the
+  stream and dropped from the PEL (Redis 7.0; always `[]` on 6.2). (#1386)
+- `migrate` inside `pipelined`/`multi` now falls back to the client's `db` and `timeout` instead
+  of the pipeline's. (#1381)
+- `himport_prepare` snapshots the field names at preparation time, so mutating the strings
+  afterwards no longer changes the schema used for automatic re-preparation. (#1380)
+- `ft_aggregate` now sends the right `LOAD` field count when the fields are given as nested
+  arrays. (#1379)
+- In `pipelined(exception: false)`, errors are no longer passed through the reply reshaping
+  lambdas, the flag now also applies to `multi` inside the pipeline, and when `EXEC` aborts the
+  transaction's command futures hold the error instead of staying unresolved. (#1377)
+- Only fall back to RESP2 when `HELLO` itself fails with `NOPROTO`, instead of on any command
+  error whose message contains `NOPROTO`. (#1376)
+- `Redis::HashRing#remove_node` filters the ring positions once instead of once per replica.
+  (#1378)
+
+## Maintenance
+
+- Pin `redis-client` to `0.31.0`. (#1400)
+- Pin `redis-cluster-client` to `0.18.0`; see cluster/CHANGELOG.md for the routing changes it
+  brings to `Redis::Cluster`. (#1375, #1395)
+- Document the `himport_auto_prepare` client option. (#1370)
+- Add CONTRIBUTORS.md. (#1410)
 
 # 6.0.0
 
@@ -40,20 +130,10 @@
 - Add support for the JSON module: `json_set`, `json_get`, `json_mset`, `json_mget`, `json_del`,
   `json_forget`, `json_clear`, `json_merge`, `json_arr*`, `json_obj*`, `json_str*`,
   `json_numincrby`, `json_toggle`, `json_type`, `json_debug_memory`. (#1346, #1347, #1348, #1349)
-- Add keyspace notification support: channel builders and a binary-safe parser for the classic
-  `__keyspace@*`/`__keyevent@*` channels and the Redis 8.8 subkey notification families
-  (`Redis::KeyspaceNotifications`), plus a manager (`Redis#keyspace_notifications`) that owns a
-  dedicated connection, dispatches typed `Notification` objects to handlers, and automatically
-  re-subscribes after connection loss (`on_reconnect` signals the lossy gap). Enabling
-  `notify-keyspace-events` on the server remains the operator's responsibility. Not supported by
-  `Redis::Distributed`. See specs/keyspace-notifications/user-guide.md.
 - Add `lmovem` and `blmovem` (Redis 8.10). (#1363)
 - Add `sunioncard` and `sdiffcard` (Redis 8.10). (#1357)
 - `xread` and `xreadgroup` now accept `max_count:` and `max_size:` (Redis 8.10). (#1358)
 - Add `hexpire`, `hpexpire`, `httl` and `hpttl` (Redis 7.4). (#1324, #1325, #1331)
-- Add `hexpireat`, `hpexpireat`, `hexpiretime`, `hpexpiretime` and `hpersist`; `hexpire` and
-  `hpexpire` now accept the `nx:`/`xx:`/`gt:`/`lt:` condition options (Redis 7.4). All are
-  available on `Redis::Distributed`. (#1374)
 - `hscan` and `hscan_each` now accept `novalues: true` (Redis 7.4). (#1327)
 - Add `geosearch` and `geosearchstore` (Redis 6.2); geo commands are now available on
   `Redis::Distributed`. (#1342)
@@ -73,9 +153,6 @@
 
 ## Bug fixes
 
-- Fix a race where calling `unsubscribe`/`punsubscribe` from another thread while the
-  subscribed client was concurrently tearing down raised `NoMethodError` instead of
-  `Redis::SubscriptionError`. (#1375)
 - Fix `FloatifyPairs` to not re-transform already transformed replies. (#1354)
 - `unlink` now returns `0` for an empty keyset, consistent with `del`. (#1316)
 

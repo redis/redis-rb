@@ -52,7 +52,8 @@ Gem::Specification.new do |s|
   # Pinned to an exact version: redis-cluster-client ships behavior changes in patch releases
   # (0.16.6 added command-tips routing and per-subcommand key extraction, which HIMPORT relies
   # on; 0.17.0 added the command_routings option; 0.17.3 added node-by-node BLESS SCAN routing,
-  # which `bless_scan` relies on), so a floating constraint can change routing
-  # semantics under a stable redis-clustering release. Bump deliberately and re-run the cluster suite.
-  s.add_runtime_dependency('redis-cluster-client', '0.17.3')
+  # which `bless_scan` relies on; 0.18.0 splits multi-key UNLINK/EXISTS/TOUCH across slots), so a
+  # floating constraint can change routing semantics under a stable redis-clustering release.
+  # Bump deliberately and re-run the cluster suite.
+  s.add_runtime_dependency('redis-cluster-client', '0.18.0')
 end
