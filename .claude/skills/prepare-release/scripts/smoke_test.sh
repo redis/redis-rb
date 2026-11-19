@@ -17,9 +17,12 @@ unset BUNDLE_GEMFILE RUBYOPT
 retries="${RETRIES:-10}"
 
 install() { # gem
+  # --remote with the public source only: a redis-<version>.gem left in the repo root by Step 8
+  # must never satisfy this install, or the test would pass for a gem that was never published.
   local i
   for i in $(seq 1 "$retries"); do
-    if gem install "$1" -v "$version" --no-document --quiet >/dev/null 2>&1; then echo "INSTALL $1 $version: ok"; return 0; fi
+    if gem install "$1" -v "$version" --remote --clear-sources --source https://rubygems.org \
+         --no-document --quiet >/dev/null 2>&1; then echo "INSTALL $1 $version: ok"; return 0; fi
     echo "  $1 $version not installable yet (attempt $i/$retries); waiting 60s for the RubyGems index"
     sleep 60
   done

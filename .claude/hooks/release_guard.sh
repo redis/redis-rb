@@ -6,7 +6,7 @@
 #   git push --tags | --follow-tags | --mirror | refs/tags/... | v1.2.3-style tag refspec
 #   git update-ref refs/tags/...
 #   gem push, rake release (incl. bundle exec rake release)
-#   gh release create without --draft, gh release edit, gh release delete
+#   gh release create|new without --draft, gh release edit, gh release delete
 #   gh api ... repos/*/releases with a writing method (POST/PATCH/PUT/DELETE or -f/-F fields)
 #
 # Releases are published by a maintainer pressing "Publish release" on a DRAFT in GitHub, and
@@ -71,7 +71,9 @@ exec ruby -rjson -rshellwords -e '
       reason ||= "`gem push` is refused inside a Claude session; the maintainer pushes gems by hand after the release is published."
     in ["rake", /\Arelease(:|\z)/, *]
       reason ||= "`rake release` tags, pushes and publishes; refused. Use the prepare-release skill flow instead."
-    in ["gh", "release", "create", *rest]
+    in ["gh", "release", ("create" | "new"), *rest]
+      # "new" is the documented gh alias for "create". (No apostrophes here: this is inside a
+      # single-quoted shell string.)
       # "--draft=false" normalizes to ["--draft", "false"]; only a bare flag or an explicit true counts.
       draft = rest.each_with_index.any? { |a, i| (a == "--draft" || a == "-d") && rest[i + 1] != "false" }
       reason ||= "`gh release create` without --draft would publish a release and create its tag; add --draft." unless draft
