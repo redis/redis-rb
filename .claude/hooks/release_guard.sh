@@ -89,8 +89,12 @@ exec ruby -rjson -rshellwords -e '
       reason ||= "creating or deleting tags is refused: `#{p}`. Tags are created by GitHub when a maintainer publishes the draft release." unless listing_only.(args)
     in ["git", *git_args] if git_args.first == "push"
       args = git_args.drop(1)
-      if args.any? { |a| a =~ /\A(--tags|--follow-tags|--mirror|tag)\z/ || a.include?("refs/tags/") || a =~ /\A\+?v?\d+\.\d+\.\d+(:.*)?\z/ }
-        reason ||= "pushing tags is refused: `#{p}`."
+      # A refspec names a tag either as its source ("v1.2.3", "+v1.2.3:…", "refs/tags/…") or as its
+      # destination (":v1.2.3" deletes it, "HEAD:v1.2.3" creates it); --delete/-d names it bare.
+      version_ref = /\A\+?(?:refs\/tags\/|v?\d+\.\d+\.\d+)/
+      tag_refspec = ->(a) { a.include?("refs/tags/") || a =~ version_ref || a.split(":", 2)[1].to_s =~ version_ref }
+      if args.any? { |a| a =~ /\A(--tags|--follow-tags|--mirror|tag)\z/ || tag_refspec.(a) }
+        reason ||= "pushing or deleting tags is refused: `#{p}`."
       end
     in ["git", "update-ref", *ur] if ur.any? { |a| a.start_with?("refs/tags/") }
       reason ||= "writing tag refs is refused: `#{p}`."
