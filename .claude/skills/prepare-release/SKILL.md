@@ -226,19 +226,24 @@ Preflight reports `STAGE: pr_merged`.
    partial merge).
 2. Write `RELEASE_NOTES-<version>.md` in the repo root from the `# <version>` sections of both
    changelogs, following `.claude/skills/prepare-release/examples/release-notes-template.md`.
-   Same content rule as Step 3: what changed, for whom, which Redis version; no reasoning. Do
-   not commit this file.
-3. Create the draft, targeting the reviewed commit so the tag will point at exactly the content
-   that was reviewed, and nothing master added before or after:
+   Same content rule as Step 3: what changed, for whom, which Redis version; no reasoning. The
+   file is a GitHub release body, not a changelog: no `# title` line, `###` section headings
+   with the template's emojis, and every paragraph and bullet on a single unwrapped line
+   (GitHub turns the newlines of a hard-wrapped body into line breaks). Do not commit this file.
+3. Create the draft, targeting the release branch `<BRANCH>` (never `master`), which must be at
+   the reviewed commit so the tag points at exactly the content that was reviewed, and nothing
+   master added before or after. `git ls-remote --heads origin <BRANCH>` must print
+   `PR_HEAD_COMMIT`: a different commit → STOP and report it; no output (the branch was deleted
+   on merge) → STOP and ask the maintainer to restore it with
+   `git push origin <PR_HEAD_COMMIT>:refs/heads/<BRANCH>` (reachable through
+   `refs/pull/<PR_NUMBER>/head`), then continue. The title is the bare version, without `v`:
    ```sh
-   gh release create v<version> --draft --target <PR_HEAD_COMMIT> \
-     --title "v<version>" --notes-file RELEASE_NOTES-<version>.md
+   gh release create v<version> --draft --target <BRANCH> \
+     --title "<version>" --notes-file RELEASE_NOTES-<version>.md
    ```
-   `--draft` is mandatory. A draft creates no tag; GitHub creates `v<version>` only when a
-   maintainer presses **Publish release**. `PR_HEAD_COMMIT` stays reachable through
-   `refs/pull/<PR_NUMBER>/head` even after a squash or rebase merge deletes the branch; if the
-   branch was deleted, say so and suggest `git push origin <PR_HEAD_COMMIT>:refs/heads/<BRANCH>`
-   so later patch releases on `<BRANCH>` start from the tagged commit.
+   `--draft` is mandatory. A draft creates no tag; GitHub creates `v<version>` at the head of
+   `<BRANCH>` only when a maintainer presses **Publish release**, so nothing may be pushed to
+   `<BRANCH>` between the draft and publishing.
 4. Report the draft URL and print Step 8 verbatim. STOP. If `gh release create` is unavailable,
    leave the `.md` file, say so, and print Step 8.
 
