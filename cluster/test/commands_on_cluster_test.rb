@@ -127,13 +127,17 @@ class TestClusterCommandsOnCluster < Minitest::Test
 
   def test_cluster_slot_stats
     target_version "8.2.0" do
-      # The pinned redis-cluster-client driver doesn't route CLUSTER SLOT-STATS yet: it isn't
-      # in the driver's routing table for the `cluster` command, so it fails before the
-      # reshaping in Redis::Cluster#cluster ever sees a reply. Once the driver adds routing
-      # support, this should start returning `[[slot, {"key-count" => n, ...}], ...]`.
-      assert_raises(Redis::Cluster::OrchestrationCommandNotSupported) do
-        redis.cluster('slot-stats', 'SLOTSRANGE', 0, 100)
-      end
+      redis.set('slot-stats-probe', '1')
+      stats = redis.cluster('slot-stats', 'SLOTSRANGE', 0, 100)
+
+      assert_equal 101, stats.size
+      assert_equal (0..100).to_a, stats.map(&:first)
+      stats.each { |(_slot, info)| assert_kind_of Integer, info.fetch('key-count') }
+
+      # Fan-out: each primary answers for its own slots, so LIMIT applies per primary.
+      top = redis.cluster('slot-stats', 'ORDERBY', 'key-count', 'LIMIT', 1, 'DESC')
+      assert_equal 3, top.size
+      assert_operator top.map { |(_slot, info)| info.fetch('key-count') }.max, :>=, 1
     end
   end
 

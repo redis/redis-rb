@@ -99,21 +99,15 @@ class TestClusterCommandsOnKeys < Minitest::Test
     set_some_keys
     assert_equal 1, redis.touch('key1')
     assert_equal 1, redis.touch('key2')
-    if version < '6'
-      assert_equal 1, redis.touch('key1', 'key2')
-    else
-      assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
-        redis.touch('key1', 'key2')
-      end
-    end
+    # Keys in different slots are split per slot by redis-cluster-client, like `del`.
+    assert_equal 2, redis.touch('key1', 'key2')
     assert_equal 2, redis.touch('{key}1', '{key}2')
   end
 
   def test_unlink
     set_some_keys
-    assert_raises(Redis::CommandError, "CROSSSLOT Keys in request don't hash to the same slot") do
-      redis.unlink('key1', 'key2', 'key3')
-    end
+    # Keys in different slots are split per slot by redis-cluster-client, like `del`.
+    assert_equal 2, redis.unlink('key1', 'key2', 'key3')
     assert_equal 2, redis.unlink('{key}1', '{key}2', '{key}3')
   end
 

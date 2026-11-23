@@ -1,4 +1,7 @@
-# Unreleased
+# 6.1.0
+
+All commands added to the `redis` gem in 6.1.0 are available on `Redis::Cluster` (see the main
+[CHANGELOG](../CHANGELOG.md)); the entries below cover cluster-specific behaviour.
 
 ## New features
 
@@ -6,12 +9,33 @@
   `bless_clear` route by the key's hash slot; `bless_scan` and `bless_scan_each` walk every
   shard the way `scan` does, with the node index encoded in the returned cursor, so a full
   iteration covers the whole cluster. Inside `pipelined`/`multi`, `bless_scan` is sent to a
-  single node and returns only that node's keys.
+  single node and returns only that node's keys. (#1395)
+- Add `Redis::Cluster#keyspace_notifications`: a cluster-aware keyspace notification manager
+  that subscribes on **every primary** (notifications are node-local in cluster and are not
+  forwarded on the cluster bus, so a plain `subscribe` silently receives ~1/N of the events),
+  dispatches parsed notifications from a single dispatcher thread, and reconciles reactively on
+  node connection errors (`#refresh` is also public for post-scale-out reconciliation). Requires
+  `notify-keyspace-events` to be enabled on every node, replicas included. See
+  specs/keyspace-notifications/user-guide.md. (#1375)
+- The `HOTKEYS` commands (Redis 8.6) raise `NotImplementedError` on `Redis::Cluster`, also
+  inside `pipelined`/`multi`: a tracking session is state of a single node, so connect to that
+  node with `Redis.new(host:, port:)` instead. (#1408)
+- `waitaof` (Redis 7.2) is sent to every primary and each count in the reply is the minimum
+  across primaries, so thresholds keep their single-node meaning. `Redis::Cluster.new` now
+  accepts `command_routings:`, a `{ 'command' => { request_policy:, response_policy: } }` hash
+  merged over the driver's routing table. (#1387)
+- `cluster('slot-stats', ...)` replies (Redis 8.2) are reshaped into `[slot, Hash]` pairs.
+  (#1391)
+- Freeze `Redis::Cluster::Client::ERROR_MAPPING` from `redis/ractorize` so that errors can be
+  translated in non-main Ractors. (#1403)
 
 ## Maintenance
 
-- Bump the exact `redis-cluster-client` pin from `0.17.0` to `0.17.3`, which adds the
-  node-by-node `BLESS SCAN` routing `bless_scan` relies on.
+- Bump the exact `redis-cluster-client` pin from `0.16.7` to `0.18.0`: adds the node-by-node
+  `BLESS SCAN` routing `bless_scan` relies on (0.17.3), routes the informational `CLUSTER`,
+  `SCRIPT`, `MEMORY` and `CLIENT` subcommands by their command tips instead of rejecting them,
+  follows `MOVED` redirections to nodes not yet in the topology, and splits multi-key `unlink`,
+  `exists` and `touch` across slots the way `del` already was. (#1375, #1395)
 
 # 6.0.0
 
@@ -28,13 +52,6 @@
 
 ## New features
 
-- Add `Redis::Cluster#keyspace_notifications`: a cluster-aware keyspace notification manager
-  that subscribes on **every primary** (notifications are node-local in cluster and are not
-  forwarded on the cluster bus, so a plain `subscribe` silently receives ~1/N of the events),
-  dispatches parsed notifications from a single dispatcher thread, and reconciles reactively on
-  node connection errors (`#refresh` is also public for post-scale-out reconciliation). Requires
-  `notify-keyspace-events` to be enabled on every node, replicas included. See
-  specs/keyspace-notifications/user-guide.md.
 - Identify the client to every node via `CLIENT SETINFO` (`lib-name=redis-rb`,
   `lib-ver=<version>`). Extend the reported name with `driver_info:`, or disable with
   `driver_info: false`. (#1369)
@@ -48,4 +65,4 @@
 
 ## Maintenance
 
-- Pin `redis-cluster-client` to the exact version `0.17.0`.
+- Pin `redis-cluster-client` to the exact version `0.16.7`.
