@@ -117,31 +117,52 @@ class Redis
     # timed form keeps the caller's overall deadline, nil meaning "no event
     # within the requested timeout".
     def next_event(timeout)
-      if timeout > 0
-        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-        loop do
-          writer_priority_wait
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout if timeout > 0
+      loop do
+        writer_priority_wait
+        remaining = 0 # blocking
+        if deadline
           remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
           return nil if remaining <= 0
-
-          event = guarded_read([remaining, READ_SLICE].min)
-          return event if event
         end
-      else
-        loop do
-          writer_priority_wait
-          event = guarded_read(READ_SLICE)
-          return event if event
+
+        event = guarded_read(remaining)
+        return event if event
+      end
+    end
+
+    # A driver read that times out partway through a message cannot be resumed,
+    # so only the wait for data is sliced; once bytes are there the message is
+    # read whole, with the caller's timeout (0 blocks).
+    def guarded_read(timeout)
+      slice = timeout > 0 ? [timeout, READ_SLICE].min : READ_SLICE
+      @write_monitor.synchronize do
+        raise SubscriptionError, "This client is closed" if @closed
+
+        case data_ready?(slice)
+        when true then @client.next_event(timeout)
+        # hiredis: the read itself is sliced, so a message arriving in parts
+        # more than a slice apart still breaks there.
+        when nil then @client.next_event(slice)
         end
       end
     end
 
-    def guarded_read(slice)
-      @write_monitor.synchronize do
-        raise SubscriptionError, "This client is closed" if @closed
+    # true/false once the wait is over; nil when the driver gives no way to
+    # tell (hiredis exposes no socket), or the socket is gone and the read
+    # itself should raise the mapped error.
+    def data_ready?(slice)
+      io = @client.instance_variable_get(:@raw_connection)&.instance_variable_get(:@io)
+      return unless io.is_a?(::RedisClient::RubyConnection::BufferedIO)
+      return true if io.instance_variable_get(:@offset) < io.instance_variable_get(:@buffer).bytesize
 
-        @client.next_event(slice)
-      end
+      socket = io.instance_variable_get(:@io)
+      # OpenSSL may hold decrypted bytes the raw socket no longer reports.
+      return true if socket.respond_to?(:pending) && socket.pending > 0
+
+      !socket.to_io.wait_readable(slice).nil?
+    rescue IOError
+      nil
     end
 
     # Bounded writer priority: a queued writer gets the monitor before the next
