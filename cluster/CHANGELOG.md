@@ -1,3 +1,8 @@
+# 6.1.1
+
+No cluster-specific changes. The pub/sub fix in the `redis` gem applies to `Redis::Cluster` too
+(see the main [CHANGELOG](../CHANGELOG.md)).
+
 # 6.1.0
 
 All commands added to the `redis` gem in 6.1.0 are available on `Redis::Cluster` (see the main
