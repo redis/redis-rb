@@ -1,44 +1,50 @@
-# redis-rb X.Y.Z
+<!-- GitHub release body. Format rules (reference: the published 6.0.0 release):
+     - No `# title` line: the release title (`X.Y.Z`, no `v`) is set by `--title`.
+     - GitHub renders single newlines in a release body as line breaks, so NEVER hard-wrap:
+       every paragraph and every bullet is exactly one line, however long. No indented
+       continuation lines.
+     - Section headings are `###` with the emoji shown below; sub-groups are `####`.
+     - Keep only the sections that have entries, in this order. Do not add other sections
+       (no Gemfile snippet, no "Dependency updates", no "Full changelog"): dependency pins go
+       under Maintenance.
+     - Bullets come from the `# X.Y.Z` section of CHANGELOG.md, unwrapped, each naming its Redis
+       server version in parentheses and ending with `(#PR)`. Cluster-specific ones from
+       cluster/CHANGELOG.md go under a `#### Cluster gem (`redis-clustering`) only` sub-group of
+       the section they belong to.
+     - Delete this comment. -->
+This is a <major / minor / patch> release of the `redis` and `redis-clustering` gems. <The two or three headline changes, each naming the Redis server version it needs. No reasoning, no history.>
 
-<One paragraph: what kind of release this is (major / minor / patch) and the two or three
-headline changes, each naming the Redis server version it needs. No reasoning, no history.>
+Requires **Ruby 3.2+** and works with **Redis server 6.0+**. <Say that newer commands need the server version named next to them.>
 
-```ruby
-gem "redis", "~> X.Y"
-# or, for cluster deployments:
-gem "redis-clustering", "~> X.Y"
-```
-
-Requires **Ruby 3.2+**. <State the minimum Redis server version and that newer commands need
-the server version named next to them.>
-
-<!-- Keep only the sections that have entries, in this order. Copy the bullets from the
-     `# X.Y.Z` section of CHANGELOG.md (and cluster-specific ones from cluster/CHANGELOG.md),
-     grouped by server version where that helps a reader decide what they can use. -->
-
-## Breaking changes
-
-- ...
-
-## New features
-
-### Redis 8.12
-- ...
-
-### Redis 8.8
-- ...
-
-## Bug fixes
+### 🔥 Breaking changes
 
 - ...
 
-## Dependency updates
+#### Cluster gem (`redis-clustering`) only
 
-- `redis-client` A.B.C → D.E.F
-- `redis-cluster-client` A.B.C → D.E.F
+- ...
 
-## Full changelog
+### 🚀 New features
 
-- [CHANGELOG.md](https://github.com/redis/redis-rb/blob/vX.Y.Z/CHANGELOG.md)
-- [cluster/CHANGELOG.md](https://github.com/redis/redis-rb/blob/vX.Y.Z/cluster/CHANGELOG.md)
-- Compare: https://github.com/redis/redis-rb/compare/vPREV...vX.Y.Z
+- ...
+
+#### Cluster gem (`redis-clustering`) only
+
+- ...
+
+### ⚠️ Experimental
+
+- ...
+
+### 🐛 Bug fixes
+
+- ...
+
+### 🧰 Maintenance
+
+- Pin `redis-client` to `D.E.F` (previously `A.B.C`). (#PR)
+- ...
+
+### Upgrade notes
+
+1. <What a user upgrading from the previous release has to check; "Everything else is drop-in." last.>

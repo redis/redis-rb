@@ -345,6 +345,44 @@ class TestPublishSubscribe < Minitest::Test
     assert_empty @events
   end
 
+  def test_subscribe_delivers_a_message_arriving_in_parts
+    skip("hiredis-client cannot resume a read that timed out mid-message") if ENV["DRIVER"] == "hiredis"
+
+    gap = 0.15 # several read slices
+    push = ENV["PROTOCOL"] == "2" ? "*" : ">"
+    handler = lambda do |session|
+      while line = session.gets
+        argv = Array.new(line[1..-3].to_i) do
+          arg = session.read(session.gets[1..-3].to_i)
+          session.read(2)
+          arg
+        end
+        unless argv.first.casecmp?("SUBSCRIBE")
+          session.write("+OK\r\n")
+          next
+        end
+
+        session.write("#{push}3\r\n$9\r\nsubscribe\r\n$2\r\nch\r\n:1\r\n")
+        # split between elements, then inside a bulk string
+        session.write("#{push}3\r\n$7\r\nmessage\r\n$2\r\nch\r\n")
+        sleep gap
+        session.write("$5\r\nfirst\r\n#{push}3\r\n$7\r\nmessage\r\n$2\r\nch\r\n$6\r\nsec")
+        sleep gap
+        session.write("ond\r\n#{push}3\r\n$11\r\nunsubscribe\r\n$2\r\nch\r\n:0\r\n")
+      end
+    end
+
+    [:subscribe, [:subscribe_with_timeout, 5]].each do |method|
+      received = []
+      redis_mock_with_handler(handler) do |redis|
+        redis.public_send(*method, "ch") do |on|
+          on.message { |_channel, message| received << message }
+        end
+      end
+      assert_equal ["first", "second"], received
+    end
+  end
+
   private
 
   def new_thread(&block)
