@@ -1,3 +1,12 @@
+# 6.1.1
+
+## Bug fixes
+
+- Fix `subscribe`, `psubscribe` and `ssubscribe` (and their `_with_timeout` forms) dropping a
+  message or raising `RedisClient::ProtocolError` when the message arrives in parts more than
+  50 ms apart, a regression in 6.1.0. Not fixed on the `hiredis-client` driver, which can still
+  crash on such a message. (#1417)
+
 # 6.1.0
 
 ## New features
