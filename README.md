@@ -1,4 +1,4 @@
-# redis-rb [![Build Status][gh-actions-image]][gh-actions-link] [![Inline docs][rdoc-master-image]][rdoc-master-link]
+# redis-rb [![Build Status][gh-actions-image]][gh-actions-link] [![Inline docs][rdoc-master-image]][rdoc-master-link] [![Protected by Tracebit Community Edition](.github/assets/tracebit-badge-compact.svg)](https://community.tracebit.com/supplychainattacks)
 
 A Ruby client that tries to match [Redis][redis-home]' API one-to-one, while still providing an idiomatic interface.
 
